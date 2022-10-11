@@ -1,0 +1,5 @@
+@media screen and (min-width: 10px) and (max-width: 800px) {
+    .promo_slide_winners_tab td{
+        line-height: 16px!important;
+    }
+}

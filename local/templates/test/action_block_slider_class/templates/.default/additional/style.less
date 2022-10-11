@@ -1,0 +1,139 @@
+@Pagencolor: rgb(0, 140, 154);
+
+.action_element_block{
+  display: inline-block;
+  width: 100%;
+  .action_element_title{
+    font-size: 36px;
+    /*отступы причесываем для всех блоков (акции) Mys9ys 17.01.22*/
+    padding-bottom: 26px;
+  }
+
+  .action_slider_slide{
+    position: relative;
+    display: inline-block;
+    width: 305px;
+    .action_img_block{
+      display: inline-block;
+      text-align: center;
+      width: 100%;
+
+      overflow: hidden;
+      img{
+        margin: 0!important;
+        border-radius: 5px;
+      }
+    }
+    .diana_click_btn{
+      position: absolute;
+      width: 45px;
+      left: 15px;
+      bottom: 15px;
+      cursor: pointer;
+      img{
+        margin: 0;
+      }
+    }
+  }
+  .swiper-button-prev, .swiper-button-next{
+    background: rgba(255, 255, 255, 0.5);
+    border: 2px solid @Pagencolor;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    &:after{
+      display: none;
+      color: @Pagencolor;
+    }
+    .fa{
+      color: @Pagencolor;
+    }
+    &:hover {
+      background: rgba(255, 255, 255, 1);
+    }
+  }
+  .swiper-button-prev {
+    left: 2%;
+  }
+
+  .swiper-button-next {
+    right: 3%;
+  }
+}
+.action_img_class{
+  margin: 0;
+}
+@media screen and (max-width: 780px) {
+  .action_element_block {
+    .swiper-button-prev, .swiper-button-next {
+      display: none;
+    }
+  }
+}
+
+@media screen and (min-width: 531px) and (max-width: 738px) {
+}
+
+
+@media screen and (min-width: 434px) and (max-width: 530px) {
+}
+
+@media screen and (min-width: 531px) and (max-width: 780px) {
+
+  .action_slider_wrapper{
+    display: flex;
+    flex-wrap: wrap;
+    .action_slider_slide{
+      display: inline-block;
+      width: 50%;
+      padding: 0 5px;
+      .action_img_class{
+        border-radius: 5px;
+        overflow: hidden;
+      }
+      .diana_click_btn{
+        position: absolute;
+        width: 35px;
+        left: 15px;
+        bottom: 15px;
+        cursor: pointer;
+        img{
+          margin: 0;
+        }
+      }
+    }
+    .action_text_block{
+      display: none;
+    }
+  }
+}
+@media screen and (min-width: 10px) and (max-width: 530px) {
+  .action_slider_wrapper{
+    display: flex;
+    flex-wrap: wrap;
+    .action_slider_slide{
+      display: inline-block;
+      max-width: 500px;
+      width: 100%;
+      padding: 0 5px;
+      .action_img_class{
+        width: 100%;
+        border-radius: 5px;
+        overflow: hidden;
+      }
+      .diana_click_btn{
+        position: absolute;
+        width: 25px;
+        left: 8px;
+        bottom: 8px;
+        cursor: pointer;
+        img{
+          margin: 0;
+        }
+      }
+    }
+    .action_text_block{
+      display: none;
+    }
+  }
+}
