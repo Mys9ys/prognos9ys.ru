@@ -1,0 +1,17 @@
+{
+    "name": "a.avdiuk/prognos9ys.work",
+    "autoload": {
+        "psr-4": {
+            "AAvdiuk\\Prognos9ysWork\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "a.avdiuk",
+            "email": "a.avdiuk@eurokappa.ru"
+        }
+    ],
+    "require": {
+        "twbs/bootstrap": "5.2.2"
+    }
+}
