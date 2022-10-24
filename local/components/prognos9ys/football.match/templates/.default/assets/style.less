@@ -1,0 +1,177 @@
+@blockBG: grey;
+
+body{
+
+  background: #2E8B57;
+  //background: #228B22;
+  //opacity: 0.3;
+}
+
+.football_match_block{
+  margin: 0 auto;
+  width: 420px;
+  //width: 100%;
+  background: @blockBG;
+  //color: #228B22;
+  .fmb_standard_block{
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+  }
+  .fmb_flag_box{
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    .fmb_flag{
+      width: 25px;
+      height: 25px;
+    }
+  }
+
+  .fmb_title_box{
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    .fmb_title{
+      width: 170px;
+      height: 25px;
+    }
+  }
+
+  .fmb_goals_box{
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    .fmb_goals_wrap{
+      display: flex;
+      flex-wrap: wrap;
+      flex-direction: row;
+      align-items: center;
+      justify-content: flex-start;
+      .fmb_goals_btn_wrap{
+        display: flex;
+        flex-wrap: wrap;
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-start;
+        .fmbg_btn_math_box{
+          width: 26px;
+          height: 26px;
+          display: flex;
+          flex-wrap: wrap;
+          flex-direction: column;
+          align-items: center;
+          justify-content: space-between;
+          .fmbg_btn_math{
+            width: 12px;
+            height: 12px;
+            display: flex;
+            flex-wrap: wrap;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            background: wheat;
+          }
+        }
+        .fmbg_btn_modal{
+          width: 12px;
+          height: 26px;
+
+          display: flex;
+          flex-wrap: wrap;
+          flex-direction: column;
+          align-items: center;
+          justify-content: space-between;
+          background: wheat;
+          .bi-card-list{
+            transform: rotate(90deg);
+            font-size: 12px;
+          }
+        }
+      }
+    }
+    .fmbt_goals{
+      width: 30px;
+      height: 26px;
+    }
+  }
+
+  .fmb_result_box{
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    .fmb_result_label{
+      width: 45px;
+      display: flex;
+      flex-wrap: wrap;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .fmb_result{
+      width: 20px;
+      height: 20px;
+    }
+  }
+
+
+  .fmb_match_info{
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    .fmbmi{
+      display: flex;
+      flex-wrap: wrap;
+      flex-direction: row;
+      margin: 0 0.5em;
+      align-items: center;
+    }
+  }
+  .fmb_team{
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: row;
+    align-items: center;
+    .fmbt{
+      margin: 0 0.5em;
+    }
+    .fmbt_flag{
+      width: 25px;
+      height: 25px;
+    }
+
+    .fmbt_title{
+      width: 120px;
+    }
+    .fmbt_goals{
+      width: 25px;
+      height: 25px;
+    }
+  }
+
+  .fmb_draw_line{
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: row;
+    .fmbd_empty{
+      width: 155px;
+      height: 25px;
+    }
+    .fmbd_dash{
+      width: 25px;
+      height: 25px;
+    }
+  }
+}

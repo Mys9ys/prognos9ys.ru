@@ -1,0 +1,162 @@
+body {
+  background: #2E8B57;
+}
+.football_match_block {
+  margin: 0 auto;
+  width: 420px;
+  background: grey;
+}
+.football_match_block .fmb_standard_block {
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+}
+.football_match_block .fmb_flag_box {
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+}
+.football_match_block .fmb_flag_box .fmb_flag {
+  width: 25px;
+  height: 25px;
+}
+.football_match_block .fmb_title_box {
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+}
+.football_match_block .fmb_title_box .fmb_title {
+  width: 170px;
+  height: 25px;
+}
+.football_match_block .fmb_goals_box {
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+}
+.football_match_block .fmb_goals_box .fmb_goals_wrap {
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+}
+.football_match_block .fmb_goals_box .fmb_goals_wrap .fmb_goals_btn_wrap {
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+}
+.football_match_block .fmb_goals_box .fmb_goals_wrap .fmb_goals_btn_wrap .fmbg_btn_math_box {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+}
+.football_match_block .fmb_goals_box .fmb_goals_wrap .fmb_goals_btn_wrap .fmbg_btn_math_box .fmbg_btn_math {
+  width: 12px;
+  height: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  background: wheat;
+}
+.football_match_block .fmb_goals_box .fmb_goals_wrap .fmb_goals_btn_wrap .fmbg_btn_modal {
+  width: 12px;
+  height: 26px;
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  background: wheat;
+}
+.football_match_block .fmb_goals_box .fmb_goals_wrap .fmb_goals_btn_wrap .fmbg_btn_modal .bi-card-list {
+  transform: rotate(90deg);
+  font-size: 12px;
+}
+.football_match_block .fmb_goals_box .fmbt_goals {
+  width: 30px;
+  height: 26px;
+}
+.football_match_block .fmb_result_box {
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+}
+.football_match_block .fmb_result_box .fmb_result_label {
+  width: 45px;
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+.football_match_block .fmb_result_box .fmb_result {
+  width: 20px;
+  height: 20px;
+}
+.football_match_block .fmb_match_info {
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+}
+.football_match_block .fmb_match_info .fmbmi {
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: row;
+  margin: 0 0.5em;
+  align-items: center;
+}
+.football_match_block .fmb_team {
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: row;
+  align-items: center;
+}
+.football_match_block .fmb_team .fmbt {
+  margin: 0 0.5em;
+}
+.football_match_block .fmb_team .fmbt_flag {
+  width: 25px;
+  height: 25px;
+}
+.football_match_block .fmb_team .fmbt_title {
+  width: 120px;
+}
+.football_match_block .fmb_team .fmbt_goals {
+  width: 25px;
+  height: 25px;
+}
+.football_match_block .fmb_draw_line {
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: row;
+}
+.football_match_block .fmb_draw_line .fmbd_empty {
+  width: 155px;
+  height: 25px;
+}
+.football_match_block .fmb_draw_line .fmbd_dash {
+  width: 25px;
+  height: 25px;
+}
+/*# sourceMappingURL=style.css.map */
