@@ -49,7 +49,7 @@ class HeaderUser extends CBitrixComponent {
                 $jpgQuality
             );
         } else {
-            $arFileTmp["src"] = SITE_TEMPLATE_PATH . '/components/prognos9ys/header.user/templates/.default/assets/img/no_photo.jpg';
+            $arFileTmp["src"] =  "/local/components/prognos9ys/header.user/templates/.default/assets/img/no_photo.jpg";
         }
 
         return $arFileTmp["src"];
