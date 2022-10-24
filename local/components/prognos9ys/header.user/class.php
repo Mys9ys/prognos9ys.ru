@@ -2,7 +2,7 @@
 
 use Bitrix\Main\{Loader, UserTable};
 
-class Header_user extends CBitrixComponent {
+class HeaderUser extends CBitrixComponent {
 
     protected $user_id;
     public function __construct($component = null)
