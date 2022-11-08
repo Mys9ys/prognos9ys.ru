@@ -27,7 +27,7 @@
             </div>
         </div>
         <div class="hm_ava_block">
-            <img class="hm_ava_img" src="<?=$templateFolder?> /assets/img/ava_no.jpg" alt="">
+            <img class="hm_ava_img" src="<?=$templateFolder?> /assets/img/ava.jpg" alt="">
         </div>
         <div class="hm_right_block">
             <div class="hm_nick_box hm_box">
