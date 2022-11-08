@@ -12,7 +12,7 @@
 <!--</div>-->
 
 
-<div class="container header_wrapper">
+<div class="header_wrapper">
     <div class="h_main_block">
         <div class="hm_left_block">
             <div class="hm_achieve_block">
