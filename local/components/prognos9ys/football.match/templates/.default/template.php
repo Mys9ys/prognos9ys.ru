@@ -73,3 +73,10 @@
 
 
 </div>
+
+<div class="container match_container_wrapper">
+    <div class="match_box">
+
+    </div>
+</div>
+
