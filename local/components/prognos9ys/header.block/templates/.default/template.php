@@ -1,17 +1,5 @@
 <?php if (!defined("B_PROLOG_INCLUDED") || B_PROLOG_INCLUDED !== true) die();?>
 
-<!--<div class="container header_block">-->
-<!--    <i class="bi bi-menu-up"></i>-->
-<!--    --><?php //$APPLICATION->IncludeComponent(
-//        "prognos9ys:header.user",
-//        "",
-//        array(),
-//        $component,
-//        array()
-//    ); ?>
-<!--</div>-->
-
-
 <div class="header_wrapper" >
     <div class="h_main_block">
         <div class="hm_left_block">

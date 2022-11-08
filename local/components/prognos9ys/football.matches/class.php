@@ -32,8 +32,9 @@ class FootballMatches extends CBitrixComponent
             ["DATE_ACTIVE_FROM" => "ASC"],
             $this->arFilter,
             false,
-            [],
+            ["nTopCount" => 6],
             [
+                "ID",
                 "DATE_ACTIVE_FROM",
                 "PROPERTY_home",
                 "PROPERTY_home_goals",
@@ -47,7 +48,7 @@ class FootballMatches extends CBitrixComponent
         while ($res = $response->GetNext()) {
             $el = [];
 
-            $date = explode("+",ConvertDateTime($res["ACTIVE_FROM"], "m-d+H:i:s"));
+            $date = explode("+",ConvertDateTime($res["ACTIVE_FROM"], "m.d+H:i:s"));
             $el["date"] = $date[0];
             $el["time"] = trim($date[1], ':00') . ':00';
             $el["home"] = $this->getTeamInfo($res["PROPERTY_HOME_VALUE"]);
@@ -57,7 +58,7 @@ class FootballMatches extends CBitrixComponent
             $el["guest"]["goals"] = $res["PROPERTY_GUEST_GOALS_VALUE"] ?: 0;
 
             $el["group"] = $this->getGroupInfo($res["PROPERTY_GROUP_VALUE"]);
-            $this->arResult["teams"][] = $el;
+            $this->arResult["teams"][$res["ID"]] = $el;
 
         }
 

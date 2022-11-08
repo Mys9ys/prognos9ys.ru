@@ -11,6 +11,20 @@
   max-width: 400px;
   margin: 0 auto;
 }
+.matches_wrapper .day_line_block {
+  border-top: 3px solid #253133;
+  margin: 5px 0;
+  border-radius: 5px;
+}
+.matches_wrapper .day_line_block .day_line_box {
+  display: flex;
+  flex-direction: row;
+}
+.matches_wrapper .day_line_block .day_line_box .day_date {
+  padding: 2px 5px;
+  font-size: 16px;
+  font-weight: 700;
+}
 .matches_wrapper .m_match_box {
   display: flex;
   flex-direction: row;
