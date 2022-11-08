@@ -25,18 +25,14 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) die(); ?>
 <div id="panel">
     <? $APPLICATION->ShowPanel(); ?>
 </div>
-<!--<div class="container">-->
-<!--    <h1>rew</h1>-->
-<!--</div>-->
 
-
-<?php //$APPLICATION->IncludeComponent(
-//    "prognos9ys:header.block",
-//    "",
-//    array(),
-//    $component,
-//    array()
-//); ?>
+<?php $APPLICATION->IncludeComponent(
+    "prognos9ys:header.block",
+    "",
+    array(),
+    $component,
+    array()
+); ?>
 
 
 
