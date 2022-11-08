@@ -6,18 +6,16 @@
             <div class="fmbmi fmb_date">20.11</div>
             <div class="fmbmi fmb_time">20:00</div>
             <div class="fmbmi fmb_number">1</div>
-            <div class="fmbmi fmb_type">group</div>
+            <div class="fmbmi fmb_type">Групповой</div>
         </div>
         <div class="fmb_standard_block">
             <div class="fmb_flag_box">
                 <div class="fmb_flag"><i class="bi bi-flag-fill"></i></div>
-                <div class="fmb_flag"></div>
                 <div class="fmb_flag"><i class="bi bi-flag-fill"></i></div>
             </div>
 
             <div class="fmb_title_box">
                 <div class="fmb_title">fsdvr23</div>
-                <div class="fmb_title"></div>
                 <div class="fmb_title">vdfas32</div>
             </div>
             <div class="fmb_goals_box">
@@ -25,15 +23,14 @@
                     <input type="text" class="fmbt_goals home">
                     <div class="fmb_goals_btn_wrap">
                         <div class="fmbg_btn_math_box">
-                            <div class="fmbg_btn_math fmbg_plus">+</div>
-                            <div class="fmbg_btn_math fmbg_minus">-</div>
-                            <div class="fmbg_btn_modal"><i class="bi bi-card-list"></i></div>
+                            <div class="fmbg_btn_mod fmbg_btn_math fmbg_plus">+</div>
+                            <div class="fmbg_btn_mod fmbg_btn_math fmbg_minus">-</div>
+                            <div class="fmbg_btn_mod fmbg_btn_modal"><i class="bi bi-card-list"></i></div>
                         </div>
 
                     </div>
                 </div>
 
-                <div class="fmbt_goals dash">-</div>
                 <input type="text" class="fmbt_goals guest">
             </div>
 

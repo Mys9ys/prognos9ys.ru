@@ -21,8 +21,8 @@ body {
   justify-content: flex-start;
 }
 .football_match_block .fmb_flag_box .fmb_flag {
-  width: 25px;
-  height: 25px;
+  width: 36px;
+  height: 36px;
 }
 .football_match_block .fmb_title_box {
   display: flex;
@@ -33,7 +33,7 @@ body {
 }
 .football_match_block .fmb_title_box .fmb_title {
   width: 170px;
-  height: 25px;
+  height: 36px;
 }
 .football_match_block .fmb_goals_box {
   display: flex;
@@ -41,6 +41,11 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
+}
+.football_match_block .fmb_goals_box .fmbt_goals {
+  width: 36px;
+  height: 36px;
+  border: 1px solid brown;
 }
 .football_match_block .fmb_goals_box .fmb_goals_wrap {
   display: flex;
@@ -57,41 +62,42 @@ body {
   justify-content: flex-start;
 }
 .football_match_block .fmb_goals_box .fmb_goals_wrap .fmb_goals_btn_wrap .fmbg_btn_math_box {
-  width: 26px;
-  height: 26px;
+  width: 36px;
+  height: 36px;
   display: flex;
   flex-wrap: wrap;
   flex-direction: column;
   align-items: center;
   justify-content: space-between;
+}
+.football_match_block .fmb_goals_box .fmb_goals_wrap .fmb_goals_btn_wrap .fmbg_btn_math_box .fmbg_btn_mod {
+  cursor: pointer;
 }
 .football_match_block .fmb_goals_box .fmb_goals_wrap .fmb_goals_btn_wrap .fmbg_btn_math_box .fmbg_btn_math {
-  width: 12px;
-  height: 12px;
+  width: 16px;
+  height: 16px;
   display: flex;
   flex-wrap: wrap;
   flex-direction: column;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   background: wheat;
+  border: 1px solid brown;
 }
-.football_match_block .fmb_goals_box .fmb_goals_wrap .fmb_goals_btn_wrap .fmbg_btn_modal {
-  width: 12px;
-  height: 26px;
+.football_match_block .fmb_goals_box .fmb_goals_wrap .fmb_goals_btn_wrap .fmbg_btn_math_box .fmbg_btn_modal {
+  width: 16px;
+  height: 36px;
+  border: 1px solid brown;
   display: flex;
   flex-wrap: wrap;
   flex-direction: column;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   background: wheat;
 }
-.football_match_block .fmb_goals_box .fmb_goals_wrap .fmb_goals_btn_wrap .fmbg_btn_modal .bi-card-list {
+.football_match_block .fmb_goals_box .fmb_goals_wrap .fmb_goals_btn_wrap .fmbg_btn_math_box .fmbg_btn_modal .bi-card-list {
   transform: rotate(90deg);
   font-size: 12px;
-}
-.football_match_block .fmb_goals_box .fmbt_goals {
-  width: 30px;
-  height: 26px;
 }
 .football_match_block .fmb_result_box {
   display: flex;
