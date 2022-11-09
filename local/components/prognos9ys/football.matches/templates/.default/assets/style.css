@@ -13,12 +13,13 @@
 }
 .matches_wrapper .day_line_block {
   border-top: 3px solid #253133;
-  margin: 5px 0;
+  margin: 9px 0;
   border-radius: 5px;
 }
 .matches_wrapper .day_line_block .day_line_box {
   display: flex;
   flex-direction: row;
+  justify-content: center;
 }
 .matches_wrapper .day_line_block .day_line_box .day_date {
   padding: 2px 5px;

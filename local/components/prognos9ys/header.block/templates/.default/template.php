@@ -5,7 +5,8 @@
         <div class="hm_left_block">
             <div class="hm_achieve_block">
                 <div class="hm_achieve_box hm_box">
-                    <i class="bi bi-disc"></i>
+                    <i class="bi bi-award"></i>
+                    <i class="bi bi-award-fill"></i>
                 </div>
                 <div class="hm_rank_box hm_box">Rank 2</div>
             </div>
