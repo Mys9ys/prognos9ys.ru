@@ -2,7 +2,6 @@ body {
   background: #2E8B57;
 }
 .header_wrapper {
-  visibility: hidden;
   margin: 0 auto;
   width: 400px;
   max-width: 100%;
