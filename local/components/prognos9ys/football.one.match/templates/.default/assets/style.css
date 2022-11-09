@@ -10,6 +10,7 @@ body {
 }
 .one_match_wrapper {
   width: 400px;
+  max-width: 98%;
   margin: 0 auto;
 }
 .one_match_wrapper .o_match_info {
