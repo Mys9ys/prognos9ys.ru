@@ -18,6 +18,7 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) die(); ?>
 
     //Скрипты
     $assetManager->addJs( "/vendor/twbs/bootstrap/dist/js/bootstrap.min.js");
+    $assetManager->addJs( "/vendor/components/jquery/jquery.min.js");
     ?>
 
     <? $APPLICATION->ShowHead(); ?>

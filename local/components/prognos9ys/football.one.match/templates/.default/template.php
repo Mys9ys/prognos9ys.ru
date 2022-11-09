@@ -25,14 +25,14 @@
         </div>
         <div class="o_goals_block">
             <div class="ot_title"><i class="bi bi-arrow-down-circle"></i></div>
-            <input type="text" class="og_goal" value="" placeholder="0">
-            <input type="text" class="og_goal" value="" placeholder="0">
+            <input type="text" class="og_goal og_goal_home m_pr_value" value="" placeholder="0">
+            <input type="text" class="og_goal og_goal_guest m_pr_value" value="" placeholder="0">
         </div>
         <div class="o_result_block">
             <div class="ot_title"><i class="bi bi-bullseye"></i></div>
-            <input type="radio" name="fmb_result" class="or_radio home">
-            <input type="radio" name="fmb_result" class="or_radio draw">
-            <input type="radio" name="fmb_result" class="or_radio guest">
+            <input type="radio" name="or_result" class="or_radio home">
+            <input type="radio" name="or_result" class="or_radio draw">
+            <input type="radio" name="or_result" class="or_radio guest">
         </div>
         <div class="o_domination_block">
             <div class="ot_title"><i class="bi bi-percent" title="Владение"></i></div>
@@ -69,3 +69,7 @@
     </div>
 </div>
 
+<i class="bi bi-ui-checks-grid"></i>
+<i class="bi bi-table"></i>
+<i class="bi bi-keyboard-fill"></i>
+<i class="bi bi-keyboard"></i>

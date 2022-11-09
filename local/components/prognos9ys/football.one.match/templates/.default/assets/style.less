@@ -8,13 +8,6 @@
 body{
   width: 100%;
 }
-
-.header_wrapper {
-  display: none!important;
-}
-
-
-
 .one_match_wrapper {
   width: 400px;
   max-width: 98%;
@@ -48,7 +41,7 @@ body{
       display: flex;
       align-items: center;
       justify-content: center;
-      height: 24px;
+      height: 26px;
       color: @colorText;
       //padding-bottom: 2px;
       //text-align: center;
@@ -65,14 +58,14 @@ body{
         height: 38px;
         background: @blockBG;
         .o_match_inline_shadow;
-        border-right: 2px solid @colorText;
+        border-right: 2px solid @colorText2;
 
         &.ot_home {
-          border-bottom: 1px solid @colorText;
+          border-bottom: 1px solid @colorText2;
         }
 
         &.ot_guest {
-          border-top: 1px solid @colorText;
+          border-top: 1px solid @colorText2;
         }
 
         .ot_flag {
@@ -198,6 +191,12 @@ body{
       border-radius: 5px;
       margin-right: 3px;
       cursor: pointer;
+      border: 1px solid transparent;
+      &:hover{
+        background: #fff;
+        color: @colorText2;
+        border: 1px solid @colorText;
+      }
     }
   }
 }
