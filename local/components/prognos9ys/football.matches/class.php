@@ -56,7 +56,7 @@ class FootballMatches extends CBitrixComponent
         while ($res = $response->GetNext()) {
             $el = [];
 
-            $date = explode("+",ConvertDateTime($res["ACTIVE_FROM"], "m.d+H:i:s"));
+            $date = explode("+",ConvertDateTime($res["ACTIVE_FROM"], "d.m+H:i:s"));
             $el["date"] = $date[0];
             $el["time"] = trim($date[1], ':00') . ':00';
 
@@ -103,7 +103,7 @@ class FootballMatches extends CBitrixComponent
         $arr = [];
         $response = \Bitrix\Iblock\ElementTable::getList(
             [
-                'select' => ['PREVIEW_TEXT'],
+                'select' => ['ID', 'PREVIEW_TEXT'],
                 'filter' => [
                     "IBLOCK_ID" => $this->groupIb,
                 ]

@@ -36,7 +36,7 @@
             <div class="m_goals mg_guest"><?=$item["guest"]["goals"]?></div>
         </div>
         <div class="m_info_box m_template_box">
-            <a href="/p/match/?id=<?=$id?>"><i class="bi bi-pencil-square"></i></a>
+            <a href="/p/match/<?=$id?>/"><i class="bi bi-pencil-square"></i></a>
         </div>
     </div>
     <?php endforeach;?>

@@ -6,7 +6,7 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) die(); ?>
     <title><? $APPLICATION->ShowTitle(); ?></title>
     <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico"/>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    
+
     <?
     use Bitrix\Main\Page\Asset;
 
