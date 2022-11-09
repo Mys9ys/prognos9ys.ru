@@ -1,10 +1,12 @@
 <?php
 require($_SERVER["DOCUMENT_ROOT"]."/bitrix/header.php");
 
+$arrUrl = explode('/', trim($_SERVER['REQUEST_URI'], "/"));
+
 $APPLICATION->IncludeComponent(
     "prognos9ys:football.one.match",
     "",
-    array(),
+    ["id" => $arrUrl[2]],
     $component,
     array()
 );

@@ -1,5 +1,13 @@
 <?php
 $arUrlRewrite=array (
+  1 => 
+  array (
+    'CONDITION' => '#^/p/match/#',
+    'RULE' => '',
+    'ID' => '',
+    'PATH' => '/p/match/index.php',
+    'SORT' => 100,
+  ),
   0 => 
   array (
     'CONDITION' => '#^/rest/#',
