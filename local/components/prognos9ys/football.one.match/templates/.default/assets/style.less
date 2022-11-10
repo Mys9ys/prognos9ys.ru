@@ -126,31 +126,29 @@ body{
         position: relative;
         height: 76px;
         width: 24px;
-
-        .o_dom_i {
-          width: 100%;
-          text-align: center;
-          color: @colorText;
-          background: @blockBG;
-          .o_match_inline_shadow;
-          border: none;
-          height: 26px;
-        }
         .o_domination_range_box{
           position: relative;
-          height: 24px;
+          height: 48px;
           width: 24px;
           .o_domination_range {
             position: absolute;
             transform: rotate(270deg);
-            width: 24px;
+            width: 48px;
             height: 24px;
-            top: 0;
+            top: 13px;
+            left: -12px;
             cursor: pointer;
           }
         }
-
-
+      }
+      .o_dom_i {
+        width: 100%;
+        text-align: center;
+        color: @colorText;
+        background: @blockBG;
+        .o_match_inline_shadow;
+        border: none;
+        height: 26px;
       }
     }
     .o_cards_block{
@@ -178,10 +176,10 @@ body{
         border: none;
         height: 38px;
 
-        &.o_yellow_c_box{
+        &.o_yellow_i{
           background: yellow;
         }
-        &.o_red_c_box{
+        &.o_red_i{
           background: red;
         }
       }
@@ -191,21 +189,26 @@ body{
     position: absolute;
     display: flex;
     flex-direction: row;
-
-    .o_btn_temp{
-      background: @colorText2;
-      color: #fff;
-      font-size: 12px;
-      padding: 0px 6px;
-      border-radius: 5px;
-      margin-right: 3px;
-      cursor: pointer;
-      border: 1px solid transparent;
-      &:hover{
-        background: #fff;
-        color: @colorText2;
-        border: 1px solid @colorText;
-      }
+  }
+  .o_btn_temp{
+    background: @colorText2;
+    color: #fff;
+    font-size: 12px;
+    padding: 0px 6px;
+    border-radius: 5px;
+    margin-right: 3px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    &:hover{
+      background: #fff;
+      color: @colorText2;
+      border: 1px solid @colorText;
     }
+  }
+  .btn_next_match{
+    .o_btn_temp;
+    background: @blockBG;
+    text-decoration: none;
+    padding: 3px 9px;
   }
 }

@@ -108,7 +108,21 @@ body {
   height: 76px;
   width: 24px;
 }
-.one_match_wrapper .o_match_box .o_domination_block .o_domination_box .o_dom_i {
+.one_match_wrapper .o_match_box .o_domination_block .o_domination_box .o_domination_range_box {
+  position: relative;
+  height: 48px;
+  width: 24px;
+}
+.one_match_wrapper .o_match_box .o_domination_block .o_domination_box .o_domination_range_box .o_domination_range {
+  position: absolute;
+  transform: rotate(270deg);
+  width: 48px;
+  height: 24px;
+  top: 13px;
+  left: -12px;
+  cursor: pointer;
+}
+.one_match_wrapper .o_match_box .o_domination_block .o_dom_i {
   width: 100%;
   text-align: center;
   background: #253133;
@@ -116,19 +130,6 @@ body {
   color: #fff;
   border: none;
   height: 26px;
-}
-.one_match_wrapper .o_match_box .o_domination_block .o_domination_box .o_domination_range_box {
-  position: relative;
-  height: 24px;
-  width: 24px;
-}
-.one_match_wrapper .o_match_box .o_domination_block .o_domination_box .o_domination_range_box .o_domination_range {
-  position: absolute;
-  transform: rotate(270deg);
-  width: 24px;
-  height: 24px;
-  top: 0;
-  cursor: pointer;
 }
 .one_match_wrapper .o_match_box .o_cards_block .oc_yellow .bi-file-fill {
   color: yellow;
@@ -148,10 +149,10 @@ body {
   border: none;
   height: 38px;
 }
-.one_match_wrapper .o_match_box .o_prof_stat .o_prof_input.o_yellow_c_box {
+.one_match_wrapper .o_match_box .o_prof_stat .o_prof_input.o_yellow_i {
   background: yellow;
 }
-.one_match_wrapper .o_match_box .o_prof_stat .o_prof_input.o_red_c_box {
+.one_match_wrapper .o_match_box .o_prof_stat .o_prof_input.o_red_i {
   background: red;
 }
 .one_match_wrapper .o_btn_block {
@@ -159,7 +160,7 @@ body {
   display: flex;
   flex-direction: row;
 }
-.one_match_wrapper .o_btn_block .o_btn_temp {
+.one_match_wrapper .o_btn_temp {
   background: #228B22;
   color: #fff;
   font-size: 12px;
@@ -169,7 +170,25 @@ body {
   cursor: pointer;
   border: 1px solid transparent;
 }
-.one_match_wrapper .o_btn_block .o_btn_temp:hover {
+.one_match_wrapper .o_btn_temp:hover {
+  background: #fff;
+  color: #228B22;
+  border: 1px solid #fff;
+}
+.one_match_wrapper .btn_next_match {
+  background: #228B22;
+  color: #fff;
+  font-size: 12px;
+  padding: 0px 6px;
+  border-radius: 5px;
+  margin-right: 3px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  background: #253133;
+  text-decoration: none;
+  padding: 3px 9px;
+}
+.one_match_wrapper .btn_next_match:hover {
   background: #fff;
   color: #228B22;
   border: 1px solid #fff;
