@@ -1,7 +1,7 @@
 $(document).ready(function () {
 
 
-    $('.og_goal').on('focusout', function () {
+    $('.og_goal').on('focusout, keyup', function () {
         console.log($(this).val())
         setGoalsAndResult()
     })
@@ -23,7 +23,7 @@ $(document).ready(function () {
         calcRange($(this).val())
     })
 
-    $('.o_dom_h').on('focusout', function () {
+    $('.o_dom_h').on('focusout, keyup', function () {
         calcRange($(this).val())
     })
 })
