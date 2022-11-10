@@ -142,7 +142,7 @@ class FootballOneMatch extends CBitrixComponent
         $el["sum"] = $res["PROPERTY_SUM_VALUE"] ?: '';
         $el["offside"] = $res["PROPERTY_OFFSIDE_VALUE"] ?: '';
         $el["domination"] = $res["PROPERTY_DOMINATION_VALUE"] ?: 50;
-        $el["domination2"] = 100 - $res["PROPERTY_DOMINATION_VALUE"] ?: 50;
+        $el["domination2"] = $res["PROPERTY_DOMINATION_VALUE"] ? 100 - $res["PROPERTY_DOMINATION_VALUE"]: 50;
 
         $this->arResult["main"] = $el;
 
