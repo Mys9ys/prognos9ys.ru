@@ -55,10 +55,10 @@ function setCountGoals(arr) {
     let h = +arr["home"]
     let g = +arr["guest"]
 
-    $('.o_sum').val(h+g)
+    $('.o_sum_i').val(h+g)
 
     let diff = h-g
-    $('.o_diff').val(diff)
+    $('.o_diff_i').val(diff)
 
     if(diff < 0) $('.or_guest').attr('checked', true)
     if(diff === 0) $('.or_draw').attr('checked', true)
