@@ -5,7 +5,8 @@
     <div class="o_match_info">
         <div class="om_info_box o_date"><i class="bi bi-calendar3"></i> <?= $arResult["date"] ?></div>
         <div class="om_info_box o_time"><i class="bi bi-alarm"></i> <?= $arResult["time"] ?></div>
-        <div class="om_info_box o_number">№ 1</div>
+        <div class="om_info_box o_number">№ <?= $arResult["number"] ?></div>
+        <div class="om_info_box o_group">Группа <?= $arResult["group"] ?></div>
     </div>
     <div class="o_match_box">
         <div class="o_team_block">
@@ -22,48 +23,63 @@
                 </div>
                 <div class="ot_title"><?= $arResult["guest"]["NAME"] ?></div>
             </div>
+            <div class="ot_title"></div>
         </div>
         <div class="o_goals_block">
             <div class="ot_title"><i class="bi bi-arrow-down-circle"></i></div>
-            <input type="text" class="og_goal og_goal_home m_pr_value" value="" placeholder="0">
-            <input type="text" class="og_goal og_goal_guest m_pr_value" value="" placeholder="0">
+            <input type="text" class="og_goal og_goal_home m_pr_value" name="m_goal_home" data-goal="home" value="" placeholder="0">
+            <input type="text" class="og_goal og_goal_guest m_pr_value" name="m_goal_guest" data-goal="guest" value="" placeholder="0">
+            <div class="ot_title"></div>
         </div>
         <div class="o_result_block">
             <div class="ot_title"><i class="bi bi-bullseye"></i></div>
-            <input type="radio" name="or_result" class="or_radio home">
-            <input type="radio" name="or_result" class="or_radio draw">
-            <input type="radio" name="or_result" class="or_radio guest">
+            <input type="radio" name="m_result" class="or_radio or_home" value="п1">
+            <input type="radio" name="m_result" class="or_radio or_draw" value="н">
+            <input type="radio" name="m_result" class="or_radio or_guest" value="п2">
+            <input type="hidden" name="m_result" class="or_radio m_pr_value" value="">
+            <div class="ot_title"></div>
         </div>
         <div class="o_domination_block">
             <div class="ot_title"><i class="bi bi-percent" title="Владение"></i></div>
             <div class="o_domination_box">
-                <input class="o_dom_i" type="text" value="" placeholder="50">
+                <input class="o_dom_i m_pr_value" type="text" value="" name="m_domination" placeholder="50">
                 <div class="o_domination_range_box">
                     <input class="o_domination_range" aria-orientation="vertical"
                            type="range" value="50" max="100" min="0" step="1">
                 </div>
                 <input class="o_dom_i" type="text" value="" placeholder="50">
             </div>
+            <div class="ot_title"></div>
         </div>
+        <div class="o_prof_stat o_cards_block">
+            <div class="ot_title oc_yellow"><i class="bi bi-file-fill"></i></div>
+            <input class="o_prof_input o_yellow_c_box m_pr_value" type="text" value="" name="m_yellow"  placeholder="0">
+            <input class="o_prof_input o_red_c_box m_pr_value" type="text" value="" name="m_red" placeholder="0">
+            <div class="ot_title oc_red"><i class="bi bi-file-fill"></i></div>
+        </div>
+
+        <div class="o_prof_stat o_count_goals_block">
+            <div class="ot_title">sum</div>
+            <input class="o_prof_input m_pr_value" type="text" value="" name="m_sum"  placeholder="0">
+            <input class="o_prof_input m_pr_value" type="text" value="" name="m_diff" placeholder="0">
+            <div class="ot_title">+/-</div>
+        </div>
+
         <div class="o_prof_stat o_corners_block">
             <div class="ot_title"><i class="bi bi-flag"></i></div>
-            <input class="o_prof_input o_corner_box" type="text" value="" placeholder="0">
+            <input class="o_prof_input o_corner_box m_pr_value" type="text" value="" name="m_corner" placeholder="0">
+            <input class="o_prof_input o_offside_c_box m_pr_value" type="text" value="" name="m_offside" placeholder="0">
+            <div class="ot_title">off</div>
         </div>
-        <div class="o_prof_stat o_yellow_c_block">
-            <div class="ot_title"><i class="bi bi-file-fill"></i></div>
-            <input class="o_prof_input o_yellow_c_box" type="text" value="" placeholder="0">
-        </div>
-        <div class="o_prof_stat o_red_c_block">
-            <div class="ot_title"><i class="bi bi-file-fill"></i></div>
-            <input class="o_prof_input o_red_c_box" type="text" value="" placeholder="0">
-        </div>
+
         <div class="o_prof_stat o_penalty_c_block">
-            <div class="ot_title"><i class="bi bi-grid-3x2-gap-fill"></i></div>
-            <input class="o_prof_input o_penalty_c_box" type="text" value="" placeholder="0">
+            <div class="ot_title">pen</div>
+            <input class="o_prof_input o_penalty_c_box m_pr_value" type="text" value="" name="m_penalty" placeholder="0">
         </div>
+
         <div class="o_btn_block">
             <div class="o_btn_temp o_btn_rand"><i class="bi bi-shuffle"></i></div>
-            <div class="o_btn_temp o_btn_send">Отправить</div>
+            <div class="o_btn_temp o_btn_send_prognosis">Отправить</div>
         </div>
 
     </div>
@@ -73,3 +89,4 @@
 <i class="bi bi-table"></i>
 <i class="bi bi-keyboard-fill"></i>
 <i class="bi bi-keyboard"></i>
+

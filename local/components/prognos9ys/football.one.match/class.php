@@ -62,6 +62,7 @@ class FootballOneMatch extends CBitrixComponent
                 "PROPERTY_guest_goals",
                 "PROPERTY_group",
                 "PROPERTY_stage",
+                "PROPERTY_number",
             ]
         );
 
@@ -80,6 +81,9 @@ class FootballOneMatch extends CBitrixComponent
         $el["guest"]["goals"] = $res["PROPERTY_GUEST_GOALS_VALUE"] ?: 0;
 
         $el["group"] = $this->arGroup[$res["PROPERTY_GROUP_VALUE"]];
+
+        $el["number"] = $res["PROPERTY_NUMBER_VALUE"];
+
         $this->arResult = $el;
 
     }

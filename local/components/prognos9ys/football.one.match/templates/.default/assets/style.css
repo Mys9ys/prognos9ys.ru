@@ -130,10 +130,10 @@ body {
   top: 0;
   cursor: pointer;
 }
-.one_match_wrapper .o_match_box .o_yellow_c_block .bi-file-fill {
+.one_match_wrapper .o_match_box .o_cards_block .oc_yellow .bi-file-fill {
   color: yellow;
 }
-.one_match_wrapper .o_match_box .o_red_c_block .bi-file-fill {
+.one_match_wrapper .o_match_box .o_cards_block .oc_red .bi-file-fill {
   color: red;
 }
 .one_match_wrapper .o_match_box .o_prof_stat {
@@ -147,6 +147,12 @@ body {
   color: #fff;
   border: none;
   height: 38px;
+}
+.one_match_wrapper .o_match_box .o_prof_stat .o_prof_input.o_yellow_c_box {
+  background: yellow;
+}
+.one_match_wrapper .o_match_box .o_prof_stat .o_prof_input.o_red_c_box {
+  background: red;
 }
 .one_match_wrapper .o_btn_block {
   position: absolute;

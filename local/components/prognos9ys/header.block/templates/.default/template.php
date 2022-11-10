@@ -1,6 +1,8 @@
 <?php if (!defined("B_PROLOG_INCLUDED") || B_PROLOG_INCLUDED !== true) die();?>
 
-<div class="header_wrapper" <?php if($_SERVER["HTTP_HOST"] === 'prog.work') echo 'style="display: none"'?>>
+<div class="header_wrapper"
+    <?php if($_SERVER["HTTP_HOST"] === 'prog.work') echo 'style="display: none"'?>
+>
     <div class="h_main_block">
         <div class="hm_left_block">
             <div class="hm_achieve_block">
@@ -20,7 +22,7 @@
         </div>
         <div class="hm_right_block">
             <div class="hm_nick_box hm_box">
-                Прогнозист прогнозястый
+                Неизвестный Нострадамус
             </div>
             <div class="hm_btn_block">
                 <i class="bi bi-cup"></i>
