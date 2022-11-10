@@ -2,6 +2,7 @@
 <?php
 //dump($arResult);
 ?>
+<?php if($arResult["other"]["id"]):?>
 <div class="one_match_wrapper">
     <div class="o_match_info">
         <div class="om_info_box o_date"><i class="bi bi-calendar3"></i> <?= $arResult["other"]["date"] ?></div>
@@ -102,3 +103,8 @@
 <i class="bi bi-keyboard-fill"></i>
 <i class="bi bi-keyboard"></i>
 
+<?php else:?>
+    <div class="one_match_wrapper">
+        <div class="btn_next_match">Тут ни чего нет</div>
+    </div>
+<?php endif;?>
