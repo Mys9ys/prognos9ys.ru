@@ -2,9 +2,9 @@
 
 require($_SERVER["DOCUMENT_ROOT"] . "/bitrix/modules/main/include/prolog_before.php");
 
-//file_put_contents('debug_request.json',json_encode($_REQUEST));
-
-$_REQUEST = file_get_contents('debug_request.json');
+file_put_contents('debug_request.json',json_encode($_REQUEST));
+//
+//$_REQUEST = file_get_contents('debug_request.json');
 
 //$_REQUEST = json_decode($_REQUEST, true);
 //
@@ -31,6 +31,9 @@ class AddPrognosisInfo
     protected $data = [];
     protected $result;
 
+    protected $prop;
+    protected $now;
+
     public function __construct($arr)
     {
 
@@ -42,6 +45,24 @@ class AddPrognosisInfo
         $this->prognosisIb = \CIBlock::GetList([], ['CODE' => 'prognosis'], false)->Fetch()['ID'] ?: 6;
 
         $this->data = $arr;
+
+        $this->now = date(\CDatabase::DateFormatToPHP("DD.MM.YYYY HH:MI:SS"), time());
+        $this->prop = [
+            15 => $this->data["m_goal_home"],
+            16 => $this->data["m_goal_guest"],
+            17 => $this->data["m_id"], // матч id
+            18 => $this->data["m_result"],
+            19 => $this->data["m_diff"],
+            20 => $this->data["m_corner"],
+            21 => $this->data["m_yellow"],
+            22 => $this->data["m_red"],
+            23 => $this->data["m_penalty"],
+            28 => $this->data["m_sum"],
+            29 => $this->data["m_offside"],
+            30 => $this->data["m_number"],
+            31 => $this->data["m_user"],
+            32 => $this->data["m_domination"],
+        ];
 
         $check = $this->checkOldPrognosis();
         if($check) {
@@ -75,30 +96,11 @@ class AddPrognosisInfo
 
     protected function updatePrognosis($id){
 
-        $now = date(\CDatabase::DateFormatToPHP("DD.MM.YYYY HH:MI:SS"), time());
-
-        $prop = [
-            15 => $this->data["m_goal_home"],
-            16 => $this->data["m_goal_guest"],
-            17 => $this->data["m_id"], // матч id
-            18 => $this->data["m_result"],
-            19 => $this->data["m_diff"],
-            20 => $this->data["m_corner"],
-            21 => $this->data["m_yellow"],
-            22 => $this->data["m_red"],
-            23 => $this->data["m_penalty"],
-            28 => $this->data["m_sum"],
-            29 => $this->data["m_offside"],
-            30 => $this->data["m_number"],
-            31 => $this->data["m_user"],
-            32 => $this->data["m_domination"],
-        ];
-
         $ib = new CIBlockElement;
         $data = [
             "IBLOCK_ID" => $this->prognosisIb,
-            'DATE_ACTIVE_FROM' => $now,
-            "PROPERTY_VALUES"=> $prop,
+            'DATE_ACTIVE_FROM' => $this->now,
+            "PROPERTY_VALUES"=> $this->prop,
         ];
 
         $this->result = $ib->Update($id, $data);
@@ -106,30 +108,14 @@ class AddPrognosisInfo
 
     protected function setPrognosis()
     {
-        $now = date(\CDatabase::DateFormatToPHP("DD.MM.YYYY HH:MI:SS"), time());
 
-        $prop = [
-            15 => $this->data["m_goal_home"],
-            16 => $this->data["m_goal_guest"],
-            17 => $this->data["m_id"], // матч id
-            18 => $this->data["m_result"],
-            19 => $this->data["m_diff"],
-            20 => $this->data["m_corner"],
-            21 => $this->data["m_yellow"],
-            22 => $this->data["m_red"],
-            23 => $this->data["m_penalty"],
-            28 => $this->data["m_sum"],
-            29 => $this->data["m_offside"],
-            30 => $this->data["m_number"],
-            31 => $this->data["m_user"],
-        ];
 
-        $ib = new CIBlockElement;
+               $ib = new CIBlockElement;
         $data = [
-            "NAME" => "Участник: " .$prop[31] . " Прогноз на матч: " . $prop[17],
+            "NAME" => "Участник: " .$this->prop[31] . " Прогноз на матч: " . $this->prop[17],
             "IBLOCK_ID" => $this->prognosisIb,
-            'DATE_ACTIVE_FROM' => $now,
-            "PROPERTY_VALUES"=> $prop,
+            'DATE_ACTIVE_FROM' => $this->now,
+            "PROPERTY_VALUES"=>$this->prop
         ];
 
         $this->result = $ib->Add($data);

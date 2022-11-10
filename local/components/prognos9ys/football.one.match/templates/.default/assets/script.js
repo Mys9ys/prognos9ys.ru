@@ -16,6 +16,8 @@ $(document).ready(function () {
         validateInput()
 
         sendPrognosis()
+
+        console.log('data', data)
         
     })
 
