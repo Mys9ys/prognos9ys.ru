@@ -151,9 +151,11 @@ body {
 }
 .one_match_wrapper .o_match_box .o_prof_stat .o_prof_input.o_yellow_i {
   background: yellow;
+  color: #000;
 }
 .one_match_wrapper .o_match_box .o_prof_stat .o_prof_input.o_red_i {
   background: red;
+  color: #000;
 }
 .one_match_wrapper .o_btn_block {
   position: absolute;
