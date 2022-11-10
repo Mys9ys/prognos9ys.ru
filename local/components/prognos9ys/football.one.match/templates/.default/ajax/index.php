@@ -6,13 +6,11 @@ require($_SERVER["DOCUMENT_ROOT"] . "/bitrix/modules/main/include/prolog_before.
 
 $_REQUEST = file_get_contents('debug_request.json');
 
-$_REQUEST = json_decode($_REQUEST, true);
-
-var_dump($_REQUEST);
+//$_REQUEST = json_decode($_REQUEST, true);
+//
+//var_dump($_REQUEST);
 
 if ($_REQUEST['type'] === 'match') {
-
-   var_dump('tyt');
 
     $res = new AddPrognosisInfo($_REQUEST);
 
