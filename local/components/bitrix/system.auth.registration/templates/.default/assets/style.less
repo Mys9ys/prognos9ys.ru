@@ -1,0 +1,81 @@
+@blockBG: #253133;
+@colorText: #fff;
+@colorText2: #228B22;
+
+.m_template_box{
+  color: @colorText;
+  padding: 4px 10px;
+  background: @blockBG;
+  box-shadow: inset 0 2px 10px 1px rgba(0, 0, 0, .3), inset 0 0 0 60px rgba(0, 0, 0, .3), 0 1px rgba(255, 255, 255, .08);
+  border-radius: 5px;
+}
+
+.new_auth_form_wrapper{
+  width: 100%;
+  height: 100vh;
+  position: relative;
+  .new_auth_form{
+    width: 380px;
+    max-width: 98%;
+    margin: 0 auto;
+    position: absolute;
+    top: 10vh;
+    left: 50%;
+    transform: translateX(-50%);
+
+    .naf_title{
+      width: 100%;
+      text-align: center;
+      color: @colorText;
+      background: @blockBG;
+      box-shadow: inset 0 2px 10px 1px rgba(0, 0, 0, .3), inset 0 0 0 60px rgba(0, 0, 0, .3), 0 1px rgba(255, 255, 255, .08);
+      border: none;
+      padding: 5px 12px;
+      border-radius: 5px;
+      margin-bottom: 5px;
+      margin-top: 35px;
+    }
+    .btn_reg_box{
+      text-align: center;
+    }
+  }
+}
+
+
+.btn_reg_form{
+  background: @blockBG;
+  color: #fff;
+  padding: 0px 6px;
+  border-radius: 5px;
+  margin-right: 3px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  text-decoration: none;
+  &:hover{
+    background: @colorText;
+    color: @colorText2;
+    border: 1px solid @colorText;
+  }
+}
+.naf_form{
+  width: 90%;
+  margin: 0 auto;
+  .naf_btn{
+    width: 100%;
+    margin-top: 10px;
+  }
+}
+.naf_input_box{
+  .naf_input_title{
+    color: @blockBG
+  }
+  .naf_input_title_nick{
+    font-size: 18px;
+    font-weight: bold;
+  }
+
+  .naf_input{
+    width: 100%;
+    .m_template_box;
+  }
+}
