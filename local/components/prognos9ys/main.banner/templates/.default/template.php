@@ -1,8 +1,8 @@
 <?php if (!defined("B_PROLOG_INCLUDED") || B_PROLOG_INCLUDED !== true) die(); ?>
 
 <div class="main_banner_wrapper">
-    <?php foreach ($arResult["items"] as $item): ?>
-
+    <?php foreach ($arResult["items"] as $key=>$item): ?>
+        <?if($key === 'reg' && CUser::GetID()) continue?>
         <?php if ($item["bcgrnd"]): ?>
         <a class="mb_full_banner_wrapper" href="<?= $item["link"] ?>">
             <img src="<?= $templateFolder ?><?= $item["bcgrnd"] ?>" alt="">

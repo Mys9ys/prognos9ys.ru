@@ -14,3 +14,12 @@ $arResult["items"]["qatar"] = [
     "link" => "/p/matches/",
     "bcgrnd" => '/assets/img/qatar.png'
 ];
+
+$arResult["items"]["reg"] =
+    [
+        "link" => "/auth/",
+        "title" => 'Приглашаем Вас зарегистрироваться на нашем сайте',
+        "btn_title" => '<i class="fa fa-sign-in" aria-hidden="true"></i>',
+        "img" => '/assets/img/reg.png',
+        "color" => "#0d6efd;"
+    ];

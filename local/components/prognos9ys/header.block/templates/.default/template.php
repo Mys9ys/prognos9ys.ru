@@ -53,6 +53,8 @@
             <?php if($arResult) :?>
             <li><a class="dropdown-item" href="/p/match/"><i class="bi bi-pencil-square"></i> Мои прогнозы</a></li>
             <li><a class="dropdown-item" href="/p/profile/"><i class="bi bi-person-square"></i> Мой профиль</a></li>
+            <?php else:?>
+                <li><a class="dropdown-item" href="/auth/"><i class="bi bi-person-square"></i> Регистрация</a></li>
             <?php endif;?>
             <li><a class="dropdown-item" href="/p/ratings/"><i class="fa fa-list-ol" aria-hidden="true"></i> Рейтинги</a></li>
             <?php if($arResult) :?>
