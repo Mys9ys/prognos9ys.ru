@@ -40,6 +40,8 @@ class FootballOneMatch extends CBitrixComponent
 
         $check = $this->checkOldPrognosis();
 
+        dump($check);
+
         $this->getMatchOtherInfo();
 
         $this->getMatchInfo($check);

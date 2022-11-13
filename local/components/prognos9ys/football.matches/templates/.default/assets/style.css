@@ -65,7 +65,21 @@
   justify-content: center;
 }
 .matches_wrapper .m_match_box .m_info_box {
-  width: 57px;
   margin: 0;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+}
+.m_btn_prognosis {
+  display: inline-block;
+  background: #228B22;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.4), 0 -1px 0 rgba(0, 0, 0, 0.2);
+  padding: 3px;
+  border-radius: 3px;
+  min-width: 22px;
+  text-align: center;
 }
 /*# sourceMappingURL=style.css.map */

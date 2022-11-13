@@ -2,21 +2,21 @@
 
 require($_SERVER["DOCUMENT_ROOT"] . "/bitrix/modules/main/include/prolog_before.php");
 
-//file_put_contents('debug_request.json',json_encode($_REQUEST));
+file_put_contents('debug_request.json',json_encode($_REQUEST));
 
 //$_REQUEST = json_decode(file_get_contents('debug_request.json'), true);
 
 if ($_REQUEST['type'] === 'check_mail') {
     $res = new myRegisterNewUser($_REQUEST);
 
-    echo $res->getResult();
+    echo json_encode($res->getResult());
 }
 
 if ($_REQUEST['type'] === 'reg') {
 
     $res = new myRegisterNewUser($_REQUEST);
 
-    echo $res->getResult();
+    echo json_encode($res->getResult());
 }
 
 class myRegisterNewUser
@@ -37,7 +37,7 @@ class myRegisterNewUser
         $check = $this->findUserProfile();
 
         if($check) {
-            $this->result = ["status" => "err", "mes" => "такой пользователь уже существует"];
+            $this->result = ["status" => "err", "mes" => "уже есть пользователь с таким e-mail"];
         } else {
             if($this->info["type"] === "reg") $this->setUserInfo();
         }
@@ -52,24 +52,25 @@ class myRegisterNewUser
             "filter" => ["?EMAIL" => $this->info["login"]],
         ])->fetch();
 
-        return $this->info["company"] ?: false;
+        return $row["ID"] ?: false;
     }
 
     protected function setUserInfo()
     {
         $user = new CUser;
         $arFields = Array(
-            "NAME"              => $this->info["USER_NAME"],
-            "EMAIL"             => $this->info["USER_EMAIL"],
-            "LOGIN"             => $this->info["USER_EMAIL"],
-            "PASSWORD"          => $this->info["USER_PASSWORD"],
-            "CONFIRM_PASSWORD"  => $this->info["USER_PASSWORD"],
+            "NAME"              => $this->info["name"],
+            "EMAIL"             => $this->info["login"],
+            "LOGIN"             => $this->info["login"],
+            "PASSWORD"          => $this->info["password"],
+            "CONFIRM_PASSWORD"  => $this->info["password"],
         );
 
         $res = $user->Add($arFields);
 
         if($res) {
             $this->result = ["status" => "ok", "mes" => "регистрация успешна"];
+            $user->Authorize($res);
         } else {
             $this->result = ["status" => "err", "mes" => "Ошибка регистрации"];
         }

@@ -1,5 +1,6 @@
 <?
 if (!defined("B_PROLOG_INCLUDED") || B_PROLOG_INCLUDED !== true) die();
+
 ?>
 <?php if (!$_SERVER["QUERY_STRING"]): ?>
     <div class="new_auth_form_wrapper">
@@ -14,7 +15,7 @@ if (!defined("B_PROLOG_INCLUDED") || B_PROLOG_INCLUDED !== true) die();
     <div class="new_auth_form_wrapper">
         <div class="new_auth_form">
 
-            <p><? ShowMessage($arResult['ERROR_MESSAGE']); ?></p>
+            <div class="naf_form_err_line"></div>
 
             <form name="form_auth" class="naf_form" method="post" target="_top" action="<?= $arResult["AUTH_URL"] ?>">
 
@@ -23,17 +24,24 @@ if (!defined("B_PROLOG_INCLUDED") || B_PROLOG_INCLUDED !== true) die();
 
                 <div class="naf_input_box">
                     <div class="naf_input_title">Ваш e-mail</div>
-                    <input class="naf_input form-control" type="text" name="USER_LOGIN" placeholder="Ваш e-mail"
-                           value="<?= $arResult["LAST_LOGIN"] ?>"/>
+                    <div class="naf_input_box_wrapper">
+                        <input class="naf_input naf_input_mail" type="text" name="login" placeholder="Ваш e-mail"/>
+                        <div class="naf_input_validate_info"></div>
+                    </div>
                 </div>
 
                 <div class="naf_input_box">
                     <div class="naf_input_title">Пароль</div>
-                    <input class="naf_input form-control" type="password" name="USER_PASSWORD" placeholder="Пароль"
-                           autocomplete="off"/>
+                    <div class="naf_input_box_wrapper">
+                        <input class="naf_input naf_input_pass" type="password" name="password" placeholder="Пароль"/>
+                        <div class="naf_input_validate_info"></div>
+                    </div>
                 </div>
 
-                <input type="submit" class="naf_btn btn btn-primary" name="Login" value="Войти"/>
+                <button class="naf_btn naf_btn_auth btn btn-primary" name="register">
+                    <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+                    <span>Войти</span>
+                </button>
 
                 <a class="naf_btn btn btn-primary" href="?register=yes">К регистрации</a>
 

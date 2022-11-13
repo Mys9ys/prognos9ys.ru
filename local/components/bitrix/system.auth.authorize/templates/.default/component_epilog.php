@@ -7,4 +7,4 @@ use Bitrix\Main\Page\Asset;
 Asset::getInstance()->addCss($templateFolder . "/assets/style.min.css");
 
 // Для подключения скриптов
-//Asset::getInstance()->addJs(SITE_TEMPLATE_PATH . "/js/myscripts.js");
+Asset::getInstance()->addJs($templateFolder . "/assets/script.js");

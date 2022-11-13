@@ -15,6 +15,7 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) die(); ?>
     //Стили
     $assetManager->addCss( "/vendor/twbs/bootstrap/dist/css/bootstrap.min.css");
     $assetManager->addCss( "/vendor/twbs/bootstrap-icons/font/bootstrap-icons.css");
+    $assetManager->addCss( "/local/templates/prognos9ys/assets/font-awesome-4.7.0/css/font-awesome.min.css");
 
     //Скрипты
     $assetManager->addJs( "/vendor/twbs/bootstrap/dist/js/bootstrap.min.js");

@@ -2,6 +2,8 @@ $(document).ready(function () {
 
     data = {}
 
+    allValidate()
+
     $('.naf_input_mail').on('keyup', function () {
         validateEmail($(this).val())
     })
@@ -11,16 +13,10 @@ $(document).ready(function () {
         validatePass($(this).val())
     })
 
-    validateNik($('.naf_input_nik').val())
-    $('.naf_input_nik').on('keyup', function () {
-
-        validateNik($(this).val())
-    })
-
-    $('.naf_btn_send').on('click', function (e) {
+    $('.naf_btn_auth').on('click', function (e) {
         e.preventDefault();
 
-        data["type"] = "reg"
+        data["type"] = "auth"
 
         myRegisterAjaxRequest()
     })
@@ -32,7 +28,7 @@ function myRegisterAjaxRequest() {
     console.log('data', data)
 
     $.ajax({
-        url: "/local/components/bitrix/system.auth.registration/templates/.default/ajax/",
+        url: "/local/components/bitrix/system.auth.authorize/templates/.default/ajax/",
         method: "POST", //
         data,
         success: function (result) {
@@ -61,20 +57,11 @@ function allValidate() {
         }
     })
 
-    if(arr.length === 3){
-        $('.naf_btn_send').attr("disabled", false)
+    if(arr.length === 2){
+        $('.naf_btn_auth').attr("disabled", false)
     } else {
-        $('.naf_btn_send').attr("disabled", true)
+        $('.naf_btn_auth').attr("disabled", true)
     }
-}
-
-function validateNik(nik) {
-    if(nik && nik.length >3){
-        $('.naf_input_nik').parent().find('.naf_input_validate_info').html('').html(inputConfirm())
-    } else {
-        $('.naf_input_nik').parent().find('.naf_input_validate_info').html('').html(inputFail('!'))
-    }
-    allValidate()
 }
 
 function validatePass(pass) {
