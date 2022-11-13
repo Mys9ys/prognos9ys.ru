@@ -53,6 +53,11 @@
   flex-direction: row;
 }
 .matches_wrapper .m_match_box .m_team_block .m_team_box .m_team_flag {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  width: 26px;
   height: 26px;
 }
 .matches_wrapper .m_match_box .m_team_block .m_team_box .m_team_flag .mt_flag_img {
