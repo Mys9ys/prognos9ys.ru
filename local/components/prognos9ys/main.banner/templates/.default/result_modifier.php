@@ -1,6 +1,11 @@
 <?php
 if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED!==true)die();
 
+$arResult["items"]["qatar"] = [
+    "link" => "/p/matches/",
+    "bcgrnd" => '/assets/img/qatar.png'
+];
+
 $arResult["items"]["faq"] =
     [
         "link" => "/p/faq/",
@@ -10,10 +15,6 @@ $arResult["items"]["faq"] =
         "color" => "#4c0bce;"
     ];
 
-$arResult["items"]["qatar"] = [
-    "link" => "/p/matches/",
-    "bcgrnd" => '/assets/img/qatar.png'
-];
 
 $arResult["items"]["reg"] =
     [
