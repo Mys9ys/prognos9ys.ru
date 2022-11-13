@@ -100,14 +100,14 @@
   color: #fff;
 }
 .one_match_wrapper .o_match_box .o_domination_block {
-  width: 24px;
+  width: 30px;
   display: flex;
   flex-direction: column;
 }
 .one_match_wrapper .o_match_box .o_domination_block .o_domination_box {
   position: relative;
   height: 76px;
-  width: 24px;
+  width: 30px;
 }
 .one_match_wrapper .o_match_box .o_domination_block .o_domination_box .o_domination_range_box {
   position: relative;

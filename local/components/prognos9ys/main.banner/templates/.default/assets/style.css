@@ -1,0 +1,43 @@
+.main_banner_wrapper {
+  width: 400px;
+  max-width: 98%;
+  margin: 0 auto;
+}
+.main_banner_wrapper .mb_banner_wrapper {
+  border-radius: 5px;
+  display: flex;
+  flex-direction: row;
+  padding: 5px;
+  box-shadow: 0 0 7px 0 rgba(0, 0, 0, 0.7);
+  text-decoration: none;
+}
+.main_banner_wrapper .mb_banner_wrapper .mb_banner_img {
+  width: 55px;
+}
+.main_banner_wrapper .mb_banner_wrapper .mb_banner_img img {
+  width: 100%;
+}
+.main_banner_wrapper .mb_banner_wrapper .mb_banner_title {
+  margin-left: 15px;
+  font-size: 24px;
+  line-height: 1em;
+  color: #fff;
+}
+.main_banner_wrapper .mb_banner_wrapper .mb_btn_box {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+}
+.main_banner_wrapper .mb_banner_wrapper .mb_btn_box .mb_banner_btn {
+  display: inline-block;
+  background: #228B22;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.4), 0 -1px 0 rgba(0, 0, 0, 0.2);
+  padding: 3px;
+  font-size: 40px;
+  border-radius: 3px;
+  text-align: center;
+}
+/*# sourceMappingURL=style.css.map */

@@ -30,7 +30,7 @@
   display: flex;
   flex-direction: row;
   width: 100%;
-  flex-wrap: wrap;
+  height: 30px;
   margin-bottom: 3px;
 }
 .matches_wrapper .m_match_box .m_time {
@@ -57,11 +57,19 @@
   flex-direction: column;
   align-items: center;
   justify-content: flex-end;
+  min-width: 22px;
   width: 22px;
   height: 22px;
+  margin-right: 2px;
 }
 .matches_wrapper .m_match_box .m_team_block .m_team_box .m_team_flag .mt_flag_img {
-  height: 100%;
+  width: 100%;
+}
+.matches_wrapper .m_match_box .m_team_block .m_team_box .m_team_title {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  font-size: 13.5px;
 }
 .matches_wrapper .m_match_box .m_goals_box {
   width: 54px;
