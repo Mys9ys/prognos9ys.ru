@@ -57,8 +57,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: flex-end;
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
 }
 .matches_wrapper .m_match_box .m_team_block .m_team_box .m_team_flag .mt_flag_img {
   height: 100%;
