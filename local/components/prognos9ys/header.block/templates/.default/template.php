@@ -17,7 +17,7 @@
                 <div class="header_button header_btn_menu" title="Меню"><i class="fa fa-bars" aria-hidden="true"></i></div>
                 <a class="header_button" href="/"><i class="fa fa-home" aria-hidden="true"></i></a>
                 <a class="header_button" href="/p/matches/"><i class="bi bi-menu-up"></i></a>
-                <a class="header_button" href="/p/rating/"><i class="fa fa-list-ol" aria-hidden="true"></i></a>
+                <a class="header_button" href="/p/ratings/"><i class="fa fa-list-ol" aria-hidden="true"></i></a>
                 <a class="header_button" href="/p/faq/"><i class="bi bi-patch-question"></i></a>
             </div>
         </div>
@@ -54,7 +54,7 @@
             <li><a class="dropdown-item" href="/p/match/"><i class="bi bi-pencil-square"></i> Мои прогнозы</a></li>
             <li><a class="dropdown-item" href="/p/profile/"><i class="bi bi-person-square"></i> Мой профиль</a></li>
             <?php endif;?>
-            <li><a class="dropdown-item" href="/p/match/"><i class="fa fa-list-ol" aria-hidden="true"></i> Рейтинги</a></li>
+            <li><a class="dropdown-item" href="/p/ratings/"><i class="fa fa-list-ol" aria-hidden="true"></i> Рейтинги</a></li>
             <?php if($arResult) :?>
                 <li><a class="dropdown-item" href="/p/logout/"><i class="bi bi-door-open"></i> Выйти</a></li>
             <?php endif;?>
