@@ -4,20 +4,29 @@
 @blockBG: #253133;
 @colorText: #fff;
 @colorText2: #228B22;
+
+.banner_template{
+  box-shadow: 0 0 7px 0 rgba(0, 0, 0, 0.7);
+  text-decoration: none;
+  border-radius: 5px;
+  display: flex;
+  flex-direction: row;
+  margin-bottom: 5px;
+  &:hover{
+    box-shadow: 0 0 14px 0 rgba(0, 0, 0, 0.7);
+  }
+}
 .main_banner_wrapper{
   width: 400px;
   max-width: 98%;
   margin: 0 auto;
 
   .mb_banner_wrapper{
-    border-radius: 5px;
-    display: flex;
-    flex-direction: row;
+    .banner_template;
     padding: 5px;
-    box-shadow: 0 0 7px 0 rgba(0, 0, 0, 0.7);
-    text-decoration: none;
+
     .mb_banner_img{
-      width: 55px;
+      width: 75px;
       img{
         width: 100%;
       }
@@ -28,13 +37,15 @@
       font-size: 24px;
       line-height: 1em;
       color: #fff;
+      max-width: 220px;
 
     }
     .mb_btn_box{
       display: flex;
       flex-direction: row;
-      justify-content: center;
+      justify-content: flex-end;
       align-items: center;
+      width: 75px;
       .mb_banner_btn{
         display: inline-block;
         background: @colorText2;
@@ -49,5 +60,13 @@
       }
     }
 
+  }
+
+  .mb_full_banner_wrapper{
+    .banner_template;
+    overflow: hidden;
+    img{
+      width: 100%;
+    }
   }
 }

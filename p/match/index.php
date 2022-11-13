@@ -1,4 +1,5 @@
 <?php
+define("NEED_AUTH", true);
 require($_SERVER["DOCUMENT_ROOT"]."/bitrix/header.php");
 
 $arrUrl = explode('/', trim($_SERVER['REQUEST_URI'], "/"));

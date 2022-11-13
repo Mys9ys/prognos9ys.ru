@@ -31,13 +31,19 @@
             <div class="hm_nick_box hm_box">
                 <?= $arResult["name"]?>
             </div>
+            <?php endif;?>
 
             <div class="hm_btn_block hm_right">
+
+                <?php if($arResult) :?>
                 <a class="header_button" href="/p/match/"><i class="bi bi-pencil-square"></i></a>
                 <a class="header_button" href="/p/profile/"><i class="bi bi-person-square"></i></a>
                 <a class="header_button" href="/p/logout/"><i class="bi bi-door-open"></i></a>
+                <?php else:?>
+                <a class="header_button" href="/auth/"><i class="fa fa-sign-in" aria-hidden="true"></i></a>
+                <?php endif;?>
             </div>
-            <?php endif;?>
+
         </div>
     </div>
     <div class="header_menu_block">

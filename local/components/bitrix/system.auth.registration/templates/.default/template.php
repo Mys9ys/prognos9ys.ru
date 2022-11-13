@@ -16,12 +16,6 @@
 
 if (!defined("B_PROLOG_INCLUDED") || B_PROLOG_INCLUDED !== true) die(); ?>
 
-
-<?
-//var_dump($arResult);
-var_dump($arResult["SIGNED_DATA"]);
-ShowMessage($arParams["~AUTH_RESULT"]);
-?>
 <div class="new_auth_form_wrapper">
     <div class="new_auth_form">
         <form method="post" class="naf_form" action="<?= $arResult["AUTH_URL"] ?>" name="regform">
