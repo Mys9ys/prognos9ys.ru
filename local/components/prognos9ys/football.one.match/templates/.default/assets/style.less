@@ -421,6 +421,45 @@
       }
     }
   }
+  .pw_card_block{
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    padding-top: 10px;
+
+    .pw_card_title{
+      .pw_title;
+      top: -16px;
+    }
+    .pw_card_box{
+      display: flex;
+      flex-direction: row;
+      justify-content: center;
+      .pw_card_box_color{
+        display: flex;
+        flex-direction: row;
+        .pw_card_btn_box{
+          display: flex;
+          flex-direction: row;
+          .pw_card_btn{
+            .pw_btn;
+            min-width: 30px;
+          }
+        }
+        .pw_card_input{
+          .pw_input;
+          min-width: 30px;
+          &.c_yellow{
+            background: yellow;
+          }
+          &.red{
+            background: red;
+          }
+        }
+      }
+    }
+  }
 }
 
 

@@ -26,7 +26,7 @@ $(document).ready(function () {
         calcRange($(this).val())
     })
 
-    $('.pw_goals_popular_score, .pw_goals_btn, .pw_dom_btn').on('click', function () {
+    $('.pw_goals_popular_score, .pw_goals_btn, .pw_dom_btn, .pw_card_btn').on('click', function () {
         console.log('this.val()', $(this).text(), 'this.cell', $(this).data("cell"), 'this.type', $(this).data("type"))
 
         changeValueMatchInput($(this).text(), $(this).data("cell"), $(this).data("type"))
@@ -121,9 +121,6 @@ function changeValueMatchInput(val, cell, action=''){
             $('.'+cell).val(+$('.'+cell).val()+val)
             if(val === 0) $('.'+cell).val(0)
             setGoalsAndResult()
-            if(cell === "dom_home" || cell === "dom_home") {
-
-            }
             break;
         case "dom_home":
         case "dom_guest":
@@ -144,5 +141,11 @@ function changeValueMatchInput(val, cell, action=''){
                 if(cell === "dom_guest") $('.domination_range').val(+$('.domination_range').val()-val)
             }
             break;
+        case "c_red":
+        case "c_yellow":
+            val = +val
+            $('.'+cell).val(+$('.'+cell).val()+val)
+            if(val === 0) $('.'+cell).val(0)
+        break;
     }
 }

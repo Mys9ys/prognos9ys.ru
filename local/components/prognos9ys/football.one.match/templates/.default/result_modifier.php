@@ -36,3 +36,14 @@ $arResult["btn"]["dom"]["guest"] = [
     ["name"=>"+5", "cell"=> "dom_guest", "type"=>"one"],
     ["name"=>"+10", "cell"=> "dom_guest", "type"=>"one"],
 ];
+
+$arResult["btn"]["cards"]["yellow"] = [
+    ["name"=>"+3", "cell"=> "c_yellow", "type"=>"one"],
+    ["name"=>"+1", "cell"=> "c_yellow", "type"=>"one"],
+    ["name"=>"0", "cell"=> "c_yellow", "type"=>"one"],
+];
+
+$arResult["btn"]["cards"]["red"] = [
+    ["name"=>"0", "cell"=> "c_red", "type"=>"one"],
+    ["name"=>"+1", "cell"=> "c_red", "type"=>"one"],
+];
