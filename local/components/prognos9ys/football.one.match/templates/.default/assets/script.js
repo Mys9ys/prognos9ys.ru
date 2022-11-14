@@ -138,7 +138,11 @@ function changeValueMatchInput(val, cell, action=''){
             if(val === 50) {
                 $('.' + cell).val(val)
                 $('.' + arr[cell]).val(val)
+                $('.domination_range').val(val)
             }
+
+            if(cell === "dom_home") $('.domination_range').val(+$('.domination_range').val()+val)
+            if(cell === "dom_guest") $('.domination_range').val(+$('.domination_range').val()-val)
             break;
     }
 }
