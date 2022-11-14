@@ -111,14 +111,14 @@
   background: #228B22;
 }
 .one_match_wrapper .o_match_box .o_domination_block {
-  width: 34px;
+  width: 38px;
   display: flex;
   flex-direction: column;
 }
 .one_match_wrapper .o_match_box .o_domination_block .o_domination_box {
   position: relative;
   height: 76px;
-  width: 34px;
+  width: 38px;
 }
 .one_match_wrapper .o_match_box .o_domination_block .o_domination_box .o_domination_range_box {
   position: relative;
@@ -447,6 +447,7 @@
   text-align: center;
   color: #fff;
   box-shadow: inset 0 2px 10px 1px rgba(0, 0, 0, 0.3), inset 0 0 0 60px rgba(0, 0, 0, 0.3), 0 1px rgba(255, 255, 255, 0.08);
+  width: 42px;
 }
 .prognosis_window_wrapper .pw_domination_block .pw_domination_range_block .pw_domination_range_box {
   width: 70%;
