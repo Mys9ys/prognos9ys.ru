@@ -18,15 +18,15 @@ $(document).ready(function () {
         
     })
 
-    $('.o_domination_range').on('click', function () {
+    $('.o_domination_range, .pw_domination_range').on('click, change', function () {
         calcRange($(this).val())
     })
 
-    $('.o_dom_h').on('focusout, keyup', function () {
+    $('.o_dom_h').on('focusout, keyup, change', function () {
         calcRange($(this).val())
     })
 
-    $('.pw_goals_popular_score, .pw_goals_btn').on('click', function () {
+    $('.pw_goals_popular_score, .pw_goals_btn, .pw_dom_btn').on('click', function () {
         console.log('this.val()', $(this).text(), 'this.cell', $(this).data("cell"), 'this.type', $(this).data("type"))
 
         changeValueMatchInput($(this).text(), $(this).data("cell"), $(this).data("type"))
@@ -97,30 +97,48 @@ function calcRange(val) {
     let r = $('.o_domination_range')
 
     if(h !== val){
-        $('.o_dom_h').val(val)
-        $('.o_dom_g').val(100-val)
+        $('.dom_home').val(val)
+        $('.dom_guest').val(100-val)
     }
 
     if(r !== val){
-        $('.o_domination_range').val(val)
+        $('.o_domination_range, .pw_domination_range').val(val)
     }
 }
 
-function changeValueMatchInput(val, cell, type, action=''){
+function changeValueMatchInput(val, cell, action=''){
 
-    switch (type) {
-        case "double":
+    switch (cell) {
+        case "goal":
             arr = val.split('-')
-            console.log('arr',arr)
             $('.'+cell +'_home').val(+arr[0])
             $('.'+cell +'_guest').val(+arr[1])
             setGoalsAndResult()
             break;
-        case "one":
+        case "goal_home":
+        case "goal_guest":
             val = +val
             $('.'+cell).val(+$('.'+cell).val()+val)
             if(val === 0) $('.'+cell).val(0)
             setGoalsAndResult()
+            if(cell === "dom_home" || cell === "dom_home") {
+
+            }
+            break;
+        case "dom_home":
+        case "dom_guest":
+            arr = {
+                dom_home: "dom_guest",
+                dom_guest: "dom_home"
+            }
+            val = +val
+            $('.' + cell).val(+$('.' + cell).val()+val)
+            $('.' + arr[cell]).val(+$('.' + arr[cell]).val()-val)
+
+            if(val === 50) {
+                $('.' + cell).val(val)
+                $('.' + arr[cell]).val(val)
+            }
             break;
     }
 }

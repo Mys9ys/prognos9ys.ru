@@ -22,3 +22,17 @@ $arResult["btn"]["goals"]["inc_guest"] = [
     ["name"=>"+1", "cell"=> "goal_guest", "type"=>"one"],
     ["name"=>"+3", "cell"=> "goal_guest", "type"=>"one"],
 ];
+
+$arResult["btn"]["dom"]["home"] = [
+    ["name"=>"+10", "cell"=> "dom_home", "type"=>"one"],
+    ["name"=>"+5", "cell"=> "dom_home", "type"=>"one"],
+    ["name"=>"+3", "cell"=> "dom_home", "type"=>"one"],
+    ["name"=>"+1", "cell"=> "dom_home", "type"=>"one"],
+    ["name"=>"50", "cell"=> "dom_home", "type"=>"one"],
+];
+$arResult["btn"]["dom"]["guest"] = [
+    ["name"=>"+1", "cell"=> "dom_guest", "type"=>"one"],
+    ["name"=>"+3", "cell"=> "dom_guest", "type"=>"one"],
+    ["name"=>"+5", "cell"=> "dom_guest", "type"=>"one"],
+    ["name"=>"+10", "cell"=> "dom_guest", "type"=>"one"],
+];

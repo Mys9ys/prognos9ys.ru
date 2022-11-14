@@ -131,14 +131,14 @@
     }
 
     .o_domination_block {
-      width: 30px;
+      width: 34px;
       display: flex;
       flex-direction: column;
 
       .o_domination_box {
         position: relative;
         height: 76px;
-        width: 30px;
+        width: 34px;
         .o_domination_range_box{
           position: relative;
           height: 48px;
@@ -149,7 +149,7 @@
             width: 48px;
             height: 24px;
             top: 13px;
-            left: -12px;
+            left: -8px;
             cursor: pointer;
           }
         }
@@ -369,6 +369,53 @@
         flex-direction: row;
         .pw_goals_i{
           .pw_input;
+        }
+      }
+    }
+  }
+  .pw_domination_block{
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    padding-top: 10px;
+    .pw_domination_title{
+      .pw_title;
+      top: -16px;
+    }
+
+    .pw_domination_range_block{
+      display: flex;
+      flex-direction: row;
+      justify-content: center;
+
+      .pw_dom_i{
+        .pw_input;
+      }
+      .pw_domination_range_box{
+        width: 70%;
+        .pw_domination_range{
+          width: 100%;
+        }
+      }
+    }
+    .pw_domination_btn_block{
+      display: flex;
+      flex-direction: row;
+      justify-content: center;
+      .pw_domination_btn_box{
+        display: flex;
+        flex-direction: row;
+        .pw_dom_btn{
+          .pw_btn;
+        }
+        &.pwd_home{
+          width: 55%;
+          justify-content: flex-end;
+        }
+        &.pwd_guest{
+          width: 45%;
+          justify-content: flex-start;
         }
       }
     }

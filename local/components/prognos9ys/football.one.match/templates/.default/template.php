@@ -60,13 +60,13 @@
         <div class="o_domination_block">
             <div class="ot_title"><i class="bi bi-percent" title="Владение"></i></div>
             <div class="o_domination_box">
-                <input class="o_dom_i m_pr_value o_dom_h" type="text" value="<?= $arResult["main"]["domination"] ?>" name="m_domination" placeholder="50">
+                <input class="o_dom_i m_pr_value o_dom_h dom_home" type="text" value="<?= $arResult["main"]["domination"] ?>" name="m_domination" placeholder="50">
                 <div class="o_domination_range_box">
                     <input class="o_domination_range" aria-orientation="vertical"
                            type="range" value="<?= $arResult["main"]["domination"] ?>" max="100" min="0" step="1">
                 </div>
             </div>
-            <input class="o_dom_i o_dom_g" type="text" value="<?= $arResult["main"]["domination2"] ?>" placeholder="50" disabled>
+            <input class="o_dom_i o_dom_g dom_guest" type="text" value="<?= $arResult["main"]["domination2"] ?>" placeholder="50" disabled>
         </div>
 
 
@@ -140,6 +140,29 @@
                     <?php endforeach;?>
                 </div>
 
+            </div>
+        </div>
+        <div class="pw_domination_block">
+            <div class="pw_domination_title">Процент владения:</div>
+            <div class="pw_domination_range_block">
+                <input type="text" class="pw_dom_i pw_dom_i_home dom_home" placeholder="0" value="<?= $arResult["main"]["domination"] ?>" >
+                <div class="pw_domination_range_box">
+                    <input class="pw_domination_range" aria-orientation="vertical"
+                           type="range" value="<?= $arResult["main"]["domination"] ?>" max="100" min="0" step="1">
+                </div>
+                <input type="text" class="pw_dom_i pw_dom_i_guest dom_guest" placeholder="0" value="<?= $arResult["main"]["domination2"] ?>" >
+            </div>
+            <div class="pw_domination_btn_block">
+                <div class="pw_domination_btn_box pwd_home">
+                    <?php foreach ($arResult["btn"]["dom"]["home"] as $item):?>
+                        <div class="pw_dom_btn" data-cell="<?=$item["cell"]?>" data-type="<?=$item["type"]?>"><?=$item["name"]?></div>
+                    <?php endforeach;?>
+                </div>
+                <div class="pw_domination_btn_box pwd_guest">
+                    <?php foreach ($arResult["btn"]["dom"]["guest"] as $item):?>
+                        <div class="pw_dom_btn" data-cell="<?=$item["cell"]?>" data-type="<?=$item["type"]?>"><?=$item["name"]?></div>
+                    <?php endforeach;?>
+                </div>
             </div>
         </div>
     </div>
