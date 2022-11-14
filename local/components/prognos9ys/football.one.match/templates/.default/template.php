@@ -4,13 +4,13 @@
 ?>
 <?php if($arResult["other"]["id"]):?>
 <div class="one_match_wrapper">
-    <div class="o_match_info">
+    <div class="o_match_info" <?php if($_SERVER["HTTP_HOST"] === 'prog.work') echo 'style="display: none"'?>>
         <div class="om_info_box o_date"><i class="bi bi-calendar3"></i> <?= $arResult["other"]["date"] ?></div>
         <div class="om_info_box o_time"><i class="bi bi-alarm"></i> <?= $arResult["other"]["time"] ?></div>
         <div class="om_info_box o_number">№ <?= $arResult["other"]["number"] ?></div>
         <div class="om_info_box o_group">Группа <?= $arResult["other"]["group"] ?></div>
     </div>
-    <div class="o_match_box">
+    <div class="o_match_box" >
         <div class="o_team_block">
             <input type="hidden" class="m_pr_value" name="m_id" value="<?= $arResult["other"]["id"] ?>">
             <input type="hidden" class="m_pr_value" name="m_number" value="<?= $arResult["other"]["number"] ?>">
@@ -32,18 +32,21 @@
         </div>
         <div class="o_goals_block">
             <div class="ot_title"><i class="fa fa-futbol-o" aria-hidden="true"></i></div>
-            <input type="text" class="og_goal og_goal_home m_pr_value" name="m_goal_home"
+            <input type="text" class="og_goal og_goal_home m_pr_value goal_home" name="m_goal_home"
                    data-goal="home" value="<?= $arResult["main"]["home_goals"] ?>" placeholder="0">
-            <input type="text" class="og_goal og_goal_guest m_pr_value" name="m_goal_guest"
+            <input type="text" class="og_goal og_goal_guest m_pr_value goal_guest" name="m_goal_guest"
                    data-goal="guest" value="<?= $arResult["main"]["guest_goals"] ?>" placeholder="0">
             <div class="ot_title"></div>
         </div>
         <div class="o_result_block">
             <div class="ot_title"><i class="fa fa-trophy" aria-hidden="true"></i></div>
-            <input type="radio" name="m_result" class="or_radio or_home" value="п1" <?= $arResult["main"]["result"] === 'п1'? 'checked' : ''?>>
-            <input type="radio" name="m_result" class="or_radio or_draw" value="н" <?= $arResult["main"]["result"] === 'н'? 'checked' : ''?>>
-            <input type="radio" name="m_result" class="or_radio or_guest" value="п2" <?= $arResult["main"]["result"] === 'п2'? 'checked' : ''?>>
-            <input type="hidden" name="m_result" class="or_radio m_pr_value" value="<?= $arResult["main"]["result"] ?>">
+            <input type="radio" id="r_p1" name="m_result" class="or_radio or_home" value="п1" <?= $arResult["main"]["result"] === 'п1'? 'checked' : ''?>>
+            <label for="r_p1">п1</label>
+            <input type="radio" id="r_d" name="m_result" class="or_radio or_draw" value="н" <?= $arResult["main"]["result"] === 'н'? 'checked' : ''?>>
+            <label for="r_d">н</label>
+            <input type="radio" id="r_p2" name="m_result" class="or_radio or_guest" value="п2" <?= $arResult["main"]["result"] === 'п2'? 'checked' : ''?>>
+            <label for="r_p2">п2</label>
+            <input type="hidden" name="m_result" class="or_radio or_radio_res m_pr_value" value="<?= $arResult["main"]["result"] ?>">
             <div class="ot_title"></div>
         </div>
 
@@ -88,6 +91,58 @@
         </div>
 
     </div>
+
+    <div class="prognosis_window_wrapper">
+        <div class="pw_teams_block">
+            <div class="pw_teams_title">Команды</div>
+            <div class="pw_teams_box">
+                <div class="pw_team_home pw_team">
+                    <div class="pw_team_type">Дома</div>
+                    <div class="pw_team_flag">
+                        <img class="pw_team_flag_img" src="<?= $arResult["other"]["home"]["img"] ?>" alt="">
+                    </div>
+                    <div class="pw_team_name"><?= $arResult["other"]["home"]["NAME"] ?></div>
+                </div>
+                <div class="pw_team_guest pw_team">
+                    <div class="pw_team_name"><?= $arResult["other"]["guest"]["NAME"] ?></div>
+                    <div class="pw_team_flag">
+                        <img class="pw_team_flag_img" src="<?= $arResult["other"]["guest"]["img"] ?>" alt="">
+                    </div>
+                    <div class="pw_team_type">Гости</div>
+                </div>
+            </div>
+        </div>
+        <div class="pw_goals_block">
+            <div class="pw_goals_block_title">Счет: </div>
+            <div class="pw_goals_popular">
+                <div class="pw_goals_popular_title">Популярное: </div>
+                <div class="pw_goals_popular_value">
+                    <?php foreach ($arResult["btn"]["goals"]["score"] as $item):?>
+                        <div class="pw_goals_popular_score" data-cell="<?=$item["cell"]?>" data-type="<?=$item["type"]?>"><?=$item["name"]?></div>
+                    <?php endforeach;?>
+                </div>
+            </div>
+            <div class="pw_goals_btn_box">
+                <div class="pw_goals_btn_home pw_goals_btn_ink">
+                    <?php foreach ($arResult["btn"]["goals"]["inc_home"] as $item):?>
+                        <div class="pw_goals_btn" data-cell="<?=$item["cell"]?>" data-type="<?=$item["type"]?>"><?=$item["name"]?></div>
+                    <?php endforeach;?>
+                </div>
+
+                <div class="pw_goals_input_box">
+                    <input type="text" class="pw_goals_i goal_home" placeholder="0" value="<?= $arResult["main"]["home_goals"] ?>" >
+                    <input type="text" class="pw_goals_i goal_guest" placeholder="0" value="<?= $arResult["main"]["guest_goals"] ?>">
+                </div>
+
+                <div class="pw_goals_btn_guest pw_goals_btn_ink">
+                    <?php foreach ($arResult["btn"]["goals"]["inc_guest"] as $item):?>
+                        <div class="pw_goals_btn" data-cell="<?=$item["cell"]?>" data-type="<?=$item["type"]?>"><?=$item["name"]?></div>
+                    <?php endforeach;?>
+                </div>
+
+            </div>
+        </div>
+    </div>
     <?php if($arResult["other"]["number"]>1):?>
         <a class="btn_next_match" href="/p/match/<?= $arResult["other"]["id"]-1?>/">Предыдущий матч</a>
     <?php endif;?>
@@ -95,7 +150,7 @@
 </div>
 
 
-<i class="fa fa-keyboard-o" aria-hidden="true"></i>
+<!--<i class="fa fa-keyboard-o" aria-hidden="true"></i>-->
 
 
 <?php else:?>
