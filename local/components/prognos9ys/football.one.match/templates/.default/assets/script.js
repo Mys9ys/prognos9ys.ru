@@ -80,6 +80,7 @@ function setCountGoals(arr) {
 }
 
 function sendPrognosis() {
+    $('.prog_send_modal').modal("show")
     $.ajax({
         url: "/local/components/prognos9ys/football.one.match/templates/.default/ajax/",
         method: "POST", //
@@ -87,6 +88,12 @@ function sendPrognosis() {
         success: function (result) {
             if (result) {
                 result = JSON.parse(result)
+                if(result["status"]==="ok"){
+                    $('.modal-body').html('').html('<span class="text-success">'+result["mes"]+'</span>')
+                }
+                if(result["status"]==="err"){
+                    $('.modal-body').html('').html('<span class="text-danger">'+result["mes"]+'</span>')
+                }
             }
         }
     })

@@ -2,6 +2,13 @@
 <?php
 //dump($arResult);
 ?>
+<?php if($_SERVER["HTTP_HOST"] === 'prog.work'):?>
+    <style>
+        body{
+            background: #fff;
+        }
+    </style>
+<?php endif;?>
 <?php if($arResult["other"]["id"]):?>
 <div class="one_match_wrapper">
     <div class="o_match_info" <?php if($_SERVER["HTTP_HOST"] === 'prog.work') echo 'style="display: none"'?>>
@@ -186,11 +193,28 @@
                 </div>
             </div>
         </div>
+        <div class="pw_other_block">
+            <div class="pw_corner_block">
+                <div class="pw_corner_title">Угловые:</div>
+            </div>
+            <div class="pw_penalty_block">
+                <div class="pw_penalty_title">Пенальти:</div>
+            </div>
+        </div>
+        <div class="pw_btn_block ">
+            <div class="o_btn_temp o_btn_rand">Заполнить случайно(пока работает) <i class="fa fa-random" aria-hidden="true"></i></div>
+            <div class="o_btn_temp o_btn_send_prognosis"><?= $arResult["main"]["home_goals"] ? 'Изменить': 'Отправить' ?></div>
+        </div>
+
+
     </div>
-    <?php if($arResult["other"]["number"]>1):?>
-        <a class="btn_next_match" href="/p/match/<?= $arResult["other"]["id"]-1?>/">Предыдущий матч</a>
-    <?php endif;?>
-    <a class="btn_next_match" href="/p/match/<?= $arResult["other"]["id"]+1?>/">Следующий матч</a>
+    <div class="pr_btn_next_block">
+        <?php if($arResult["other"]["number"]>1):?>
+            <a class="btn_next_match" href="/p/match/<?= $arResult["other"]["id"]-1?>/"><i class="fa fa-long-arrow-left" aria-hidden="true"></i> Предыдущий матч </a>
+        <?php endif;?>
+        <a class="btn_next_match" href="/p/match/<?= $arResult["other"]["id"]+1?>/">Следующий матч <i class="fa fa-long-arrow-right" aria-hidden="true"></i></a>
+    </div>
+
 </div>
 
 
@@ -202,3 +226,20 @@
         <div class="btn_next_match">Тут ни чего нет</div>
     </div>
 <?php endif;?>
+
+
+<div class="prog_send_modal modal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+            </div>
+            <div class="modal-body" style="text-align: center">
+                <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+            </div>
+        </div>
+    </div>
+</div>

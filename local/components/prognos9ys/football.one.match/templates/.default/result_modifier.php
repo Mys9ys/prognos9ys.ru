@@ -2,7 +2,6 @@
 if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED!==true)die();
 
 $arResult["btn"]["goals"]["score"] = [
-   ["name"=>"3-1", "cell"=> "goal"],
    ["name"=>"3-0", "cell"=> "goal"],
    ["name"=>"2-1", "cell"=> "goal"],
    ["name"=>"1-1", "cell"=> "goal"],
@@ -11,7 +10,6 @@ $arResult["btn"]["goals"]["score"] = [
    ["name"=>"0-1", "cell"=> "goal"],
    ["name"=>"1-2", "cell"=> "goal"],
    ["name"=>"1-3", "cell"=> "goal"],
-   ["name"=>"0-3", "cell"=> "goal"],
 ];
 $arResult["btn"]["goals"]["inc_home"] = [
     ["name"=>"+3", "cell"=> "goal_home"],

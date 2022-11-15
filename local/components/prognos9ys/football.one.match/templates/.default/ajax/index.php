@@ -15,7 +15,7 @@ if ($_REQUEST['type'] === 'match') {
     $res = new AddPrognosisInfo($_REQUEST);
 
     if($res->getResult()){
-        $request = ["status" => "ok", "mes" => "Данные переданы"];
+        $request = ["status" => "ok", "mes" => "Прогноз принят"];
     } else {
         $request = ["status" => "err", "mes" => "Что то пошло не так"];
     }
