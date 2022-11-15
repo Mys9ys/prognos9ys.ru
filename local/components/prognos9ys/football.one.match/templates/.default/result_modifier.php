@@ -55,6 +55,6 @@ $arResult["btn"]["corner"] = [
 ];
 
 $arResult["btn"]["penalty"] = [
-    ["name"=>"0", "cell"=> "c_red"],
-    ["name"=>"+1", "cell"=> "c_red"],
+    ["name"=>"0", "cell"=> "o_penalty_i"],
+    ["name"=>"+1", "cell"=> "o_penalty_i"],
 ];
