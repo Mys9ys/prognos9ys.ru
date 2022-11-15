@@ -18,7 +18,7 @@
                 <a class="header_button" href="/"><i class="fa fa-home" aria-hidden="true"></i></a>
                 <a class="header_button" href="/p/matches/"><i class="bi bi-menu-up"></i></a>
                 <a class="header_button" href="/p/ratings/"><i class="fa fa-list-ol" aria-hidden="true"></i></a>
-                <a class="header_button" href="/p/faq/"><i class="bi bi-patch-question"></i></a>
+
             </div>
         </div>
         <?php if($arResult) :?>
@@ -34,7 +34,7 @@
             <?php endif;?>
 
             <div class="hm_btn_block hm_right">
-
+                <a class="header_button" href="/p/faq/"><i class="bi bi-patch-question"></i></a>
                 <?php if($arResult) :?>
                 <a class="header_button" href="/p/match/"><i class="bi bi-pencil-square"></i></a>
                 <a class="header_button" href="/p/profile/"><i class="bi bi-person-square"></i></a>
