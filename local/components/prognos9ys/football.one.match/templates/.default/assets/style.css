@@ -669,6 +669,7 @@
   display: flex;
   flex-direction: row;
   justify-content: space-between;
+  margin-top: 6px;
 }
 .prognosis_window_wrapper .pw_btn_block .o_btn_temp {
   width: 45%;
