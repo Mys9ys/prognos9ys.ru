@@ -308,6 +308,7 @@
 }
 .prognosis_window_wrapper .pw_goals_block {
   position: relative;
+  margin-top: 15px;
 }
 .prognosis_window_wrapper .pw_goals_block .pw_goals_block_title {
   position: absolute;

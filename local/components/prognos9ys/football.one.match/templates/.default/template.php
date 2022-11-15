@@ -250,7 +250,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
             </div>
             <div class="modal-body" style="text-align: center">
-                <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
+                <i class="fa fa-spinner fa-4x fa-spin" aria-hidden="true"></i>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>

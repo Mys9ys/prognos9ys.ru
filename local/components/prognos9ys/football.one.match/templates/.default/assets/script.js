@@ -89,7 +89,7 @@ function sendPrognosis() {
             if (result) {
                 result = JSON.parse(result)
                 if(result["status"]==="ok"){
-                    $('.modal-body').html('').html('<span class="text-success">'+result["mes"]+'</span>')
+                    $('.modal-body').html('').html('<div class="text-success"><i class="fa fa-check-square-o" aria-hidden="true"></i></div><span class="text-success">'+result["mes"]+'</span>')
                 }
                 if(result["status"]==="err"){
                     $('.modal-body').html('').html('<span class="text-danger">'+result["mes"]+'</span>')
