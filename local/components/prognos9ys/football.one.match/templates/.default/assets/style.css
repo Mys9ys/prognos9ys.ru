@@ -335,6 +335,7 @@
 .prognosis_window_wrapper .pw_goals_block .pw_goals_popular .pw_goals_popular_value {
   display: flex;
   flex-direction: row;
+  flex-wrap: wrap;
 }
 .prognosis_window_wrapper .pw_goals_block .pw_goals_popular .pw_goals_popular_value .pw_goals_popular_score {
   display: flex;
@@ -350,6 +351,8 @@
   margin-right: 3px;
   cursor: pointer;
   box-shadow: 0 2px 3px rgba(0, 0, 0, 0.4), 0 -1px 0 rgba(0, 0, 0, 0.2);
+  width: 50px;
+  margin-bottom: 2px;
 }
 .prognosis_window_wrapper .pw_goals_block .pw_goals_popular .pw_goals_popular_value .pw_goals_popular_score:hover {
   background: #fff;
@@ -493,7 +496,7 @@
   justify-content: flex-start;
 }
 .prognosis_window_wrapper .pw_card_block {
-  margin-top: 20px;
+  margin-top: 24px;
   display: flex;
   flex-direction: column;
   position: relative;
@@ -510,7 +513,7 @@
   color: #fff;
   border-radius: 5px;
   padding: 3px 6px;
-  top: -16px;
+  top: -20px;
 }
 .prognosis_window_wrapper .pw_card_block .pw_card_box {
   display: flex;
@@ -520,6 +523,10 @@
 .prognosis_window_wrapper .pw_card_block .pw_card_box .pw_card_box_color {
   display: flex;
   flex-direction: row;
+  width: 50%;
+}
+.prognosis_window_wrapper .pw_card_block .pw_card_box .pw_card_box_color.pw_card_box_yellow {
+  justify-content: flex-end;
 }
 .prognosis_window_wrapper .pw_card_block .pw_card_box .pw_card_box_color .pw_card_btn_box {
   display: flex;
@@ -546,6 +553,16 @@
   color: #228B22;
   border: 1px solid #228B22;
 }
+.prognosis_window_wrapper .pw_card_block .pw_card_box .pw_card_box_color .pw_card_btn_box.pwc_btn_box_yellow .pw_card_btn {
+  background: yellow;
+  color: #000;
+  font-weight: bold;
+}
+.prognosis_window_wrapper .pw_card_block .pw_card_box .pw_card_box_color .pw_card_btn_box.pwc_btn_box_red .pw_card_btn {
+  background: red;
+  color: #000;
+  font-weight: bold;
+}
 .prognosis_window_wrapper .pw_card_block .pw_card_box .pw_card_box_color .pw_card_input {
   display: flex;
   flex-direction: row;
@@ -565,7 +582,7 @@
 .prognosis_window_wrapper .pw_card_block .pw_card_box .pw_card_box_color .pw_card_input.c_yellow {
   background: yellow;
 }
-.prognosis_window_wrapper .pw_card_block .pw_card_box .pw_card_box_color .pw_card_input.red {
+.prognosis_window_wrapper .pw_card_block .pw_card_box .pw_card_box_color .pw_card_input.c_red {
   background: red;
 }
 @media (max-width: 500px) {

@@ -115,17 +115,17 @@
         <div class="pw_goals_block">
             <div class="pw_goals_block_title">Счет: </div>
             <div class="pw_goals_popular">
-                <div class="pw_goals_popular_title">Популярное: </div>
+                <div class="pw_goals_popular_title">Популярный счет: </div>
                 <div class="pw_goals_popular_value">
                     <?php foreach ($arResult["btn"]["goals"]["score"] as $item):?>
-                        <div class="pw_goals_popular_score" data-cell="<?=$item["cell"]?>" data-type="<?=$item["type"]?>"><?=$item["name"]?></div>
+                        <div class="pw_goals_popular_score" data-cell="<?=$item["cell"]?>" ><?=$item["name"]?></div>
                     <?php endforeach;?>
                 </div>
             </div>
             <div class="pw_goals_btn_box">
                 <div class="pw_goals_btn_home pw_goals_btn_ink">
                     <?php foreach ($arResult["btn"]["goals"]["inc_home"] as $item):?>
-                        <div class="pw_goals_btn" data-cell="<?=$item["cell"]?>" data-type="<?=$item["type"]?>"><?=$item["name"]?></div>
+                        <div class="pw_goals_btn" data-cell="<?=$item["cell"]?>" ><?=$item["name"]?></div>
                     <?php endforeach;?>
                 </div>
 
@@ -136,7 +136,7 @@
 
                 <div class="pw_goals_btn_guest pw_goals_btn_ink">
                     <?php foreach ($arResult["btn"]["goals"]["inc_guest"] as $item):?>
-                        <div class="pw_goals_btn" data-cell="<?=$item["cell"]?>" data-type="<?=$item["type"]?>"><?=$item["name"]?></div>
+                        <div class="pw_goals_btn" data-cell="<?=$item["cell"]?>" ><?=$item["name"]?></div>
                     <?php endforeach;?>
                 </div>
 
@@ -155,12 +155,12 @@
             <div class="pw_domination_btn_block">
                 <div class="pw_domination_btn_box pwd_home">
                     <?php foreach ($arResult["btn"]["dom"]["home"] as $item):?>
-                        <div class="pw_dom_btn" data-cell="<?=$item["cell"]?>" data-type="<?=$item["type"]?>"><?=$item["name"]?></div>
+                        <div class="pw_dom_btn" data-cell="<?=$item["cell"]?>" ><?=$item["name"]?></div>
                     <?php endforeach;?>
                 </div>
                 <div class="pw_domination_btn_box pwd_guest">
                     <?php foreach ($arResult["btn"]["dom"]["guest"] as $item):?>
-                        <div class="pw_dom_btn" data-cell="<?=$item["cell"]?>" data-type="<?=$item["type"]?>"><?=$item["name"]?></div>
+                        <div class="pw_dom_btn" data-cell="<?=$item["cell"]?>" ><?=$item["name"]?></div>
                     <?php endforeach;?>
                 </div>
             </div>
@@ -168,10 +168,10 @@
         <div class="pw_card_block">
             <div class="pw_card_title">Карточки:</div>
             <div class="pw_card_box">
-                <div class="pw_card_box_color">
+                <div class="pw_card_box_color pw_card_box_yellow">
                     <div class="pw_card_btn_box pwc_btn_box_yellow">
                         <?php foreach ($arResult["btn"]["cards"]["yellow"] as $item):?>
-                            <div class="pw_card_btn" data-cell="<?=$item["cell"]?>" data-type="<?=$item["type"]?>"><?=$item["name"]?></div>
+                            <div class="pw_card_btn" data-cell="<?=$item["cell"]?>" ><?=$item["name"]?></div>
                         <?php endforeach;?>
                     </div>
                     <input class="pw_card_input c_yellow" type="text" value="<?= $arResult["main"]["yellow"] ?>" placeholder="0">
@@ -180,7 +180,7 @@
                     <input class="pw_card_input c_red" type="text" value="<?= $arResult["main"]["red"] ?>" placeholder="0">
                     <div class="pw_card_btn_box pwc_btn_box_red">
                         <?php foreach ($arResult["btn"]["cards"]["red"] as $item):?>
-                            <div class="pw_card_btn" data-cell="<?=$item["cell"]?>" data-type="<?=$item["type"]?>"><?=$item["name"]?></div>
+                            <div class="pw_card_btn" data-cell="<?=$item["cell"]?>" ><?=$item["name"]?></div>
                         <?php endforeach;?>
                     </div>
                 </div>

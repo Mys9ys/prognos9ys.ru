@@ -342,8 +342,11 @@
       .pw_goals_popular_value{
         display: flex;
         flex-direction: row;
+        flex-wrap: wrap;
         .pw_goals_popular_score{
           .pw_btn;
+          width: 50px;
+          margin-bottom: 2px;
         }
       }
     }
@@ -422,7 +425,7 @@
     }
   }
   .pw_card_block{
-    margin-top: 20px;
+    margin-top: 24px;
     display: flex;
     flex-direction: column;
     position: relative;
@@ -430,7 +433,7 @@
 
     .pw_card_title{
       .pw_title;
-      top: -16px;
+      top: -20px;
     }
     .pw_card_box{
       display: flex;
@@ -439,6 +442,10 @@
       .pw_card_box_color{
         display: flex;
         flex-direction: row;
+        width: 50%;
+        &.pw_card_box_yellow{
+          justify-content: flex-end;
+        }
         .pw_card_btn_box{
           display: flex;
           flex-direction: row;
@@ -446,6 +453,21 @@
             .pw_btn;
             min-width: 30px;
           }
+          &.pwc_btn_box_yellow{
+            .pw_card_btn{
+              background: yellow;
+              color: #000;
+              font-weight: bold;
+            }
+          }
+          &.pwc_btn_box_red{
+            .pw_card_btn{
+              background: red;
+              color: #000;
+              font-weight: bold;
+            }
+          }
+
         }
         .pw_card_input{
           .pw_input;
@@ -453,7 +475,7 @@
           &.c_yellow{
             background: yellow;
           }
-          &.red{
+          &.c_red{
             background: red;
           }
         }
