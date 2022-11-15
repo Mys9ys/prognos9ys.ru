@@ -194,33 +194,18 @@
             </div>
         </div>
         <div class="pw_other_block">
-            <div class="pw_other_box pw_corner_block">
-                <div class="pw_other_title pw_corner_title">Угловые:</div>
-                <div class="pw_other_box_wrapper pw_corner_box">
-                    <div class="pw_other_btn_box pw_corner_btn_box">
-                        <?php foreach ($arResult["btn"]["corner"] as $item):?>
-                            <div class="pw_corner_btn" data-cell="<?=$item["cell"]?>" ><?=$item["name"]?></div>
-                        <?php endforeach;?>
-                    </div>
-                    <input class="pw_other_input o_corner_i" type="text" value="<?= $arResult["main"]["corner"] ?>" placeholder="0">
-                 </div>
+            <div class="pw_corner_block">
+                <div class="pw_corner_title">Угловые:</div>
             </div>
-            <div class="pw_other_box pw_penalty_block">
-                <div class="pw_other_title pw_penalty_title">Пенальти:</div>
-                <div class="pw_other_box_wrapper pw_penalty_box">
-                    <input class="pw_other_input o_penalty_i" type="text" value="<?= $arResult["main"]["penalty"] ?>" placeholder="0">
-                    <div class="pw_other_btn_box pw_penalty_btn_box">
-                        <?php foreach ($arResult["btn"]["penalty"] as $item):?>
-                            <div class="pw_penalty_btn" data-cell="<?=$item["cell"]?>" ><?=$item["name"]?></div>
-                        <?php endforeach;?>
-                    </div>
-                </div>
+            <div class="pw_penalty_block">
+                <div class="pw_penalty_title">Пенальти:</div>
             </div>
         </div>
         <div class="pw_btn_block ">
             <div class="o_btn_temp o_btn_rand">Заполнить случайно(пока работает) <i class="fa fa-random" aria-hidden="true"></i></div>
             <div class="o_btn_temp o_btn_send_prognosis"><?= $arResult["main"]["home_goals"] ? 'Изменить': 'Отправить' ?></div>
         </div>
+
 
     </div>
     <div class="pr_btn_next_block">

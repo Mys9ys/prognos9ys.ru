@@ -47,3 +47,14 @@ $arResult["btn"]["cards"]["red"] = [
     ["name"=>"0", "cell"=> "c_red"],
     ["name"=>"+1", "cell"=> "c_red"],
 ];
+
+$arResult["btn"]["corner"] = [
+    ["name"=>"+3", "cell"=> "o_corner_i"],
+    ["name"=>"+1", "cell"=> "o_corner_i"],
+    ["name"=>"0", "cell"=> "o_corner_i"],
+];
+
+$arResult["btn"]["penalty"] = [
+    ["name"=>"0", "cell"=> "c_red"],
+    ["name"=>"+1", "cell"=> "c_red"],
+];

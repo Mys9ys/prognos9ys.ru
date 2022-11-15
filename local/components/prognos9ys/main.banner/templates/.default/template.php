@@ -14,6 +14,7 @@
                     <img src="<?= $templateFolder ?><?= $item["img"] ?>" alt="">
                 </div>
                 <div class="mb_banner_title"><?= $item["title"] ?></div>
+                <div class="mb_banner_small_title"><?= $item["small_title"] ?></div>
                 <div class="mb_btn_box">
                     <div class="mb_banner_btn"><?= $item["btn_title"] ?></div>
                 </div>

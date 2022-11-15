@@ -484,6 +484,47 @@
       }
     }
   }
+  .pw_other_block{
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    .pw_other_box{
+      display: flex;
+      flex-direction: row;
+      position: relative;
+      margin-top: 34px;
+      width: 50%;
+      &.pw_corner_block{
+        justify-content: flex-end;
+      }
+      .pw_other_title{
+        .pw_title;
+        top: -28px;
+        //&.pw_corner_title{
+        //  left: 5px;
+        //}
+        //&.pw_penalty_title{
+        //  right: 5px;
+        //}
+      }
+      .pw_other_box_wrapper{
+        display: flex;
+        flex-direction: row;
+        .pw_other_btn_box{
+          display: flex;
+          flex-direction: row;
+        }
+        .pw_corner_btn, .pw_penalty_btn{
+          .pw_btn;
+          min-width: 30px;
+        }
+        .pw_other_input{
+          .pw_input;
+        }
+      }
+    }
+  }
+
   .pw_btn_block{
     display: flex;
     flex-direction: row;
