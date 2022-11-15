@@ -26,7 +26,7 @@ $(document).ready(function () {
         calcRange($(this).val())
     })
 
-    $('.pw_goals_popular_score, .pw_goals_btn, .pw_dom_btn, .pw_card_btn, .pw_corner_btn').on('click', function () {
+    $('.pw_goals_popular_score, .pw_goals_btn, .pw_dom_btn, .pw_card_btn, .pw_corner_btn, .pw_penalty_btn').on('click', function () {
         console.log('this.val()', $(this).text(), 'this.cell', $(this).data("cell"), 'this.type', $(this).data("type"))
 
         changeValueMatchInput($(this).text(), $(this).data("cell"), $(this).data("type"))
@@ -150,6 +150,8 @@ function changeValueMatchInput(val, cell, action=''){
             break;
         case "c_red":
         case "c_yellow":
+        case "o_corner_i":
+        case "o_penalty_i":
             val = +val
             $('.'+cell).val(+$('.'+cell).val()+val)
             if(val === 0) $('.'+cell).val(0)
