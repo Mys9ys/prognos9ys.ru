@@ -32,7 +32,8 @@ class PrognosisProfile extends CBitrixComponent{
                 $user['name'] = $arUser['NAME'];
                 $user['id'] = $arUser['ID'];
                 $user['ref_link'] = 'https://prognos9ys.ru/auth/?register=yes&ref=' . $arUser['PERSONAL_PAGER'];
-                $user['ref_nik'] = $this->getRefNik($arUser['WORK_PAGER']) ?: '';
+                $user['ref_nik'] = '';
+                if($arUser['WORK_PAGER']) $user['ref_nik'] = $this->getRefNik($arUser['WORK_PAGER']) ?: '';
                 $this->arResult = $user;
             }
         }
