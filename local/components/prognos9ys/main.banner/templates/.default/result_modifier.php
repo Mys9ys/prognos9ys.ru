@@ -11,6 +11,12 @@ $arResult["items"]["ref"] = [
     "bcgrnd" => '/assets/img/ref.jpg'
 ];
 
+$arResult["items"]["prize"] = [
+    "link" => "/p/prize/",
+    "bcgrnd" => '/assets/img/prize.jpg'
+];
+
+
 $arResult["items"]["faq"] =
     [
         "link" => "/p/faq/",
