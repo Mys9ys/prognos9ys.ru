@@ -64,6 +64,8 @@ class myRegisterNewUser
             "LOGIN"             => $this->info["login"],
             "PASSWORD"          => $this->info["password"],
             "CONFIRM_PASSWORD"  => $this->info["password"],
+            "PERSONAL_PAGER"    => substr(time(), 4) . rand(0,20),
+            "WORK_PAGER"        => $this->info["ref"],
         );
 
         $res = $user->Add($arFields);

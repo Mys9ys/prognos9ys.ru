@@ -21,6 +21,7 @@ $(document).ready(function () {
         e.preventDefault();
 
         data["type"] = "reg"
+        if($('.naf_ref').val()) data[$('.naf_ref').attr("name")] = $('.naf_ref').val()
 
         myRegisterAjaxRequest()
     })

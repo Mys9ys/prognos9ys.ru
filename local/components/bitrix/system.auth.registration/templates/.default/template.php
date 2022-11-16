@@ -47,6 +47,11 @@ if (!defined("B_PROLOG_INCLUDED") || B_PROLOG_INCLUDED !== true) die(); ?>
                 </div>
             </div>
 
+            <?php if($_REQUEST["ref"]):?>
+                <input class="naf_ref" type="hidden" name="ref" value="<?=$_REQUEST["ref"]?>"/>
+            <?php endif;?>
+
+
             <button class="naf_btn naf_btn_send btn btn-primary" name="register">
                 <i class="fa fa-spinner fa-spin" aria-hidden="true"></i>
                 <span>Зарегистрироваться</span>
