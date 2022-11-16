@@ -1,9 +1,14 @@
 <?php
 if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED!==true)die();
 
-$arResult["items"]["qatar"] = [
-    "link" => "/p/matches/",
-    "bcgrnd" => '/assets/img/qatar.png'
+//$arResult["items"]["qatar"] = [
+//    "link" => "/p/matches/",
+//    "bcgrnd" => '/assets/img/qatar.png'
+//];
+
+$arResult["items"]["ref"] = [
+    "link" => "/p/ref/",
+    "bcgrnd" => '/assets/img/ref.jpg'
 ];
 
 $arResult["items"]["faq"] =
