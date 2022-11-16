@@ -64,16 +64,19 @@ function setCountGoals(arr) {
     $('.o_diff_i').val(diff)
 
     if(diff < 0) {
+        $('.or_radio').attr('checked', false)
         $('.or_guest').attr('checked', true)
-        $('.or_radio_res').val('п1')
+        $('.or_radio_res').val('п2')
     }
     if(diff === 0) {
+        $('.or_radio').attr('checked', false)
         $('.or_draw').attr('checked', true)
         $('.or_radio_res').val('н')
     }
     if(diff > 0) {
+        $('.or_radio').attr('checked', false)
         $('.or_home').attr('checked', true)
-        $('.or_radio_res').val('п2')
+        $('.or_radio_res').val('п1')
     }
 
 
