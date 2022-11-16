@@ -37,7 +37,7 @@ require($_SERVER['DOCUMENT_ROOT'] . '/bitrix/header.php');
         font-size: 14px;
     }
 
-    .faq_wrapper img {
+    .ref_wrapper img {
         max-width: 98%;
         margin: 0 auto;
 
