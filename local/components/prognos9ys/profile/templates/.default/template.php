@@ -22,6 +22,11 @@
             </div>
             <input class="ref_link_box" type="text" value="<?=$arResult['ref_link']?>">
         </div>
+
+        <div class="ref_box">
+            <span>Приглашено: <?=$arResult["you_ref"]["count"] ?: 0?></span>
+            <span>Из них активны: <?=$arResult["you_ref"]["active"] ?: 0?></span>
+        </div>
     </div>
 
 
