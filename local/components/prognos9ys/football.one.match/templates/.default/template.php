@@ -93,15 +93,15 @@
 
         <div class="o_prof_stat o_cards_block">
             <div class="ot_title oc_yellow"><i class="bi bi-file-fill"></i></div>
-            <input class="o_prof_input o_yellow_i c_yellow m_pr_value" type="text" value="<?= $arResult["main"]["yellow"] ?>" name="m_yellow"  placeholder="0">
-            <input class="o_prof_input o_red_i c_red m_pr_value" type="text" value="<?= $arResult["main"]["red"] ?>" name="m_red" placeholder="0">
+            <input class="o_prof_input o_yellow_i c_yellow m_pr_value" type="text" value="<?= $arResult["main"]["yellow"] ?>" name="m_yellow" placeholder="-">
+            <input class="o_prof_input o_red_i c_red m_pr_value" type="text" value="<?= $arResult["main"]["red"] ?>" name="m_red" placeholder="-">
             <div class="ot_title oc_red"><i class="bi bi-file-fill"></i></div>
         </div>
 
         <div class="o_prof_stat o_corners_block">
             <div class="ot_title"><i class="bi bi-flag"></i></div>
-            <input class="o_prof_input o_corner_i m_pr_value" type="text" value="<?= $arResult["main"]["corner"] ?>" name="m_corner" placeholder="0">
-             <input class="o_prof_input o_penalty_i m_pr_value" type="text" value="<?= $arResult["main"]["penalty"] ?>" name="m_penalty" placeholder="0">
+            <input class="o_prof_input o_corner_i m_pr_value" type="text" value="<?= $arResult["main"]["corner"] ?>" name="m_corner" placeholder="-">
+             <input class="o_prof_input o_penalty_i m_pr_value" type="text" value="<?= $arResult["main"]["penalty"] ?>" name="m_penalty" placeholder="-">
             <div class="ot_title">pen</div>
         </div>
 
@@ -199,11 +199,11 @@
                         <?php endforeach;?>
                     </div>
                     <input class="pw_card_input c_yellow" type="text" value="<?= $arResult["main"]["yellow"] ?>" disabled
-                           placeholder="0">
+                           placeholder="-">
                 </div>
                 <div class="pw_card_box_color">
                     <input class="pw_card_input c_red" type="text" value="<?= $arResult["main"]["red"] ?>" disabled
-                           placeholder="0">
+                           placeholder="-">
                     <div class="pw_card_btn_box pwc_btn_box_red">
                         <?php foreach ($arResult["btn"]["cards"]["red"] as $item):?>
                             <div class="pw_card_btn" data-cell="<?=$item["cell"]?>" ><?=$item["name"]?></div>
@@ -222,14 +222,14 @@
                         <?php endforeach;?>
                     </div>
                     <input class="pw_other_input o_corner_i" type="text" value="<?= $arResult["main"]["corner"] ?>" disabled
-                           placeholder="0">
+                           placeholder="-">
                  </div>
             </div>
             <div class="pw_other_box pw_penalty_block">
                 <div class="pw_other_title pw_penalty_title">Пенальти:</div>
                 <div class="pw_other_box_wrapper pw_penalty_box">
                     <input class="pw_other_input o_penalty_i" type="text" value="<?= $arResult["main"]["penalty"] ?>" disabled
-                           placeholder="0">
+                           placeholder="-">
                     <div class="pw_other_btn_box pw_penalty_btn_box">
                         <?php foreach ($arResult["btn"]["penalty"] as $item):?>
                             <div class="pw_penalty_btn" data-cell="<?=$item["cell"]?>" ><?=$item["name"]?></div>
