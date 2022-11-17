@@ -1,0 +1,50 @@
+//@import "../../../../../../templates/prognos9ys/assets/css/variables";
+
+//@import "/local/templates/prognos9ys/assets/css/variables.less";
+@blockBG: #253133;
+@colorText: #fff;
+@colorText2: #228B22;
+
+.footer_block {
+  position: fixed;
+  width: 400px;
+  max-width: 98%;
+  margin: 0 auto;
+  color: @colorText;
+  background: @blockBG;
+  border-radius: 5px;
+  padding: 20px 20px;
+  font-size: 14px;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+
+  .footer_problem{
+    padding: 5px;
+  }
+
+  .footer_btn_block{
+    display: flex;
+    flex-direction: row;
+  }
+  .footer_social_btn{
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    font-size: 20px;
+    color: @colorText2;
+    border: 2px solid @colorText2;
+    border-radius: 5px;
+    text-decoration: none;
+    margin-right: 5px;
+
+    &:hover{
+      color: @colorText;
+      background: @colorText2;
+    }
+  }
+
+}

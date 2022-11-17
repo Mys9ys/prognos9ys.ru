@@ -2,6 +2,13 @@
 if (!defined("B_PROLOG_INCLUDED") || B_PROLOG_INCLUDED !== true) die();
 
 ?>
+<?php $APPLICATION->IncludeComponent(
+    "prognos9ys:tg_channel",
+    "",
+    array(),
+    $component,
+    array()
+); ?>
 <?php if (!$_SERVER["QUERY_STRING"]): ?>
     <div class="new_auth_form_wrapper">
         <div class="new_auth_form">

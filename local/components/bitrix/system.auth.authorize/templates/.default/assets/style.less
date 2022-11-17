@@ -47,7 +47,16 @@
       margin-top: 35px;
     }
     .btn_reg_box{
-      text-align: center;
+      display: flex;
+      flex-direction: row;
+      margin-top: 10px;
+      align-items: stretch;
+      justify-content: space-evenly;
+      .btn_reg_form{
+        display: block;
+        background: @blockBG;
+        padding: 5px 12px;
+      }
     }
   }
 }

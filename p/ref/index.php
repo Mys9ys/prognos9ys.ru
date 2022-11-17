@@ -24,7 +24,7 @@ require($_SERVER['DOCUMENT_ROOT'] . '/bitrix/header.php');
         <li>4-5 места – 500 рублей</li>
     </ul>
 </div>
-
+<?require($_SERVER["DOCUMENT_ROOT"]."/bitrix/footer.php");?>
 <style>
     .ref_wrapper {
         width: 400px;

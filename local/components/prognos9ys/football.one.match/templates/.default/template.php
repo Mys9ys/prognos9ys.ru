@@ -10,6 +10,13 @@
     </style>
 <?php endif;?>
 <?php if($arResult["other"]["id"]):?>
+    <?php $APPLICATION->IncludeComponent(
+        "prognos9ys:tg_channel",
+        "",
+        array(),
+        $component,
+        array()
+    ); ?>
 <div class="one_match_wrapper">
 
     <div class="pr_btn_next_block">

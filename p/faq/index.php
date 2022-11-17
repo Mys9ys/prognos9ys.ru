@@ -96,7 +96,7 @@ require($_SERVER['DOCUMENT_ROOT'] . '/bitrix/header.php');
     <p class="text-danger" style="font-size: 11px;">* Если вы хотите чтобы значение какого то параметра было 0(ноль), то вам потребуется его
         проставить, ибо система посчитает, что вы пропустии данный параметр</p>
 </div>
-
+<?require($_SERVER["DOCUMENT_ROOT"]."/bitrix/footer.php");?>
 <style>
     .faq_wrapper {
         width: 400px;
