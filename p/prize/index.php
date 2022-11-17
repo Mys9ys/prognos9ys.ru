@@ -57,7 +57,7 @@ require($_SERVER['DOCUMENT_ROOT'] . '/bitrix/header.php');
 
     <p>Выплаты производятся банковским переводом на карту сбербанка или другой российский банк через быстрые платежи СБП</p>
 </div>
-<?require($_SERVER["DOCUMENT_ROOT"]."/bitrix/footer.php");?>
+
 <style>
     .prize_wrapper {
         width: 400px;
@@ -76,4 +76,4 @@ require($_SERVER['DOCUMENT_ROOT'] . '/bitrix/header.php');
 
     }
 </style>
-
+<?require($_SERVER["DOCUMENT_ROOT"]."/bitrix/footer.php");
