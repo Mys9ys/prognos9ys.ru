@@ -21,6 +21,7 @@
                 Ваша реферальная ссылка:
             </div>
             <input class="ref_link_box" type="text" value="<?=$arResult['ref_link']?>">
+            <div class="btn-default btn btn-outline-info ref_link_copy mt-2">Копировать <i class="fa fa-clone" aria-hidden="true"></i></div>
         </div>
 
         <div class="ref_box">
@@ -31,3 +32,13 @@
 
 
 </div>
+
+
+<script>
+    $(document).ready(function () {
+        $('.ref_link_copy').on('click', function () {
+            $('.ref_link_box').select()
+            document.execCommand("copy");
+        })
+    })
+</script>
