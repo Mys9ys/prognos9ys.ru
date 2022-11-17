@@ -226,11 +226,21 @@
       border: 1px solid @colorText;
     }
   }
-  .btn_next_match{
-    .o_btn_temp;
+  .o_btn_next_match{
+    color: #fff;
+    font-size: 12px;
+    border-radius: 5px;
+
+    cursor: pointer;
+    border: 1px solid transparent;
     background: @blockBG;
     text-decoration: none;
     padding: 3px 9px;
+    box-shadow: 0 2px 3px rgba(0,0,0,.4), 0 -1px 0 rgba(0,0,0,.2);
+    margin-right: 3px;
+    &:hover{
+      color: @colorText2;
+    }
   }
 }
 .pw_btn{

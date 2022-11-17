@@ -14,9 +14,9 @@
 
     <div class="pr_btn_next_block">
         <?php if($arResult["other"]["number"]>1):?>
-            <a class="btn_next_match" href="/p/match/<?= $arResult["other"]["id"]-1?>/"><i class="fa fa-long-arrow-left" aria-hidden="true"></i> Предыдущий матч </a>
+            <a class="o_btn_next_match" href="/p/match/<?= $arResult["other"]["id"]-1?>/"><i class="fa fa-long-arrow-left" aria-hidden="true"></i> Предыдущий матч </a>
         <?php endif;?>
-        <a class="btn_next_match" href="/p/match/<?= $arResult["other"]["id"]+1?>/">Следующий матч <i class="fa fa-long-arrow-right" aria-hidden="true"></i></a>
+        <a class="o_btn_next_match" href="/p/match/<?= $arResult["other"]["id"]+1?>/">Следующий матч <i class="fa fa-long-arrow-right" aria-hidden="true"></i></a>
     </div>
 
     <div class="o_match_info" <?php if($_SERVER["HTTP_HOST"] === 'prog.work') echo 'style="display: none"'?>>
@@ -246,9 +246,9 @@
     </div>
     <div class="pr_btn_next_block">
         <?php if($arResult["other"]["number"]>1):?>
-            <a class="btn_next_match" href="/p/match/<?= $arResult["other"]["id"]-1?>/"><i class="fa fa-long-arrow-left" aria-hidden="true"></i> Предыдущий матч </a>
+            <a class="o_btn_next_match" href="/p/match/<?= $arResult["other"]["id"]-1?>/"><i class="fa fa-long-arrow-left" aria-hidden="true"></i> Предыдущий матч </a>
         <?php endif;?>
-        <a class="btn_next_match" href="/p/match/<?= $arResult["other"]["id"]+1?>/">Следующий матч <i class="fa fa-long-arrow-right" aria-hidden="true"></i></a>
+        <a class="o_btn_next_match" href="/p/match/<?= $arResult["other"]["id"]+1?>/">Следующий матч <i class="fa fa-long-arrow-right" aria-hidden="true"></i></a>
     </div>
 
 </div>
@@ -259,7 +259,7 @@
 
 <?php else:?>
     <div class="one_match_wrapper">
-        <div class="btn_next_match">Тут ни чего нет</div>
+        <div class="o_btn_next_match">Тут ни чего нет</div>
     </div>
 <?php endif;?>
 
