@@ -1,8 +1,9 @@
 @blockBG: #253133;
 @colorText: #fff;
 @colorText2: #228B22;
+@qatar: #8a1538;
 
-.m_template_box{
+.m_template_box {
   color: #228B22;
   padding: 2px;
   background: @blockBG;
@@ -11,20 +12,52 @@
   margin-right: 2px;
 }
 
-.matches_wrapper{
+.matches_wrapper {
   width: 400px;
   max-width: 98%;
   margin: 0 auto;
 
-  .day_line_block{
+  .matches_title {
+    display: flex;
+    flex-direction: row;
+    background: @qatar;
+    color: @colorText;
+    position: relative;
+    justify-content: flex-end;
+    padding: 5px;
+    border-radius: 5px;
+    margin-top: 85px;
+    //height: 40px;
+    .matches_logo {
+      position: absolute;
+      width: 20%;
+      bottom: 0;
+      border-radius: 5px;
+      background: @qatar;
+      left: 0;
+
+      .matches_logo_img {
+        width: 100%;
+      }
+    }
+
+    .matches_text {
+      width: 80%;
+      font-weight: bold;
+    }
+  }
+
+  .day_line_block {
     border-top: 3px solid @blockBG;
     margin: 9px 0;
     border-radius: 5px;
-    .day_line_box{
+
+    .day_line_box {
       display: flex;
       flex-direction: row;
       justify-content: center;
-      .day_date{
+
+      .day_date {
         padding: 2px 5px;
         font-size: 16px;
         font-weight: 700;
@@ -32,7 +65,7 @@
     }
   }
 
-  .m_match_box{
+  .m_match_box {
     display: flex;
     flex-direction: row;
     width: 100%;
@@ -40,26 +73,28 @@
     height: 30px;
     margin-bottom: 3px;
 
-    .m_time{
+    .m_time {
       width: 68px;
       justify-content: center;
       text-align: center;
     }
 
-    .m_separate{
+    .m_separate {
       padding: 0 3px;
       font-weight: 700;
     }
 
-    .m_team_block{
+    .m_team_block {
       width: 213px;
       display: flex;
       flex-direction: row;
-      .m_team_box{
+
+      .m_team_box {
         width: 100px;
         display: flex;
         flex-direction: row;
-        .m_team_flag{
+
+        .m_team_flag {
           display: flex;
           flex-direction: column;
           align-items: center;
@@ -68,11 +103,13 @@
           width: 22px;
           height: 22px;
           margin-right: 2px;
-          .mt_flag_img{
+
+          .mt_flag_img {
             width: 100%;
           }
         }
-        .m_team_title{
+
+        .m_team_title {
           display: flex;
           flex-direction: row;
           flex-wrap: wrap;
@@ -80,13 +117,15 @@
         }
       }
     }
-    .m_goals_box{
+
+    .m_goals_box {
       width: 54px;
       display: flex;
       flex-direction: row;
       justify-content: center;
     }
-    .m_info_box{
+
+    .m_info_box {
       margin: 0;
       display: flex;
       flex-direction: row;
@@ -96,12 +135,12 @@
   }
 }
 
-.m_btn_prognosis{
+.m_btn_prognosis {
   display: inline-block;
   background: @colorText2;
   color: @colorText;
   cursor: pointer;
-  box-shadow: 0 2px 3px rgba(0,0,0,.4), 0 -1px 0 rgba(0,0,0,.2);
+  box-shadow: 0 2px 3px rgba(0, 0, 0, .4), 0 -1px 0 rgba(0, 0, 0, .2);
   padding: 3px;
   border-radius: 3px;
   min-width: 22px;

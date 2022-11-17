@@ -11,6 +11,32 @@
   max-width: 98%;
   margin: 0 auto;
 }
+.matches_wrapper .matches_title {
+  display: flex;
+  flex-direction: row;
+  background: #8a1538;
+  color: #fff;
+  position: relative;
+  justify-content: flex-end;
+  padding: 5px;
+  border-radius: 5px;
+  margin-top: 85px;
+}
+.matches_wrapper .matches_title .matches_logo {
+  position: absolute;
+  width: 20%;
+  bottom: 0;
+  border-radius: 5px;
+  background: #8a1538;
+  left: 0;
+}
+.matches_wrapper .matches_title .matches_logo .matches_logo_img {
+  width: 100%;
+}
+.matches_wrapper .matches_title .matches_text {
+  width: 80%;
+  font-weight: bold;
+}
 .matches_wrapper .day_line_block {
   border-top: 3px solid #253133;
   margin: 9px 0;

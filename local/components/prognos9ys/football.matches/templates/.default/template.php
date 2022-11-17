@@ -1,5 +1,13 @@
 <?php if (!defined("B_PROLOG_INCLUDED") || B_PROLOG_INCLUDED !== true) die();?>
 <div class="matches_wrapper">
+    <div class="matches_title">
+        <div class="matches_logo">
+            <img class="matches_logo_img" src="<?=$templateFolder?>/assets/img/logo.png" alt="">
+        </div>
+        <div class="matches_text">
+            Расписание матчей Чемпионата мира по футболу
+        </div>
+    </div>
     <?php $day = '';
     foreach ($arResult["teams"] as $id=>$item):?>
     <?php
