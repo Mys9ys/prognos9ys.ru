@@ -82,7 +82,7 @@
             <div class="o_domination_box">
                 <input class="o_dom_i m_pr_value o_dom_h dom_home" type="text" value="<?= $arResult["main"]["domination"] ?>" name="m_domination" placeholder="50">
                 <div class="o_domination_range_box">
-                    <input class="o_domination_range domination_range" aria-orientation="vertical"
+                    <input class="o_domination_range domination_range" aria-orientation="vertical" disabled
                            type="range" value="<?= $arResult["main"]["domination"] ?>" max="100" min="0" step="1">
                 </div>
             </div>
@@ -150,8 +150,10 @@
                 </div>
 
                 <div class="pw_goals_input_box">
-                    <input type="text" class="pw_goals_i goal_home" placeholder="0" value="<?= $arResult["main"]["home_goals"] ?>" >
-                    <input type="text" class="pw_goals_i goal_guest" placeholder="0" value="<?= $arResult["main"]["guest_goals"] ?>">
+                    <input type="text" class="pw_goals_i goal_home" placeholder="0"
+                           value="<?= $arResult["main"]["home_goals"] ?>" disabled>
+                    <input type="text" class="pw_goals_i goal_guest" placeholder="0"
+                           value="<?= $arResult["main"]["guest_goals"] ?>" disabled>
                 </div>
 
                 <div class="pw_goals_btn_guest pw_goals_btn_ink">
@@ -165,12 +167,14 @@
         <div class="pw_domination_block">
             <div class="pw_domination_title">Процент владения:</div>
             <div class="pw_domination_range_block">
-                <input type="text" class="pw_dom_i pw_dom_i_home dom_home" placeholder="0" value="<?= $arResult["main"]["domination"] ?>" >
+                <input type="text" class="pw_dom_i pw_dom_i_home dom_home" placeholder="0"
+                       value="<?= $arResult["main"]["domination"] ?>" disabled>
                 <div class="pw_domination_range_box">
                     <input class="pw_domination_range domination_range" aria-orientation="vertical"
                            type="range" value="<?= $arResult["main"]["domination"] ?>" max="100" min="0" step="1">
                 </div>
-                <input type="text" class="pw_dom_i pw_dom_i_guest dom_guest" placeholder="0" value="<?= $arResult["main"]["domination2"] ?>" >
+                <input type="text" class="pw_dom_i pw_dom_i_guest dom_guest" placeholder="0"
+                       value="<?= $arResult["main"]["domination2"] ?>" disabled>
             </div>
             <div class="pw_domination_btn_block">
                 <div class="pw_domination_btn_box pwd_home">
@@ -194,10 +198,12 @@
                             <div class="pw_card_btn" data-cell="<?=$item["cell"]?>" ><?=$item["name"]?></div>
                         <?php endforeach;?>
                     </div>
-                    <input class="pw_card_input c_yellow" type="text" value="<?= $arResult["main"]["yellow"] ?>" placeholder="0">
+                    <input class="pw_card_input c_yellow" type="text" value="<?= $arResult["main"]["yellow"] ?>" disabled
+                           placeholder="0">
                 </div>
                 <div class="pw_card_box_color">
-                    <input class="pw_card_input c_red" type="text" value="<?= $arResult["main"]["red"] ?>" placeholder="0">
+                    <input class="pw_card_input c_red" type="text" value="<?= $arResult["main"]["red"] ?>" disabled
+                           placeholder="0">
                     <div class="pw_card_btn_box pwc_btn_box_red">
                         <?php foreach ($arResult["btn"]["cards"]["red"] as $item):?>
                             <div class="pw_card_btn" data-cell="<?=$item["cell"]?>" ><?=$item["name"]?></div>
@@ -215,13 +221,15 @@
                             <div class="pw_corner_btn" data-cell="<?=$item["cell"]?>" ><?=$item["name"]?></div>
                         <?php endforeach;?>
                     </div>
-                    <input class="pw_other_input o_corner_i" type="text" value="<?= $arResult["main"]["corner"] ?>" placeholder="0">
+                    <input class="pw_other_input o_corner_i" type="text" value="<?= $arResult["main"]["corner"] ?>" disabled
+                           placeholder="0">
                  </div>
             </div>
             <div class="pw_other_box pw_penalty_block">
                 <div class="pw_other_title pw_penalty_title">Пенальти:</div>
                 <div class="pw_other_box_wrapper pw_penalty_box">
-                    <input class="pw_other_input o_penalty_i" type="text" value="<?= $arResult["main"]["penalty"] ?>" placeholder="0">
+                    <input class="pw_other_input o_penalty_i" type="text" value="<?= $arResult["main"]["penalty"] ?>" disabled
+                           placeholder="0">
                     <div class="pw_other_btn_box pw_penalty_btn_box">
                         <?php foreach ($arResult["btn"]["penalty"] as $item):?>
                             <div class="pw_penalty_btn" data-cell="<?=$item["cell"]?>" ><?=$item["name"]?></div>
