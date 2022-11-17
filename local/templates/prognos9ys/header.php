@@ -3,7 +3,7 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true) die(); ?>
 <!DOCTYPE html>
 <html>
 <head>
-    <title><? $APPLICATION->ShowTitle(); ?></title>
+    <title><?= $APPLICATION->ShowTitle(false); ?></title>
     <link rel="apple-touch-icon" sizes="180x180" href="/local/templates/prognos9ys/assets/favicon/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/local/templates/prognos9ys/assets/favicon/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/local/templates/prognos9ys/assets/favicon/favicon-16x16.png">

@@ -1,5 +1,6 @@
 <?php
 require($_SERVER['DOCUMENT_ROOT'] . '/bitrix/header.php');
+$APPLICATION->SetTitle("Условия реферальной программы");
 ?>
 
 <div class="ref_wrapper">

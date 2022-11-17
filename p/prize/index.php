@@ -1,5 +1,6 @@
 <?php
 require($_SERVER['DOCUMENT_ROOT'] . '/bitrix/header.php');
+$APPLICATION->SetTitle("Условия конкурса прогнозов");
 ?>
 
 <div class="prize_wrapper">
