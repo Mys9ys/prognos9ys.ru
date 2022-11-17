@@ -134,16 +134,16 @@ class FootballOneMatch extends CBitrixComponent
         $el["rewrite"] = $res["TIMESTAMP_X"] ?? '';
         dump($res["TIMESTAMP_X"]);
 
-        $el["home_goals"] = $res["PROPERTY_GOAL_HOME_VALUE"] ?? '';
+        $el["home_goals"] = $res["PROPERTY_GOAL_HOME_VALUE"] ?? 0;
 
-        $el["guest_goals"] = $res["PROPERTY_GOAL_GUEST_VALUE"] ?? '';
-        $el["result"] = $res["PROPERTY_RESULT_VALUE"] ?? '';
-        $el["diff"] = $res["PROPERTY_DIFF_VALUE"] ?? '';
+        $el["guest_goals"] = $res["PROPERTY_GOAL_GUEST_VALUE"] ?? 0;
+        $el["result"] = $res["PROPERTY_RESULT_VALUE"] ?? 'н';
+        $el["diff"] = $res["PROPERTY_DIFF_VALUE"] ?? 0;
         $el["corner"] = $res["PROPERTY_CORNER_VALUE"] ?? '';
         $el["yellow"] = $res["PROPERTY_YELLOW_VALUE"] ?? '';
         $el["red"] = $res["PROPERTY_RED_VALUE"] ?? '';
         $el["penalty"] = $res["PROPERTY_PENALTY_VALUE"] ?? '';
-        $el["sum"] = $res["PROPERTY_SUM_VALUE"] ?? '';
+        $el["sum"] = $res["PROPERTY_SUM_VALUE"] ?? 0;
         $el["offside"] = $res["PROPERTY_OFFSIDE_VALUE"] ?? '';
         $el["domination"] = $res["PROPERTY_DOMINATION_VALUE"] ?: 50;
         $el["domination2"] = $res["PROPERTY_DOMINATION_VALUE"] ? 100 - $res["PROPERTY_DOMINATION_VALUE"]: 50;

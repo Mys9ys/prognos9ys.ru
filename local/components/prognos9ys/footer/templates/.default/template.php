@@ -1,6 +1,6 @@
 <?php if (!defined("B_PROLOG_INCLUDED") || B_PROLOG_INCLUDED !== true) die(); ?>
 
-<div class="footer_block">
+<footer class="footer_block ">
     <div class="footer_problem">
         Возникли проблемы по сайту - пиши:
         <div class="footer_btn_block">
@@ -17,4 +17,4 @@
         array()
     ); ?>
 
-</div>
+</footer>

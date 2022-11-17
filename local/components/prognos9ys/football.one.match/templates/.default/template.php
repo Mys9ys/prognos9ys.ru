@@ -53,9 +53,9 @@
         <div class="o_goals_block">
             <div class="ot_title"><i class="fa fa-futbol-o" aria-hidden="true"></i></div>
             <input type="text" class="og_goal og_goal_home m_pr_value goal_home" name="m_goal_home"
-                   data-goal="home" value="<?= $arResult["main"]["home_goals"] ?>" placeholder="0">
+                   data-goal="home" value="<?= $arResult["main"]["home_goals"] ?? 0 ?>">
             <input type="text" class="og_goal og_goal_guest m_pr_value goal_guest" name="m_goal_guest"
-                   data-goal="guest" value="<?= $arResult["main"]["guest_goals"] ?>" placeholder="0">
+                   data-goal="guest" value="<?= $arResult["main"]["guest_goals"] ?? 0 ?>">
             <div class="ot_title"></div>
         </div>
         <div class="o_result_block">
@@ -66,14 +66,14 @@
             <label for="r_d">н</label>
             <input type="radio" id="r_p2" name="m_result" class="or_radio or_guest" value="п2" <?= $arResult["main"]["result"] === 'п2'? 'checked' : ''?>>
             <label for="r_p2">п2</label>
-            <input type="hidden" name="m_result" class="or_radio or_radio_res m_pr_value" value="<?= $arResult["main"]["result"] ?>">
+            <input type="hidden" name="m_result" class="or_radio or_radio_res m_pr_value" value="<?= $arResult["main"]["result"] ?? 'н'?>">
             <div class="ot_title"></div>
         </div>
 
         <div class="o_prof_stat o_count_goals_block">
             <div class="ot_title">sum</div>
-            <input class="o_prof_input o_sum_i m_pr_value" type="text" value="<?= $arResult["main"]["sum"] ?>" name="m_sum"  placeholder="0">
-            <input class="o_prof_input o_diff_i m_pr_value" type="text" value="<?= $arResult["main"]["diff"] ?>" name="m_diff" placeholder="0">
+            <input class="o_prof_input o_sum_i m_pr_value" type="text" value="<?= $arResult["main"]["sum"] ?? 0 ?>" name="m_sum">
+            <input class="o_prof_input o_diff_i m_pr_value" type="text" value="<?= $arResult["main"]["diff"] ?? 0?>" name="m_diff">
             <div class="ot_title">+/-</div>
         </div>
 
