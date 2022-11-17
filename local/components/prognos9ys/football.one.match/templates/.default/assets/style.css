@@ -30,10 +30,16 @@
   padding: 6px;
 }
 .one_match_wrapper .o_match_box .ot_title {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   height: 26px;
+  color: #fff;
+}
+.one_match_wrapper .o_match_box .ot_title .ot_title_date {
+  position: absolute;
+  font-size: 11px;
   color: #fff;
 }
 .one_match_wrapper .o_match_box .o_team_block {
@@ -680,8 +686,8 @@
   justify-content: center;
 }
 .pr_btn_next_block {
-  margin-top: 5px;
-  margin-bottom: 70px;
+  margin-top: 10px;
+  margin-bottom: 10px;
 }
 @media (max-width: 500px) {
   .one_match_wrapper .o_match_box .o_team_block .ot_team .ot_title {

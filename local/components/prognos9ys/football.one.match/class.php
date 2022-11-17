@@ -109,6 +109,7 @@ class FootballOneMatch extends CBitrixComponent
             [],
             [
                 "ID",
+                "TIMESTAMP_X",
                 "PROPERTY_goal_home",
                 "PROPERTY_goal_guest",
                 "PROPERTY_id",
@@ -129,6 +130,9 @@ class FootballOneMatch extends CBitrixComponent
         $res = $response->GetNext();
 
         $el = [];
+
+        $el["rewrite"] = $res["TIMESTAMP_X"] ?? '';
+        dump($res["TIMESTAMP_X"]);
 
         $el["home_goals"] = $res["PROPERTY_GOAL_HOME_VALUE"] ?? '';
 
