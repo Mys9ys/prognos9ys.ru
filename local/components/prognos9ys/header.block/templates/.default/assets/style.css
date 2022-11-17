@@ -1,5 +1,6 @@
 body {
   background: #2E8B57;
+  min-height: 100vh;
 }
 .header_wrapper {
   margin: 0 auto;

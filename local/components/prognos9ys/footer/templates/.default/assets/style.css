@@ -1,6 +1,5 @@
 .footer_block {
-  display: none;
-  position: absolute;
+  position: relative;
   width: 400px;
   max-width: 98%;
   color: #fff;
@@ -11,6 +10,7 @@
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);
+  margin-top: 20px;
 }
 .footer_block .footer_problem {
   padding: 5px;
