@@ -1,7 +1,8 @@
 .footer_block {
-  position: relative;
+  position: absolute;
   width: 400px;
   max-width: 98%;
+  margin: 0 auto;
   color: #fff;
   background: #253133;
   border-radius: 5px;
