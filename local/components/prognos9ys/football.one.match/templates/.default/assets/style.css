@@ -441,7 +441,7 @@
   color: #fff;
   border-radius: 5px;
   padding: 3px 6px;
-  top: -16px;
+  top: -15px;
 }
 .prognosis_window_wrapper .pw_domination_block .pw_domination_range_block {
   display: flex;
@@ -468,6 +468,9 @@
   color: #fff;
 }
 .prognosis_window_wrapper .pw_domination_block .pw_domination_range_block .pw_domination_range_box {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
   width: 70%;
 }
 .prognosis_window_wrapper .pw_domination_block .pw_domination_range_block .pw_domination_range_box .pw_domination_range {
@@ -511,7 +514,7 @@
   justify-content: flex-start;
 }
 .prognosis_window_wrapper .pw_card_block {
-  margin-top: 24px;
+  margin-top: 30px;
   display: flex;
   flex-direction: column;
   position: relative;
@@ -528,7 +531,7 @@
   color: #fff;
   border-radius: 5px;
   padding: 3px 6px;
-  top: -20px;
+  top: -24px;
 }
 .prognosis_window_wrapper .pw_card_block .pw_card_box {
   display: flex;
@@ -614,7 +617,7 @@
   display: flex;
   flex-direction: row;
   position: relative;
-  margin-top: 34px;
+  margin-top: 40px;
   width: 50%;
 }
 .prognosis_window_wrapper .pw_other_block .pw_other_box.pw_corner_block {
@@ -631,7 +634,7 @@
   color: #fff;
   border-radius: 5px;
   padding: 3px 6px;
-  top: -28px;
+  top: -34px;
 }
 .prognosis_window_wrapper .pw_other_block .pw_other_box .pw_other_box_wrapper {
   display: flex;
