@@ -20,33 +20,51 @@
     <?endif;
         $day = $item["date"];
     ?>
-
-    <div class="m_match_box">
-        <div class="m_time m_template_box"><i class="bi bi-alarm"></i> <?=$item["time"]?></div>
-        <div class="m_team_block m_template_box">
-            <div class="m_home_team_box m_team_box">
-                <div class="m_team_flag">
-                    <img class="mt_flag_img" src="<?=$item["home"]["img"]?>" alt="">
+    <div class="m_match_wrapper">
+        <div class="m_match_box">
+            <div class="m_time m_template_box"><i class="bi bi-alarm"></i> <?=$item["time"]?></div>
+            <div class="m_team_block m_template_box">
+                <div class="m_home_team_box m_team_box">
+                    <div class="m_team_flag">
+                        <img class="mt_flag_img" src="<?=$item["home"]["img"]?>" alt="">
+                    </div>
+                    <div class="m_team_title"><?=$item["home"]["NAME"]?></div>
                 </div>
-                <div class="m_team_title"><?=$item["home"]["NAME"]?></div>
-            </div>
-            <div class="m_separate">-</div>
-            <div class="m_guest_team_box m_team_box">
-                <div class="m_team_flag">
-                    <img class="mt_flag_img" src="<?=$item["guest"]["img"]?>" alt="">
+                <div class="m_separate">-</div>
+                <div class="m_guest_team_box m_team_box">
+                    <div class="m_team_flag">
+                        <img class="mt_flag_img" src="<?=$item["guest"]["img"]?>" alt="">
+                    </div>
+                    <div class="m_team_title"><?=$item["guest"]["NAME"]?></div>
                 </div>
-                <div class="m_team_title"><?=$item["guest"]["NAME"]?></div>
             </div>
+            <div class="m_goals_box m_template_box">
+                <div class="m_goals mg_home"><?=$item["home"]["goals"]?></div>
+                <div class="m_separate">-</div>
+                <div class="m_goals mg_guest"><?=$item["guest"]["goals"]?></div>
+            </div>
+            <!--        <div class="m_info_box m_template_box">-->
+            <!--            <a class="m_btn_prognosis" href="/p/match/--><?//=$id?><!--/"><i class="bi bi-pencil-square"></i></a>-->
+            <!--        </div>-->
         </div>
-        <div class="m_goals_box m_template_box">
-            <div class="m_goals mg_home"><?=$item["home"]["goals"]?></div>
-            <div class="m_separate">-</div>
-            <div class="m_goals mg_guest"><?=$item["guest"]["goals"]?></div>
-        </div>
-        <div class="m_info_box m_template_box">
-            <a class="m_btn_prognosis" href="/p/match/<?=$id?>/"><i class="bi bi-pencil-square"></i></a>
+        <div class="match_all_info_block">
+            <div class="match_user_info">
+                <?php if($item["write"]):?>
+                    Вы заполнили: <?=$item["write"]?>
+                <?php else:?>
+                    Не заполнено
+                <?php endif;?>
+            </div>
+            <a class="match_write_btn" href="/p/match/<?=$id?>/">
+                <?php if($item["write"]):?>
+                    Изменить <i class="bi bi-pencil-square"></i>
+                <?php else:?>
+                    Заполнить <i class="bi bi-pencil-square"></i>
+                <?php endif;?>
+            </a>
         </div>
     </div>
+
     <?php endforeach;?>
 </div>
 

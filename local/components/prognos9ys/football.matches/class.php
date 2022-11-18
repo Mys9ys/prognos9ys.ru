@@ -7,9 +7,13 @@ class FootballMatches extends CBitrixComponent
     protected $matchesIb;
     protected $groupIb;
     protected $countriesIb;
+    protected $prognosisIb;
 
     protected $arCountries = [];
     protected $arGroup = [];
+    protected $arUserPrognosis = [];
+
+    protected $userId;
 
     public function __construct($component = null)
     {
@@ -22,6 +26,11 @@ class FootballMatches extends CBitrixComponent
         $this->matchesIb = \CIBlock::GetList([], ['CODE' => 'matches'], false)->Fetch()['ID'] ?: 2;
         $this->groupIb = \CIBlock::GetList([], ['CODE' => 'group'], false)->Fetch()['ID'] ?: 5;
         $this->countriesIb = \CIBlock::GetList([], ['CODE' => 'countries'], false)->Fetch()['ID'] ?: 3;
+        $this->prognosisIb = \CIBlock::GetList([], ['CODE' => 'prognosis'], false)->Fetch()['ID'] ?: 6;
+
+        $this->userId = CUser::GetID();
+
+        if($this->userId) $this->getUserPrognosis();
 
         $this->arCountries = $this->getTeamInfo();
         $this->arGroup = $this->getGroupInfo();
@@ -68,6 +77,8 @@ class FootballMatches extends CBitrixComponent
             $el["guest"]["goals"] = $res["PROPERTY_GUEST_GOALS_VALUE"] ?: 0;
 
             $el["group"] = $this->arGroup[$res["PROPERTY_GROUP_VALUE"]];
+            $el["write"] = $this->arUserPrognosis[$res["ID"]] ?? '';
+
             $this->arResult["teams"][$res["ID"]] = $el;
 
         }
@@ -117,5 +128,26 @@ class FootballMatches extends CBitrixComponent
 
         return $arr;
 
+    }
+
+    protected function getUserPrognosis(){
+        $this->arFilter["IBLOCK_ID"] = $this->prognosisIb;
+        $this->arFilter["PROPERTY_USER_ID"] = $this->userId;
+
+        $response = CIBlockElement::GetList(
+            [],
+            $this->arFilter,
+            false,
+            [],
+            [
+                "ID",
+                "TIMESTAMP_X",
+                "PROPERTY_ID",
+            ]
+        );
+
+        while($res = $response->GetNext()){
+            $this->arUserPrognosis[$res["PROPERTY_ID_VALUE"]] = $res["TIMESTAMP_X"];
+        }
     }
 }

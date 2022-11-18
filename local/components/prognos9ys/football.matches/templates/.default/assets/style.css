@@ -52,15 +52,22 @@
   font-size: 16px;
   font-weight: 700;
 }
+.matches_wrapper .m_match_wrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  background: #253133;
+  padding: 0 5px;
+  border-radius: 5px;
+  margin-bottom: 5px;
+}
 .matches_wrapper .m_match_box {
   display: flex;
   flex-direction: row;
   width: 100%;
-  height: 30px;
-  margin-bottom: 3px;
 }
 .matches_wrapper .m_match_box .m_time {
-  width: 68px;
+  min-width: 68px;
   justify-content: center;
   text-align: center;
 }
@@ -69,12 +76,14 @@
   font-weight: 700;
 }
 .matches_wrapper .m_match_box .m_team_block {
-  width: 213px;
+  min-width: 213px;
+  width: 100%;
   display: flex;
   flex-direction: row;
 }
 .matches_wrapper .m_match_box .m_team_block .m_team_box {
-  width: 100px;
+  min-width: 100px;
+  width: 50%;
   display: flex;
   flex-direction: row;
 }
@@ -95,10 +104,10 @@
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
-  font-size: 13.5px;
+  font-size: 14px;
 }
 .matches_wrapper .m_match_box .m_goals_box {
-  width: 54px;
+  min-width: 54px;
   display: flex;
   flex-direction: row;
   justify-content: center;
@@ -110,15 +119,33 @@
   justify-content: center;
   align-items: center;
 }
-.m_btn_prognosis {
-  display: inline-block;
+.matches_wrapper .match_all_info_block {
+  display: flex;
+  width: 100%;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+}
+.matches_wrapper .match_all_info_block .match_user_info {
+  font-size: 10px;
+  color: #fff;
+}
+.matches_wrapper .match_all_info_block .match_write_btn {
   background: #228B22;
   color: #fff;
   cursor: pointer;
   box-shadow: 0 2px 3px rgba(0, 0, 0, 0.4), 0 -1px 0 rgba(0, 0, 0, 0.2);
-  padding: 3px;
+  padding: 2px 6px;
+  font-size: 10px;
   border-radius: 3px;
-  min-width: 22px;
   text-align: center;
+  border: 1px solid transparent;
+  text-decoration: none;
+  margin: 3px;
+}
+.matches_wrapper .match_all_info_block .match_write_btn:hover {
+  background: #fff;
+  color: #228B22;
+  border: 1px solid #228B22;
 }
 /*# sourceMappingURL=style.css.map */
