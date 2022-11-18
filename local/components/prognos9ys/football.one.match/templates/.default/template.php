@@ -80,7 +80,8 @@
         <div class="o_domination_block">
             <div class="ot_title"><i class="bi bi-percent" title="Владение"></i></div>
             <div class="o_domination_box">
-                <input class="o_dom_i m_pr_value o_dom_h dom_home" type="text" value="<?= $arResult["main"]["domination"] ?>" name="m_domination" placeholder="50">
+                <input class="o_dom_i m_pr_value o_dom_h dom_home" type="text"
+                       value="<?= $arResult["main"]["domination"] ?>" name="m_domination" placeholder="50" maxlength="2">
                 <div class="o_domination_range_box">
                     <input class="o_domination_range domination_range" aria-orientation="vertical" disabled
                            type="range" value="<?= $arResult["main"]["domination"] ?>" max="100" min="0" step="1">

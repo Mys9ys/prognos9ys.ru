@@ -22,14 +22,14 @@ $(document).ready(function () {
         calcRange($(this).val())
     })
 
-    $('.o_dom_h').on('focusout, keyup, change', function () {
+    $('.dom_home').on('focusout, keyup, change', function () {
         calcRange($(this).val())
     })
 
     $('.pw_goals_popular_score, .pw_goals_btn, .pw_dom_btn, .pw_card_btn, .pw_corner_btn, .pw_penalty_btn').on('click', function () {
-        console.log('this.val()', $(this).text(), 'this.cell', $(this).data("cell"), 'this.type', $(this).data("type"))
+        console.log('this.val()', $(this).text(), 'this.cell', $(this).data("cell"))
 
-        changeValueMatchInput($(this).text(), $(this).data("cell"), $(this).data("type"))
+        changeValueMatchInput($(this).text(), $(this).data("cell"))
     })
 })
 
@@ -103,8 +103,8 @@ function sendPrognosis() {
 }
 
 function calcRange(val) {
-    let h = $('.o_dom_h').val()
-    let r = $('.o_domination_range')
+    let h = +$('.dom_home').val()
+    let r = +$('.o_domination_range')
 
     if(h !== val){
         $('.dom_home').val(val)
