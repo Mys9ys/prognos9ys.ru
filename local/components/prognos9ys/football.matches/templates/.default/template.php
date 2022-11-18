@@ -22,6 +22,7 @@
     ?>
     <div class="m_match_wrapper">
         <div class="m_match_box">
+            <div class="m_number">#<?=$item["number"]?></div>
             <div class="m_time m_template_box"><i class="bi bi-alarm"></i> <?=$item["time"]?></div>
             <div class="m_team_block m_template_box">
                 <div class="m_home_team_box m_team_box">

@@ -59,6 +59,7 @@ class FootballMatches extends CBitrixComponent
                 "PROPERTY_guest_goals",
                 "PROPERTY_group",
                 "PROPERTY_stage",
+                "PROPERTY_number",
             ]
         );
 
@@ -72,6 +73,7 @@ class FootballMatches extends CBitrixComponent
             $el["home"] = $this->arCountries[$res["PROPERTY_HOME_VALUE"]];
             $el["home"]["goals"] = $res["PROPERTY_HOME_GOALS_VALUE"] ?: 0;
 
+            $el["number"] = $res["PROPERTY_NUMBER_VALUE"];
 
             $el["guest"] = $this->arCountries[$res["PROPERTY_GUEST_VALUE"]];
             $el["guest"]["goals"] = $res["PROPERTY_GUEST_GOALS_VALUE"] ?: 0;
