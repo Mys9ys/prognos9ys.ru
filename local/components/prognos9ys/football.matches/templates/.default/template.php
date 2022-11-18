@@ -51,9 +51,9 @@
         <div class="match_all_info_block">
             <div class="match_user_info">
                 <?php if($item["write"]):?>
-                    Вы заполнили: <?=$item["write"]?>
+                <span class="text-success">Вы заполнили: <?=$item["write"]?></span>
                 <?php else:?>
-                    Не заполнено
+                <span class="text-info">Не заполнено</span>
                 <?php endif;?>
             </div>
             <a class="match_write_btn" href="/p/match/<?=$id?>/">
