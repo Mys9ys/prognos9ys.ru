@@ -63,6 +63,7 @@ class FootballOneMatch extends CBitrixComponent
             [],
             [
                 "ID",
+                "ACTIVE",
                 "DATE_ACTIVE_FROM",
                 "PROPERTY_home",
                 "PROPERTY_guest",
@@ -83,6 +84,8 @@ class FootballOneMatch extends CBitrixComponent
         $el["home"] = $this->arCountries[$res["PROPERTY_HOME_VALUE"]];
 
         $el["guest"] = $this->arCountries[$res["PROPERTY_GUEST_VALUE"]];
+
+        $el["active"] = $res["ACTIVE"];
 
         $el["group"] = $this->arGroup[$res["PROPERTY_GROUP_VALUE"]];
         $el["number"] =$res["PROPERTY_NUMBER_VALUE"];

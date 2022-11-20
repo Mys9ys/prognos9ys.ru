@@ -241,7 +241,12 @@
         </div>
         <div class="pw_btn_block ">
             <div class="o_btn_temp o_btn_rand">Заполнить случайно(пока работает) <i class="fa fa-random" aria-hidden="true"></i></div>
-            <div class="o_btn_temp o_btn_send_prognosis"><?= $arResult["main"]["home_goals"] ? 'Изменить': 'Отправить' ?></div>
+            <?if($arResult["other"]["active"] === 'Y'):?>
+                <div class="o_btn_temp o_btn_send_prognosis"><?= $arResult["main"]["home_goals"] ? 'Изменить': 'Отправить' ?></div>
+            <?else:?>
+                <div class="text-info">Изменение не возможно</div>
+            <?endif;?>
+
         </div>
 
     </div>
