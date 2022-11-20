@@ -302,6 +302,9 @@
   border-radius: 5px;
   padding: 3px 6px;
 }
+.prognosis_window_wrapper .pw_teams_block .pw_teams_box .pw_team .pw_team_type {
+  color: #228B22;
+}
 .prognosis_window_wrapper .pw_teams_block .pw_teams_box .pw_team.pw_team_guest {
   justify-content: flex-end;
 }
