@@ -58,9 +58,14 @@
             </div>
             <a class="match_write_btn" href="/p/match/<?=$id?>/">
                 <?php if($item["write"]):?>
-                    Изменить <i class="bi bi-pencil-square"></i>
+                    <?php if($item["active"] === 'Y'):?>
+                        Изменить <i class="bi bi-pencil-square"></i>
+                    <?php else:?>
+                        Проверить </i>
+                    <?php endif;?>
                 <?php else:?>
                     Заполнить <i class="bi bi-pencil-square"></i>
+
                 <?php endif;?>
             </a>
         </div>
