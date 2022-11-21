@@ -10,6 +10,8 @@ file_put_contents('debug_request.json',json_encode($_REQUEST));
 //
 //var_dump($_REQUEST);
 
+
+
 if ($_REQUEST['type'] === 'match') {
 
     $res = new AddPrognosisInfo($_REQUEST);
@@ -22,6 +24,7 @@ if ($_REQUEST['type'] === 'match') {
 
     echo json_encode($request);
 }
+
 
 
 class AddPrognosisInfo
@@ -109,8 +112,7 @@ class AddPrognosisInfo
     protected function setPrognosis()
     {
 
-
-               $ib = new CIBlockElement;
+        $ib = new CIBlockElement;
         $data = [
             "NAME" => "Участник: " .$this->prop[31] . " Прогноз на матч: " . $this->prop[17],
             "IBLOCK_ID" => $this->prognosisIb,
@@ -130,3 +132,4 @@ class AddPrognosisInfo
         return $this->result;
     }
 }
+

@@ -2,20 +2,25 @@
 
 use Bitrix\Main\{Loader, UserTable};
 
-class FootballOneMatch extends CBitrixComponent
+class SetResult extends CBitrixComponent
 {
     protected $matchesIb;
-    protected $groupIb;
     protected $countriesIb;
     protected $prognosisIb;
+    protected $resultIb;
+
 
     protected $matchId;
-    protected $userId;
 
     protected $arCountries = [];
-    protected $arGroup = [];
+    protected $arMatchResult = [];
+    protected $arUsers = [];
+    protected $arPrognosis = [];
+    protected $arResults = [];
 
-    public function __construct($component = null)
+
+
+    public function __construct($matchId, $component = null)
     {
         parent::__construct($component);
         if (!Loader::includeModule('iblock')) {
@@ -23,24 +28,25 @@ class FootballOneMatch extends CBitrixComponent
             return;
         }
 
+        $this->matchId = 43;
+
         $this->matchesIb = \CIBlock::GetList([], ['CODE' => 'matches'], false)->Fetch()['ID'] ?: 2;
-        $this->groupIb = \CIBlock::GetList([], ['CODE' => 'group'], false)->Fetch()['ID'] ?: 5;
-        $this->countriesIb = \CIBlock::GetList([], ['CODE' => 'countries'], false)->Fetch()['ID'] ?: 3;
         $this->prognosisIb = \CIBlock::GetList([], ['CODE' => 'prognosis'], false)->Fetch()['ID'] ?: 6;
+        $this->resultIb = \CIBlock::GetList([], ['CODE' => 'result'], false)->Fetch()['ID'] ?: 7;
+        $this->countriesIb = \CIBlock::GetList([], ['CODE' => 'countries'], false)->Fetch()['ID'] ?: 3;
 
         $this->arCountries = $this->getTeamInfo();
-        $this->arGroup = $this->getGroupInfo();
 
     }
 
     public function executeComponent()
     {
 
-        $check = $this->checkOldPrognosis();
+//        $check = $this->checkOldPrognosis();
 
-        $this->getMatchOtherInfo();
+        $this->getMatchResult();
 
-        $this->getMatchInfo($check);
+//        $this->getMatchInfo($check);
 
         $this->includeComponentTemplate();
     }
@@ -50,7 +56,30 @@ class FootballOneMatch extends CBitrixComponent
         $this->matchId = $arParams["id"];
     }
 
-    protected function getMatchOtherInfo(){
+    protected function getTeamInfo(){
+
+        $arr = [];
+
+        $response = \Bitrix\Iblock\ElementTable::getList(
+            [
+                'select' => ['ID', 'NAME','PREVIEW_PICTURE'],
+                'filter' => [
+                    "IBLOCK_ID" => $this->countriesIb,
+
+                ]
+            ]
+        );
+
+        while($res = $response->fetch()){
+            $res["img"] = CFile::GetPath($res["PREVIEW_PICTURE"]);
+            $arr[$res["ID"]] = $res;
+        }
+
+
+        return $arr;
+    }
+
+    protected function getMatchResult(){
         $this->arFilter["IBLOCK_ID"] = $this->matchesIb;
         $this->arFilter["ID"] = $this->matchId;
 
@@ -64,15 +93,28 @@ class FootballOneMatch extends CBitrixComponent
                 "ACTIVE",
                 "DATE_ACTIVE_FROM",
                 "PROPERTY_home",
+                "PROPERTY_goal_home",
                 "PROPERTY_guest",
-                "PROPERTY_group",
-                "PROPERTY_stage",
+                "PROPERTY_goal_guest",
                 "PROPERTY_number",
+                "PROPERTY_id",
+                "PROPERTY_result",
+                "PROPERTY_diff",
+                "PROPERTY_corner",
+                "PROPERTY_yellow",
+                "PROPERTY_red",
+                "PROPERTY_penalty",
+                "PROPERTY_sum",
+                "PROPERTY_offside",
+                "PROPERTY_number",
+                "PROPERTY_user",
+                "PROPERTY_domination",
             ]
         );
 
         $res = $response->GetNext();
 
+        dump($res);
         $el = [];
 
         $date = explode("+", ConvertDateTime($res["DATE_ACTIVE_FROM"], "d.m+H:i:s"));
@@ -83,13 +125,10 @@ class FootballOneMatch extends CBitrixComponent
 
         $el["guest"] = $this->arCountries[$res["PROPERTY_GUEST_VALUE"]];
 
-        $el["active"] = $res["ACTIVE"];
-
-        $el["group"] = $this->arGroup[$res["PROPERTY_GROUP_VALUE"]];
         $el["number"] =$res["PROPERTY_NUMBER_VALUE"];
         $el["id"] =$res["ID"];
 
-        $this->arResult["other"] = $el;
+        $this->arResults = $el;
 
     }
 
@@ -174,48 +213,5 @@ class FootballOneMatch extends CBitrixComponent
 
     }
 
-    protected function getTeamInfo()
-    {
 
-        $arr = [];
-
-        $response = \Bitrix\Iblock\ElementTable::getList(
-            [
-                'select' => ['ID', 'NAME', 'PREVIEW_PICTURE'],
-                'filter' => [
-                    "IBLOCK_ID" => $this->countriesIb,
-
-                ]
-            ]
-        );
-
-        while ($res = $response->fetch()) {
-            $res["img"] = CFile::GetPath($res["PREVIEW_PICTURE"]);
-            $arr[$res["ID"]] = $res;
-        }
-
-        return $arr;
-    }
-
-    protected function getGroupInfo()
-    {
-
-        $arr = [];
-        $response = \Bitrix\Iblock\ElementTable::getList(
-            [
-                'select' => ["ID","PREVIEW_TEXT"],
-                'filter' => [
-                    "IBLOCK_ID" => $this->groupIb,
-                ]
-            ]
-        );
-
-        while ($res = $response->fetch()) {
-
-            $arr[$res["ID"]] = $res["PREVIEW_TEXT"];
-        }
-
-        return $arr;
-
-    }
 }
