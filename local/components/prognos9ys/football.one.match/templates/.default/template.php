@@ -118,7 +118,7 @@
             <div class="pw_teams_title">Команды</div>
             <div class="pw_teams_box">
                 <div class="pw_team_home pw_team">
-                    <div class="pw_team_type">Дома</div>
+                    <div class="pw_team_type">Ком 1</div>
                     <div class="pw_team_flag">
                         <img class="pw_team_flag_img" src="<?= $arResult["other"]["home"]["img"] ?>" alt="">
                     </div>
@@ -129,7 +129,7 @@
                     <div class="pw_team_flag">
                         <img class="pw_team_flag_img" src="<?= $arResult["other"]["guest"]["img"] ?>" alt="">
                     </div>
-                    <div class="pw_team_type">Гости</div>
+                    <div class="pw_team_type">Ком 2</div>
                 </div>
             </div>
         </div>

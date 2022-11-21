@@ -10,6 +10,22 @@ $(document).ready(function () {
         // console.log('rand')
     })
 
+    $('.c_yellow').on('click, change', function () {
+        $('.c_yellow').val($(this).val())
+    })
+
+    $('.c_red').on('click, change', function () {
+        $('.c_red').val($(this).val())
+    })
+
+    $('.o_corner_i').on('click, change', function () {
+        $('.o_corner_i').val($(this).val())
+    })
+
+    $('.o_penalty_i').on('click, change', function () {
+        $('.o_penalty_i').val($(this).val())
+    })
+
     $('.o_btn_send_prognosis').on('click', function () {
 
         validateInput()
