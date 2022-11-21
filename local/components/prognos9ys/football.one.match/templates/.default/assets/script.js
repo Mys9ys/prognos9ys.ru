@@ -116,7 +116,7 @@ function calcRange(val) {
     }
 }
 
-function changeValueMatchInput(val, cell, action=''){
+function changeValueMatchInput(val, cell){
 
     switch (cell) {
         case "goal":
@@ -150,14 +150,25 @@ function changeValueMatchInput(val, cell, action=''){
                 if(cell === "dom_home") $('.domination_range').val(+$('.domination_range').val()+val)
                 if(cell === "dom_guest") $('.domination_range').val(+$('.domination_range').val()-val)
             }
+            setGoalsAndResult()
             break;
         case "c_red":
         case "c_yellow":
         case "o_corner_i":
-        case "o_penalty_i":
             val = +val
             $('.'+cell).val(+$('.'+cell).val()+val)
             if(val === 0) $('.'+cell).val(0)
+            setGoalsAndResult()
         break;
+        case "o_penalty_i":
+            val = +val
+            let old = +$('.'+cell).val()
+            old += val
+            console.log('old', old)
+            if(old >9) old = 9
+            $('.'+cell).val(old)
+            if(val === 0) $('.'+cell).val(0)
+            setGoalsAndResult()
+            break;
     }
 }

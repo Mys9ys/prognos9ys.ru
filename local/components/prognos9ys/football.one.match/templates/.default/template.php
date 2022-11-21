@@ -102,7 +102,7 @@
         <div class="o_prof_stat o_corners_block">
             <div class="ot_title"><i class="bi bi-flag"></i></div>
             <input class="o_prof_input o_corner_i m_pr_value" type="text" value="<?= $arResult["main"]["corner"] ?>" name="m_corner" placeholder="-">
-             <input class="o_prof_input o_penalty_i m_pr_value" type="text" value="<?= $arResult["main"]["penalty"] ?>" name="m_penalty" placeholder="-">
+            <input class="o_prof_input o_penalty_i m_pr_value" type="text" value="<?= $arResult["main"]["penalty"] ?>" name="m_penalty" placeholder="-" maxlength="1">
             <div class="ot_title">pen</div>
         </div>
 
