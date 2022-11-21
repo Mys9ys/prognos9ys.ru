@@ -5,6 +5,24 @@ $(document).ready(function () {
         setGoalsAndResult()
     })
 
+    $('.o_admin_calc').on('click', function () {
+
+        let set = {
+            type: "set_result",
+            id:  $(this).data("id")
+        }
+
+        console.log('set', set)
+        $.ajax({
+            url: "/local/components/prognos9ys/football.one.match/templates/.default/set/",
+            method: "POST", //
+            data: set,
+            success: function (result) {
+
+            }
+        })
+    })
+
 
     $('.o_btn_rand').on('click', function () {
         // console.log('rand')

@@ -240,7 +240,12 @@
             </div>
         </div>
         <div class="pw_btn_block ">
-            <div class="o_btn_temp o_btn_rand">Заполнить случайно (пока работает) <i class="fa fa-random" aria-hidden="true"></i></div>
+            <?php if($USER->IsAdmin()):?>
+                <div class="o_btn_temp o_btn_rand o_admin_calc" data-id="<?= $arResult["other"]["id"] ?>">Расчитать </div>
+            <?php else:;?>
+                <div class="o_btn_temp o_btn_rand">Заполнить случайно (пока не работает) <i class="fa fa-random" aria-hidden="true"></i></div>
+            <?php endif;?>
+
             <?if($arResult["other"]["active"] === 'Y'):?>
                 <div class="o_btn_temp o_btn_send_prognosis"><?= $arResult["main"]["home_goals"] ? 'Изменить': 'Отправить' ?></div>
             <?else:?>

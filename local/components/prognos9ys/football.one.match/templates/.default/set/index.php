@@ -3,7 +3,7 @@
 require($_SERVER["DOCUMENT_ROOT"] . "/bitrix/modules/main/include/prolog_before.php");
 
 file_put_contents('set_debug_request.json', json_encode($_REQUEST));
-$_REQUEST['type'] = 'set_result';
+//$_REQUEST['type'] = 'set_result';
 if ($_REQUEST['type'] === 'set_result') {
     $res = new SetResultAllUsers($_REQUEST['id']);
 }
@@ -32,9 +32,10 @@ class SetResultAllUsers
             return;
         }
 
-        dump('sfdsfds');
+
 
         $this->matchId = $matchId;
+//        $this->matchId = 43;
 
         $this->matchesIb = \CIBlock::GetList([], ['CODE' => 'matches'], false)->Fetch()['ID'] ?: 2;
         $this->prognosisIb = \CIBlock::GetList([], ['CODE' => 'prognosis'], false)->Fetch()['ID'] ?: 6;
