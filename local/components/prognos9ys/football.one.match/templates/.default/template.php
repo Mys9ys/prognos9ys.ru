@@ -252,7 +252,8 @@
             <?php endif;?>
 
             <?if($arResult["other"]["active"] === 'Y'):?>
-                <div class="o_btn_temp o_btn_send_prognosis"><?= $arResult["main"]["home_goals"] ? 'Изменить': 'Отправить' ?></div>
+                <div class="o_btn_temp o_btn_send_prognosis"><?= $arResult["main"]["home_goals"] ? 'Изменить': 'Отправить' ?>
+                    <br> прогноз</div>
             <?else:?>
                 <div class="text-info">Изменение не возможно</div>
             <?endif;?>
