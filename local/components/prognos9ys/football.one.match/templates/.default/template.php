@@ -27,9 +27,14 @@
     </div>
     <div class="o_match_box" >
         <div class="o_team_block">
+            <input type="hidden" class="m_pr_value" name="m_stage" value="<?= $arResult["other"]["stage"] ?>">
+            <input type="hidden" class="m_pr_value" name="m_group" value="<?= $arResult["other"]["group_id"] ?>">
+            <input type="hidden" class="m_pr_value" name="m_team_home" value="<?= $arResult["other"]["home"]["ID"] ?>">
+            <input type="hidden" class="m_pr_value" name="m_team_guest" value="<?= $arResult["other"]["guest"]["ID"] ?>">
             <input type="hidden" class="m_pr_value" name="m_id" value="<?= $arResult["other"]["id"] ?>">
             <input type="hidden" class="m_pr_value" name="m_number" value="<?= $arResult["other"]["number"] ?>">
             <input type="hidden" class="m_pr_value" name="m_user" value="<?= CUser::GetID()?>">
+            <input type="hidden" class="m_pr_value" name="m_event" value="34">
             <div class="ot_title"></div>
             <div class="ot_team ot_home">
                 <div class="ot_flag">
@@ -243,7 +248,7 @@
             <?php if($USER->IsAdmin()):?>
                 <div class="o_btn_temp o_btn_rand o_admin_calc" data-id="<?= $arResult["other"]["id"] ?>">Расчитать </div>
             <?php else:?>
-                <div class="o_btn_temp o_btn_rand">Тут нет кнопки <i class="fa fa-random" aria-hidden="true"></i></div>
+                <div class="o_btn_temp o_btn_rand">Для красоты</div>
             <?php endif;?>
 
             <?if($arResult["other"]["active"] === 'Y'):?>

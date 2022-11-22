@@ -88,6 +88,10 @@ class FootballOneMatch extends CBitrixComponent
         $el["active"] = $res["ACTIVE"];
 
         $el["group"] = $this->arGroup[$res["PROPERTY_GROUP_VALUE"]];
+
+        $el["group_id"] = $res["PROPERTY_GROUP_VALUE"];
+        $el["stage"] = $res["PROPERTY_STAGE_ENUM_ID"];
+
         $el["number"] =$res["PROPERTY_NUMBER_VALUE"];
         $el["id"] =$res["ID"];
 
