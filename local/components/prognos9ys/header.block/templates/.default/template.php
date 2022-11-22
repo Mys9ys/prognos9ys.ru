@@ -1,8 +1,6 @@
 <?php if (!defined("B_PROLOG_INCLUDED") || B_PROLOG_INCLUDED !== true) die();?>
 
-<div class="header_wrapper"
-    <?php if($_SERVER["HTTP_HOST"] === 'prog.work') echo 'style="display: none"'?>
->
+<div class="header_wrapper">
     <div class="h_main_block">
         <div class="hm_left_block">
             <?php if($arResult) :?>

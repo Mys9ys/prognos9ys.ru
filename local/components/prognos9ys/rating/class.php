@@ -9,6 +9,8 @@ class FootballOneMatch extends CBitrixComponent
     protected $arUsers = [];
     protected $arResults = [];
 
+    protected $count = 0;
+
     public function __construct($component = null)
     {
         parent::__construct($component);
@@ -78,10 +80,12 @@ class FootballOneMatch extends CBitrixComponent
         while ($res = $response->GetNext()) {
             $this->arResults[$res["PROPERTY_USER_ID_VALUE"]][$res["PROPERTY_MATCH_ID_VALUE"]] = $res;
         }
+        $this->count = count($this->arResults[20]);
     }
 
     protected function calcRating(){
         $volume = [];
+        $count = 0;
 
         $arrSelector = [
                 "all",
@@ -97,6 +101,7 @@ class FootballOneMatch extends CBitrixComponent
         ];
 
         foreach ($this->arResults as $userId=>$match){
+            $count++;
 
             foreach ($match as $info){
 
@@ -114,6 +119,7 @@ class FootballOneMatch extends CBitrixComponent
         foreach ($arrSelector as $selector){
             array_multisort($volume[$selector], SORT_DESC, $this->arResult[$selector]);
         }
+        $this->arResult["count"] = $this->count;
 
     }
 

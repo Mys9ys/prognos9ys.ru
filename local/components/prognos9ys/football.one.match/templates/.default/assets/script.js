@@ -14,7 +14,7 @@ $(document).ready(function () {
 
         console.log('set', set)
         $.ajax({
-            url: "/local/components/prognos9ys/football.one.match/templates/.default/set/",
+            url: "/local/components/prognos9ys/football.one.match/templates/.default/ajax/set/",
             method: "POST", //
             data: set,
             success: function (result) {
@@ -50,6 +50,19 @@ $(document).ready(function () {
 
         sendPrognosis()
         
+    })
+
+    $('.set_match_result').on('click', function () {
+        validateInput()
+        console.log('data', data)
+        $.ajax({
+            url: "/local/components/prognos9ys/football.one.match/templates/.default/ajax/set_result/",
+            method: "POST", //
+            data,
+            success: function (result) {
+
+            }
+        })
     })
 
     $('.o_domination_range, .pw_domination_range').on('click, change', function () {

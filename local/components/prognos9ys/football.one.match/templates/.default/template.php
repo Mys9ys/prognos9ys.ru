@@ -242,8 +242,8 @@
         <div class="pw_btn_block ">
             <?php if($USER->IsAdmin()):?>
                 <div class="o_btn_temp o_btn_rand o_admin_calc" data-id="<?= $arResult["other"]["id"] ?>">Расчитать </div>
-            <?php else:;?>
-                <div class="o_btn_temp o_btn_rand">Заполнить случайно (пока не работает) <i class="fa fa-random" aria-hidden="true"></i></div>
+            <?php else:?>
+                <div class="o_btn_temp o_btn_rand">Тут нет кнопки <i class="fa fa-random" aria-hidden="true"></i></div>
             <?php endif;?>
 
             <?if($arResult["other"]["active"] === 'Y'):?>
@@ -251,10 +251,14 @@
             <?else:?>
                 <div class="text-info">Изменение не возможно</div>
             <?endif;?>
-
         </div>
 
+        <?php if($USER->IsAdmin()):?>
+            <div class="set_match_result text-justify o_btn_temp mt-2 mb-2">Заполнить официальный результат</div>
+        <?php endif;?>
+
     </div>
+
     <div class="pr_btn_next_block">
         <?php if($arResult["other"]["number"]>1):?>
             <a class="o_btn_next_match" href="/p/match/<?= $arResult["other"]["id"]-1?>/"><i class="fa fa-long-arrow-left" aria-hidden="true"></i> Предыдущий матч </a>
