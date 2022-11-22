@@ -16,6 +16,11 @@
         </tr>
         </thead>
         <tbody>
+        <tr>
+            <th>0</th>
+            <td>Всего</td>
+            <td><?=$arResult["all_user"]?></td>
+        </tr>
         <?php $key = 1;
         foreach ($arResult["prognosis"] as $name=>$item):?>
             <tr>
@@ -62,6 +67,11 @@
         </tr>
         </thead>
         <tbody>
+        <tr>
+            <th>0</th>
+            <td>Всего</td>
+            <td><?=$arResult["all_prognosis"]?></td>
+        </tr>
         <?php $key = 1;
         foreach ($arResult["matches"] as $name=>$item):?>
             <tr>

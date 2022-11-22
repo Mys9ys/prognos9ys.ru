@@ -30,6 +30,8 @@ class PrognosisAdminInfo extends CBitrixComponent{
 
         ksort($this->arResult["matches"], SORT_NUMERIC );
 
+        $this->arResult["all_user"] = count($this->arUsers);
+
     }
 
 
@@ -64,6 +66,8 @@ class PrognosisAdminInfo extends CBitrixComponent{
     public function calcUserPrognosis()
     {
 
+        $arAll=[];
+
         $arFilter = [];
         $arFilter["IBLOCK_ID"] = $this->prognosisIb;
 
@@ -82,7 +86,11 @@ class PrognosisAdminInfo extends CBitrixComponent{
         while ($res = $response->GetNext()) {
             $this->arResult["prognosis"][$this->arUsers[$res["PROPERTY_USER_ID_VALUE"]]["name"]][] = $res["ID"];
             $this->arResult["matches"][(int)$res["PROPERTY_ID_VALUE"]][] = $res["ID"];
+            $arAll[$res["ID"]] = 1;
         }
+
+        $this->arResult["all_prognosis"] = count($arAll);
+
 
     }
     

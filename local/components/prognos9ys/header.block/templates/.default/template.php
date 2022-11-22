@@ -48,7 +48,7 @@
         <ul class="dropdown-menu">
             <li><a class="dropdown-item" href="/p/faq/"><i class="bi bi-patch-question"></i> Инструкции</a></li>
             <li><a class="dropdown-item" href="/p/matches/"><i class="bi bi-menu-up"></i> Матчи</a></li>
-            <?php if($USER->IsAdmin()):?>
+            <?php if(CSite::InGroup (array(7))):?>
                 <li><a class="dropdown-item" href="/p/admin/"><i class="fa fa-address-book" aria-hidden="true"></i> Админка</a></li>
             <?php endif;?>
             <?php if($arResult) :?>
