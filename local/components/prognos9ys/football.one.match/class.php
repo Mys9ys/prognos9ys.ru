@@ -224,4 +224,12 @@ class FootballOneMatch extends CBitrixComponent
         return $arr;
 
     }
+
+    protected function getMatchResult(){
+
+    }
+
+    protected function getUserScore(){
+
+    }
 }
