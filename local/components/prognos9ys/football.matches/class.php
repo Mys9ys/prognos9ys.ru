@@ -72,14 +72,14 @@ class FootballMatches extends CBitrixComponent
             $el["time"] = trim($date[1], ':00') . ':00';
 
             $el["home"] = $this->arCountries[$res["PROPERTY_HOME_VALUE"]];
-            $el["home"]["goals"] = $res["PROPERTY_GOAL_HOME_VALUE"] ?? 0;
+            $el["home"]["goals"] = $res["PROPERTY_GOAL_HOME_VALUE"] ?? '<span class="text-secondary">0</span>';
 
             $el["number"] = $res["PROPERTY_NUMBER_VALUE"];
 
             $el["active"] = $res["ACTIVE"];
 
             $el["guest"] = $this->arCountries[$res["PROPERTY_GUEST_VALUE"]];
-            $el["guest"]["goals"] = $res["PROPERTY_GOAL_GUEST_VALUE"] ?? 0;
+            $el["guest"]["goals"] = $res["PROPERTY_GOAL_GUEST_VALUE"] ?? '<span class="text-secondary">0</span>';
 
             $el["group"] = $this->arGroup[$res["PROPERTY_GROUP_VALUE"]];
             $el["write"] = $this->arUserPrognosis[$res["ID"]] ?? '';
