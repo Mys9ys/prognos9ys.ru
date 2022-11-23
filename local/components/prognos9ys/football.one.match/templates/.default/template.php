@@ -24,6 +24,13 @@
             <table class="table table-dark table-hover om_table_box">
                 <thead>
                 <tr>
+                    <th>Матч</th>
+                    <td colspan="9" style="text-align:left; font-size:14px;">
+                        <span># <?= $arResult["other"]["number"] ?></span>
+                        <span class="text-info"><?=$arResult["other"]["home"]["NAME"]?> - <?=$arResult["other"]["guest"]["NAME"]?></span>
+                    </td>
+                </tr>
+                <tr>
                     <th scope="col">#</th>
                     <th scope="col">Счет</th>
                     <th scope="col"><i class="fa fa-trophy" aria-hidden="true"></i></th>
@@ -37,13 +44,6 @@
                 </tr>
                 </thead>
                 <tbody>
-
-                <tr>
-                    <th>Матч</th>
-                    <td colspan="9" style="text-align:left; font-size:14px;">
-                        <?=$arResult["other"]["home"]["NAME"]?> - <?=$arResult["other"]["guest"]["NAME"]?>
-                    </td>
-                </tr>
                 <tr>
                     <th>Ставка</th>
                     <td><?=$arResult["main"]["home_goals"]?> - <?=$arResult["main"]["guest_goals"]?></td>
