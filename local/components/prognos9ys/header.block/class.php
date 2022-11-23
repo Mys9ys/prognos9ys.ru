@@ -7,6 +7,8 @@ use Bitrix\Main\{Loader, UserTable};
 class HeaderBlock extends CBitrixComponent {
 
     protected $user_id;
+    protected $matchesIb;
+
     public function __construct($component = null)
     {
         parent::__construct($component);
@@ -16,6 +18,7 @@ class HeaderBlock extends CBitrixComponent {
             return;
         };
 
+        $this->matchesIb = \CIBlock::GetList([], ['CODE' => 'matches'], false)->Fetch()['ID'] ?: 2;
         $this->user_id = CUser::GetID()?: '';
     }
 
@@ -59,6 +62,30 @@ class HeaderBlock extends CBitrixComponent {
         }
 
         return $arFileTmp["src"];
+    }
+
+    protected function getActualMatchId(){
+
+        $arFilter["IBLOCK_ID"] = $this->matchesIb;
+
+        $response = CIBlockElement::GetList(
+            [],
+            $arFilter,
+            false,
+            [],
+            [
+                "ID",
+                "ACTIVE",
+                "DATE_ACTIVE_FROM",
+                "PROPERTY_home",
+                "PROPERTY_guest",
+                "PROPERTY_group",
+                "PROPERTY_stage",
+                "PROPERTY_number",
+            ]
+        );
+
+        $res = $response->GetNext();
     }
 
 }

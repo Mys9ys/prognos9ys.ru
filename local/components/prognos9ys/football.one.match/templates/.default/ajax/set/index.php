@@ -45,10 +45,7 @@ class SetResultAllUsers
         $this->arCountries = $this->getTeamInfo();
         $this->arMatchResult = $this->getMatchResult();
 
-
         $this->arMatchPrognosis = $this->getMatchPrognosis();
-
-//        dump(count($this->arMatchPrognosis));
 
         if ($this->arMatchPrognosis && $this->arMatchResult) $this->calcResultPrognosisUser();
 
@@ -216,28 +213,28 @@ class SetResultAllUsers
             $all += $result['domination'];
 
             // количество желтых карточек
-            if ($prognosis["PROPERTY_YELLOW_VALUE"] || +$prognosis["PROPERTY_YELLOW_VALUE"] === 0) {
+            if ($prognosis["PROPERTY_YELLOW_VALUE"] || $prognosis["PROPERTY_YELLOW_VALUE"] !== null) {
                 $result['yellow'] = $this->calcProgressScala($prognosis["PROPERTY_YELLOW_VALUE"], $Res["PROPERTY_YELLOW_VALUE"]);
                 $all += $result['yellow'];
-            }
+            } else { $result['yellow'] = 0;}
 
             // количество угловых
-            if ($prognosis["PROPERTY_CORNER_VALUE"] || +$prognosis["PROPERTY_CORNER_VALUE"] === 0) {
+            if ($prognosis["PROPERTY_CORNER_VALUE"] || $prognosis["PROPERTY_CORNER_VALUE"] !== null) {
                 $result['corner'] = $this->calcProgressScala($prognosis["PROPERTY_CORNER_VALUE"], $Res["PROPERTY_CORNER_VALUE"]);
                 $all += $result['corner'];
-            }
+            } else { $result['corner'] = 0;}
 
             // количество красных
-            if ($prognosis["PROPERTY_RED_VALUE"] || +$prognosis["PROPERTY_RED_VALUE"] === 0) {
+            if ($prognosis["PROPERTY_RED_VALUE"] || $prognosis["PROPERTY_RED_VALUE"] !== null) {
                 $result['red'] = $this->calcRedCard($prognosis["PROPERTY_RED_VALUE"], $Res["PROPERTY_RED_VALUE"]);
                 $all += $result['red'];
-            }
+            } else { $result['red'] = 0;}
 
-            // количество красных
-            if ($prognosis["PROPERTY_PENALTY_VALUE"] || +$prognosis["PROPERTY_PENALTY_VALUE"] === 0) {
+            // количество пенальти
+            if ($prognosis["PROPERTY_PENALTY_VALUE"] || $prognosis["PROPERTY_PENALTY_VALUE"] !== null) {
                 $result['penalty'] = $this->calcRedCard($prognosis["PROPERTY_PENALTY_VALUE"], $Res["PROPERTY_PENALTY_VALUE"]);
                 $all += $result['penalty'];
-            }
+            } else { $result['penalty'] = 0;}
 
             $result["all"] = $all;
 
@@ -301,10 +298,12 @@ class SetResultAllUsers
     protected function calcRedCard($prognos, $res)
     {
 
-        if(+$prognos >9) return 0;
-        if (+$prognos === 0 && +$res === 0) return 0.5;
-        if ($prognos === $res && +$res > 0) return 5 +(($res-1)*2);
-        if (+$prognos>0 && +$res > 1) return 0.5;
+        if($prognos !== ''){
+            if(+$prognos >9) return 0;
+            if (+$prognos === 0 && +$res === 0) return 0.5;
+            if ($prognos === $res && +$res > 0) return 5 +(($res-1)*2);
+            if (+$prognos>0 && +$res > 1) return 0.5;
+        }
 
         return 0;
     }
