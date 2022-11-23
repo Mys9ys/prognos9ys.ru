@@ -20,8 +20,11 @@
     </div>
 
     <?php if($arResult["other"]["active"] === "N" && !$USER->IsAdmin()):?>
+
+    <?php else:?>
+
         <div class="om_table_wrapper">
-            <table class="table table-dark table-hover">
+            <table class="table table-dark table-hover om_table_box">
                 <thead>
                 <tr>
                     <th scope="col">#</th>
@@ -30,8 +33,8 @@
                     <th scope="col">sum</th>
                     <th scope="col">+/-</th>
                     <th scope="col">%</th>
-                    <th scope="col"><div class="ot_title oc_yellow"><i class="bi bi-file-fill"></i></div></th>
-                    <th scope="col"><div class="ot_title oc_red"><i class="bi bi-file-fill"></i></div></th>
+                    <th scope="col"><i class="bi bi-file-fill" style="color:yellow"></i></th>
+                    <th scope="col"><i class="bi bi-file-fill" style="color:red"></i></th>
                     <th scope="col"><i class="bi bi-flag"></i></th>
                     <th scope="col">pen</th>
                 </tr>
@@ -39,9 +42,10 @@
                 <tbody>
 
                 <tr>
-                    <th>Результат</th>
-                    <td><?=$item['nick']?></td>
-                    <td><?=$item['score']?></td>
+                    <th>Матч</th>
+                    <td colspan="9" style="text-align:left; font-size:14px;">
+                        <?=$arResult["other"]["home"]["NAME"]?> - <?=$arResult["other"]["guest"]["NAME"]?>
+                    </td>
                 </tr>
                 <tr>
                     <th>Ставка</th>
@@ -57,15 +61,36 @@
                 </tr>
 
                 <tr>
+                    <th>Итог матча</th>
+                    <?$mResult = $arResult["match_result"]?>
+                    <td><span class="text-info"><?=$mResult['score']?></span></td>
+                    <td><span class="text-info"><?= $mResult["result"]?></span></td>
+                    <td><span class="text-info"><?= $mResult["sum"]?></span></td>
+                    <td><span class="text-info"><?= $mResult["diff"]?></span></td>
+                    <td><span class="text-info"><?= $mResult["domination"]?></span></td>
+                    <td><span class="text-info"><?= $mResult["yellow"]?></span></td>
+                    <td><span class="text-info"><?= $mResult["red"]?></span></td>
+                    <td><span class="text-info"><?= $mResult["corner"]?></span></td>
+                    <td><span class="text-info"><?= $mResult["penalty"]?></span></td>
+                </tr>
+
+                <tr>
                     <th>Баллы</th>
-                    <td><?=$item['nick']?></td>
-                    <td><?=$item['score']?></td>
+                    <?$uScore = $arResult["user_score"]?>
+                    <td><?=$uScore['score']?></td>
+                    <td><?= $uScore["result"]?></td>
+                    <td><?= $uScore["sum"]?></td>
+                    <td><?= $uScore["diff"]?></td>
+                    <td><?= $uScore["domination"]?></td>
+                    <td><?= $uScore["yellow"]?></td>
+                    <td><?= $uScore["red"]?></td>
+                    <td><?= $uScore["corner"]?></td>
+                    <td><?= $uScore["penalty"]?></td>
                 </tr>
 
                 </tbody>
             </table>
         </div>
-    <?php else:?>
         <div class="o_match_info" <?php if($_SERVER["HTTP_HOST"] === 'prog.work') echo 'style="display: none"'?>>
             <div class="om_info_box o_date"><i class="bi bi-calendar3"></i> <?= $arResult["other"]["date"] ?></div>
             <div class="om_info_box o_time"><i class="bi bi-alarm"></i> <?= $arResult["other"]["time"] ?></div>

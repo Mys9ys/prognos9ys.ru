@@ -706,6 +706,12 @@
   margin-top: 10px;
   margin-bottom: 10px;
 }
+.om_table_box {
+  font-size: 11px;
+}
+.om_table_box td {
+  text-align: center;
+}
 @media (max-width: 500px) {
   .one_match_wrapper .o_match_box .o_team_block .ot_team .ot_title {
     width: 115px;

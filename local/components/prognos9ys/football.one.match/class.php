@@ -8,6 +8,7 @@ class FootballOneMatch extends CBitrixComponent
     protected $groupIb;
     protected $countriesIb;
     protected $prognosisIb;
+    protected $resultIb;
 
     protected $matchId;
     protected $userId;
@@ -29,6 +30,7 @@ class FootballOneMatch extends CBitrixComponent
         $this->groupIb = \CIBlock::GetList([], ['CODE' => 'group'], false)->Fetch()['ID'] ?: 5;
         $this->countriesIb = \CIBlock::GetList([], ['CODE' => 'countries'], false)->Fetch()['ID'] ?: 3;
         $this->prognosisIb = \CIBlock::GetList([], ['CODE' => 'prognosis'], false)->Fetch()['ID'] ?: 6;
+        $this->resultIb = \CIBlock::GetList([], ['CODE' => 'result'], false)->Fetch()['ID'] ?: 7;
 
         $this->arCountries = $this->getTeamInfo();
         $this->arGroup = $this->getGroupInfo();
@@ -43,6 +45,9 @@ class FootballOneMatch extends CBitrixComponent
         $this->getMatchOtherInfo();
 
         $this->getMatchInfo($check);
+
+        $this->getMatchResult();
+        $this->getUserScore();
 
         $this->includeComponentTemplate();
     }
@@ -226,10 +231,101 @@ class FootballOneMatch extends CBitrixComponent
     }
 
     protected function getMatchResult(){
+        $arFilter = [];
+        $arFilter["IBLOCK_ID"] = $this->matchesIb;
+        $arFilter["ID"] = $this->matchId;
 
+        $response = CIBlockElement::GetList(
+            [],
+            $arFilter,
+            false,
+            [],
+            [
+                "ID",
+                "PROPERTY_goal_home",
+                "PROPERTY_goal_guest",
+                "PROPERTY_id",
+                "PROPERTY_result",
+                "PROPERTY_diff",
+                "PROPERTY_corner",
+                "PROPERTY_yellow",
+                "PROPERTY_red",
+                "PROPERTY_penalty",
+                "PROPERTY_sum",
+                "PROPERTY_offside",
+                "PROPERTY_number",
+                "PROPERTY_user",
+                "PROPERTY_domination",
+            ]
+        );
+
+        $res = $response->GetNext();
+
+        $arr = [];
+
+        $arr["score"] = $res["PROPERTY_GOAL_HOME_VALUE"] . ' - ' . $res["PROPERTY_GOAL_GUEST_VALUE"];
+        $arr["result"] = $res["PROPERTY_RESULT_VALUE"];
+        $arr["sum"] = $res["PROPERTY_SUM_VALUE"];
+        $arr["diff"] = $res["PROPERTY_DIFF_VALUE"];
+        $arr["domination"] = $res["PROPERTY_DOMINATION_VALUE"] . ' - ' . (100 - $res["PROPERTY_DOMINATION_VALUE"]);
+        $arr["yellow"] = $res["PROPERTY_YELLOW_VALUE"];
+        $arr["red"] = $res["PROPERTY_RED_VALUE"];
+        $arr["corner"] = $res["PROPERTY_CORNER_VALUE"];
+        $arr["penalty"] = $res["PROPERTY_PENALTY_VALUE"];
+
+        $this->arResult["match_result"] = $arr;
     }
 
     protected function getUserScore(){
 
+        $arFilter = [];
+        $arFilter["IBLOCK_ID"] = $this->resultIb;
+        $arFilter["PROPERTY_MATCH_ID"] = $this->matchId;
+        $arFilter["PROPERTY_USER_ID"] = $this->userId;
+
+        $response = CIBlockElement::GetList(
+            [],
+            $arFilter,
+            false,
+            [],
+            [
+                "ID",
+                "PROPERTY_goal_home",
+                "PROPERTY_goal_guest",
+                "PROPERTY_id",
+                "PROPERTY_score",
+                "PROPERTY_result",
+                "PROPERTY_diff",
+                "PROPERTY_corner",
+                "PROPERTY_yellow",
+                "PROPERTY_red",
+                "PROPERTY_penalty",
+                "PROPERTY_sum",
+                "PROPERTY_offside",
+                "PROPERTY_number",
+                "PROPERTY_user",
+                "PROPERTY_domination",
+            ]
+        );
+
+        $res = $response->GetNext();
+
+        $arr = [];
+
+        $arr["score"] = $this->greenWrap($res["PROPERTY_SCORE_VALUE"]);
+        $arr["result"] = $this->greenWrap($res["PROPERTY_RESULT_VALUE"]);
+        $arr["sum"] = $this->greenWrap($res["PROPERTY_SUM_VALUE"]);
+        $arr["diff"] = $this->greenWrap($res["PROPERTY_DIFF_VALUE"]);
+        $arr["domination"] = $this->greenWrap($res["PROPERTY_DOMINATION_VALUE"]);
+        $arr["yellow"] = $this->greenWrap($res["PROPERTY_YELLOW_VALUE"] );
+        $arr["red"] = $this->greenWrap($res["PROPERTY_RED_VALUE"]);
+        $arr["corner"] = $this->greenWrap($res["PROPERTY_CORNER_VALUE"]);
+        $arr["penalty"] = $this->greenWrap($res["PROPERTY_PENALTY_VALUE"]);
+
+        $this->arResult["user_score"] = $arr;
+    }
+
+    protected function greenWrap($val){
+        return $val ? '<span class="text-success">'.$val.'</span>' : 0;
     }
 }
