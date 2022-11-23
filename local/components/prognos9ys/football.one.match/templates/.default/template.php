@@ -20,9 +20,6 @@
     </div>
 
     <?php if($arResult["other"]["active"] === "N" && !$USER->IsAdmin()):?>
-
-    <?php else:?>
-
         <div class="om_table_wrapper">
             <table class="table table-dark table-hover om_table_box">
                 <thead>
@@ -91,6 +88,9 @@
                 </tbody>
             </table>
         </div>
+    <?php else:?>
+
+
         <div class="o_match_info" <?php if($_SERVER["HTTP_HOST"] === 'prog.work') echo 'style="display: none"'?>>
             <div class="om_info_box o_date"><i class="bi bi-calendar3"></i> <?= $arResult["other"]["date"] ?></div>
             <div class="om_info_box o_time"><i class="bi bi-alarm"></i> <?= $arResult["other"]["time"] ?></div>
