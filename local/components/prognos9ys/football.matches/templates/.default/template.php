@@ -66,7 +66,6 @@
                 <?php else:?>
                     Проверить </i>
                 <?php endif;?>
-
             </a>
         </div>
     </div>
