@@ -32,11 +32,12 @@ class HeaderBlock extends CBitrixComponent {
                 'filter' => array('ID' => $this->user_id)
             ));
             if ($arUser = $dbUser->fetch()){
-                $user['img'] = $this->imageFormat($arUser['PERSONAL_PHOTO'], 60, 60, 85);
-                $user['name'] = $arUser['NAME'];
-                $user['id'] = $arUser['ID'];
-                $this->arResult = $user;
+                $this->arResult['img'] = $this->imageFormat($arUser['PERSONAL_PHOTO'], 60, 60, 85);
+                $this->arResult['name'] = $arUser['NAME'];
+                $this->arResult['id'] = $arUser['ID'];
             }
+
+            $this->getActualMatchId();
         }
 
         $this->includeComponentTemplate();
@@ -66,6 +67,8 @@ class HeaderBlock extends CBitrixComponent {
 
     protected function getActualMatchId(){
 
+        $now = new DateTime();
+        $arFilter[">DATE_ACTIVE_FROM"] = $now->format('d.m.Y H:i:s');
         $arFilter["IBLOCK_ID"] = $this->matchesIb;
 
         $response = CIBlockElement::GetList(
@@ -75,17 +78,13 @@ class HeaderBlock extends CBitrixComponent {
             [],
             [
                 "ID",
-                "ACTIVE",
-                "DATE_ACTIVE_FROM",
-                "PROPERTY_home",
-                "PROPERTY_guest",
-                "PROPERTY_group",
-                "PROPERTY_stage",
-                "PROPERTY_number",
+
             ]
         );
 
-        $res = $response->GetNext();
+         $res= $response->GetNext();
+
+         $this->arResult['pr_link'] = $res["ID"];
     }
 
 }

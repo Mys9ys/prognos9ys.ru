@@ -1,5 +1,4 @@
 <?php if (!defined("B_PROLOG_INCLUDED") || B_PROLOG_INCLUDED !== true) die();?>
-
 <div class="header_wrapper">
     <div class="h_main_block">
         <div class="hm_left_block">
@@ -34,7 +33,7 @@
             <div class="hm_btn_block hm_right">
                 <a class="header_button" href="/p/faq/" title="Инструкции"><i class="bi bi-patch-question"></i></a>
                 <?php if($arResult) :?>
-                <a class="header_button" href="/p/match/" title="Ваши прогнозы"><i class="bi bi-pencil-square"></i></a>
+                <a class="header_button" href="/p/match/<?=$arResult["pr_link"]?>" title="Ваши прогнозы"><i class="bi bi-pencil-square"></i></a>
                 <a class="header_button" href="/p/profile/" title="Ваш профиль"><i class="bi bi-person-square"></i></a>
                 <a class="header_button" href="/p/logout/" title="Выйти"><i class="bi bi-door-open"></i></a>
                 <?php else:?>
