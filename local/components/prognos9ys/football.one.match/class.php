@@ -143,8 +143,9 @@ class FootballOneMatch extends CBitrixComponent
 
         $el = [];
 
-        $el["rewrite"] = $res["TIMESTAMP_X"] ?? '';
-
+        if($id){
+            $el["rewrite"] = $res["TIMESTAMP_X"] ?? '';
+        }
 
         $el["home_goals"] = $res["PROPERTY_GOAL_HOME_VALUE"] ?? 0;
 
