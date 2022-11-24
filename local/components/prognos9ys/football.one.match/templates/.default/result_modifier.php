@@ -50,7 +50,6 @@ $arResult["btn"]["cards"]["red"] = [
 ];
 
 $arResult["btn"]["corner"] = [
-    ["name"=>"+10", "cell"=> "o_corner_i"],
     ["name"=>"+5", "cell"=> "o_corner_i"],
     ["name"=>"+3", "cell"=> "o_corner_i"],
     ["name"=>"+1", "cell"=> "o_corner_i"],
