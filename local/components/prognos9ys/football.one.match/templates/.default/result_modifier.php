@@ -38,6 +38,7 @@ $arResult["btn"]["dom"]["guest"] = [
 ];
 
 $arResult["btn"]["cards"]["yellow"] = [
+    ["name"=>"+5", "cell"=> "c_yellow"],
     ["name"=>"+3", "cell"=> "c_yellow"],
     ["name"=>"+1", "cell"=> "c_yellow"],
     ["name"=>"0", "cell"=> "c_yellow"],
@@ -49,6 +50,8 @@ $arResult["btn"]["cards"]["red"] = [
 ];
 
 $arResult["btn"]["corner"] = [
+    ["name"=>"+10", "cell"=> "o_corner_i"],
+    ["name"=>"+5", "cell"=> "o_corner_i"],
     ["name"=>"+3", "cell"=> "o_corner_i"],
     ["name"=>"+1", "cell"=> "o_corner_i"],
     ["name"=>"0", "cell"=> "o_corner_i"],
