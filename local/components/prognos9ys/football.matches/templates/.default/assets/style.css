@@ -161,4 +161,24 @@
   color: #228B22;
   border: 1px solid #228B22;
 }
+.matches_wrapper .accordion {
+  background: #253133;
+}
+.matches_wrapper .accordion-item {
+  border: 1px solid #253133;
+  background: #253133 !important;
+}
+.matches_wrapper .accordion-item .accordion-header {
+  background: #253133 !important;
+}
+.matches_wrapper .accordion-item .accordion-header .accordion-button {
+  position: relative;
+  background: #253133 !important;
+  color: #228B22;
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.4), 0 -1px 0 rgba(0, 0, 0, 0.2);
+}
+.matches_wrapper .accordion-body {
+  padding: 0;
+  background: #2E8B57;
+}
 /*# sourceMappingURL=style.css.map */
