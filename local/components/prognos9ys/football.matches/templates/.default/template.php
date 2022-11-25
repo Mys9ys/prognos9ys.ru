@@ -166,7 +166,8 @@
             <div id="collapseThree" class="accordion-collapse collapse" aria-labelledby="headingThree"
                  data-bs-parent="#accordionExample">
                 <div class="accordion-body">
-                    <?foreach ($arResult["future"] as $id=>$item):?>
+                    <?php
+                    foreach ($arResult["future"] as $id=>$item):?>
                         <?php
                         if($day !== $item["date"]):?>
                             <div class="day_line_block">

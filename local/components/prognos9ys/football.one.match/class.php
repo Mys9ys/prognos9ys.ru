@@ -147,7 +147,7 @@ class FootballOneMatch extends CBitrixComponent
             $el["rewrite"] = $res["TIMESTAMP_X"] ?? '';
         }
 
-        if(!$res["PROPERTY_GOAL_HOME_VALUE"]){
+        if(!$res["PROPERTY_NUMBER_VALUE"]){
             $this->arResult["null_prognosis"] = true;
         }
 
