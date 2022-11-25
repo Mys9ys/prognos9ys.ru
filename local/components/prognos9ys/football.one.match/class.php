@@ -106,13 +106,13 @@ class FootballOneMatch extends CBitrixComponent
 
     protected function getMatchInfo($id = '')
     {
-        if($id) {
+//        if($id) {
             $this->arFilter["IBLOCK_ID"] = $this->prognosisIb;
             $this->arFilter["ID"] = $id;
-        } else {
-            $this->arFilter["IBLOCK_ID"] = $this->matchesIb;
-            $this->arFilter["ID"] = $this->matchId;
-        }
+//        } else {
+//            $this->arFilter["IBLOCK_ID"] = $this->matchesIb;
+//            $this->arFilter["ID"] = $this->matchId;
+//        }
 
         $response = CIBlockElement::GetList(
             [],
@@ -145,6 +145,10 @@ class FootballOneMatch extends CBitrixComponent
 
         if($id){
             $el["rewrite"] = $res["TIMESTAMP_X"] ?? '';
+        }
+
+        if(!$res["PROPERTY_GOAL_HOME_VALUE"]){
+            $this->arResult["null_prognosis"] = true;
         }
 
         $el["home_goals"] = $res["PROPERTY_GOAL_HOME_VALUE"] ?? 0;

@@ -46,15 +46,23 @@
                 <tbody>
                 <tr>
                     <th>Ставка</th>
-                    <td><?=$arResult["main"]["home_goals"]?> - <?=$arResult["main"]["guest_goals"]?></td>
-                    <td><?= $arResult["main"]["result"]?></td>
-                    <td><?= $arResult["main"]["sum"]?></td>
-                    <td><?= $arResult["main"]["diff"]?></td>
-                    <td><?= $arResult["main"]["domination"] ?> - <?=100- $arResult["main"]["domination"] ?></td>
-                    <td><?= $arResult["main"]["yellow"]?></td>
-                    <td><?= $arResult["main"]["red"]?></td>
-                    <td><?= $arResult["main"]["corner"]?></td>
-                    <td><?= $arResult["main"]["penalty"]?></td>
+                    <?php if($arResult["null_prognosis"]):?>
+                        <td colspan="9" >
+                            <span class="text-secondary">Не заполнено</span>
+                        </td>
+                    <?php else:?>
+                        <?php $arPrognosis = $arResult["main"];?>
+                        <td><?=$arPrognosis["home_goals"]?> - <?=$arPrognosis["guest_goals"]?></td>
+                        <td><?= $arPrognosis["result"]?></td>
+                        <td><?= $arPrognosis["sum"]?></td>
+                        <td><?= $arPrognosis["diff"]?></td>
+                        <td><?= $arPrognosis["domination"] ?> - <?=100- $arResult["main"]["domination"] ?></td>
+                        <td><?= $arPrognosis["yellow"]?></td>
+                        <td><?= $arPrognosis["red"]?></td>
+                        <td><?= $arPrognosis["corner"]?></td>
+                        <td><?= $arPrognosis["penalty"]?></td>
+                    <?php endif;?>
+
                 </tr>
 
                 <tr>
