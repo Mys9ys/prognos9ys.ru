@@ -32,7 +32,6 @@
                 </tr>
                 <tr>
                     <th class="pr_table_col pr_table_th" >#</th>
-                    <th class="pr_table_col" >all</th>
                     <th class="pr_table_col" >Счет</th>
                     <th class="pr_table_col" ><i class="fa fa-trophy" aria-hidden="true"></i></th>
                     <th class="pr_table_col" >sum</th>
@@ -42,6 +41,7 @@
                     <th class="pr_table_col" ><i class="bi bi-file-fill" style="color:red"></i></th>
                     <th class="pr_table_col" ><i class="bi bi-flag"></i></th>
                     <th class="pr_table_col" >pen</th>
+                    <th class="pr_table_col" >all</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -53,7 +53,7 @@
                         </td>
                     <?php else:?>
                         <?php $arPrognosis = $arResult["main"];?>
-                        <td class="pr_table_col" ></td>
+
                         <td class="pr_table_col" ><?=$arPrognosis["home_goals"]?> - <?=$arPrognosis["guest_goals"]?></td>
                         <td class="pr_table_col" ><?= $arPrognosis["result"]?></td>
                         <td class="pr_table_col" ><?= $arPrognosis["sum"]?></td>
@@ -63,6 +63,7 @@
                         <td class="pr_table_col" ><?= $arPrognosis["red"]?></td>
                         <td class="pr_table_col" ><?= $arPrognosis["corner"]?></td>
                         <td class="pr_table_col" ><?= $arPrognosis["penalty"]?></td>
+                        <td class="pr_table_col" ></td>
                     <?php endif;?>
 
                 </tr>
@@ -70,7 +71,7 @@
                 <tr>
                     <th class="pr_table_col pr_table_th">Итог матча</th>
                     <?$mResult = $arResult["match_result"]?>
-                    <td class="pr_table_col" ></td>
+
                     <td class="pr_table_col" ><span class="text-info"><?=$mResult['score']?></span></td>
                     <td class="pr_table_col" ><span class="text-info"><?= $mResult["result"]?></span></td>
                     <td class="pr_table_col" ><span class="text-info"><?= $mResult["sum"]?></span></td>
@@ -80,12 +81,12 @@
                     <td class="pr_table_col" ><span class="text-info"><?= $mResult["red"]?></span></td>
                     <td class="pr_table_col" ><span class="text-info"><?= $mResult["corner"]?></span></td>
                     <td class="pr_table_col" ><span class="text-info"><?= $mResult["penalty"]?></span></td>
+                    <td class="pr_table_col" ></td>
                 </tr>
 
                 <tr>
                     <th class="pr_table_col pr_table_th">Баллы</th>
                     <?$uScore = $arResult["user_score"]?>
-                    <td class="pr_table_col" ><?=$uScore['all']?></td>
                     <td class="pr_table_col" ><?=$uScore['score']?></td>
                     <td class="pr_table_col" ><?= $uScore["result"]?></td>
                     <td class="pr_table_col" ><?= $uScore["sum"]?></td>
@@ -95,6 +96,7 @@
                     <td class="pr_table_col" ><?= $uScore["red"]?></td>
                     <td class="pr_table_col" ><?= $uScore["corner"]?></td>
                     <td class="pr_table_col"><?= $uScore["penalty"]?></td>
+                    <td class="pr_table_col" ><?=$uScore['all']?></td>
                 </tr>
 
                 </tbody>
