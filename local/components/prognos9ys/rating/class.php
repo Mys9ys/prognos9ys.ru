@@ -27,6 +27,10 @@ class FootballOneMatch extends CBitrixComponent
 
         if($this->arResults) $this->calcRating();
 
+        sort($this->arResults["best_score"], SORT_NUMERIC);
+
+        var_dump($this->arResults["best_score"]);
+
     }
 
     public function executeComponent()
@@ -79,6 +83,9 @@ class FootballOneMatch extends CBitrixComponent
 
         while ($res = $response->GetNext()) {
             $this->arResults[$res["PROPERTY_USER_ID_VALUE"]][$res["PROPERTY_MATCH_ID_VALUE"]] = $res;
+            $this->arResults["best_score"][$res["PROPERTY_USER_ID_VALUE"] . '-' .$res["PROPERTY_MATCH_ID_VALUE"]] = $res["PROPERTY_MATCH_ID_VALUE"];
+            $this->arResults["best_score_info"][$res["PROPERTY_USER_ID_VALUE"] . '-' .$res["PROPERTY_MATCH_ID_VALUE"]]["user"] = $res["PROPERTY_USER_ID_VALUE"];
+            $this->arResults["best_score_info"][$res["PROPERTY_USER_ID_VALUE"] . '-' .$res["PROPERTY_MATCH_ID_VALUE"]]["match"] = $res["PROPERTY_MATCH_ID_VALUE"];
         }
         $this->count = count($this->arResults[20]);
     }
@@ -120,7 +127,6 @@ class FootballOneMatch extends CBitrixComponent
             array_multisort($volume[$selector], SORT_DESC, $this->arResult[$selector]);
         }
         $this->arResult["count"] = $this->count;
-
     }
 
 }
