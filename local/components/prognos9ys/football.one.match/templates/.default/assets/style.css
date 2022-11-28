@@ -707,10 +707,15 @@
   margin-bottom: 10px;
 }
 .om_table_box {
-  font-size: 11px;
+  font-size: 10.5px;
 }
-.om_table_box td {
+.om_table_box .pr_table_col {
+  padding: 3px;
   text-align: center;
+}
+.om_table_box .pr_table_th {
+  padding-left: 8px;
+  text-align: left;
 }
 @media (max-width: 500px) {
   .one_match_wrapper .o_match_box .o_team_block .ot_team .ot_title {

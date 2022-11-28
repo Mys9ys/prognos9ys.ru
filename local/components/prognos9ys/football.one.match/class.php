@@ -298,6 +298,7 @@ class FootballOneMatch extends CBitrixComponent
                 "PROPERTY_goal_home",
                 "PROPERTY_goal_guest",
                 "PROPERTY_id",
+                "PROPERTY_all",
                 "PROPERTY_score",
                 "PROPERTY_result",
                 "PROPERTY_diff",
@@ -317,6 +318,7 @@ class FootballOneMatch extends CBitrixComponent
 
         $arr = [];
 
+        $arr["all"] = $this->greenWrap($res["PROPERTY_ALL_VALUE"]);
         $arr["score"] = $this->greenWrap($res["PROPERTY_SCORE_VALUE"]);
         $arr["result"] = $this->greenWrap($res["PROPERTY_RESULT_VALUE"]);
         $arr["sum"] = $this->greenWrap($res["PROPERTY_SUM_VALUE"]);
