@@ -1,6 +1,6 @@
 <?php
 
-use Bitrix\Main\{Loader, UserTable};
+use Bitrix\Main\{Loader};
 
 class FootballOneMatch extends CBitrixComponent
 {
@@ -25,11 +25,11 @@ class FootballOneMatch extends CBitrixComponent
 
         $this->getResults();
 
-        if($this->arResults) $this->calcRating();
+        if ($this->arResults) $this->calcRating();
 
-        sort($this->arResults["best_score"], SORT_NUMERIC);
+        arsort($this->arResults["best"]);
 
-        var_dump($this->arResults["best_score"]);
+        $this->getBestScore();
 
     }
 
@@ -44,17 +44,19 @@ class FootballOneMatch extends CBitrixComponent
         $this->matchId = $arParams["id"];
     }
 
-    protected function getUsers(){
+    protected function getUsers()
+    {
         $row = Bitrix\Main\UserTable::getList([
-            "select" => ["ID","NAME"],
+            "select" => ["ID", "NAME"],
         ]);
 
-        while ($res = $row->fetch()){
+        while ($res = $row->fetch()) {
             $this->arUsers[$res["ID"]] = $res["NAME"];
         }
     }
 
-    protected function getResults(){
+    protected function getResults()
+    {
         $arFilter["IBLOCK_ID"] = $this->resultIb;
 
         $response = CIBlockElement::GetList(
@@ -83,38 +85,41 @@ class FootballOneMatch extends CBitrixComponent
 
         while ($res = $response->GetNext()) {
             $this->arResults[$res["PROPERTY_USER_ID_VALUE"]][$res["PROPERTY_MATCH_ID_VALUE"]] = $res;
-            $this->arResults["best_score"][$res["PROPERTY_USER_ID_VALUE"] . '-' .$res["PROPERTY_MATCH_ID_VALUE"]] = $res["PROPERTY_MATCH_ID_VALUE"];
-            $this->arResults["best_score_info"][$res["PROPERTY_USER_ID_VALUE"] . '-' .$res["PROPERTY_MATCH_ID_VALUE"]]["user"] = $res["PROPERTY_USER_ID_VALUE"];
-            $this->arResults["best_score_info"][$res["PROPERTY_USER_ID_VALUE"] . '-' .$res["PROPERTY_MATCH_ID_VALUE"]]["match"] = $res["PROPERTY_MATCH_ID_VALUE"];
+
+            if ($res["PROPERTY_ALL_VALUE"] > 30) {
+                $this->arResults["best"][$res["PROPERTY_USER_ID_VALUE"] . '-' . $res["PROPERTY_MATCH_ID_VALUE"]] = $res["PROPERTY_ALL_VALUE"];
+            }
         }
+
         $this->count = count($this->arResults[20]);
     }
 
-    protected function calcRating(){
+    protected function calcRating()
+    {
         $volume = [];
         $count = 0;
 
         $arrSelector = [
-                "all",
-                "score",
-                "result",
-                "sum",
-                "diff",
-                "domination",
-                "yellow",
-                "red",
-                "corner",
-                "penalty",
+            "all",
+            "score",
+            "result",
+            "sum",
+            "diff",
+            "domination",
+            "yellow",
+            "red",
+            "corner",
+            "penalty",
         ];
 
-        foreach ($this->arResults as $userId=>$match){
+        foreach ($this->arResults as $userId => $match) {
             $count++;
 
-            foreach ($match as $info){
+            foreach ($match as $info) {
 
-                foreach ($arrSelector as $selector){
+                foreach ($arrSelector as $selector) {
 
-                    $this->arResult[$selector][$userId]["score"] += +$info["PROPERTY_".strtoupper($selector)."_VALUE"];
+                    $this->arResult[$selector][$userId]["score"] += +$info["PROPERTY_" . strtoupper($selector) . "_VALUE"];
                     $this->arResult[$selector][$userId]["nick"] = $this->arUsers[$info["PROPERTY_USER_ID_VALUE"]];
                     $this->arResult[$selector][$userId]["id"] = $userId;
 
@@ -123,10 +128,22 @@ class FootballOneMatch extends CBitrixComponent
             }
         }
 
-        foreach ($arrSelector as $selector){
+        foreach ($arrSelector as $selector) {
             array_multisort($volume[$selector], SORT_DESC, $this->arResult[$selector]);
         }
         $this->arResult["count"] = $this->count;
     }
 
+    protected function getBestScore()
+    {
+        foreach ($this->arResults["best"] as $key => $item) {
+            $el = [];
+            $arr = explode("-", $key);
+            $el['nick'] = $this->arUsers[$arr[0]];
+            $el['match'] = $arr[1];
+            $el['score'] = $item;
+
+            $this->arResult["best_score"][$key] = $el;
+        }
+    }
 }
