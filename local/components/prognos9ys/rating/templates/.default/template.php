@@ -50,7 +50,11 @@ $arrSelector = [
                     <tbody>
                         <?php foreach ($arResult[$selector] as $key=>$item):?>
                             <tr>
-                                <th><?=$key+1?></th>
+                                <?if($item["match"]){?>
+                                    <td><?=$item['match'] - 42?></td>
+                                <?} else {?>
+                                    <th><?=$key+1?></th>
+                                <?}?>
                                 <td><?=$item['nick']?></td>
                                 <td><?=$item['score']?></td>
                             </tr>
