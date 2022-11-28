@@ -23,6 +23,9 @@ class FootballMatches extends CBitrixComponent
             return;
         }
 
+        $this->arResult["active_count"] = 0;
+        $this->arResult["not_active_count"] = 0;
+
         $this->matchesIb = \CIBlock::GetList([], ['CODE' => 'matches'], false)->Fetch()['ID'] ?: 2;
         $this->groupIb = \CIBlock::GetList([], ['CODE' => 'group'], false)->Fetch()['ID'] ?: 5;
         $this->countriesIb = \CIBlock::GetList([], ['CODE' => 'countries'], false)->Fetch()['ID'] ?: 3;
@@ -85,6 +88,12 @@ class FootballMatches extends CBitrixComponent
             $el["write"] = $this->arUserPrognosis[$res["ID"]] ?? '';
 
             $this->arResult["teams"][$res["ID"]] = $el;
+
+            if($el["active"] === "Y"){
+                $this->arResult["active_count"]++;
+            } else {
+                $this->arResult["not_active_count"]++;
+            }
 
         }
 

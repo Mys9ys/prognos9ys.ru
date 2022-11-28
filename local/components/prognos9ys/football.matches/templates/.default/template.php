@@ -16,7 +16,7 @@
                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
                         data-bs-target="#collapseOne"
                         aria-expanded="false" aria-controls="collapseOne">
-                   Прошедшие
+                   Прошедшие <span class="badge_pr badge"><?=$arResult["not_active_count"]?></span>
                 </button>
             </h6>
             <div id="collapseOne" class="accordion-collapse collapse" aria-labelledby="headingOne"
@@ -88,7 +88,7 @@
             <h6 class="accordion-header" id="headingTwo">
                 <button class="accordion-button" type="button" data-bs-toggle="collapse"
                         data-bs-target="#collapseTwo" aria-expanded="true" aria-controls="collapseTwo">
-                    Текущие
+                    Текущие <span class="badge_pr badge"><?=$arResult["active_count"]?></span>
                 </button>
             </h6>
             <div id="collapseTwo" class="accordion-collapse collapse show" aria-labelledby="headingTwo"
@@ -160,7 +160,7 @@
             <h6 class="accordion-header" id="headingThree">
                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
                         data-bs-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
-                    Будущие
+                    Будущие <span class="badge_pr badge"><?=$arResult["future_count"]?></span>
                 </button>
             </h6>
             <div id="collapseThree" class="accordion-collapse collapse" aria-labelledby="headingThree"

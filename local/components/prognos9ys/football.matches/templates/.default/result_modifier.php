@@ -19,3 +19,4 @@ $arResult["future"] = [
     ['date' => '17.12', 'time' => '18:00', 'number'=>'F3', 'home'=>'LSF1', 'guest'=>'LSF2'],
     ['date' => '18.12', 'time' => '18:00', 'number'=>'F1', 'home'=>'WSF1', 'guest'=>'WSF2'],
 ];
+$arResult["future_count"] = count($arResult["future"]);
