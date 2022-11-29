@@ -9,6 +9,8 @@ class FootballOneMatch extends CBitrixComponent
     protected $arUsers = [];
     protected $arResults = [];
 
+    protected $best = [];
+
     protected $count = 0;
 
     public function __construct($component = null)
@@ -27,7 +29,7 @@ class FootballOneMatch extends CBitrixComponent
 
         if ($this->arResults) $this->calcRating();
 
-        arsort($this->arResults["best"]);
+        arsort($this->best);
 
         $this->getBestScore();
 
@@ -87,7 +89,7 @@ class FootballOneMatch extends CBitrixComponent
             $this->arResults[$res["PROPERTY_USER_ID_VALUE"]][$res["PROPERTY_MATCH_ID_VALUE"]] = $res;
 
             if ($res["PROPERTY_ALL_VALUE"] > 30) {
-                $this->arResults["best"][$res["PROPERTY_USER_ID_VALUE"] . '-' . $res["PROPERTY_MATCH_ID_VALUE"]] = $res["PROPERTY_ALL_VALUE"];
+                $this->best[$res["PROPERTY_USER_ID_VALUE"] . '-' . $res["PROPERTY_MATCH_ID_VALUE"]] = $res["PROPERTY_ALL_VALUE"];
             }
         }
 
@@ -131,12 +133,13 @@ class FootballOneMatch extends CBitrixComponent
         foreach ($arrSelector as $selector) {
             array_multisort($volume[$selector], SORT_DESC, $this->arResult[$selector]);
         }
+
         $this->arResult["count"] = $this->count;
     }
 
     protected function getBestScore()
     {
-        foreach ($this->arResults["best"] as $key => $item) {
+        foreach ($this->best as $key => $item) {
             $el = [];
             $arr = explode("-", $key);
             $el['nick'] = $this->arUsers[$arr[0]];
