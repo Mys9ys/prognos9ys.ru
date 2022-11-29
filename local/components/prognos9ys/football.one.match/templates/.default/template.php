@@ -1,6 +1,8 @@
 <?php if (!defined("B_PROLOG_INCLUDED") || B_PROLOG_INCLUDED !== true) die(); ?>
 <?php
-//dump($arResult);
+$APPLICATION->SetTitle("Прогноз футбольный на матч " . $arResult["other"]["home"]["NAME"] . "-" . $arResult["other"]["guest"]["NAME"]);
+$APPLICATION->SetPageProperty("description","Прогноз на футбольные матч " .
+    $arResult["other"]["home"]["NAME"] . "-" . $arResult["other"]["guest"]["NAME"] . " и результат прогноза без финансовых сливаний");
 ?>
 <?php if($_SERVER["HTTP_HOST"] === 'prog.work'):?>
     <style>

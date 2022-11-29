@@ -1,6 +1,8 @@
 <?php
 require($_SERVER['DOCUMENT_ROOT'] . '/bitrix/header.php');
 $APPLICATION->SetTitle("Условия конкурса прогнозов");
+$APPLICATION->SetPageProperty("description","Конкурс прогнозов на футбольные матчи без денежных 
+вливаний - описание условий выйгрыша главного приза 10 000 рублей");
 ?>
 
 <div class="prize_wrapper">
