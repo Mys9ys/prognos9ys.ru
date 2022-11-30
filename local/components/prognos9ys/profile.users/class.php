@@ -117,7 +117,7 @@ class ProfileUsers extends CBitrixComponent{
         );
 
         while ($res = $response->fetch()) {
-            $arr[$res["ID"]] = $res;
+            $arr[$res["ID"]] = $res["NAME"];
         }
 
         return $arr;
@@ -212,7 +212,7 @@ class ProfileUsers extends CBitrixComponent{
         while($res = $response->GetNext()){
             $arr = [];
 
-            $arr["name"] = $this->arCountries[$res["PROPERTY_HOME_VALUE"]] . ' - ' . $this->arCountries[$res["PROPERTY_HOME_VALUE"]];
+            $arr["name"] = $this->arCountries[$res["PROPERTY_HOME_VALUE"]] . ' - ' . $this->arCountries[$res["PROPERTY_GUEST_VALUE"]];
 
             $arr["score"] = $res["PROPERTY_GOAL_HOME_VALUE"] . ' - ' . $res["PROPERTY_GOAL_GUEST_VALUE"];
             $arr["result"] = $res["PROPERTY_RESULT_VALUE"];

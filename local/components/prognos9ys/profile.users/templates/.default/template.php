@@ -29,7 +29,7 @@ $APPLICATION->SetTitle("Профиль " . $arResult["name"]);
                     <h6 class="accordion-header" id="headingTwo">
                         <button class="accordion-button" type="button" data-bs-toggle="collapse"
                                 data-bs-target="#collapse<?=$key?>" aria-expanded="true" aria-controls="collapse<?=$key?>">
-                            Матч № <?=$key?> <span class="badge_pr badge"><?= $arResult["active_count"] ?></span>
+                            Матч № <?=$key?> <?=$item["match_result"]["name"] ?><span class="badge_pr badge"><?= $arResult["active_count"] ?></span>
                         </button>
                     </h6>
                     <div id="collapse<?=$key?>" class="accordion-collapse collapse" aria-labelledby="heading<?=$key?>"
