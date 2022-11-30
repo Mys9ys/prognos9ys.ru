@@ -60,7 +60,7 @@ $APPLICATION->SetTitle("Профиль " . $arResult["name"]);
                                         <td class="pr_table_col" ><?= $arPrognosis["result"]?></td>
                                         <td class="pr_table_col" ><?= $arPrognosis["sum"]?></td>
                                         <td class="pr_table_col" ><?= $arPrognosis["diff"]?></td>
-                                        <td class="pr_table_col" ><?= $arPrognosis["domination"] ?> - <?=100- $arResult["main"]["domination"] ?></td>
+                                        <td class="pr_table_col" ><?= $arPrognosis["domination"] ?> - <?=100- $arPrognosis["domination"] ?></td>
                                         <td class="pr_table_col" ><?= $arPrognosis["yellow"]?></td>
                                         <td class="pr_table_col" ><?= $arPrognosis["red"]?></td>
                                         <td class="pr_table_col" ><?= $arPrognosis["corner"]?></td>
