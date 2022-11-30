@@ -122,7 +122,10 @@ class FootballOneMatch extends CBitrixComponent
                 foreach ($arrSelector as $selector) {
 
                     $this->arResult[$selector][$userId]["score"] += +$info["PROPERTY_" . strtoupper($selector) . "_VALUE"];
-                    $this->arResult[$selector][$userId]["nick"] = $this->arUsers[$info["PROPERTY_USER_ID_VALUE"]];
+                    $this->arResult[$selector][$userId]["nick"] =
+                        '<a class="r_profile_link" href="/p/profile/'.$info["PROPERTY_USER_ID_VALUE"].'/">'
+                        . $this->arUsers[$info["PROPERTY_USER_ID_VALUE"]]
+                        .' <i class="bi bi-box-arrow-up-right"></i></a>';
                     $this->arResult[$selector][$userId]["id"] = $userId;
 
                     $volume[$selector][$userId] = $this->arResult[$selector][$userId]["score"];
@@ -142,7 +145,8 @@ class FootballOneMatch extends CBitrixComponent
         foreach ($this->best as $key => $item) {
             $el = [];
             $arr = explode("-", $key);
-            $el['nick'] = '<a href="/p/profile/'.$arr[0].'/">'.$this->arUsers[$arr[0]].'</a>';
+            $el['nick'] = '<a class="r_profile_link" href="/p/profile/'.$arr[0].'/">'.$this->arUsers[$arr[0]]
+                .' <i class="bi bi-box-arrow-up-right"></i></a>';
             $el['match'] = $arr[1];
             $el['score'] = $item;
 
