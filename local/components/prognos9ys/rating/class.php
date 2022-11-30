@@ -142,7 +142,7 @@ class FootballOneMatch extends CBitrixComponent
         foreach ($this->best as $key => $item) {
             $el = [];
             $arr = explode("-", $key);
-            $el['nick'] = $this->arUsers[$arr[0]];
+            $el['nick'] = '<a href="/p/profile/'.$arr[0].'/">'.$this->arUsers[$arr[0]].'</a>';
             $el['match'] = $arr[1];
             $el['score'] = $item;
 
