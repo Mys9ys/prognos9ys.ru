@@ -124,7 +124,9 @@ $APPLICATION->SetPageProperty("description","Прогноз на футболь�
             <?php endif;?>
         </div>
     <?php if(!$arResult["other"]["group"]):?>
-        <span class="text-danger m-2" style="font-size:11px;">В данном матче не может быть ничьи и равного счета</span>
+        <div class="text-danger m-2 o_playoff_title">В данном матче не может быть ничьи и равного счета,
+            а так же есть 2 новых события: доп. время и серия пенальти.</div>
+        
     <?php endif;?>
         <div class="o_match_box" >
             <div class="o_team_block">
@@ -231,11 +233,12 @@ $APPLICATION->SetPageProperty("description","Прогноз на футболь�
                         <div class="pw_team_name"><?= $arResult["other"]["home"]["NAME"] ?></div>
                     </div>
                     <div class="pw_team_guest pw_team">
+                        <div class="pw_team_type">Ком 2</div>
                         <div class="pw_team_name"><?= $arResult["other"]["guest"]["NAME"] ?></div>
                         <div class="pw_team_flag">
                             <img class="pw_team_flag_img" src="<?= $arResult["other"]["guest"]["img"] ?>" alt="">
                         </div>
-                        <div class="pw_team_type">Ком 2</div>
+
                     </div>
                 </div>
             </div>
