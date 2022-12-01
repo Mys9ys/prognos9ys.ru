@@ -2,10 +2,10 @@
 if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED!==true)die();
 
 $arResult["future"] = [
-    ['date' => '03.12', 'time' => '18:00', 'number'=>'A01', 'home'=>'A1', 'guest'=>'B2'],
-    ['date' => '03.12', 'time' => '22:00', 'number'=>'A02', 'home'=>'C1', 'guest'=>'D2'],
-    ['date' => '04.12', 'time' => '18:00', 'number'=>'A03', 'home'=>'D1', 'guest'=>'C2'],
-    ['date' => '04.12', 'time' => '22:00', 'number'=>'A04', 'home'=>'B1', 'guest'=>'A2'],
+//    ['date' => '03.12', 'time' => '18:00', 'number'=>'A01', 'home'=>'A1', 'guest'=>'B2'],
+//    ['date' => '03.12', 'time' => '22:00', 'number'=>'A02', 'home'=>'C1', 'guest'=>'D2'],
+//    ['date' => '04.12', 'time' => '18:00', 'number'=>'A03', 'home'=>'D1', 'guest'=>'C2'],
+//    ['date' => '04.12', 'time' => '22:00', 'number'=>'A04', 'home'=>'B1', 'guest'=>'A2'],
     ['date' => '05.12', 'time' => '18:00', 'number'=>'A05', 'home'=>'E1', 'guest'=>'F2'],
     ['date' => '05.12', 'time' => '22:00', 'number'=>'A06', 'home'=>'G1', 'guest'=>'H2'],
     ['date' => '06.12', 'time' => '18:00', 'number'=>'A07', 'home'=>'F1', 'guest'=>'E2'],

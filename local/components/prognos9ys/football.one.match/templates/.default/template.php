@@ -126,7 +126,7 @@ $APPLICATION->SetPageProperty("description","Прогноз на футболь�
     <?php if(!$arResult["other"]["group"]):?>
         <div class="text-danger m-2 o_playoff_title">В данном матче не может быть ничьи и равного счета,
             а так же есть 2 новых события: доп. время и серия пенальти.</div>
-        
+
     <?php endif;?>
         <div class="o_match_box" >
             <div class="o_team_block">
