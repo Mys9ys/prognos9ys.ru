@@ -233,12 +233,11 @@ $APPLICATION->SetPageProperty("description","Прогноз на футболь�
                         <div class="pw_team_name"><?= $arResult["other"]["home"]["NAME"] ?></div>
                     </div>
                     <div class="pw_team_guest pw_team">
-                        <div class="pw_team_type">Ком 2</div>
                         <div class="pw_team_name"><?= $arResult["other"]["guest"]["NAME"] ?></div>
                         <div class="pw_team_flag">
                             <img class="pw_team_flag_img" src="<?= $arResult["other"]["guest"]["img"] ?>" alt="">
                         </div>
-
+                        <div class="pw_team_type">Ком 2</div>
                     </div>
                 </div>
             </div>
