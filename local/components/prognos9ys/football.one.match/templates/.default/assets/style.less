@@ -582,6 +582,40 @@
   }
 }
 
+.pw_playoff_block{
+  .pw_pb_block{
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    background: @blockBG;
+    .o_match_inline_shadow;
+    border-radius: 5px;
+    padding: 3px 6px;
+    margin-top: 5px;
+    .pw_pb_radio_box{
+      display: flex;
+      flex-direction: row;
+      .pw_pb_radio{
+        display: none;
+      }
+      .pw_pb_radio_btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: @blockBG;
+        background: grey;
+        margin-left: 5px;
+        cursor: pointer;
+        padding: 2px 6px;
+        border-radius: 5px;
+      }
+      .pw_pb_radio:checked+label{
+        background: @colorText2;
+      }
+    }
+  }
+}
+
 @media (max-width: 500px) {
   .one_match_wrapper{
     .o_match_box{

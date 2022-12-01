@@ -48,6 +48,8 @@ $APPLICATION->SetTitle("Профиль " . $arResult["name"]);
                                     <th class="pr_table_col" ><i class="bi bi-file-fill" style="color:red"></i></th>
                                     <th class="pr_table_col" ><i class="bi bi-flag"></i></th>
                                     <th class="pr_table_col" >pen</th>
+                                    <th class="pr_table_col" >+<i class="bi bi-alarm"></i></th>
+                                    <th class="pr_table_col" >+pen</th>
                                     <th class="pr_table_col" >all</th>
                                 </tr>
                                 </thead>
@@ -65,12 +67,14 @@ $APPLICATION->SetTitle("Профиль " . $arResult["name"]);
                                         <td class="pr_table_col" ><?= $arPrognosis["red"]?></td>
                                         <td class="pr_table_col" ><?= $arPrognosis["corner"]?></td>
                                         <td class="pr_table_col" ><?= $arPrognosis["penalty"]?></td>
+                                        <td class="pr_table_col" ><?= $arPrognosis["otime"]?></td>
+                                        <td class="pr_table_col" ><?= $arPrognosis["spenalty"]?></td>
                                         <td class="pr_table_col" ></td>
 
                                 </tr>
 
                                 <tr>
-                                    <th class="pr_table_col pr_table_th">Итог матча</th>
+                                    <th class="pr_table_col pr_table_th">Матч</th>
                                     <?$mResult = $item["match_result"]?>
 
                                     <td class="pr_table_col" ><span class="text-info"><?=$mResult['score']?></span></td>
@@ -82,6 +86,8 @@ $APPLICATION->SetTitle("Профиль " . $arResult["name"]);
                                     <td class="pr_table_col" ><span class="text-info"><?= $mResult["red"]?></span></td>
                                     <td class="pr_table_col" ><span class="text-info"><?= $mResult["corner"]?></span></td>
                                     <td class="pr_table_col" ><span class="text-info"><?= $mResult["penalty"]?></span></td>
+                                    <td class="pr_table_col" ><span class="text-info"><?= $mResult["otime"]?></span></td>
+                                    <td class="pr_table_col" ><span class="text-info"><?= $mResult["spenalty"]?></span></td>
                                     <td class="pr_table_col" ></td>
                                 </tr>
 
@@ -97,6 +103,8 @@ $APPLICATION->SetTitle("Профиль " . $arResult["name"]);
                                     <td class="pr_table_col" ><?= $uScore["red"]?></td>
                                     <td class="pr_table_col" ><?= $uScore["corner"]?></td>
                                     <td class="pr_table_col"><?= $uScore["penalty"]?></td>
+                                    <td class="pr_table_col"><?= $uScore["otime"]?></td>
+                                    <td class="pr_table_col"><?= $uScore["spenalty"]?></td>
                                     <td class="pr_table_col" ><?=$uScore['all']?></td>
                                 </tr>
 

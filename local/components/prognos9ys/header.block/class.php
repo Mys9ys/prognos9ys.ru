@@ -77,14 +77,14 @@ class HeaderBlock extends CBitrixComponent {
             false,
             [],
             [
-                "ID",
+                "PROPERTY_NUMBER",
 
             ]
         );
 
          $res= $response->GetNext();
 
-         $this->arResult['pr_link'] = $res["ID"];
+         $this->arResult['pr_link'] = $res["PROPERTY_NUMBER_VALUE"];
     }
 
 }

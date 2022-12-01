@@ -152,6 +152,8 @@ class ProfileUsers extends CBitrixComponent{
                 "PROPERTY_number",
                 "PROPERTY_user_id",
                 "PROPERTY_domination",
+                "PROPERTY_otime",
+                "PROPERTY_spenalty",
             ]
         );
 
@@ -173,6 +175,8 @@ class ProfileUsers extends CBitrixComponent{
                 $el["offside"] = $res["PROPERTY_OFFSIDE_VALUE"] ?? '';
                 $el["domination"] = $res["PROPERTY_DOMINATION_VALUE"] ?: 50;
                 $el["domination2"] = $res["PROPERTY_DOMINATION_VALUE"] ? 100 - $res["PROPERTY_DOMINATION_VALUE"]: 50;
+                $el["otime"] = $res["PROPERTY_OTIME_VALUE"];
+                $el["spenalty"] = $res["PROPERTY_SPENALTY_VALUE"];
 
                 $this->arPrognosis[$res["PROPERTY_NUMBER_VALUE"]] = $el;
             }
@@ -206,6 +210,8 @@ class ProfileUsers extends CBitrixComponent{
                 "PROPERTY_sum",
                 "PROPERTY_number",
                 "PROPERTY_domination",
+                "PROPERTY_otime",
+                "PROPERTY_spenalty",
             ]
         );
 
@@ -223,6 +229,8 @@ class ProfileUsers extends CBitrixComponent{
             $arr["red"] = $res["PROPERTY_RED_VALUE"];
             $arr["corner"] = $res["PROPERTY_CORNER_VALUE"];
             $arr["penalty"] = $res["PROPERTY_PENALTY_VALUE"];
+            $arr["otime"] = $res["PROPERTY_OTIME_VALUE"];
+            $arr["spenalty"] = $res["PROPERTY_SPENALTY_VALUE"];
 
             if($this->arUserResult[$res["ID"]]){
                 $this->arResult["items"][$res["PROPERTY_NUMBER_VALUE"]]["match_result"] = $arr;
@@ -262,6 +270,8 @@ class ProfileUsers extends CBitrixComponent{
                 "PROPERTY_match_id",
                 "PROPERTY_user",
                 "PROPERTY_domination",
+                "PROPERTY_otime",
+                "PROPERTY_spenalty",
             ]
         );
 
@@ -278,6 +288,8 @@ class ProfileUsers extends CBitrixComponent{
             $arr["red"] = $this->greenWrap($res["PROPERTY_RED_VALUE"]);
             $arr["corner"] = $this->greenWrap($res["PROPERTY_CORNER_VALUE"]);
             $arr["penalty"] = $this->greenWrap($res["PROPERTY_PENALTY_VALUE"]);
+            $arr["otime"] = $this->greenWrap($res["PROPERTY_OTIME_VALUE"]);
+            $arr["spenalty"] = $this->greenWrap($res["PROPERTY_SPENALTY_VALUE"]);
 
             $this->arUserResult[$res["PROPERTY_MATCH_ID_VALUE"]] = $arr;
         }

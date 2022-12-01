@@ -65,6 +65,8 @@ class AddPrognosisInfo
             30 => $this->data["m_number"],
             31 => $this->data["m_user"],
             32 => $this->data["m_domination"],
+            45 => $this->data["m_otime"],
+            46 => $this->data["m_spenalty"],
         ];
 
         $check = $this->checkOldPrognosis();
@@ -114,7 +116,7 @@ class AddPrognosisInfo
 
         $ib = new CIBlockElement;
         $data = [
-            "NAME" => "Участник: " .$this->prop[31] . " Прогноз на матч: " . $this->prop[17],
+            "NAME" => "Участник: " .$this->prop[31] . " Прогноз на матч: " . $this->prop[30],
             "IBLOCK_ID" => $this->prognosisIb,
             'DATE_ACTIVE_FROM' => $this->now,
             "PROPERTY_VALUES"=>$this->prop

@@ -1,5 +1,12 @@
 $(document).ready(function () {
 
+    $('.pw_pb_radio_btn_otime').on('click', function () {
+        $('.pw_pb_otime_value').val($(this).data("value"))
+    })
+
+    $('.pw_pb_radio_btn_spenalty').on('click', function () {
+        $('.pw_pb_spenalty_value').val($(this).data("value"))
+    })
 
     $('.og_goal').on('focusout, keyup, change', function () {
         setGoalsAndResult()

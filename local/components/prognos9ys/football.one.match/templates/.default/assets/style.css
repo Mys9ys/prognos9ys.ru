@@ -717,6 +717,38 @@
   padding-left: 8px;
   text-align: left;
 }
+.pw_playoff_block .pw_pb_block {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  background: #253133;
+  box-shadow: inset 0 2px 10px 1px rgba(0, 0, 0, 0.3), inset 0 0 0 60px rgba(0, 0, 0, 0.3), 0 1px rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border-radius: 5px;
+  padding: 3px 6px;
+  margin-top: 5px;
+}
+.pw_playoff_block .pw_pb_block .pw_pb_radio_box {
+  display: flex;
+  flex-direction: row;
+}
+.pw_playoff_block .pw_pb_block .pw_pb_radio_box .pw_pb_radio {
+  display: none;
+}
+.pw_playoff_block .pw_pb_block .pw_pb_radio_box .pw_pb_radio_btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #253133;
+  background: grey;
+  margin-left: 5px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 5px;
+}
+.pw_playoff_block .pw_pb_block .pw_pb_radio_box .pw_pb_radio:checked + label {
+  background: #228B22;
+}
 @media (max-width: 500px) {
   .one_match_wrapper .o_match_box .o_team_block .ot_team .ot_title {
     width: 115px;

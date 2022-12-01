@@ -67,7 +67,7 @@
                                         <span class="text-info">Не заполнено</span>
                                     <?php endif;?>
                                 </div>
-                                <a class="match_write_btn" href="/p/match/<?=$id?>/">
+                                <a class="match_write_btn" href="/p/match/<?=$item["number"]?>/">
                                     <?php if($item["active"] === 'Y'):?>
                                         <?php if($item["write"]):?>
                                             Изменить <i class="bi bi-pencil-square"></i>
@@ -139,7 +139,7 @@
                                         <span class="text-info">Не заполнено</span>
                                     <?php endif;?>
                                 </div>
-                                <a class="match_write_btn" href="/p/match/<?=$id?>/">
+                                <a class="match_write_btn" href="/p/match/<?=$item["number"]?>/">
                                     <?php if($item["active"] === 'Y'):?>
                                         <?php if($item["write"]):?>
                                             Изменить <i class="bi bi-pencil-square"></i>

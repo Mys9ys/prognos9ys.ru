@@ -57,6 +57,8 @@ class SetMatchResult {
             4 => $this->data["m_team_guest"],
             5 => $this->data["m_group"],
             6 => $this->data["m_stage"],
+            47 => $this->data["m_otime"],
+            48 => $this->data["m_spenalty"],
         ];
 
         $ib = new CIBlockElement;

@@ -16,9 +16,9 @@ $APPLICATION->SetPageProperty("description","Прогноз на футболь�
 
     <div class="pr_btn_next_block">
         <?php if($arResult["other"]["number"]>1):?>
-            <a class="o_btn_next_match" href="/p/match/<?= $arResult["other"]["id"]-1?>/"><i class="fa fa-long-arrow-left" aria-hidden="true"></i> Предыдущий матч </a>
+            <a class="o_btn_next_match" href="/p/match/<?= $arResult["other"]["number"]-1?>/"><i class="fa fa-long-arrow-left" aria-hidden="true"></i> Предыдущий матч </a>
         <?php endif;?>
-        <a class="o_btn_next_match" href="/p/match/<?= $arResult["other"]["id"]+1?>/">Следующий матч <i class="fa fa-long-arrow-right" aria-hidden="true"></i></a>
+        <a class="o_btn_next_match" href="/p/match/<?= $arResult["other"]["number"]+1?>/">Следующий матч <i class="fa fa-long-arrow-right" aria-hidden="true"></i></a>
     </div>
 
     <?php if($arResult["other"]["active"] === "N" && !$USER->IsAdmin()):?>
@@ -43,6 +43,8 @@ $APPLICATION->SetPageProperty("description","Прогноз на футболь�
                     <th class="pr_table_col" ><i class="bi bi-file-fill" style="color:red"></i></th>
                     <th class="pr_table_col" ><i class="bi bi-flag"></i></th>
                     <th class="pr_table_col" >pen</th>
+                    <th class="pr_table_col" >+<i class="bi bi-alarm"></i></th>
+                    <th class="pr_table_col" >+pen</th>
                     <th class="pr_table_col" >all</th>
                 </tr>
                 </thead>
@@ -65,13 +67,15 @@ $APPLICATION->SetPageProperty("description","Прогноз на футболь�
                         <td class="pr_table_col" ><?= $arPrognosis["red"]?></td>
                         <td class="pr_table_col" ><?= $arPrognosis["corner"]?></td>
                         <td class="pr_table_col" ><?= $arPrognosis["penalty"]?></td>
+                        <td class="pr_table_col" ><?= $arPrognosis["otime"]?></td>
+                        <td class="pr_table_col" ><?= $arPrognosis["spenalty"]?></td>
                         <td class="pr_table_col" ></td>
                     <?php endif;?>
 
                 </tr>
 
                 <tr>
-                    <th class="pr_table_col pr_table_th">Итог матча</th>
+                    <th class="pr_table_col pr_table_th">Матч</th>
                     <?$mResult = $arResult["match_result"]?>
 
                     <td class="pr_table_col" ><span class="text-info"><?=$mResult['score']?></span></td>
@@ -83,6 +87,8 @@ $APPLICATION->SetPageProperty("description","Прогноз на футболь�
                     <td class="pr_table_col" ><span class="text-info"><?= $mResult["red"]?></span></td>
                     <td class="pr_table_col" ><span class="text-info"><?= $mResult["corner"]?></span></td>
                     <td class="pr_table_col" ><span class="text-info"><?= $mResult["penalty"]?></span></td>
+                    <td class="pr_table_col" ><span class="text-info"><?= $mResult["otime"]?></span></td>
+                    <td class="pr_table_col" ><span class="text-info"><?= $mResult["spenalty"]?></span></td>
                     <td class="pr_table_col" ></td>
                 </tr>
 
@@ -98,6 +104,8 @@ $APPLICATION->SetPageProperty("description","Прогноз на футболь�
                     <td class="pr_table_col" ><?= $uScore["red"]?></td>
                     <td class="pr_table_col" ><?= $uScore["corner"]?></td>
                     <td class="pr_table_col"><?= $uScore["penalty"]?></td>
+                    <td class="pr_table_col"><?= $uScore["otime"]?></td>
+                    <td class="pr_table_col"><?= $uScore["spenalty"]?></td>
                     <td class="pr_table_col" ><?=$uScore['all']?></td>
                 </tr>
 
@@ -111,8 +119,13 @@ $APPLICATION->SetPageProperty("description","Прогноз на футболь�
             <div class="om_info_box o_date"><i class="bi bi-calendar3"></i> <?= $arResult["other"]["date"] ?></div>
             <div class="om_info_box o_time"><i class="bi bi-alarm"></i> <?= $arResult["other"]["time"] ?></div>
             <div class="om_info_box o_number">№ <?= $arResult["other"]["number"] ?></div>
-            <div class="om_info_box o_group">Группа <?= $arResult["other"]["group"] ?></div>
+            <?php if($arResult["other"]["group"]):?>
+                <div class="om_info_box o_group">Группа <?= $arResult["other"]["group"] ?></div>
+            <?php endif;?>
         </div>
+    <?php if(!$arResult["other"]["group"]):?>
+        <span class="text-danger m-2" style="font-size:11px;">В данном матче не может быть ничьи и равного счета</span>
+    <?php endif;?>
         <div class="o_match_box" >
             <div class="o_team_block">
                 <input type="hidden" class="m_pr_value" name="m_stage" value="<?= $arResult["other"]["stage"] ?>">
@@ -332,6 +345,38 @@ $APPLICATION->SetPageProperty("description","Прогноз на футболь�
                     </div>
                 </div>
             </div>
+            <?php if(!$arResult["other"]["group"]):?>
+                <div class="pw_playoff_block">
+                <div class="pw_pb_block pw_otime_block">
+                    <div class="pw_pb_block_title pw_otime_title">
+                        Доп. время:
+                    </div>
+                    <div class="pw_pb_radio_box pw_otime_radio_box">
+                        <input type="radio" id="pw_pb_otime_yes" name="m_otime" class="pw_pb_radio pw_pb_otime_radio"
+                               value="" <?= $arResult["main"]["otime"] === '1'? 'checked' : ''?>>
+                        <label class="pw_pb_radio_btn pw_pb_radio_btn_otime" for="pw_pb_otime_yes" data-value="1">будет</label>
+                        <input type="radio" id="pw_pb_otime_no" name="m_otime" class="pw_pb_radio pw_pb_otime_radio"
+                               value="" <?= $arResult["main"]["otime"] === '0'? 'checked' : ''?>>
+                        <label class="pw_pb_radio_btn pw_pb_radio_btn_otime" for="pw_pb_otime_no" data-value="0">нет</label>
+                        <input class="pw_pb_otime_value m_pr_value" type="hidden" name="m_otime" value="<?= $arResult["main"]["otime"] ?? '-'?>">
+                    </div>
+                </div>
+                <div class="pw_pb_block pw_penalty_series_block">
+                    <div class="pw_pb_block_title pw_otime_title">
+                        Серия пенальти:
+                    </div>
+                    <div class="pw_pb_radio_box pw_otime_radio_box">
+                        <input type="radio" id="pw_pb_spenalty_yes" name="m_spenalty" class="pw_pb_radio pw_pb_spenalty_radio"
+                               value="" <?= $arResult["main"]["spenalty"] === '1'? 'checked' : ''?>>
+                        <label class="pw_pb_radio_btn pw_pb_radio_btn_spenalty" for="pw_pb_spenalty_yes" data-value="1">будет</label>
+                        <input type="radio" id="pw_pb_spenalty_no" name="m_spenalty" class="pw_pb_radio pw_pb_spenalty_radio"
+                               value="" <?= $arResult["main"]["spenalty"] === '0'? 'checked' : ''?>>
+                        <label class="pw_pb_radio_btn pw_pb_radio_btn_spenalty" for="pw_pb_spenalty_no" data-value="0">нет</label>
+                        <input class="pw_pb_spenalty_value m_pr_value" type="hidden" name="m_spenalty" value="<?= $arResult["main"]["spenalty"] ?? '-'?>">
+                    </div>
+                </div>
+            </div>
+            <?php endif;?>
             <div class="pw_btn_block ">
                 <?php if($USER->IsAdmin()):?>
                     <div class="o_btn_temp o_btn_rand o_admin_calc" data-id="<?= $arResult["other"]["id"] ?>">Расчитать </div>
@@ -358,9 +403,9 @@ $APPLICATION->SetPageProperty("description","Прогноз на футболь�
 
     <div class="pr_btn_next_block">
         <?php if($arResult["other"]["number"]>1):?>
-            <a class="o_btn_next_match" href="/p/match/<?= $arResult["other"]["id"]-1?>/"><i class="fa fa-long-arrow-left" aria-hidden="true"></i> Предыдущий матч </a>
+            <a class="o_btn_next_match" href="/p/match/<?= $arResult["other"]["number"]-1?>/"><i class="fa fa-long-arrow-left" aria-hidden="true"></i> Предыдущий матч </a>
         <?php endif;?>
-        <a class="o_btn_next_match" href="/p/match/<?= $arResult["other"]["id"]+1?>/">Следующий матч <i class="fa fa-long-arrow-right" aria-hidden="true"></i></a>
+        <a class="o_btn_next_match" href="/p/match/<?= $arResult["other"]["number"]+1?>/">Следующий матч <i class="fa fa-long-arrow-right" aria-hidden="true"></i></a>
     </div>
 
 </div>

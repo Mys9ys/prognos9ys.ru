@@ -82,6 +82,8 @@ class FootballOneMatch extends CBitrixComponent
                 "PROPERTY_penalty",
                 "PROPERTY_sum",
                 "PROPERTY_domination",
+                "PROPERTY_otime",
+                "PROPERTY_spenalty",
             ]
         );
 
@@ -89,7 +91,12 @@ class FootballOneMatch extends CBitrixComponent
             $this->arResults[$res["PROPERTY_USER_ID_VALUE"]][$res["PROPERTY_MATCH_ID_VALUE"]] = $res;
 
             if ($res["PROPERTY_ALL_VALUE"] > 30) {
-                $this->best[$res["PROPERTY_USER_ID_VALUE"] . '-' . $res["PROPERTY_MATCH_ID_VALUE"]] = $res["PROPERTY_ALL_VALUE"];
+                if(!$res["PROPERTY_NUMBER_VALUE"]) {
+                    $res["PROPERTY_NUMBER_VALUE"] = +$res["PROPERTY_MATCH_ID_VALUE"];
+                } else {
+                    $res["PROPERTY_NUMBER_VALUE"] += 42;
+                }
+                $this->best[$res["PROPERTY_USER_ID_VALUE"] . '-' . $res["PROPERTY_NUMBER_VALUE"]] = $res["PROPERTY_ALL_VALUE"];
             }
         }
 
@@ -112,6 +119,8 @@ class FootballOneMatch extends CBitrixComponent
             "red",
             "corner",
             "penalty",
+            "otime",
+            "spenalty",
         ];
 
         foreach ($this->arResults as $userId => $match) {

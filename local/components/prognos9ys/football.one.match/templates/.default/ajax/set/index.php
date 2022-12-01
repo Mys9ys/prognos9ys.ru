@@ -3,7 +3,8 @@
 require($_SERVER["DOCUMENT_ROOT"] . "/bitrix/modules/main/include/prolog_before.php");
 
 file_put_contents('set_debug_request.json', json_encode($_REQUEST));
-//$_REQUEST['type'] = 'set_result';
+//$_REQUEST = json_decode(file_get_contents('set_debug_request.json'), true);
+
 if ($_REQUEST['type'] === 'set_result') {
     $res = new SetResultAllUsers($_REQUEST['id']);
 }
@@ -32,10 +33,7 @@ class SetResultAllUsers
             return;
         }
 
-
-
         $this->matchId = $matchId;
-//        $this->matchId = 43;
 
         $this->matchesIb = \CIBlock::GetList([], ['CODE' => 'matches'], false)->Fetch()['ID'] ?: 2;
         $this->prognosisIb = \CIBlock::GetList([], ['CODE' => 'prognosis'], false)->Fetch()['ID'] ?: 6;
@@ -108,6 +106,8 @@ class SetResultAllUsers
                 "PROPERTY_number",
                 "PROPERTY_user",
                 "PROPERTY_domination",
+                "PROPERTY_otime",
+                "PROPERTY_spenalty",
             ]
         );
 
@@ -164,6 +164,8 @@ class SetResultAllUsers
                 "PROPERTY_offside",
                 "PROPERTY_number",
                 "PROPERTY_domination",
+                "PROPERTY_otime",
+                "PROPERTY_spenalty",
             ]
         );
 
@@ -184,6 +186,7 @@ class SetResultAllUsers
 
             $result['user'] = $prognosis["PROPERTY_USER_ID_VALUE"];
             $result['match'] = $prognosis["PROPERTY_ID_VALUE"];
+            $result['number'] = $prognosis["PROPERTY_NUMBER_VALUE"];
 
             // счет матча
             $arResGoals = ["home" => $prognosis["PROPERTY_GOAL_HOME_VALUE"],
@@ -235,6 +238,19 @@ class SetResultAllUsers
                 $result['penalty'] = $this->calcRedCard($prognosis["PROPERTY_PENALTY_VALUE"], $Res["PROPERTY_PENALTY_VALUE"]);
                 $all += $result['penalty'];
             } else { $result['penalty'] = 0;}
+
+
+            // дополнительное время
+            if ($prognosis["PROPERTY_OTIME_VALUE"] !== '-') {
+                $result['otime'] = $this->calcRedCard($prognosis["PROPERTY_OTIME_VALUE"], $Res["PROPERTY_OTIME_VALUE"]);
+                $all += $result['otime'];
+            } else { $result['otime'] = 0;}
+
+            // серия пенальти
+            if ($prognosis["PROPERTY_SPENALTY_VALUE"] !== '-') {
+                $result['spenalty'] = $this->calcRedCard($prognosis["PROPERTY_SPENALTY_VALUE"], $Res["PROPERTY_SPENALTY_VALUE"]);
+                $all += $result['spenalty'];
+            } else { $result['spenalty'] = 0;}
 
             $result["all"] = $all;
 
@@ -332,13 +348,16 @@ class SetResultAllUsers
             42 => $arr["all"],
             43 => $arr["match"],
             44 => $arr["user"],
+            49 => $arr["otime"],
+            50 => $arr["spenalty"],
+            51 => $arr["number"],
         ];
 
         $now = date(\CDatabase::DateFormatToPHP("DD.MM.YYYY HH:MI:SS"), time());
 
         $ib = new CIBlockElement;
         $data = [
-            "NAME" => "Участник: " .$prop[44] . " Результаты прогноза на матч: " . $prop[43],
+            "NAME" => "Участник: " .$prop[44] . " Результаты прогноза на матч: " . $arr["number"],
             "IBLOCK_ID" => $this->resultIb ,
             'DATE_ACTIVE_FROM' => $now,
             "PROPERTY_VALUES"=>$prop

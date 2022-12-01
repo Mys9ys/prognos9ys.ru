@@ -11,6 +11,7 @@ class FootballOneMatch extends CBitrixComponent
     protected $resultIb;
 
     protected $matchId;
+    protected $numberId;
     protected $userId;
 
     protected $arCountries = [];
@@ -39,6 +40,7 @@ class FootballOneMatch extends CBitrixComponent
 
     public function executeComponent()
     {
+        $this->getMatchId();
 
         $check = $this->checkOldPrognosis();
 
@@ -54,7 +56,26 @@ class FootballOneMatch extends CBitrixComponent
 
     public function onPrepareComponentParams($arParams)
     {
-        $this->matchId = $arParams["id"];
+        $this->numberId = $arParams["id"];
+    }
+
+    protected function getMatchId(){
+        $this->arFilter["IBLOCK_ID"] = $this->matchesIb;
+        $this->arFilter["PROPERTY_NUMBER"] = $this->numberId;
+
+        $response = CIBlockElement::GetList(
+            [],
+            $this->arFilter,
+            false,
+            [],
+            [
+                "ID",
+            ]
+        );
+
+        $res = $response->GetNext();
+        $this->matchId = $res["ID"];
+
     }
 
     protected function getMatchOtherInfo(){
@@ -136,6 +157,8 @@ class FootballOneMatch extends CBitrixComponent
                 "PROPERTY_number",
                 "PROPERTY_user",
                 "PROPERTY_domination",
+                "PROPERTY_otime",
+                "PROPERTY_spenalty",
             ]
         );
 
@@ -164,6 +187,8 @@ class FootballOneMatch extends CBitrixComponent
         $el["offside"] = $res["PROPERTY_OFFSIDE_VALUE"] ?? '';
         $el["domination"] = $res["PROPERTY_DOMINATION_VALUE"] ?: 50;
         $el["domination2"] = $res["PROPERTY_DOMINATION_VALUE"] ? 100 - $res["PROPERTY_DOMINATION_VALUE"]: 50;
+        $el["otime"] = $res["PROPERTY_OTIME_VALUE"];
+        $el["spenalty"] = $res["PROPERTY_SPENALTY_VALUE"];
 
         $this->arResult["main"] = $el;
 
@@ -261,6 +286,8 @@ class FootballOneMatch extends CBitrixComponent
                 "PROPERTY_number",
                 "PROPERTY_user",
                 "PROPERTY_domination",
+                "PROPERTY_otime",
+                "PROPERTY_spenalty",
             ]
         );
 
@@ -277,6 +304,8 @@ class FootballOneMatch extends CBitrixComponent
         $arr["red"] = $res["PROPERTY_RED_VALUE"];
         $arr["corner"] = $res["PROPERTY_CORNER_VALUE"];
         $arr["penalty"] = $res["PROPERTY_PENALTY_VALUE"];
+        $arr["otime"] = $res["PROPERTY_OTIME_VALUE"];
+        $arr["spenalty"] = $res["PROPERTY_SPENALTY_VALUE"];
 
         $this->arResult["match_result"] = $arr;
     }
@@ -311,6 +340,8 @@ class FootballOneMatch extends CBitrixComponent
                 "PROPERTY_number",
                 "PROPERTY_user",
                 "PROPERTY_domination",
+                "PROPERTY_otime",
+                "PROPERTY_spenalty",
             ]
         );
 
@@ -328,6 +359,8 @@ class FootballOneMatch extends CBitrixComponent
         $arr["red"] = $this->greenWrap($res["PROPERTY_RED_VALUE"]);
         $arr["corner"] = $this->greenWrap($res["PROPERTY_CORNER_VALUE"]);
         $arr["penalty"] = $this->greenWrap($res["PROPERTY_PENALTY_VALUE"]);
+        $arr["otime"] = $this->greenWrap($res["PROPERTY_OTIME_VALUE"]);
+        $arr["spenalty"] = $this->greenWrap($res["PROPERTY_SPENALTY_VALUE"]);
 
         $this->arResult["user_score"] = $arr;
     }
