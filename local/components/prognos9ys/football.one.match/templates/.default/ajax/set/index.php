@@ -241,13 +241,13 @@ class SetResultAllUsers
 
 
             // дополнительное время
-            if ($prognosis["PROPERTY_OTIME_VALUE"] !== '-') {
+            if ($prognosis["PROPERTY_OTIME_VALUE"] || $prognosis["PROPERTY_OTIME_VALUE"] !== null) {
                 $result['otime'] = $this->calcRedCard($prognosis["PROPERTY_OTIME_VALUE"], $Res["PROPERTY_OTIME_VALUE"]);
                 $all += $result['otime'];
             } else { $result['otime'] = 0;}
 
             // серия пенальти
-            if ($prognosis["PROPERTY_SPENALTY_VALUE"] !== '-') {
+            if ($prognosis["PROPERTY_SPENALTY_VALUE"] || $prognosis["PROPERTY_SPENALTY_VALUE"] !== null) {
                 $result['spenalty'] = $this->calcRedCard($prognosis["PROPERTY_SPENALTY_VALUE"], $Res["PROPERTY_SPENALTY_VALUE"]);
                 $all += $result['spenalty'];
             } else { $result['spenalty'] = 0;}
