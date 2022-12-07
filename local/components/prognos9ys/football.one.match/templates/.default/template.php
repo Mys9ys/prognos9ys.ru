@@ -418,7 +418,7 @@ $APPLICATION->SetPageProperty("description","Прогноз на футболь�
 
 <?php else:?>
     <div class="one_match_wrapper">
-        <div class="o_btn_next_match">Тут ни чего нет</div>
+        <div class="o_btn_next_match">Тут ничего нет</div>
     </div>
 <?php endif;?>
 
