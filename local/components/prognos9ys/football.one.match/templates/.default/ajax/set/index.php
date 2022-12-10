@@ -318,7 +318,7 @@ class SetResultAllUsers
             if(+$prognos >9) return 0;
             if (+$prognos === 0 && +$res === 0) return 0.5;
             if ($prognos === $res && +$res > 0) return 5 +(($res-1)*2);
-            if (+$prognos>0 && +$res > 1) return 0.5;
+            if (+$prognos>1 && +$res > 0) return 0.5;
         }
 
         return 0;
