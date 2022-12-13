@@ -14,8 +14,8 @@ $arResult["future"] = [
 //    ['date' => '09.12', 'time' => '22:00', 'number'=>'QF2', 'home'=>'A01', 'guest'=>'A02'],
 //    ['date' => '10.12', 'time' => '18:00', 'number'=>'QF3', 'home'=>'A07', 'guest'=>'A08'],
 //    ['date' => '10.12', 'time' => '22:00', 'number'=>'QF4', 'home'=>'A03', 'guest'=>'A04'],
-    ['date' => '13.12', 'time' => '22:00', 'number'=>'SF1', 'home'=>'WQF1', 'guest'=>'WQF2'],
-    ['date' => '14.12', 'time' => '22:00', 'number'=>'SF2', 'home'=>'WQF3', 'guest'=>'WQF4'],
+//    ['date' => '13.12', 'time' => '22:00', 'number'=>'SF1', 'home'=>'WQF1', 'guest'=>'WQF2'],
+//    ['date' => '14.12', 'time' => '22:00', 'number'=>'SF2', 'home'=>'WQF3', 'guest'=>'WQF4'],
     ['date' => '17.12', 'time' => '18:00', 'number'=>'F3', 'home'=>'LSF1', 'guest'=>'LSF2'],
     ['date' => '18.12', 'time' => '18:00', 'number'=>'F1', 'home'=>'WSF1', 'guest'=>'WSF2'],
 ];
