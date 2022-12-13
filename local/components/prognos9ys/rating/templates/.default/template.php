@@ -32,7 +32,12 @@ $arrSelector = [
                 </button>
             <?$show++ ?>
             <?php endforeach;?>
+            <?$allCalc = 'all-calc'?>
+            <button class="r_prog_btn nav-link <?if($show===0) echo 'active'; ?>" id="nav-profile-tab" data-bs-toggle="tab" data-bs-target="#nav-<?=$allCalc?>" type="button" role="tab" aria-controls="nav-<?=$allCalc?>">
+                <div class="r_prog_btn_text">Прогрес рейтинга</div>
+            </button>
       </div>
+
     </nav>
     <div class="tab-content" id="nav-tabContent">
         <?php $show = 0;
@@ -65,5 +70,64 @@ $arrSelector = [
                 </table>
             </div><?$show++ ?>
         <?php endforeach;?>
+        <?$show++ ?>
+
+        <div class="tab-pane fade <?if($show===0) echo 'show active'; ?>" id="nav-<?=$allCalc?>" role="tabpanel" aria-labelledby="nav-home-tab" tabindex="0">
+            <div class="r_title_box">
+                <div class="r_title">Прогресс рейтинга</div>
+            </div>
+<!--            --><?//=dump($arResult["all_result"])?>
+            <?$optionEl = $tabEl = $controlCount = count($arResult["all_result"]);?>
+            <div class="tab_progress_rating_select_wrapper">
+                <select class="tab_progress_rating_select">
+                    <?for ($optionEl; $optionEl>0;$optionEl--):?>
+                        <option value="<?=$optionEl?>">Матч <?=$optionEl?></option>
+                    <?endfor;?>
+                </select>
+            </div>
+            <div class="tab_progress_rating_box">
+                <?for ($tabEl; $tabEl>0;$tabEl--):?>
+                    <div class="tab tab_progress_rating <?if($controlCount === $tabEl) echo "tpr_active"?>">
+                        <table class="table table-dark table-hover">
+                            <thead>
+                            <tr>
+                                <th scope="col">Место</th>
+                                <th scope="col"><i class="bi bi-graph-up-arrow"></i></th>
+                                <th scope="col">Ник</th>
+                                <th scope="col">Баллы</th>
+
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <? foreach ($arResult["all_result"][$tabEl] as $item): ?>
+                                <tr>
+                                    <th><?=$item['place']?></th>
+                                    <td>
+                                        <?
+                                        if($item['diff']>0) echo "<span class='text-success'><i class='fa fa-long-arrow-up' aria-hidden='true'></i> " . $item['diff'] . "</span>";
+                                        if($item['diff']<0) echo "<span class='text-danger'><i class='fa fa-long-arrow-down' aria-hidden='true'></i> " . abs ($item['diff']) . "</span>";
+                                        if($item['diff']===0) echo "<span class='text-info'><i class='fa fa-minus' aria-hidden='true'></i></span>";
+                                        ?>
+                                    </td>
+                                    <td><?=$item['nick']?></td>
+                                    <td><?=$item['score']?></td>
+
+                                </tr>
+                            <? endforeach;?>
+
+                            </tbody>
+                        </table>
+                    </div>
+                <?endfor;?>
+            </div>
+        </div>
     </div>
 </div>
+
+<script>
+    document.querySelector('select').addEventListener('change', function() {
+        document.querySelectorAll('.tab').forEach((n, i) => {
+            n.classList.toggle('tpr_active', i === this.selectedIndex);
+        });
+    });
+</script>

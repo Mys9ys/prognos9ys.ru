@@ -33,6 +33,12 @@ class FootballOneMatch extends CBitrixComponent
 
         $this->getBestScore();
 
+        $this->fillAllUsers();
+
+        $this->sortAllChange();
+
+        $this->sortForNumber();
+
     }
 
     public function executeComponent()
@@ -98,6 +104,8 @@ class FootballOneMatch extends CBitrixComponent
                 }
                 $this->best[$res["PROPERTY_USER_ID_VALUE"] . '-' . $res["PROPERTY_NUMBER_VALUE"]] = $res["PROPERTY_ALL_VALUE"];
             }
+
+            $this->arResult["users"][$res["PROPERTY_USER_ID_VALUE"]] = [];
         }
 
         $this->count = count($this->arResults[20]);
@@ -137,8 +145,18 @@ class FootballOneMatch extends CBitrixComponent
                         .' <i class="bi bi-box-arrow-up-right"></i></a>';
                     $this->arResult[$selector][$userId]["id"] = $userId;
 
+
+                    if($selector === "all"){
+                        $number = $info['PROPERTY_NUMBER_VALUE'] ?? +$info['PROPERTY_MATCH_ID_VALUE'] - 42;
+
+                        $this->arResult["all_change"][$number][$userId]["score"] = $this->arResult["all"][$userId]["score"];
+                        $this->arResult["all_change"][$number][$userId]["nick"] = $this->arUsers[$info["PROPERTY_USER_ID_VALUE"]];
+                        $this->arResult["all_change"][$number][$userId]["id"] = $this->arResult["all"][$userId]["id"];
+                    }
+
                     $volume[$selector][$userId] = $this->arResult[$selector][$userId]["score"];
                 }
+
             }
         }
 
@@ -147,6 +165,7 @@ class FootballOneMatch extends CBitrixComponent
         }
 
         $this->arResult["count"] = $this->count;
+
     }
 
     protected function getBestScore()
@@ -160,6 +179,59 @@ class FootballOneMatch extends CBitrixComponent
             $el['score'] = $item;
 
             $this->arResult["best_score"][$key] = $el;
+        }
+    }
+
+    protected function fillAllUsers(){
+        $arrScore = [];
+        foreach ($this->arResult["all_change"] as $number=>$users){
+            foreach ($users as $user){
+                $arrScore[$user["id"]] = $user;
+            }
+
+            $this->arResult["all_number"][$number] = $arrScore;
+        }
+
+    }
+
+    protected function sortAllChange(){
+
+        foreach ($this->arResult["all_number"] as $number=>$users){
+            $arSort = $users;
+            array_multisort(array_column($arSort, 'score'), SORT_DESC, $arSort);
+//            dump($arSort);
+            $place = 1;
+            $count = 1;
+            $score = 0;
+            foreach ($arSort as $user){
+
+                if($user["score"] < $score) {
+                    $place = $count;
+                }
+
+                $oldPlace = $this->arResult["all_number"][$number-1][$user["id"]]["place"];
+
+                if($oldPlace && $count !== 1){
+                    $user["diff"] = $oldPlace - $place;
+                }
+
+                if(!$user["diff"]) $user["diff"] = 0;
+
+                $score = $user["score"];
+                $user["place"] = $place;
+
+                $this->arResult["all_result"][$number][$count] = $user;
+                $this->arResult["all_number"][$number][$user["id"]]["place"] = $user["place"];
+                $count++;
+            }
+        }
+    }
+
+    protected function sortForNumber(){
+        foreach ($this->arResult["all_number"] as $number=>$users){
+            array_multisort(array_column($users, 'score'), SORT_DESC, $users);
+
+            $this->arResult["all_number"][$number] = $users;
         }
     }
 }
