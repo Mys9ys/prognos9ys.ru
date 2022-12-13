@@ -91,7 +91,7 @@ $arrSelector = [
                         <table class="table table-dark table-hover">
                             <thead>
                             <tr>
-                                <th scope="col">Место</th>
+                                <th scope="col">#</th>
                                 <th scope="col">  <i class="fa fa-line-chart" aria-hidden="true"></i>  </th>
                                 <th scope="col">Ник</th>
                                 <th scope="col">Баллы</th>
