@@ -18,6 +18,8 @@ $arrSelector = [
 ];
 
 ?>
+<?//=dump($arResult["all_number"])?>
+<?//=dump($arResult["all_change"])?>
 
 <div class="rating_wrapper">
  <div class="r_title_box">
@@ -76,7 +78,7 @@ $arrSelector = [
             <div class="r_title_box">
                 <div class="r_title">Прогресс рейтинга</div>
             </div>
-<!--            --><?//=dump($arResult["all_result"])?>
+
             <?$optionEl = $tabEl = $controlCount = count($arResult["all_result"]);?>
             <div class="tab_progress_rating_select_wrapper">
                 <select class="tab_progress_rating_select">

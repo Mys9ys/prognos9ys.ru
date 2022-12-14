@@ -152,6 +152,11 @@ class FootballOneMatch extends CBitrixComponent
                         $this->arResult["all_change"][$number][$userId]["score"] = $this->arResult["all"][$userId]["score"];
                         $this->arResult["all_change"][$number][$userId]["nick"] = $this->arUsers[$info["PROPERTY_USER_ID_VALUE"]];
                         $this->arResult["all_change"][$number][$userId]["id"] = $this->arResult["all"][$userId]["id"];
+
+//                        if($number === 6) {
+//                            dump($this->arResult["all_change"][$number][$userId]);
+//
+//                        }
                     }
 
                     $volume[$selector][$userId] = $this->arResult[$selector][$userId]["score"];
@@ -183,11 +188,20 @@ class FootballOneMatch extends CBitrixComponent
     }
 
     protected function fillAllUsers(){
+        ksort($this->arResult["all_change"]);
         $arrScore = [];
         foreach ($this->arResult["all_change"] as $number=>$users){
+
             foreach ($users as $user){
                 $arrScore[$user["id"]] = $user;
             }
+
+//            if($number === 6){
+//                dump($arrScore);
+//                dump($number);
+//                dump($users);
+//                die();
+//            }
 
             $this->arResult["all_number"][$number] = $arrScore;
         }
@@ -210,6 +224,11 @@ class FootballOneMatch extends CBitrixComponent
                 }
 
                 $oldPlace = $this->arResult["all_number"][$number-1][$user["id"]]["place"];
+
+//                if($number === 7){
+//                    dump($oldPlace);
+//                    dump($user);
+//                }
 
                 if($oldPlace && $count !== 1){
                     $user["diff"] = $oldPlace - $place;
