@@ -36,7 +36,7 @@ $arrSelector = [
             <?php endforeach;?>
             <?$allCalc = 'all-calc'?>
             <button class="r_prog_btn nav-link <?if($show===0) echo 'active'; ?>" id="nav-profile-tab" data-bs-toggle="tab" data-bs-target="#nav-<?=$allCalc?>" type="button" role="tab" aria-controls="nav-<?=$allCalc?>">
-                <div class="r_prog_btn_text">Прогрес рейтинга</div>
+                <div class="r_prog_btn_text">Прогресс рейтинга</div>
             </button>
       </div>
 
