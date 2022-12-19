@@ -6,14 +6,29 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED!==true)die();
 //    "bcgrnd" => '/assets/img/qatar.png'
 //];
 
-$arResult["items"]["ref"] = [
-    "link" => "/p/ref/",
-    "bcgrnd" => '/assets/img/ref.jpg'
-];
+//$arResult["items"]["ref"] = [
+//    "link" => "/p/ref/",
+//    "bcgrnd" => '/assets/img/ref.jpg'
+//];
 
-$arResult["items"]["prize"] = [
-    "link" => "/p/prize/",
-    "bcgrnd" => '/assets/img/prize.jpg'
+//$arResult["items"]["prize"] = [
+//    "link" => "/p/prize/",
+//    "bcgrnd" => '/assets/img/prize.jpg'
+//];
+
+$arResult["items"]["prize"] =
+    [
+        "link" => "/",
+        "small_title" => 'Участникам, занявшим призовые места с вопросами по выплатам обращаться в соцсети, указанные ниже.',
+        "btn_title" => '<i class="bi bi-telegram"></i>',
+        "img" => '/assets/img/prize.png',
+        "color" => "#8a1538;"
+    ];
+
+
+$arResult["items"]["final"] = [
+    "link" => "/",
+    "bcgrnd" => '/assets/img/final.jpg'
 ];
 
 
