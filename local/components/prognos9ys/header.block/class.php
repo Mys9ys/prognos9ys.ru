@@ -28,13 +28,14 @@ class HeaderBlock extends CBitrixComponent {
 
             $user =[];
             $dbUser = UserTable::getList(array(
-                'select' => array('ID', 'NAME', 'PERSONAL_PHOTO'),
+                'select' => array('ID', 'NAME', 'PERSONAL_PHOTO', 'UF_EVENT'),
                 'filter' => array('ID' => $this->user_id)
             ));
             if ($arUser = $dbUser->fetch()){
                 $this->arResult['img'] = $this->imageFormat($arUser['PERSONAL_PHOTO'], 60, 60, 85);
                 $this->arResult['name'] = $arUser['NAME'];
                 $this->arResult['id'] = $arUser['ID'];
+                $this->arResult['event'] = $arUser['UF_EVENT'];
             }
 
             $this->getActualMatchId();
