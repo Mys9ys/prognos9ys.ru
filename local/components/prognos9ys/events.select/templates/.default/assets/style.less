@@ -1,0 +1,35 @@
+@blockBG: #253133;
+@colorText: #fff;
+@colorText2: #228B22;
+@qatar: #8a1538;
+
+.events_wrapper{
+  width: 400px;
+  max-width: 98%;
+  margin: 0 auto;
+  .event_get_btn{
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 5px;
+
+    &:hover{
+      box-shadow: 0 2px 3px rgba(0, 0, 0, .4), 0 -1px 0 rgba(0, 0, 0, .2);
+    }
+
+    &.e_active{
+      box-shadow: 0 2px 3px rgba(0, 0, 0, .4), 0 -1px 0 rgba(0, 0, 0, .2);
+    }
+
+    .event_get_img{
+      position: absolute;
+      height: 95%;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+    }
+  }
+}

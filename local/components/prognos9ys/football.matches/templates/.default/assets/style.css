@@ -15,8 +15,6 @@
 .matches_wrapper .matches_title {
   display: flex;
   flex-direction: row;
-  background: #8a1538;
-  color: #fff;
   position: relative;
   justify-content: flex-end;
   padding: 5px;
@@ -28,7 +26,6 @@
   width: 20%;
   bottom: 0;
   border-radius: 5px;
-  background: #8a1538;
   left: 0;
 }
 .matches_wrapper .matches_title .matches_logo .matches_logo_img {
@@ -37,6 +34,7 @@
 .matches_wrapper .matches_title .matches_text {
   width: 80%;
   font-weight: bold;
+  padding-left: 5px;
 }
 .matches_wrapper .day_line_block {
   border-top: 3px solid #253133;

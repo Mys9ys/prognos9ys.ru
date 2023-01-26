@@ -1,7 +1,5 @@
 <?php
 
-
-
 use Bitrix\Main\{Loader, UserTable};
 
 class HeaderBlock extends CBitrixComponent {
@@ -20,13 +18,18 @@ class HeaderBlock extends CBitrixComponent {
 
         $this->matchesIb = \CIBlock::GetList([], ['CODE' => 'matches'], false)->Fetch()['ID'] ?: 2;
         $this->user_id = CUser::GetID()?: '';
+
+        var_dump(CUser::GetParam("UF_EVENT"));
+
+
+
+        var_dump($dbUser);
     }
 
     public function executeComponent()
     {
         if($this->user_id) {
 
-            $user =[];
             $dbUser = UserTable::getList(array(
                 'select' => array('ID', 'NAME', 'PERSONAL_PHOTO', 'UF_EVENT'),
                 'filter' => array('ID' => $this->user_id)
@@ -79,7 +82,6 @@ class HeaderBlock extends CBitrixComponent {
             [],
             [
                 "PROPERTY_NUMBER",
-
             ]
         );
 
