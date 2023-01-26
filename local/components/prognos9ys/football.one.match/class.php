@@ -55,6 +55,8 @@ class FootballOneMatch extends CBitrixComponent
         $this->getUserScore();
 
         $this->includeComponentTemplate();
+
+        $this->arResult['event'] = $this->actEvent;
     }
 
     public function onPrepareComponentParams($arParams)
@@ -74,6 +76,8 @@ class FootballOneMatch extends CBitrixComponent
             $this->userId = $dbUser["ID"];
             $this->actEvent = $dbUser["UF_EVENT"];
         }
+
+        $this->arResult['event'] = $this->actEvent;
 
     }
 
@@ -147,16 +151,12 @@ class FootballOneMatch extends CBitrixComponent
 
     protected function getMatchInfo($id = '')
     {
-//        if($id) {
-            $arFilter["IBLOCK_ID"] = $this->prognosisIb;
-            $arFilter["ID"] = $id;
-            $arFilter["PROPERTY_EVENTS"] = $this->actEvent;
-//        } else {
-//            $arFilter["IBLOCK_ID"] = $this->matchesIb;
-//            $arFilter["ID"] = $this->matchId;
-//        }
 
-        $response = CIBlockElement::GetList(
+        $arFilter["IBLOCK_ID"] = $this->prognosisIb;
+        $arFilter["PROPERTY_ID"] = $this->matchId;
+        $arFilter["PROPERTY_USER_ID"] = $this->userId;
+
+        $res = CIBlockElement::GetList(
             [],
             $arFilter,
             false,
@@ -181,9 +181,7 @@ class FootballOneMatch extends CBitrixComponent
                 "PROPERTY_otime",
                 "PROPERTY_spenalty",
             ]
-        );
-
-        $res = $response->GetNext();
+        )->GetNext();
 
         $el = [];
 
@@ -220,7 +218,6 @@ class FootballOneMatch extends CBitrixComponent
         $arFilter["IBLOCK_ID"] = $this->prognosisIb;
         $arFilter["PROPERTY_USER_ID"] = $this->userId;
         $arFilter["PROPERTY_ID"] = $this->matchId;
-        $arFilter["PROPERTY_EVENTS"] = $this->actEvent;
 
         $res = CIBlockElement::GetList(
             [],
@@ -229,11 +226,9 @@ class FootballOneMatch extends CBitrixComponent
             [],
             [   "ID",
             ]
-        );
+        )->GetNext();
 
-        $response = $res->GetNext();
-
-        return $response["ID"];
+        return $res["ID"];
 
     }
 
@@ -286,7 +281,6 @@ class FootballOneMatch extends CBitrixComponent
         $arFilter = [];
         $arFilter["IBLOCK_ID"] = $this->matchesIb;
         $arFilter["ID"] = $this->matchId;
-        $arFilter["PROPERTY_EVENTS"] = $this->actEvent;
 
         $response = CIBlockElement::GetList(
             [],
@@ -335,11 +329,10 @@ class FootballOneMatch extends CBitrixComponent
 
     protected function getUserScore(){
 
-        $arFilter = [];
         $arFilter["IBLOCK_ID"] = $this->resultIb;
         $arFilter["PROPERTY_MATCH_ID"] = $this->matchId;
         $arFilter["PROPERTY_USER_ID"] = $this->userId;
-        $arFilter["PROPERTY_EVENTS"] = $this->actEvent;
+
 
         $response = CIBlockElement::GetList(
             [],

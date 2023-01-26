@@ -67,6 +67,7 @@ class AddPrognosisInfo
             32 => $this->data["m_domination"],
             45 => $this->data["m_otime"],
             46 => $this->data["m_spenalty"],
+            52 => $this->data["m_event"],
         ];
 
         $check = $this->checkOldPrognosis();

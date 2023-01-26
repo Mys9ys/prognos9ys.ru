@@ -4,13 +4,6 @@ $APPLICATION->SetTitle("Прогноз футбольный на матч " . $a
 $APPLICATION->SetPageProperty("description","Прогноз на футбольные матч " .
     $arResult["other"]["home"]["NAME"] . "-" . $arResult["other"]["guest"]["NAME"] . " и результат прогноза без финансовых сливаний");
 ?>
-<?php if($_SERVER["HTTP_HOST"] === 'prog.work'):?>
-    <style>
-        body{
-            background: #fff;
-        }
-    </style>
-<?php endif;?>
 <?php if($arResult["other"]["id"]):?>
 <div class="one_match_wrapper">
 
@@ -123,7 +116,7 @@ $APPLICATION->SetPageProperty("description","Прогноз на футболь�
                 <div class="om_info_box o_group">Группа <?= $arResult["other"]["group"] ?></div>
             <?php endif;?>
         </div>
-    <?php if(!$arResult["other"]["group"]):?>
+    <?php if($arResult["other"]["stage"] === 2):?>
         <div class="text-danger m-2 o_playoff_title">В данном матче не может быть ничьи и равного счета,
             а так же есть 2 новых события: доп. время и серия пенальти.</div>
 
@@ -137,7 +130,7 @@ $APPLICATION->SetPageProperty("description","Прогноз на футболь�
                 <input type="hidden" class="m_pr_value" name="m_id" value="<?= $arResult["other"]["id"] ?>">
                 <input type="hidden" class="m_pr_value" name="m_number" value="<?= $arResult["other"]["number"] ?>">
                 <input type="hidden" class="m_pr_value" name="m_user" value="<?= CUser::GetID()?>">
-                <input type="hidden" class="m_pr_value" name="m_event" value="34">
+                <input type="hidden" class="m_pr_value" name="m_event" value="<?= $arResult["event"] ?>">
                 <div class="ot_title"></div>
                 <div class="ot_team ot_home">
                     <div class="ot_flag">
@@ -347,7 +340,7 @@ $APPLICATION->SetPageProperty("description","Прогноз на футболь�
                     </div>
                 </div>
             </div>
-            <?php if(!$arResult["other"]["group"]):?>
+            <?php if($arResult["other"]["stage"] === 2):?>
                 <div class="pw_playoff_block">
                 <div class="pw_pb_block pw_otime_block">
                     <div class="pw_pb_block_title pw_otime_title">
