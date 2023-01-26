@@ -19,11 +19,6 @@ class HeaderBlock extends CBitrixComponent {
         $this->matchesIb = \CIBlock::GetList([], ['CODE' => 'matches'], false)->Fetch()['ID'] ?: 2;
         $this->user_id = CUser::GetID()?: '';
 
-        var_dump(CUser::GetParam("UF_EVENT"));
-
-
-
-        var_dump($dbUser);
     }
 
     public function executeComponent()

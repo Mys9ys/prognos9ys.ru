@@ -23,8 +23,6 @@ class EventSelect extends CBitrixComponent
 
         $this->getUserInfo();
 
-        var_dump($this->arEvents);
-
     }
 
     public function executeComponent()
