@@ -16,6 +16,8 @@ class FootballOneMatch extends CBitrixComponent
 
     protected $arCountries = [];
     protected $arGroup = [];
+    protected $actEvent = '';
+
 
     public function __construct($component = null)
     {
@@ -25,7 +27,8 @@ class FootballOneMatch extends CBitrixComponent
             return;
         }
 
-        $this->userId = CUser::GetID();
+//        $this->userId = CUser::GetID();
+        $this->getUserInfo();
 
         $this->matchesIb = \CIBlock::GetList([], ['CODE' => 'matches'], false)->Fetch()['ID'] ?: 2;
         $this->groupIb = \CIBlock::GetList([], ['CODE' => 'group'], false)->Fetch()['ID'] ?: 5;
@@ -59,13 +62,29 @@ class FootballOneMatch extends CBitrixComponent
         $this->numberId = $arParams["id"];
     }
 
+    protected function getUserInfo()
+    {
+        $uid = CUser::GetID();
+
+        if ($uid) {
+            $dbUser = UserTable::getList(array(
+                'select' => array('ID', 'UF_EVENT'),
+                'filter' => array('=ID' => $uid)
+            ))->fetch();
+            $this->userId = $dbUser["ID"];
+            $this->actEvent = $dbUser["UF_EVENT"];
+        }
+
+    }
+
     protected function getMatchId(){
-        $this->arFilter["IBLOCK_ID"] = $this->matchesIb;
-        $this->arFilter["PROPERTY_NUMBER"] = $this->numberId;
+        $arFilter["IBLOCK_ID"] = $this->matchesIb;
+        $arFilter["PROPERTY_NUMBER"] = $this->numberId;
+        $arFilter["PROPERTY_EVENTS"] = $this->actEvent;
 
         $response = CIBlockElement::GetList(
             [],
-            $this->arFilter,
+            $arFilter,
             false,
             [],
             [
@@ -79,12 +98,13 @@ class FootballOneMatch extends CBitrixComponent
     }
 
     protected function getMatchOtherInfo(){
-        $this->arFilter["IBLOCK_ID"] = $this->matchesIb;
-        $this->arFilter["ID"] = $this->matchId;
+        $arFilter["IBLOCK_ID"] = $this->matchesIb;
+        $arFilter["ID"] = $this->matchId;
+        $arFilter["PROPERTY_EVENTS"] = $this->actEvent;
 
         $response = CIBlockElement::GetList(
             [],
-            $this->arFilter,
+            $arFilter,
             false,
             [],
             [
@@ -128,16 +148,17 @@ class FootballOneMatch extends CBitrixComponent
     protected function getMatchInfo($id = '')
     {
 //        if($id) {
-            $this->arFilter["IBLOCK_ID"] = $this->prognosisIb;
-            $this->arFilter["ID"] = $id;
+            $arFilter["IBLOCK_ID"] = $this->prognosisIb;
+            $arFilter["ID"] = $id;
+            $arFilter["PROPERTY_EVENTS"] = $this->actEvent;
 //        } else {
-//            $this->arFilter["IBLOCK_ID"] = $this->matchesIb;
-//            $this->arFilter["ID"] = $this->matchId;
+//            $arFilter["IBLOCK_ID"] = $this->matchesIb;
+//            $arFilter["ID"] = $this->matchId;
 //        }
 
         $response = CIBlockElement::GetList(
             [],
-            $this->arFilter,
+            $arFilter,
             false,
             [],
             [
@@ -196,13 +217,14 @@ class FootballOneMatch extends CBitrixComponent
 
     protected function checkOldPrognosis(){
 
-        $this->arFilter["IBLOCK_ID"] = $this->prognosisIb;
-        $this->arFilter["PROPERTY_USER_ID"] = $this->userId;
-        $this->arFilter["PROPERTY_ID"] = $this->matchId;
+        $arFilter["IBLOCK_ID"] = $this->prognosisIb;
+        $arFilter["PROPERTY_USER_ID"] = $this->userId;
+        $arFilter["PROPERTY_ID"] = $this->matchId;
+        $arFilter["PROPERTY_EVENTS"] = $this->actEvent;
 
         $res = CIBlockElement::GetList(
             [],
-            $this->arFilter,
+            $arFilter,
             false,
             [],
             [   "ID",
@@ -264,6 +286,7 @@ class FootballOneMatch extends CBitrixComponent
         $arFilter = [];
         $arFilter["IBLOCK_ID"] = $this->matchesIb;
         $arFilter["ID"] = $this->matchId;
+        $arFilter["PROPERTY_EVENTS"] = $this->actEvent;
 
         $response = CIBlockElement::GetList(
             [],
@@ -316,6 +339,7 @@ class FootballOneMatch extends CBitrixComponent
         $arFilter["IBLOCK_ID"] = $this->resultIb;
         $arFilter["PROPERTY_MATCH_ID"] = $this->matchId;
         $arFilter["PROPERTY_USER_ID"] = $this->userId;
+        $arFilter["PROPERTY_EVENTS"] = $this->actEvent;
 
         $response = CIBlockElement::GetList(
             [],
