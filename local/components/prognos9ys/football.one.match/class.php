@@ -120,6 +120,7 @@ class FootballOneMatch extends CBitrixComponent
                 "PROPERTY_group",
                 "PROPERTY_stage",
                 "PROPERTY_number",
+                "PROPERTY_events",
             ]
         );
 

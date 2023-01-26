@@ -50,9 +50,8 @@ class SetMatchResult {
             14 => $this->data["m_penalty"],
             25 => $this->data["m_diff"],
             26 => $this->data["m_sum"],
-
             24 => $this->data["m_number"],
-            2 => $this->data["m_events"],
+            2 => $this->data["m_event"],
             3 => $this->data["m_team_home"],
             4 => $this->data["m_team_guest"],
             5 => $this->data["m_group"],
