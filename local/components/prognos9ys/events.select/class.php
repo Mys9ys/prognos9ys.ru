@@ -44,6 +44,8 @@ class EventSelect extends CBitrixComponent
 
             $res["e_active"] = '';
             if($res["ID"] === $this->actEvent) $res["e_active"] = 'e_active';
+
+            $res["user"] = $this->userId;
             $this->arResult["events"][$res["ID"]] = $res;
         }
 
