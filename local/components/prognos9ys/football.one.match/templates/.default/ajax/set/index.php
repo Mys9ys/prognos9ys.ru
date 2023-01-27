@@ -108,6 +108,7 @@ class SetResultAllUsers
                 "PROPERTY_domination",
                 "PROPERTY_otime",
                 "PROPERTY_spenalty",
+                "PROPERTY_events",
             ]
         );
 
@@ -166,6 +167,7 @@ class SetResultAllUsers
                 "PROPERTY_domination",
                 "PROPERTY_otime",
                 "PROPERTY_spenalty",
+                "PROPERTY_events",
             ]
         );
 
@@ -253,6 +255,8 @@ class SetResultAllUsers
             } else { $result['spenalty'] = 0;}
 
             $result["all"] = $all;
+
+            $result["event"] = $prognosis["PROPERTY_EVENTS_VALUE"];
 
             $this->arResults[$result['user']] = $result;
 
@@ -351,6 +355,7 @@ class SetResultAllUsers
             49 => $arr["otime"],
             50 => $arr["spenalty"],
             51 => $arr["number"],
+            53 => $arr["event"],
         ];
 
         $now = date(\CDatabase::DateFormatToPHP("DD.MM.YYYY HH:MI:SS"), time());
