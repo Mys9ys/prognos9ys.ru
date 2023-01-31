@@ -2,7 +2,7 @@
 <?php
 $APPLICATION->SetTitle("Прогноз на футбольный матч " . $arResult["other"]["home"]["NAME"] . "-" . $arResult["other"]["guest"]["NAME"]);
 $APPLICATION->SetPageProperty("description","Прогноз на футбольные матч " .
-    $arResult["other"]["home"]["NAME"] . "-" . $arResult["other"]["guest"]["NAME"] . " и результат прогноза без финансовых сливаний");
+    $arResult["other"]["home"]["NAME"] . "-" . $arResult["other"]["guest"]["NAME"] . " и результат прогноза без финансовых вливаний");
 ?>
 <?php if($arResult["other"]["id"]):?>
 <div class="one_match_wrapper">
