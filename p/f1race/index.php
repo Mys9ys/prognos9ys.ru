@@ -6,7 +6,7 @@ $arrUrl = explode('/', trim($_SERVER['REQUEST_URI'], "/"));
 
 if($arrUrl[2]){
     $APPLICATION->IncludeComponent(
-        "prognos9ys:kvn.game",
+        "prognos9ys:football.one.match",
         "",
         ["id" => $arrUrl[2]],
         $component,
@@ -14,15 +14,12 @@ if($arrUrl[2]){
     );
 } else {
     $APPLICATION->IncludeComponent(
-        "prognos9ys:kvn.event",
+        "prognos9ys:football.match.result",
         "",
         [],
         $component,
         array()
     );
 }
-?>
-
-<?php
 
 require($_SERVER["DOCUMENT_ROOT"]."/bitrix/footer.php");
