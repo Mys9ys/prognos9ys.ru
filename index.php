@@ -1,6 +1,6 @@
 <?
 require($_SERVER['DOCUMENT_ROOT'].'/bitrix/header.php');
-$APPLICATION->SetTitle('Сайт прогнозов без финансовых вложений');
+$APPLICATION->SetTitle('Портал прогнозов на спортивные и игровые командные события');
 ?>
    <?php
 

@@ -2,7 +2,7 @@
 
 use Bitrix\Main\{Loader, UserTable};
 
-class FootballMatches extends CBitrixComponent
+class KVNEvent extends CBitrixComponent
 {
     protected $matchesIb;
     protected $eventsIb;

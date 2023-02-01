@@ -16,6 +16,14 @@ $arUrlRewrite=array (
     'PATH' => '/p/kvngame/index.php',
     'SORT' => 100,
   ),
+  4 => 
+  array (
+    'CONDITION' => '#^/p/f1race/#',
+    'RULE' => '',
+    'ID' => '',
+    'PATH' => '/p/f1race/index.php',
+    'SORT' => 100,
+  ),
   1 => 
   array (
     'CONDITION' => '#^/p/match/#',

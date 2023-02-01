@@ -10,7 +10,7 @@ if($arrUrl[2]){
         "",
         ["id" => $arrUrl[2]],
         $component,
-        array()
+        []
     );
 } else {
     $APPLICATION->IncludeComponent(
@@ -18,7 +18,7 @@ if($arrUrl[2]){
         "",
         [],
         $component,
-        array()
+        []
     );
 }
 ?>

@@ -2,7 +2,7 @@
 
 use Bitrix\Main\{Loader, UserTable};
 
-class FootballOneMatch extends CBitrixComponent
+class KVNGame extends CBitrixComponent
 {
     protected $matchesIb;
     protected $groupIb;

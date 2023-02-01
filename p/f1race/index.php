@@ -6,19 +6,19 @@ $arrUrl = explode('/', trim($_SERVER['REQUEST_URI'], "/"));
 
 if($arrUrl[2]){
     $APPLICATION->IncludeComponent(
-        "prognos9ys:football.one.match",
+        "prognos9ys:f1.race",
         "",
         ["id" => $arrUrl[2]],
         $component,
-        array()
+        []
     );
 } else {
     $APPLICATION->IncludeComponent(
-        "prognos9ys:football.match.result",
+        "prognos9ys:f1.event",
         "",
         [],
         $component,
-        array()
+        []
     );
 }
 
