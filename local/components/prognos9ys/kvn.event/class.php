@@ -4,15 +4,12 @@ use Bitrix\Main\{Loader, UserTable};
 
 class KVNEvent extends CBitrixComponent
 {
-    protected $matchesIb;
-    protected $eventsIb;
-    protected $groupIb;
-    protected $countriesIb;
+    protected $teamIb;
+    protected $gameIb;
+    protected $eventIb;
     protected $prognosisIb;
 
-    protected $arCountries = [];
-    protected $arGroup = [];
-    protected $arUserPrognosis = [];
+    protected $arTeams = [];
 
     protected $userId;
 
@@ -26,30 +23,33 @@ class KVNEvent extends CBitrixComponent
             return;
         }
 
-        $this->arResult["active_count"] = 0;
-        $this->arResult["not_active_count"] = 0;
-
-        $this->eventsIb = \CIBlock::GetList([], ['CODE' => 'events'], false)->Fetch()['ID'] ?: 1;
-        $this->matchesIb = \CIBlock::GetList([], ['CODE' => 'matches'], false)->Fetch()['ID'] ?: 2;
-        $this->groupIb = \CIBlock::GetList([], ['CODE' => 'group'], false)->Fetch()['ID'] ?: 5;
-        $this->countriesIb = \CIBlock::GetList([], ['CODE' => 'countries'], false)->Fetch()['ID'] ?: 3;
-        $this->prognosisIb = \CIBlock::GetList([], ['CODE' => 'prognosis'], false)->Fetch()['ID'] ?: 6;
+        $this->teamIb = \CIBlock::GetList([], ['CODE' => 'kvnteams'], false)->Fetch()['ID'] ?: 10;
+        $this->gameIb = \CIBlock::GetList([], ['CODE' => 'kvngame'], false)->Fetch()['ID'] ?: 17;
+        $this->eventIb = \CIBlock::GetList([], ['CODE' => 'events'], false)->Fetch()['ID'] ?: 1;
 
 //        $this->userId = CUser::GetID();
         $this->getUserInfo();
+        $this->getTeamInfo();
 
         if ($this->userId) $this->getUserPrognosis();
 
-        $this->arCountries = $this->getTeamInfo();
-        $this->arGroup = $this->getGroupInfo();
+
 
     }
 
     public function executeComponent()
     {
 
-        $arFilter["IBLOCK_ID"] = $this->matchesIb;
-        $arFilter["PROPERTY_EVENTS"] = $this->actEvent;
+        $arFilter["IBLOCK_ID"] = $this->gameIb;
+
+//        $elements[6823] = [];
+//        CIBlockElement::GetPropertyValuesArray($elements, $arFilter["IBLOCK_ID"], $arFilter, ["CODE" => "teams"]);
+//
+//        var_dump($elements[6823]["teams"]["VALUE"]);
+
+//        $arFilter["PROPERTY_EVENTS"] = $this->actEvent;
+
+
 
 
         $response = CIBlockElement::GetList(
@@ -62,13 +62,14 @@ class KVNEvent extends CBitrixComponent
             [
                 "ID",
                 "ACTIVE",
+                "NAME",
                 "DATE_ACTIVE_FROM",
-                "PROPERTY_home",
-                "PROPERTY_goal_home",
-                "PROPERTY_guest",
-                "PROPERTY_goal_guest",
-                "PROPERTY_group",
-                "PROPERTY_stage",
+//                "PROPERTY_teams",
+                "PROPERTY_stage1",
+                "PROPERTY_stage2",
+                "PROPERTY_stage3",
+                "PROPERTY_result",
+                "PROPERTY_event",
                 "PROPERTY_number",
             ]
         );
@@ -76,24 +77,40 @@ class KVNEvent extends CBitrixComponent
         while ($res = $response->GetNext()) {
             $el = [];
 
+            var_dump($res);
+
             $date = explode("+", ConvertDateTime($res["ACTIVE_FROM"], "d.m+H:i:s"));
             $el["date"] = $date[0];
-            $el["time"] = trim($date[1], ':00') . ':00';
-
-            $el["home"] = $this->arCountries[$res["PROPERTY_HOME_VALUE"]];
-            $el["home"]["goals"] = $res["PROPERTY_GOAL_HOME_VALUE"] ?? '<span class="text-secondary">0</span>';
+            $el["time"] = trim($date[1], ':0') . '0';
 
             $el["number"] = $res["PROPERTY_NUMBER_VALUE"];
 
             $el["active"] = $res["ACTIVE"];
 
-            $el["guest"] = $this->arCountries[$res["PROPERTY_GUEST_VALUE"]];
-            $el["guest"]["goals"] = $res["PROPERTY_GOAL_GUEST_VALUE"] ?? '<span class="text-secondary">0</span>';
-
-            $el["group"] = $this->arGroup[$res["PROPERTY_GROUP_VALUE"]];
             $el["write"] = $this->arUserPrognosis[$res["ID"]] ?? '';
 
+//            var_dump($res["PROPERTY_TEAMS_VALUE"]);
+
             $this->arResult["teams"][$res["ID"]] = $el;
+
+            // выгрузка множественного свойства через костыль
+            $elem[$res["ID"]] = [];
+            CIBlockElement::GetPropertyValuesArray($elem, $arFilter["IBLOCK_ID"], $arFilter, ["CODE" => "teams"]);
+
+            $arElem = $elem[$res["ID"]]["teams"]["VALUE"];
+
+            $arTeam = [];
+
+            foreach ($arElem as $item){
+                $arTeam[$item] = $this->arTeams[$item];
+            }
+
+            $el["teams"] = $arTeam;
+
+//            $res["PROPERTY_STAGE1_VALUE"] = '5,4.2,4.4,5,4';
+
+            $el["stage1"] = $this->fillStageArray($res["PROPERTY_STAGE1_VALUE"]);
+
 
             if ($el["active"] === "Y") {
                 $this->arResult["active_count"]++;
@@ -106,6 +123,10 @@ class KVNEvent extends CBitrixComponent
         }
 
         $this->includeComponentTemplate();
+    }
+
+    protected function fillStageArray($str){
+        return $str ? explode( ',', $str) : array_fill(0, 5, 0);
     }
 
     protected function getUserInfo()
@@ -128,7 +149,7 @@ class KVNEvent extends CBitrixComponent
             [
                 'select' => ['ID', 'PREVIEW_TEXT', 'PREVIEW_PICTURE', 'DETAIL_TEXT'],
                 'filter' => [
-                    "IBLOCK_ID" => $this->eventsIb,
+                    "IBLOCK_ID" => $this->eventIb,
                     "=ID" => $this->actEvent
                 ]
             ]
@@ -147,7 +168,7 @@ class KVNEvent extends CBitrixComponent
             [
                 'select' => ['ID', 'NAME', 'PREVIEW_PICTURE'],
                 'filter' => [
-                    "IBLOCK_ID" => $this->countriesIb,
+                    "IBLOCK_ID" => $this->teamIb,
 
                 ]
             ]
@@ -158,31 +179,11 @@ class KVNEvent extends CBitrixComponent
             $arr[$res["ID"]] = $res;
         }
 
-
-        return $arr;
-    }
-
-    protected function getGroupInfo()
-    {
-
-        $arr = [];
-        $response = \Bitrix\Iblock\ElementTable::getList(
-            [
-                'select' => ['ID', 'PREVIEW_TEXT'],
-                'filter' => [
-                    "IBLOCK_ID" => $this->groupIb,
-                ]
-            ]
-        );
-
-        while ($res = $response->fetch()) {
-
-            $arr[$res["ID"]] = $res["PREVIEW_TEXT"];
-        }
-
-        return $arr;
+        $this->arTeams = $arr;
 
     }
+
+    
 
     protected function getUserPrognosis()
     {

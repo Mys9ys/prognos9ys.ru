@@ -1,6 +1,8 @@
 <?php if (!defined("B_PROLOG_INCLUDED") || B_PROLOG_INCLUDED !== true) die();?>
 
-<?php if($arResult['event_active']):
+<?php
+$fillCl = new FillKVNGameList();
+if($arResult['event_active']):
     $event = $arResult['event_active']?>
     <div class="matches_wrapper">
         <div class="matches_title" style="<?=$event["PREVIEW_TEXT"]?>">
@@ -70,7 +72,7 @@
                                             <span class="text-info">Не заполнено</span>
                                         <?php endif;?>
                                     </div>
-                                    <a class="match_write_btn" href="/p/match/<?=$item["number"]?>/">
+                                    <a class="match_write_btn" href="/p/kvngame/<?=$item["number"]?>/">
                                         <?php if($item["active"] === 'Y'):?>
                                             <?php if($item["write"]):?>
                                                 Изменить <i class="bi bi-pencil-square"></i>
@@ -99,15 +101,8 @@
                     <div class="accordion-body">
                         <?foreach ($arResult["teams"] as $id=>$item):?>
                             <?php if($item["active"] === 'N') continue;?>
-                            <?php
-                            if($day !== $item["date"]):?>
-                                <div class="day_line_block">
-                                    <div class="day_line_box">
-                                        <div class="day_date m_template_box"><i class="bi bi-calendar4-event"></i> <?=$item["date"]?></div>
-                                    </div>
-                                </div>
-                            <?endif;
-                            $day = $item["date"];
+                            <?=
+                            $fillCl->fillDataBox($item["date"]);
                             ?>
                             <div class="m_match_wrapper">
                                 <div class="m_match_box">
@@ -142,7 +137,7 @@
                                             <span class="text-info">Не заполнено</span>
                                         <?php endif;?>
                                     </div>
-                                    <a class="match_write_btn" href="/p/match/<?=$item["number"]?>/">
+                                    <a class="match_write_btn" href="/p/kvngame/<?=$item["number"]?>/">
                                         <?php if($item["active"] === 'Y'):?>
                                             <?php if($item["write"]):?>
                                                 Изменить <i class="bi bi-pencil-square"></i>
@@ -204,7 +199,7 @@
                                     <div class="match_user_info">
                                         Ожидается заполнение
                                     </div>
-                                    <div class="match_write_btn" href="/p/match/<?=$id?>/">
+                                    <div class="match_write_btn" href="/p/kvngame/<?=$id?>/">
                                         Ожидайте
                                     </div>
                                 </div>
@@ -216,6 +211,26 @@
         </div>
     </div>
 <?php endif;?>
+
+<?php
+
+class FillKVNGameList {
+
+    public function fillDataBox($data){
+
+        return '
+            <div class="day_line_block">
+                <div class="day_line_box">
+                    <div class="day_date m_template_box"><i class="bi bi-calendar4-event"></i> ' . $data .'</div>
+                </div>
+            </div>
+        ';
+
+    }
+
+}
+
+?>
 
 
 
