@@ -1,6 +1,7 @@
 <?php if (!defined("B_PROLOG_INCLUDED") || B_PROLOG_INCLUDED !== true) die(); ?>
 
 <div class="kvn_event_wrapper">
+    <?php $gameID = 1;?>
     <div class="kvn_game_box">
         <div class="kvn_game_title_block">
             <div class="kgtb_date kgtb_cell">
@@ -21,13 +22,13 @@
         </div>
         <div class="accordion kg_description_block" id="accordionExample">
             <div class="accordion-item">
-                <h6 class="accordion-header" id="headingOne">
+                <h6 class="accordion-header" id="heading<?=$gameID?>">
                     <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                            data-bs-target="#collapseOne"
-                            aria-expanded="false" aria-controls="collapseOne">Подробнее
+                            data-bs-target="#collapse<?=$gameID?>"
+                            aria-expanded="false" aria-controls="collapse<?=$gameID?>">Подробнее
                     </button>
                 </h6>
-                <div id="collapseOne" class="accordion-collapse collapse" aria-labelledby="headingOne"
+                <div id="collapse<?=$gameID?>" class="accordion-collapse collapse" aria-labelledby="heading<?=$gameID?>>"
                      data-bs-parent="#accordionExample">
                     <div class="accordion-body">
                         <table class="table table-striped-columns kvn_table">
@@ -67,9 +68,9 @@
                 </div>
             </div>
         </div>
-        <div class="kgtb_btn_box">
-            <div class="kgtb_status">не заполнено</div>
-            <div class="kgtb_write">Заполнить</div>
+        <div class="kg_btn_box">
+            <div class="kgb_status no_write">не заполнено</div>
+            <div class="kgb_write_btn"><i class="bi bi-pencil"></i> Заполнить</div>
         </div>
     </div>
 </div>
