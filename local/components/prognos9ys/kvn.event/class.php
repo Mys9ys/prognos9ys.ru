@@ -77,7 +77,7 @@ class KVNEvent extends CBitrixComponent
         while ($res = $response->GetNext()) {
             $el = [];
 
-            var_dump($res);
+//            var_dump($res);
 
             $date = explode("+", ConvertDateTime($res["ACTIVE_FROM"], "d.m+H:i:s"));
             $el["date"] = $date[0];
