@@ -5,7 +5,7 @@
     <div class="kvn_game_box">
         <div class="kvn_game_title_block">
             <div class="kgtb_date kgtb_cell">
-                <i class="bi bi-calendar4-event"></i> 14.02
+                <i class="bi bi-calendar4-event"></i> 18.02
             </div>
             <div class="kgtb_time kgtb_cell">
                 <i class="bi bi-alarm"></i> 18:30
@@ -70,7 +70,7 @@
         </div>
         <div class="kg_btn_box">
             <div class="kgb_status no_write">не заполнено</div>
-            <div class="kgb_write_btn"><i class="bi bi-pencil"></i> Заполнить</div>
+            <a class="kgb_write_btn" href="/p/kvngame/<?=$gameID?>/"><i class="bi bi-pencil"></i> Заполнить</a>
         </div>
     </div>
 </div>

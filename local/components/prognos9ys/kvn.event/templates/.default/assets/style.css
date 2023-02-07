@@ -68,6 +68,10 @@
 }
 .kvn_event_wrapper .kvn_game_box .kg_description_block .kvn_table {
   color: #A6B2AA;
+  background: #253133;
+}
+.kvn_event_wrapper .kvn_game_box .kg_description_block .accordion-body {
+  padding: 0px;
 }
 .kvn_event_wrapper .kvn_game_box .kg_btn_box {
   display: flex;
@@ -92,8 +96,14 @@
   box-shadow: 0 2px 3px rgba(0, 0, 0, 0.4), 0 -1px 0 rgba(0, 0, 0, 0.2);
   padding: 2px 5px;
   font-size: 13px;
+  margin-top: 1px;
   border-radius: 3px;
   text-align: center;
+  text-decoration: none;
+}
+.kvn_event_wrapper .kvn_game_box .kg_btn_box .kgb_write_btn:hover {
+  background: #fff;
+  color: #228B22;
 }
 .matches_wrapper {
   width: 400px;

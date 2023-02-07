@@ -81,6 +81,10 @@
       }
       .kvn_table{
         color: @colorBlur;
+        background: @blockBG;
+      }
+      .accordion-body{
+        padding: 0px;
       }
     }
     .kg_btn_box{
@@ -105,9 +109,15 @@
         box-shadow: 0 2px 3px rgba(0,0,0,.4), 0 -1px 0 rgba(0,0,0,.2);
         padding: 2px 5px;
         font-size: 13px;
+        margin-top: 1px;
         border-radius: 3px;
         //min-width: 22px;
         text-align: center;
+        text-decoration: none;
+        &:hover{
+          background: @colorText;
+          color: @colorText2;
+        }
       }
     }
   }
