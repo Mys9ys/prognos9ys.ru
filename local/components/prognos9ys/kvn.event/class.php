@@ -79,6 +79,8 @@ class KVNEvent extends CBitrixComponent
 
 //            var_dump($res);
 
+            $el["ID"] = $res["ID"];
+
             $date = explode("+", ConvertDateTime($res["ACTIVE_FROM"], "d.m+H:i:s"));
             $el["date"] = $date[0];
             $el["time"] = trim($date[1], ':0') . '0';
@@ -91,7 +93,7 @@ class KVNEvent extends CBitrixComponent
 
 //            var_dump($res["PROPERTY_TEAMS_VALUE"]);
 
-            $this->arResult["teams"][$res["ID"]] = $el;
+//            $this->arResult["teams"][$res["ID"]] = $el;
 
             // выгрузка множественного свойства через костыль
             $elem[$res["ID"]] = [];
@@ -107,10 +109,17 @@ class KVNEvent extends CBitrixComponent
 
             $el["teams"] = $arTeam;
 
+            var_dump($el["teams"]);
+
 //            $res["PROPERTY_STAGE1_VALUE"] = '5,4.2,4.4,5,4';
 
             $el["stage1"] = $this->fillStageArray($res["PROPERTY_STAGE1_VALUE"]);
+            $el["stage2"] = $this->fillStageArray($res["PROPERTY_STAGE2_VALUE"]);
+            $el["stage3"] = $this->fillStageArray($res["PROPERTY_STAGE3_VALUE"]);
 
+            $el["result"] = $this->fillStageArray($res["PROPERTY_RESULT_VALUE"]);
+
+            $this->arResult["items"][] = $el;
 
             if ($el["active"] === "Y") {
                 $this->arResult["active_count"]++;
