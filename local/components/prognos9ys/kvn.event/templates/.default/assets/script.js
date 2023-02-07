@@ -1,7 +1,7 @@
 $(document).ready(function () {
     $('.kvn_span_show').on('mouseenter', function () {
         mys9ysEnter($(this))
-        $(this).parent().find('.kvn_span_hide').on('mouseleave', function () {
+        $(this).on('mouseout', function () {
             mys9ysLeave($(this))
         })
     })
