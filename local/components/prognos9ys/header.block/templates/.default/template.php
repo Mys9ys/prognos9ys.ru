@@ -34,7 +34,7 @@
                 <div class="menu_events_box sub_prognos">
                     <li><hr class="dropdown-divider"></li>
                     <ul class="">
-                        <li><a class="dropdown-item" href="/p/match/">КВН</a></li>
+                        <li><a class="dropdown-item" href="/p/match/">Футбол</a></li>
                         <li><a class="dropdown-item" href="/p/kvngame/">КВН</a></li>
                         <li><a class="dropdown-item"  href="/p/f1race/">Ф1</a></li>
                     </ul>
@@ -55,6 +55,7 @@
             <div class="menu_events_box sub_events">
             <li><hr class="dropdown-divider"></li>
                 <ul class="">
+                    <li><a class="dropdown-item" href="/p/match/">Футбол</a></li>
                     <li><a class="dropdown-item" href="/p/kvngame/">КВН</a></li>
                     <li><a class="dropdown-item"  href="/p/f1race/">Ф1</a></li>
                 </ul>
