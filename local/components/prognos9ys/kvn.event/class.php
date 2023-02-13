@@ -109,8 +109,6 @@ class KVNEvent extends CBitrixComponent
 
             $el["teams"] = $arTeam;
 
-            var_dump($el["teams"]);
-
 //            $res["PROPERTY_STAGE1_VALUE"] = '5,4.2,4.4,5,4';
 
             $el["stage1"] = $this->fillStageArray($res["PROPERTY_STAGE1_VALUE"]);

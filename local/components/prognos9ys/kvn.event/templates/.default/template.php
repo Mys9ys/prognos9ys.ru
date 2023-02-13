@@ -15,55 +15,14 @@ $fillCl = new FillKVNGameList();
     </div>
     <?php endforeach;?>
 </div>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<?php
 
+<?php
 class FillKVNGameList
 {
-
-    public function fillDataBox($data)
-    {
-
-        return '
-            <div class="day_line_block">
-                <div class="day_line_box">
-                    <div class="day_date m_template_box"><i class="bi bi-calendar4-event"></i> ' . $data . '</div>
-                </div>
-            </div>
-        ';
-
-    }
 
     public function fillTitleBlock($data){
 
         $html = '<div class="kvn_game_title_block">';
-
-
 
         $date = ' <div class="kgtb_date kgtb_cell">
                     <i class="bi bi-calendar4-event"></i> '.$data["date"].'
