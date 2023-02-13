@@ -155,7 +155,7 @@
                     <li><hr class="dropdown-divider"></li>
                 </div>
                 <li><a class="dropdown-item" href="/p/profile/"><i class="bi bi-person-square"></i> Профиль</a></li>
-                <li><a class="dropdown-item" href="/p/vents/"><i class="bi bi-menu-up"></i> События</a></li>
+                <li><a class="dropdown-item" href="/p/events/"><i class="bi bi-menu-up"></i> События</a></li>
                 <li><hr class="dropdown-divider"></li>
             <?php else:?>
                 <li><a class="dropdown-item" href="/auth/"><i class="fa fa-sign-in" aria-hidden="true"></i> Регистрация</a></li>
