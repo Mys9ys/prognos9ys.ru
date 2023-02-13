@@ -73,7 +73,7 @@ class HeaderBlock extends CBitrixComponent {
 
         $response = \Bitrix\Iblock\ElementTable::getList(
             [
-                'select' => ['ID', 'NAME', 'PREVIEW_PICTURE'],
+                'select' => ['ID', 'NAME', 'PREVIEW_PICTURE', 'CODE'],
                 'filter' => $arFilter
             ]
         );
