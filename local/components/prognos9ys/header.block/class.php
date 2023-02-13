@@ -6,6 +6,7 @@ class HeaderBlock extends CBitrixComponent {
 
     protected $user_id;
     protected $matchesIb;
+    protected $eventTypeIb;
 
     public function __construct($component = null)
     {
@@ -16,7 +17,8 @@ class HeaderBlock extends CBitrixComponent {
             return;
         };
 
-        $this->matchesIb = \CIBlock::GetList([], ['CODE' => 'matches'], false)->Fetch()['ID'] ?: 2;
+//        $this->matchesIb = \CIBlock::GetList([], ['CODE' => 'matches'], false)->Fetch()['ID'] ?: 2;
+        $this->eventTypeIb = \CIBlock::GetList([], ['CODE' => 'eventtype'], false)->Fetch()['ID'] ?: 19;
         $this->user_id = CUser::GetID()?: '';
 
     }
@@ -36,7 +38,8 @@ class HeaderBlock extends CBitrixComponent {
                 $this->arResult['event'] = $arUser['UF_EVENT'];
             }
 
-            $this->getActualMatchId();
+//            $this->getActualMatchId();
+            $this->getEventsInfo();
         }
 
         $this->includeComponentTemplate();
@@ -62,6 +65,24 @@ class HeaderBlock extends CBitrixComponent {
         }
 
         return $arFileTmp["src"];
+    }
+
+    protected function getEventsInfo(){
+
+        $arFilter["IBLOCK_ID"] = $this->eventTypeIb;
+
+        $response = \Bitrix\Iblock\ElementTable::getList(
+            [
+                'select' => ['ID', 'NAME', 'PREVIEW_PICTURE'],
+                'filter' => $arFilter
+            ]
+        );
+
+        while ($res = $response->fetch()) {
+            $res["img"] = CFile::GetPath($res["PREVIEW_PICTURE"]);
+            $this->arResult['events'][] = $res;
+        }
+
     }
 
     protected function getActualMatchId(){
