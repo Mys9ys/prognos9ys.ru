@@ -21,6 +21,8 @@ class PrognosisAdminInfo extends CBitrixComponent{
 
         $this->prognosisIb = \CIBlock::GetList([], ['CODE' => 'prognosis'], false)->Fetch()['ID'] ?: 6;
 
+        $this->getPrognosisBot();
+
         $this->getUsers();
 
         if($this->arUsers) $this->calcRefUsers();
@@ -34,11 +36,8 @@ class PrognosisAdminInfo extends CBitrixComponent{
 
     }
 
-
     public function executeComponent()
     {
-
-
         $this->includeComponentTemplate();
     }
 
@@ -96,5 +95,12 @@ class PrognosisAdminInfo extends CBitrixComponent{
     
     public function calcMatchPrognosis($id){
 
+    }
+
+    protected function getPrognosisBot(){
+
+        $arUsers = CGroup::GetGroupUser(6);
+
+        var_dump($arUsers);
     }
 }
