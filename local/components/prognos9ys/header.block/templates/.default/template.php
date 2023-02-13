@@ -109,6 +109,7 @@
                 <a class="header_button" href="/p/faq/" title="Инструкции"><i class="bi bi-patch-question"></i></a>
                 <?php if($arResult) :?>
 <!--                <a class="header_button" href="/p/match/--><?//=$arResult["pr_link"]?><!--" title="Ваши прогнозы"><i class="bi bi-pencil-square"></i></a>-->
+                <a class="header_button" href="/p/events/" title="События"><i class="bi bi-menu-up"></i></a>
                 <a class="header_button" href="/p/profile/" title="Ваш профиль"><i class="bi bi-person-square"></i></a>
                 <a class="header_button" href="/p/logout/" title="Выйти"><i class="bi bi-door-open"></i></a>
                 <?php else:?>
@@ -154,6 +155,7 @@
                     <li><hr class="dropdown-divider"></li>
                 </div>
                 <li><a class="dropdown-item" href="/p/profile/"><i class="bi bi-person-square"></i> Профиль</a></li>
+                <li><a class="dropdown-item" href="/p/vents/"><i class="bi bi-menu-up"></i> События</a></li>
                 <li><hr class="dropdown-divider"></li>
             <?php else:?>
                 <li><a class="dropdown-item" href="/auth/"><i class="fa fa-sign-in" aria-hidden="true"></i> Регистрация</a></li>
