@@ -52,7 +52,8 @@ class FootballMatches extends CBitrixComponent
         $arFilter["PROPERTY_EVENTS"] = $this->actEvent;
 
         $response = CIBlockElement::GetList(
-            ["DATE_ACTIVE_FROM" => "ASC"],
+            ["DATE_ACTIVE_FROM" => "ASC", "created" => "ASC"],
+//            [],
             $arFilter,
             false,
             [
