@@ -4,6 +4,15 @@ $fillCl = new FillKVNGameList();
 //var_dump($arResult);
 ?>
 <div class="kvn_event_wrapper">
+    <?php $event = $arResult['event_active']?>
+    <div class="pr_event_title" style="<?=$event["PREVIEW_TEXT"]?>">
+        <div class="pr_event_logo" style="<?=$event["PREVIEW_TEXT"]?>">
+            <img class="pr_event_logo_img" src="<?=$event["img"]?>" alt="">
+        </div>
+        <div class="pr_event_text">
+            <?=$event["DETAIL_TEXT"]?>
+        </div>
+    </div>
     <?php $gameID = 1; ?>
     <?php foreach ($arResult["items"] as $item):?>
     <div class="kvn_game_box">

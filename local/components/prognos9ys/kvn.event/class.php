@@ -13,7 +13,7 @@ class KVNEvent extends CBitrixComponent
 
     protected $userId;
 
-    protected $actEvent = '';
+    protected $actEvent = 6700;
 
     public function __construct($component = null)
     {
@@ -147,7 +147,7 @@ class KVNEvent extends CBitrixComponent
                 'filter' => array('=ID' => $uid)
             ))->fetch();
             $this->userId = $dbUser["ID"];
-            $this->actEvent = $dbUser["UF_EVENT"];
+//            $this->actEvent = $dbUser["UF_EVENT"];
         }
 
     }
