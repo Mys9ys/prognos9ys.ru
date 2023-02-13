@@ -88,6 +88,7 @@ class KVNEvent extends CBitrixComponent
             $el["number"] = $res["PROPERTY_NUMBER_VALUE"];
 
             $el["active"] = $res["ACTIVE"];
+            $el["name"] = $res["NAME"];
 
             $el["write"] = $this->arUserPrognosis[$res["ID"]] ?? '';
 
