@@ -16,7 +16,7 @@ class FootballOneMatch extends CBitrixComponent
 
     protected $arCountries = [];
     protected $arGroup = [];
-    protected $actEvent = '';
+    protected $actEvent = 6664;
 
 
     public function __construct($component = null)
@@ -74,7 +74,7 @@ class FootballOneMatch extends CBitrixComponent
                 'filter' => array('=ID' => $uid)
             ))->fetch();
             $this->userId = $dbUser["ID"];
-            $this->actEvent = $dbUser["UF_EVENT"];
+//            $this->actEvent = $dbUser["UF_EVENT"];
         }
 
         $this->arResult['event'] = $this->actEvent;
