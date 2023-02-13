@@ -16,7 +16,7 @@ class FootballMatches extends CBitrixComponent
 
     protected $userId;
 
-    protected $actEvent = '';
+    protected $actEvent = 6664;
 
     public function __construct($component = null)
     {
@@ -50,7 +50,6 @@ class FootballMatches extends CBitrixComponent
 
         $arFilter["IBLOCK_ID"] = $this->matchesIb;
         $arFilter["PROPERTY_EVENTS"] = $this->actEvent;
-
 
         $response = CIBlockElement::GetList(
             ["DATE_ACTIVE_FROM" => "ASC"],
@@ -118,7 +117,7 @@ class FootballMatches extends CBitrixComponent
                 'filter' => array('=ID' => $uid)
             ))->fetch();
             $this->userId = $dbUser["ID"];
-            $this->actEvent = $dbUser["UF_EVENT"];
+//            $this->actEvent = $dbUser["UF_EVENT"];
         }
 
     }
