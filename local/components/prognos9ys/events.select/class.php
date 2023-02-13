@@ -20,34 +20,63 @@ class EventSelect extends CBitrixComponent
         }
 
         $this->eventsIb = \CIBlock::GetList([], ['CODE' => 'events'], false)->Fetch()['ID'] ?: 1;
+        $this->eTypeIb = \CIBlock::GetList([], ['CODE' => 'eventtype'], false)->Fetch()['ID'] ?: 19;
 
-        $this->getUserInfo();
+//        $this->getUserInfo();
 
     }
 
     public function executeComponent()
     {
-
-        $response = \Bitrix\Iblock\ElementTable::getList(
+        $arFilter["IBLOCK_ID"] = $this->eventsIb;
+        $response = CIBlockElement::GetList(
+            ["DATE_ACTIVE_FROM" => "ASC"],
+            $arFilter,
+            false,
             [
-                'select' => ['ID', 'PREVIEW_TEXT', 'PREVIEW_PICTURE', 'DETAIL_TEXT'],
-                'filter' => [
-                    "IBLOCK_ID" => $this->eventsIb,
-                ]
+//                "nTopCount" => 6
+            ],
+            [
+                "ID",
+                "ACTIVE",
+                "NAME",
+                "PREVIEW_PICTURE",
+                "DATE_ACTIVE_FROM",
+                "PROPERTY_e_type",
+
             ]
         );
 
-        while ($res = $response->fetch()) {
+        while ($res = $response->GetNext()) {
+
             $res["img"] = CFile::GetPath($res["PREVIEW_PICTURE"]);
 
-            $res["e_active"] = '';
-            if($res["ID"] === $this->actEvent) $res["e_active"] = 'e_active';
+            $res["link"] = $this->getEventLink($res["PROPERTY_E_TYPE_VALUE"]);
+
+//            $res["e_active"] = '';
+//            if($res["ID"] === $this->actEvent) $res["e_active"] = 'e_active';
 
             $res["user"] = $this->userId;
-            $this->arResult["events"][$res["ID"]] = $res;
+            if($res["ACTIVE"] === 'Y') $this->arResult["events"][$res["ID"]] = $res;
+
         }
 
         $this->includeComponentTemplate();
+    }
+
+    protected function getEventLink($id){
+
+        $response = \Bitrix\Iblock\ElementTable::getList(
+            [
+                'select' => ['CODE'],
+                'filter' => [
+                    "IBLOCK_ID" => $this->eTypeIb,
+                    "=ID" => $id
+                ]
+            ]
+        )->fetch();
+
+        return $response["CODE"];
     }
 
     protected function getUserInfo()

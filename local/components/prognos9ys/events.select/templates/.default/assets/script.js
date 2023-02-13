@@ -1,7 +1,7 @@
 $(document).ready(function () {
     console.log('dfsdfs')
     
-    $('.event_get_btn').on('click', function () {
+    $('.event_get_btn_').on('click', function () {
         data = {
             id: $(this).data('user'),
             event: $(this).data('event')
