@@ -41,6 +41,7 @@ class EventSelect extends CBitrixComponent
                 "ACTIVE",
                 "NAME",
                 "PREVIEW_PICTURE",
+                "PREVIEW_TEXT",
                 "DATE_ACTIVE_FROM",
                 "PROPERTY_e_type",
 
