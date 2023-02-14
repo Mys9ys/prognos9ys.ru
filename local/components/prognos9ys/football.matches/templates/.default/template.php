@@ -1,7 +1,11 @@
 <?php if (!defined("B_PROLOG_INCLUDED") || B_PROLOG_INCLUDED !== true) die();?>
+<?
+$event = $arResult['event_active'];
+$APPLICATION->SetTitle($event["DETAIL_TEXT"]);
+$APPLICATION->SetPageProperty("description","Прогнозы на футбольные матчи без финансовых вливаний - расписание матчей");
 
-<?php if($arResult['event_active']):
-    $event = $arResult['event_active']?>
+?>
+<?php if($arResult['event_active']):?>
     <div class="matches_wrapper">
         <div class="matches_title" style="<?=$event["PREVIEW_TEXT"]?>">
             <div class="matches_logo" style="<?=$event["PREVIEW_TEXT"]?>">
