@@ -26,7 +26,7 @@ function AgentChangeActiveItem(){
         \CIBlock::GetList([], ['CODE' => 'matches'], false)->Fetch()['ID'] ?: 2,
     ];
 
-    $res = new ChangeActiveItem2();
+    $res = new ChangeActiveItem();
     foreach ($arIb as $ib){
         $res->inActiveElement($ib);
     }
