@@ -11,3 +11,9 @@ function dump($var, $die = false, $all = false)
     }
     if ($die) die();
 }
+
+function testAgent()
+{
+    file_put_contents('test.json',json_encode('test'));
+    return "testAgent();";
+}
