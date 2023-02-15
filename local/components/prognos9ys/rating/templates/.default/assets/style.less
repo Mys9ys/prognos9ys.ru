@@ -44,6 +44,28 @@
     }
   }
 
+  .accordion{
+    background: @blockBG;
+  }
+  .accordion-item{
+    border: 1px solid @blockBG;
+    background: @blockBG!important;
+    .accordion-header{
+      background: @blockBG!important;
+      .accordion-button{
+        position: relative;
+        background: @blockBG!important;
+        color: @colorText;
+        font-weight: 700;
+        box-shadow: 0 2px 3px rgba(0, 0, 0, .4), 0 -1px 0 rgba(0, 0, 0, .2);
+      }
+    }
+  }
+  .accordion-body{
+    padding:0;
+    background: #2E8B57;
+  }
+
 }
 
 .tab_progress_rating{

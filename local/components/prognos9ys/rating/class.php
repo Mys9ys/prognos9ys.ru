@@ -2,12 +2,15 @@
 
 use Bitrix\Main\{Loader};
 
-class FootballOneMatch extends CBitrixComponent
+class EventRatings extends CBitrixComponent
 {
     protected $resultIb;
+    protected $eventsIb;
 
     protected $arUsers = [];
     protected $arResults = [];
+    protected $arEvents = [];
+    protected $arOneEventResult = [];
 
     protected $best = [];
 
@@ -22,22 +25,52 @@ class FootballOneMatch extends CBitrixComponent
         }
 
         $this->resultIb = \CIBlock::GetList([], ['CODE' => 'result'], false)->Fetch()['ID'] ?: 7;
+        $this->eventsIb = \CIBlock::GetList([], ['CODE' => 'events'], false)->Fetch()['ID'] ?: 1;
 
         $this->getUsers();
 
-        $this->getResults();
+        $this->getEventsInfo();
 
-        if ($this->arResults) $this->calcRating();
 
-        arsort($this->best);
+        if($this->arEvents){
+            foreach ($this->arEvents as $evId=>$item){
+                $this->arOneEventResult = [];
 
-        $this->getBestScore();
+                $this->getResults($evId);
 
-        $this->fillAllUsers();
+                if ($this->arResults) $this->calcRating();
 
-        $this->sortAllChange();
+                arsort($this->best);
 
-        $this->sortForNumber();
+                $this->getBestScore();
+
+                $this->fillAllUsers();
+
+                $this->sortAllChange();
+
+                $this->sortForNumber();
+
+                $this->arResult[$evId] = $this->arOneEventResult;
+
+            }
+
+            $this->arResult["events"] = $this->arEvents;
+
+        }
+
+//        $this->getResults();
+//
+//        if ($this->arResults) $this->calcRating();
+//
+//        arsort($this->best);
+//
+//        $this->getBestScore();
+//
+//        $this->fillAllUsers();
+//
+//        $this->sortAllChange();
+//
+//        $this->sortForNumber();
 
     }
 
@@ -47,9 +80,28 @@ class FootballOneMatch extends CBitrixComponent
         $this->includeComponentTemplate();
     }
 
-    public function onPrepareComponentParams($arParams)
-    {
-        $this->matchId = $arParams["id"];
+    protected function getEventsInfo(){
+        $arFilter["IBLOCK_ID"] = $this->eventsIb;
+        $arFilter["PROPERTY_e_type"] = 6836;
+
+        $response = CIBlockElement::GetList(
+            ["ID" => "DESC"],
+            $arFilter,
+            false,
+            [],
+            [
+                "ID",
+                "DATE_ACTIVE_FROM",
+                "NAME",
+                "PREVIEW_TEXT",
+                "PREVIEW_PICTURE",
+            ]
+        );
+
+        while ($res = $response->GetNext()) {
+            $res['img'] = CFile::GetPath($res["PREVIEW_PICTURE"]);
+            $this->arEvents[$res["ID"]] = $res;
+        }
     }
 
     protected function getUsers()
@@ -63,9 +115,16 @@ class FootballOneMatch extends CBitrixComponent
         }
     }
 
-    protected function getResults()
+    protected function getResults($evId)
     {
         $arFilter["IBLOCK_ID"] = $this->resultIb;
+
+
+        if($evId === 34) {
+            $arFilter["PROPERTY_EVENTS_VALUE"] = false;
+        } else {
+            $arFilter["PROPERTY_events"] = $evId;
+        }
 
         $response = CIBlockElement::GetList(
             [],
@@ -105,7 +164,7 @@ class FootballOneMatch extends CBitrixComponent
                 $this->best[$res["PROPERTY_USER_ID_VALUE"] . '-' . $res["PROPERTY_NUMBER_VALUE"]] = $res["PROPERTY_ALL_VALUE"];
             }
 
-            $this->arResult["users"][$res["PROPERTY_USER_ID_VALUE"]] = [];
+            $this->arOneEventResult["users"][$res["PROPERTY_USER_ID_VALUE"]] = [];
         }
 
         $this->count = count($this->arResults[20]);
@@ -138,38 +197,38 @@ class FootballOneMatch extends CBitrixComponent
 
                 foreach ($arrSelector as $selector) {
 
-                    $this->arResult[$selector][$userId]["score"] += +$info["PROPERTY_" . strtoupper($selector) . "_VALUE"];
-                    $this->arResult[$selector][$userId]["nick"] =
+                    $this->arOneEventResult[$selector][$userId]["score"] += +$info["PROPERTY_" . strtoupper($selector) . "_VALUE"];
+                    $this->arOneEventResult[$selector][$userId]["nick"] =
                         '<a class="r_profile_link" href="/p/profile/'.$info["PROPERTY_USER_ID_VALUE"].'/">'
                         . $this->arUsers[$info["PROPERTY_USER_ID_VALUE"]]
                         .' <i class="bi bi-box-arrow-up-right"></i></a>';
-                    $this->arResult[$selector][$userId]["id"] = $userId;
+                    $this->arOneEventResult[$selector][$userId]["id"] = $userId;
 
 
                     if($selector === "all"){
                         $number = $info['PROPERTY_NUMBER_VALUE'] ?? +$info['PROPERTY_MATCH_ID_VALUE'] - 42;
 
-                        $this->arResult["all_change"][$number][$userId]["score"] = $this->arResult["all"][$userId]["score"];
-                        $this->arResult["all_change"][$number][$userId]["nick"] = $this->arUsers[$info["PROPERTY_USER_ID_VALUE"]];
-                        $this->arResult["all_change"][$number][$userId]["id"] = $this->arResult["all"][$userId]["id"];
+                        $this->arOneEventResult["all_change"][$number][$userId]["score"] = $this->arOneEventResult["all"][$userId]["score"];
+                        $this->arOneEventResult["all_change"][$number][$userId]["nick"] = $this->arUsers[$info["PROPERTY_USER_ID_VALUE"]];
+                        $this->arOneEventResult["all_change"][$number][$userId]["id"] = $this->arOneEventResult["all"][$userId]["id"];
 
 //                        if($number === 6) {
-//                            dump($this->arResult["all_change"][$number][$userId]);
+//                            dump($this->arOneEventResult["all_change"][$number][$userId]);
 //
 //                        }
                     }
 
-                    $volume[$selector][$userId] = $this->arResult[$selector][$userId]["score"];
+                    $volume[$selector][$userId] = $this->arOneEventResult[$selector][$userId]["score"];
                 }
 
             }
         }
 
         foreach ($arrSelector as $selector) {
-            array_multisort($volume[$selector], SORT_DESC, $this->arResult[$selector]);
+            array_multisort($volume[$selector], SORT_DESC, $this->arOneEventResult[$selector]);
         }
 
-        $this->arResult["count"] = $this->count;
+        $this->arOneEventResult["count"] = $this->count;
 
     }
 
@@ -183,14 +242,14 @@ class FootballOneMatch extends CBitrixComponent
             $el['match'] = $arr[1];
             $el['score'] = $item;
 
-            $this->arResult["best_score"][$key] = $el;
+            $this->arOneEventResult["best_score"][$key] = $el;
         }
     }
 
     protected function fillAllUsers(){
-        ksort($this->arResult["all_change"]);
+        ksort($this->arOneEventResult["all_change"]);
         $arrScore = [];
-        foreach ($this->arResult["all_change"] as $number=>$users){
+        foreach ($this->arOneEventResult["all_change"] as $number=>$users){
 
             foreach ($users as $user){
                 $arrScore[$user["id"]] = $user;
@@ -203,14 +262,14 @@ class FootballOneMatch extends CBitrixComponent
 //                die();
 //            }
 
-            $this->arResult["all_number"][$number] = $arrScore;
+            $this->arOneEventResult["all_number"][$number] = $arrScore;
         }
 
     }
 
     protected function sortAllChange(){
 
-        foreach ($this->arResult["all_number"] as $number=>$users){
+        foreach ($this->arOneEventResult["all_number"] as $number=>$users){
             $arSort = $users;
             array_multisort(array_column($arSort, 'score'), SORT_DESC, $arSort);
 //            dump($arSort);
@@ -223,7 +282,7 @@ class FootballOneMatch extends CBitrixComponent
                     $place = $count;
                 }
 
-                $oldPlace = $this->arResult["all_number"][$number-1][$user["id"]]["place"];
+                $oldPlace = $this->arOneEventResult["all_number"][$number-1][$user["id"]]["place"];
 
 //                if($number === 7){
 //                    dump($oldPlace);
@@ -239,18 +298,18 @@ class FootballOneMatch extends CBitrixComponent
                 $score = $user["score"];
                 $user["place"] = $place;
 
-                $this->arResult["all_result"][$number][$count] = $user;
-                $this->arResult["all_number"][$number][$user["id"]]["place"] = $user["place"];
+                $this->arOneEventResult["all_result"][$number][$count] = $user;
+                $this->arOneEventResult["all_number"][$number][$user["id"]]["place"] = $user["place"];
                 $count++;
             }
         }
     }
 
     protected function sortForNumber(){
-        foreach ($this->arResult["all_number"] as $number=>$users){
+        foreach ($this->arOneEventResult["all_number"] as $number=>$users){
             array_multisort(array_column($users, 'score'), SORT_DESC, $users);
 
-            $this->arResult["all_number"][$number] = $users;
+            $this->arOneEventResult["all_number"][$number] = $users;
         }
     }
 }

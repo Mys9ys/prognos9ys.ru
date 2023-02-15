@@ -35,6 +35,27 @@
   color: #fff;
   font-size: 18px;
 }
+.rating_wrapper .accordion {
+  background: #253133;
+}
+.rating_wrapper .accordion-item {
+  border: 1px solid #253133;
+  background: #253133 !important;
+}
+.rating_wrapper .accordion-item .accordion-header {
+  background: #253133 !important;
+}
+.rating_wrapper .accordion-item .accordion-header .accordion-button {
+  position: relative;
+  background: #253133 !important;
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.4), 0 -1px 0 rgba(0, 0, 0, 0.2);
+}
+.rating_wrapper .accordion-body {
+  padding: 0;
+  background: #2E8B57;
+}
 .tab_progress_rating {
   display: none;
 }
