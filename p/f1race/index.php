@@ -2,7 +2,10 @@
 define("NEED_AUTH", true);
 require($_SERVER["DOCUMENT_ROOT"]."/bitrix/header.php");
 
-$arrUrl = explode('/', trim($_SERVER['REQUEST_URI'], "/"));
+$request = \Bitrix\Main\Application::getInstance()->getContext()->getRequest();
+$uri = new \Bitrix\Main\Web\Uri($request->getRequestUri());
+
+$arrUrl = explode('/', trim($uri->getPath(), "/"));
 
 if($arrUrl[2]){
     $APPLICATION->IncludeComponent(
