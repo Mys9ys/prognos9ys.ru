@@ -121,7 +121,7 @@ class EventRatings extends CBitrixComponent
 
 
         if($evId === 34) {
-            $arFilter["PROPERTY_EVENTS_VALUE"] = false;
+            $arFilter["!=PROPERTY_events"] = 6664;
         } else {
             $arFilter["PROPERTY_events"] = $evId;
         }

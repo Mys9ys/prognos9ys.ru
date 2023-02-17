@@ -130,7 +130,7 @@ class FootballOneMatch extends CBitrixComponent
 
         $date = explode("+", ConvertDateTime($res["DATE_ACTIVE_FROM"], "d.m+H:i:s"));
         $el["date"] = $date[0];
-        $el["time"] = trim($date[1], ':00') . ':00';
+        $el["time"] = substr($date[1], 0,-3);
 
         $el["home"] = $this->arCountries[$res["PROPERTY_HOME_VALUE"]];
 

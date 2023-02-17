@@ -33,8 +33,6 @@ class KVNEvent extends CBitrixComponent
 
         if ($this->userId) $this->getUserPrognosis();
 
-
-
     }
 
     public function executeComponent()
@@ -83,7 +81,7 @@ class KVNEvent extends CBitrixComponent
 
             $date = explode("+", ConvertDateTime($res["ACTIVE_FROM"], "d.m+H:i:s"));
             $el["date"] = $date[0];
-            $el["time"] = trim($date[1], ':0') . '0';
+            $el["time"] = substr($date[1], 0,-3);
 
             $el["number"] = $res["PROPERTY_NUMBER_VALUE"];
 
