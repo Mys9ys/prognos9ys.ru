@@ -1,6 +1,6 @@
 <?php if (!defined("B_PROLOG_INCLUDED") || B_PROLOG_INCLUDED !== true) die(); ?>
 <?php
-$fillCl = new FillKVNGameList();
+$fillCl = new FillKVNEventList();
 //var_dump($arResult);
 ?>
 <div class="kvn_event_wrapper">
@@ -26,7 +26,7 @@ $fillCl = new FillKVNGameList();
 </div>
 
 <?php
-class FillKVNGameList
+class FillKVNEventList
 {
 
     public function fillTitleBlock($data){

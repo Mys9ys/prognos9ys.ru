@@ -43,23 +43,24 @@ class KVNGame extends CBitrixComponent
 
     public function executeComponent()
     {
-        $this->getGameId();
 
-        $check = $this->checkOldPrognosis();
+        $this->getGameId();
+        var_dump('sagfdas');
+//        $check = $this->checkOldPrognosis();
 
         $this->getGameMainInfo();
+        var_dump('sagfdas');
 
-        var_dump('dsgd');
-        die();
-
-        $this->getMatchInfo($check);
-
-        $this->getMatchResult();
-        $this->getUserScore();
+//        $this->getMatchInfo($check);
+//
+//        $this->getMatchResult();
+//        $this->getUserScore();
+//
+//        $this->includeComponentTemplate();
+//
+        $this->arResult['event'] = $this->actEvent;
 
         $this->includeComponentTemplate();
-
-        $this->arResult['event'] = $this->actEvent;
     }
 
     public function onPrepareComponentParams($arParams)
@@ -113,6 +114,7 @@ class KVNGame extends CBitrixComponent
             [],
             [
                 "ID",
+                "NAME",
                 "ACTIVE",
                 "DATE_ACTIVE_FROM",
                 "PROPERTY_number",
@@ -128,6 +130,8 @@ class KVNGame extends CBitrixComponent
         $res = $response->GetNext();
 
         $el = [];
+        $el["id"] =$res["ID"];
+        $el["name"] =$res["NAME"];
 
         $date = explode("+", ConvertDateTime($res["DATE_ACTIVE_FROM"], "d.m+H:i:s"));
         $el["date"] = $date[0];
@@ -136,11 +140,15 @@ class KVNGame extends CBitrixComponent
         $el["active"] = $res["ACTIVE"];
 
         $el["number"] =$res["PROPERTY_NUMBER_VALUE"];
-        $el["id"] =$res["ID"];
+
+        $el['stage']["stage1"] = $this->fillStageArray($res["PROPERTY_STAGE1_VALUE"]);
+        $el['stage']["stage2"] = $this->fillStageArray($res["PROPERTY_STAGE2_VALUE"]);
+        $el['stage']["stage3"] = $this->fillStageArray($res["PROPERTY_STAGE3_VALUE"]);
+
+        $el['stage']["result"] = $this->fillStageArray($res["PROPERTY_RESULT_VALUE"]);
+
 
         $el["teams"] = $this->getMultiValue($this->gameId,$this->gameIb);
-
-        var_dump($el);
 
         $this->arResult["main"] = $el;
 
@@ -161,6 +169,10 @@ class KVNGame extends CBitrixComponent
         }
 
        return $arTeam;
+    }
+
+    protected function fillStageArray($str){
+        return $str ? explode( ',', $str) : array_fill(0, 5, 0);
     }
 
     protected function getMatchInfo($id = '')
