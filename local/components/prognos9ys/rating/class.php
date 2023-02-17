@@ -35,6 +35,7 @@ class EventRatings extends CBitrixComponent
         if($this->arEvents){
             foreach ($this->arEvents as $evId=>$item){
                 $this->arOneEventResult = [];
+                $this->arResults = [];
 
                 $this->getResults($evId);
 

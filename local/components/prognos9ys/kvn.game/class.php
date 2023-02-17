@@ -138,9 +138,6 @@ class KVNGame extends CBitrixComponent
         $el["number"] =$res["PROPERTY_NUMBER_VALUE"];
         $el["id"] =$res["ID"];
 
-
-
-
         $el["teams"] = $this->getMultiValue($this->gameId,$this->gameIb);
 
         var_dump($el);
