@@ -1,6 +1,6 @@
 <?php if (!defined("B_PROLOG_INCLUDED") || B_PROLOG_INCLUDED !== true) die(); ?>
 <?php
-var_dump($arResult);
+//var_dump($arResult);
 $comp = new FillKVNGameList()
 ?>
 
@@ -54,30 +54,34 @@ class FillKVNGameList {
     }
 
     public function fillGameStage($data){
+        $max = 5;
+        $min = 4;
         $html = '<div class="kg_prognos_wrapper">
                     <div class="kgps_title_block">
                         <div class="kgps_title kgps_elem">Приветствие</div>
-                        <div class="kgps_max_score kgps_elem">Максимум 5 баллов</div>
+                        <div class="kgps_max_score kgps_elem">Максимум '.$max.' баллов</div>
                     </div>                    
                     <div class="kg_prognos_stage_block">';
 
         $table = '<div class="kgps_table">                            
                         <div class="kgps_table_line kgps_table_title">
-                            <div class="kgps_team_name">Команда</div>
-                            <div class="kgps_input"><i class="bi bi-pencil"></i></div>
-                            <div class="kgps_popular">Популярный счет</div>                                    
+                            <div class="kgps_team_name kgps_elem">Команда</div>
+                            <div class="kgps_input kgps_elem"><i class="bi bi-pencil"></i></div>
+                            <div class="kgps_popular kgps_elem">Популярный счет</div>                                    
+                            <div class="kgps_place kgps_elem">№</div>                                    
                         </div>';
         $count = 0;
+        $pop_btn = '<div class="kgps_popular kgps_popular_block">';
+        for($i=$max;$i>$min;$i-=0.2){
+            $pop_btn .= '<div class="kgps_popular_btn">'.$i.'</div>';
+        }
+        $pop_btn .= '</div>';
         foreach ($data["teams"] as $team){
             $el = '<div class="kgps_table_line">
-                        <div class="kgps_team_name">'.$team["NAME"].'</div>
-                        <input class="kgps_input" type="text">
-                        <div class="kgps_popular kgps_popular_block">
-                                <div class="kgps_popular_btn">5</div>
-                                <div class="kgps_popular_btn">4.9</div>
-                                <div class="kgps_popular_btn">4.8</div>
-                                <div class="kgps_popular_btn">4.7</div>
-                        </div>                       
+                        <div class="kgps_team_name" title="'.$team["NAME"].'">'.$team["NAME"].'</div>
+                        <input class="kgps_input" type="number" step="0.1" min="4" max="5">'
+                        . $pop_btn .
+                        '<div class="kgps_place kgps_elem">0</div>                   
                     </div>';
             $table .= $el;
             $count ++;

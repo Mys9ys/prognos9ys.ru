@@ -15,6 +15,19 @@
 
 @darkbg: rgb(25, 25, 25);
 
+.kgps_elem {
+  display: inline-block;
+  background: @darkbg;
+  //background:#474C52;
+  color: @colorBlur;
+
+  border-radius: 5px;
+  margin-right: 4px;
+  padding: 3px 5px;
+  box-shadow: inset 0 2px 10px 1px rgba(0, 0, 0, .3), inset 0 0 0 2px rgba(0, 0, 0, .3), 0 1px rgba(255, 255, 255, .08);
+  margin-bottom: 5px;
+}
+
 .kvn_game_wrapper {
   width: 400px;
   max-width: 98%;
@@ -71,61 +84,49 @@
       display: flex;
       flex-direction: row;
       justify-content: space-between;
-
-      .kgps_elem {
-        display: inline-block;
-        background: @darkbg;
-        //background:#474C52;
-        color: @colorBlur;
-
-        border-radius: 5px;
-        margin-right: 4px;
-        padding: 3px 5px;
-        box-shadow: inset 0 2px 10px 1px rgba(0, 0, 0, .3), inset 0 0 0 2px rgba(0, 0, 0, .3), 0 1px rgba(255, 255, 255, .08);
-        margin-bottom: 5px;
+      .kgps_title{
+        color: @maxBlue;
+        font-weight: 600;
+      }
+      .kgps_max_score{
+        color: @maxred;
+        font-weight: 600;
       }
     }
 
     .kg_prognos_stage_block {
-
-      .table > :not(caption) > * > * {
-        padding: 3px;
-      }
-
       .kgps_table {
         .kgps_table_line{
           display: flex;
           flex-direction: row;
           justify-content: space-between;
         }
-        .kgps_elem {
-          display: inline-block;
-          background: @darkbg;
-          //background:#474C52;
-          color: @colorBlur;
 
-          border-radius: 5px;
-          margin-right: 4px;
-          padding: 3px 5px;
-          box-shadow: inset 0 2px 10px 1px rgba(0, 0, 0, .3), inset 0 0 0 2px rgba(0, 0, 0, .3), 0 1px rgba(255, 255, 255, .08);
-          margin-bottom: 5px;
-        }
         .kgps_team_name{
-          width: 40%;
+          width: 42%;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          overflow: hidden;
           .kgps_elem;
         }
         .kgps_input{
-          width: 12%;
+          width: 8%;
           border: none;
           .kgps_elem;
         }
         .kgps_popular{
-          width: 45%;
+          width: 38%;
+          padding: 3px 0;
+          display: inline-block;
+          margin-bottom: 5px;
+        }
+        .kgps_place{
+          width: 8%;
+          border: none;
           .kgps_elem;
         }
         .kgps_table_title{
-          color: @maxGreen!important;
-          .kgps_elem{
+          .kgps_elem {
             color: @maxGreen;
           }
         }
@@ -133,11 +134,15 @@
           display: flex;
           flex-direction: row;
           .kgps_popular_btn{
-            width: 18px;
+            width: 25px;
             display: flex;
-            justify-content: space-between;
-            background: @colorBlur;
+
+            justify-content: center;
+            font-size: 13px;
+            align-items: center;
+            background:@maxYellow;
             color: @darkbg;
+            font-weight: 600;
             cursor: pointer;
             border-radius: 5px;
             margin-right: 2px;
