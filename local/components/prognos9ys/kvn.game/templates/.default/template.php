@@ -12,11 +12,11 @@ $comp = new FillKVNGameList()
 <!--            --><?//= $comp->fillGameStage($stage, $arResult["main"]["teams"]) ?>
 <!--        --><?php //endforeach; ?>
         <div class="kgps_score_block">
-            <div class="kgpss_max">5</div>
-            <div class="kgpss_plus">+</div>
-            <div class="kgpss_score">0</div>
-            <div class="kgpss_minus">-</div>
-            <div class="kgpss_min">4</div>
+            <div class="kgpss_max kgpss_el">5</div>
+            <div class="kgpss_plus kgpss_el">+</div>
+            <div class="kgpss_score kgpss_el">0</div>
+            <div class="kgpss_minus kgpss_el">-</div>
+            <div class="kgpss_min kgpss_el">4</div>
         </div>
     </div>
 
