@@ -12,6 +12,13 @@ class KVNGame extends CBitrixComponent
 
     protected $resultIb;
 
+    protected $arStageName = [
+        1 => "Приветствие",
+        2 => "Биатлон",
+        3 => "Домашка",
+        "end" => "Результат",
+    ];
+
     protected $gameId;
     protected $numberId;
     protected $userId;
@@ -45,11 +52,10 @@ class KVNGame extends CBitrixComponent
     {
 
         $this->getGameId();
-        var_dump('sagfdas');
+
 //        $check = $this->checkOldPrognosis();
 
         $this->getGameMainInfo();
-        var_dump('sagfdas');
 
 //        $this->getMatchInfo($check);
 //
@@ -124,6 +130,10 @@ class KVNGame extends CBitrixComponent
                 "PROPERTY_stage3",
                 "PROPERTY_result",
                 "PROPERTY_events",
+
+                "PROPERTY_max_s1",
+                "PROPERTY_max_s2",
+                "PROPERTY_max_s3",
             ]
         );
 
@@ -141,12 +151,26 @@ class KVNGame extends CBitrixComponent
 
         $el["number"] =$res["PROPERTY_NUMBER_VALUE"];
 
-        $el['stage']["stage1"] = $this->fillStageArray($res["PROPERTY_STAGE1_VALUE"]);
-        $el['stage']["stage2"] = $this->fillStageArray($res["PROPERTY_STAGE2_VALUE"]);
-        $el['stage']["stage3"] = $this->fillStageArray($res["PROPERTY_STAGE3_VALUE"]);
+        foreach ($this->arStageName as $id=>$name){
+            if($id !== "end") {
+                $stage = "STAGE".$id;
+                $max = "MAX_S".$id;
 
-        $el['stage']["result"] = $this->fillStageArray($res["PROPERTY_RESULT_VALUE"]);
-
+                $el['stage'][] = [
+                    "id" => $id,
+                    "name" => $name,
+                    "score" => $this->fillStageArray($res["PROPERTY_".$stage."_VALUE"]),
+                    "max" => (int)$res["PROPERTY_".$max."_VALUE"]
+                ];
+            } else {
+                $stage = "RESULT";
+                $el['stage'][] = [
+                    "id" => $id,
+                    "name" => $name,
+                    "score" => $this->fillStageArray($res["PROPERTY_".$stage."_VALUE"]),
+                ];
+            }
+        }
 
         $el["teams"] = $this->getMultiValue($this->gameId,$this->gameIb);
 
