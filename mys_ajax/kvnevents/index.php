@@ -1,23 +1,35 @@
 <?php
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST');
+header("Access-Control-Allow-Headers: X-Requested-With");
+
+header('Content-Type: text/html; charset=utf-8');
+
+require($_SERVER["DOCUMENT_ROOT"] . "/bitrix/modules/main/include/prolog_before.php");
 
 use Bitrix\Main\{Loader, UserTable};
 
-class KVNEvent extends CBitrixComponent
-{
+$res = new KVNajax();
+
+echo json_encode($res->getArResult());
+
+class KVNajax {
+
     protected $teamIb;
     protected $gameIb;
     protected $eventIb;
     protected $prognosisIb;
 
     protected $arTeams = [];
+    protected $arResult = [];
 
     protected $userId;
 
     protected $actEvent = 6700;
 
-    public function __construct($component = null)
+    public function __construct()
     {
-        parent::__construct($component);
+
         if (!Loader::includeModule('iblock')) {
             ShowError('Модуль Информационных блоков не установлен');
             return;
@@ -31,24 +43,16 @@ class KVNEvent extends CBitrixComponent
         $this->getUserInfo();
         $this->getTeamInfo();
 
-        if ($this->userId) $this->getUserPrognosis();
+        $this->executeComponent();
+
+
 
     }
 
-    public function executeComponent()
+    protected function executeComponent()
     {
 
         $arFilter["IBLOCK_ID"] = $this->gameIb;
-
-//        $elements[6823] = [];
-//        CIBlockElement::GetPropertyValuesArray($elements, $arFilter["IBLOCK_ID"], $arFilter, ["CODE" => "teams"]);
-//
-//        var_dump($elements[6823]["teams"]["VALUE"]);
-
-//        $arFilter["PROPERTY_EVENTS"] = $this->actEvent;
-
-
-
 
         $response = CIBlockElement::GetList(
             ["DATE_ACTIVE_FROM" => "ASC"],
@@ -80,13 +84,15 @@ class KVNEvent extends CBitrixComponent
             $el["ID"] = $res["ID"];
 
             $date = explode("+", ConvertDateTime($res["ACTIVE_FROM"], "d.m+H:i:s"));
-            $el["date"] = $date[0];
-            $el["time"] = substr($date[1], 0,-3);
 
-            $el["number"] = $res["PROPERTY_NUMBER_VALUE"];
+            $el["title"]["date"] = $date[0];
+            $el["title"]["time"] = substr($date[1], 0,-3);
+
+            $el["title"]["number"] = $res["PROPERTY_NUMBER_VALUE"];
+
+            $el["title"]["name"] = $res["NAME"];
 
             $el["active"] = $res["ACTIVE"];
-            $el["name"] = $res["NAME"];
 
             $el["write"] = $this->arUserPrognosis[$res["ID"]] ?? '';
 
@@ -116,7 +122,7 @@ class KVNEvent extends CBitrixComponent
 
             $el["result"] = $this->fillStageArray($res["PROPERTY_RESULT_VALUE"]);
 
-            $this->arResult["items"][] = $el;
+            $this->arResult["games"][] = $el;
 
             if ($el["active"] === "Y") {
                 $this->arResult["active_count"]++;
@@ -128,7 +134,6 @@ class KVNEvent extends CBitrixComponent
 
         }
 
-        $this->includeComponentTemplate();
     }
 
     protected function fillStageArray($str){
@@ -189,26 +194,12 @@ class KVNEvent extends CBitrixComponent
 
     }
 
-    protected function getUserPrognosis()
+    /**
+     * @return array
+     */
+    public function getArResult(): array
     {
-        $arFilter["IBLOCK_ID"] = $this->prognosisIb;
-        $arFilter["PROPERTY_USER_ID"] = $this->userId;
-        $arFilter["PROPERTY_EVENTS"] = $this->actEvent;
-
-        $response = CIBlockElement::GetList(
-            [],
-            $arFilter,
-            false,
-            [],
-            [
-                "ID",
-                "TIMESTAMP_X",
-                "PROPERTY_ID",
-            ]
-        );
-
-        while ($res = $response->GetNext()) {
-            $this->arUserPrognosis[$res["PROPERTY_ID_VALUE"]] = $res["TIMESTAMP_X"];
-        }
+        return $this->arResult;
     }
+
 }
