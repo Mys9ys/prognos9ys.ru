@@ -2,7 +2,7 @@
 
 require($_SERVER["DOCUMENT_ROOT"] . "/bitrix/modules/main/include/prolog_before.php");
 
-file_put_contents('debug_request.json',json_encode($_REQUEST));
+file_put_contents('debug_request.json', json_encode($_REQUEST));
 //
 //$_REQUEST = file_get_contents('debug_request.json');
 
@@ -14,7 +14,7 @@ if ($_REQUEST['type'] === 'match') {
 
     $res = new AddPrognosisInfo($_REQUEST);
 
-    if($res->getResult()){
+    if ($res->getResult()) {
         $request = ["status" => "ok", "mes" => "Прогноз принят"];
     } else {
         $request = ["status" => "err", "mes" => "Что то пошло не так"];
@@ -65,7 +65,7 @@ class AddPrognosisInfo
         ];
 
         $check = $this->checkOldPrognosis();
-        if($check) {
+        if ($check) {
             $this->updatePrognosis($check);
         } else {
             $this->setPrognosis();
@@ -73,7 +73,8 @@ class AddPrognosisInfo
 
     }
 
-    protected function checkOldPrognosis(){
+    protected function checkOldPrognosis()
+    {
 
         $this->arFilter["IBLOCK_ID"] = $this->prognosisIb;
         $this->arFilter["PROPERTY_USER_ID"] = $this->data["m_user"];
@@ -84,7 +85,7 @@ class AddPrognosisInfo
             $this->arFilter,
             false,
             [],
-            [   "ID",
+            ["ID",
             ]
         );
 
@@ -94,13 +95,14 @@ class AddPrognosisInfo
 
     }
 
-    protected function updatePrognosis($id){
+    protected function updatePrognosis($id)
+    {
 
         $ib = new CIBlockElement;
         $data = [
             "IBLOCK_ID" => $this->prognosisIb,
             'DATE_ACTIVE_FROM' => $this->now,
-            "PROPERTY_VALUES"=> $this->prop,
+            "PROPERTY_VALUES" => $this->prop,
         ];
 
         $this->result = $ib->Update($id, $data);
@@ -110,12 +112,12 @@ class AddPrognosisInfo
     {
 
 
-               $ib = new CIBlockElement;
+        $ib = new CIBlockElement;
         $data = [
-            "NAME" => "Участник: " .$this->prop[31] . " Прогноз на матч: " . $this->prop[17],
+            "NAME" => "Участник: " . $this->prop[31] . " Прогноз на матч: " . $this->prop[17],
             "IBLOCK_ID" => $this->prognosisIb,
             'DATE_ACTIVE_FROM' => $this->now,
-            "PROPERTY_VALUES"=>$this->prop
+            "PROPERTY_VALUES" => $this->prop
         ];
 
         $this->result = $ib->Add($data);

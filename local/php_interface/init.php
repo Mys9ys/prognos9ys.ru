@@ -1,4 +1,15 @@
 <?php
+
+use Bitrix\Main\Loader;
+
+\Bitrix\Main\Loader::registerAutoLoadClasses(
+    null,
+    [
+        'GenValuesBotFootball' => '/local/classes/GenValuesBotFootball.php',
+        'SetBotPrognosis' => '/local/classes/SetBotPrognosis.php',
+    ]
+);
+
 //функция вывода дампа
 function dump($var, $die = false, $all = false)
 {
@@ -34,7 +45,6 @@ function AgentChangeActiveItem(){
     return "AgentChangeActiveItem();";
 }
 
-use Bitrix\Main\{Loader};
 class ChangeActiveItem {
     public function __construct()
     {
