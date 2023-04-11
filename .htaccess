@@ -25,11 +25,11 @@ RewriteCond %{REQUEST_FILENAME} [\xF1-\xF3][\x80-\xBF]{3} [OR]
 RewriteCond %{REQUEST_FILENAME} \xF4[\x80-\x8F][\x80-\xBF]{2}
 RewriteCond %{REQUEST_FILENAME} !/bitrix/virtual_file_system.php$
 
-RewriteBase /mob_app
-    RewriteRule ^mob_app/index\.html$ - [L]
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule . /mob_app/index.html [L]
+#RewriteBase /mob_app
+#    RewriteRule ^mob_app/index\.html$ - [L]
+#    RewriteCond %{REQUEST_FILENAME} !-f
+#    RewriteCond %{REQUEST_FILENAME} !-d
+#    RewriteRule . /mob_app/index.html [L]
 
 RewriteRule ^(.*)$ /bitrix/virtual_file_system.php [L]
   RewriteCond %{REQUEST_FILENAME} !-f

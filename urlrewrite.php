@@ -32,6 +32,14 @@ $arUrlRewrite=array (
     'PATH' => '/p/match/index.php',
     'SORT' => 100,
   ),
+  5 => 
+  array (
+    'CONDITION' => '#^/mob_app/#',
+    'RULE' => '',
+    'ID' => '',
+    'PATH' => '/mob_app/index.html',
+    'SORT' => 100,
+  ),
   0 => 
   array (
     'CONDITION' => '#^/rest/#',

@@ -82,7 +82,8 @@ class VueAuthClass
             if($this->arAuthResult["MESSAGE"]) {
                 $this->error = trim($this->arAuthResult["MESSAGE"], '<br>');
             } else {
-                $this->genToken();
+                $this->getToken();
+                if(!$this->token) $this->genToken();
 
                 if($this->setToken()) {
                     $this->loadUserInfo();
@@ -197,6 +198,15 @@ class VueAuthClass
         );
         return $user->Update($this->userId, $fields);
 
+    }
+
+    protected function getToken(){
+        $dbUser = UserTable::getList(array(
+            'select' => array('UF_TOKEN'),
+            'filter' => array('=LOGIN' => $this->login)
+        ))->fetch();
+//        $dbUser['ava'] = $this->imageFormat($dbUser['PERSONAL_PHOTO'], 105, 105, 90);
+        $this->token = $dbUser['UF_TOKEN'];
     }
 
     protected function genToken(){
