@@ -66,8 +66,6 @@ class VueRegistrationClass
 
     protected function checkImportantInput(){
 
-
-
         $filter = [];
         $mes = '';
 
