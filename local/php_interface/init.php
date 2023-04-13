@@ -7,7 +7,9 @@ use Bitrix\Main\Loader;
     [
         'GenValuesBotFootball' => '/local/classes/GenValuesBotFootball.php',
         'SetBotPrognosis' => '/local/classes/SetBotPrognosis.php',
+
         'GetUserIdForToken' => '/local/classes/GetUserIdForToken.php',
+        'GetFootballTeams' => '/local/classes/GetFootballTeams.php',
     ]
 );
 
