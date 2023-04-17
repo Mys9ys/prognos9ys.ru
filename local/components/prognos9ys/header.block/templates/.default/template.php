@@ -34,9 +34,9 @@
                 <div class="menu_events_box sub_prognos">
                     <li><hr class="dropdown-divider"></li>
                     <ul class="">
-                        <?php foreach ($arResult["events"] as $event):?>
-                            <li><a class="dropdown-item" href="/p/<?=$event["CODE"]?>/"><?=$event["NAME"]?></a></li>
-                        <?php endforeach;?>
+                        <li><a class="dropdown-item" href="/p/matches/">Футбол</a></li>
+                        <li><a class="dropdown-item" href="/p/f1race/">Формула 1</a></li>
+                        <li><a class="dropdown-item" href="/p/kvngame/">КВН</a></li>
                     </ul>
                     <li><hr class="dropdown-divider"></li>
                 </div>
