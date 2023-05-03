@@ -1,109 +1,93 @@
 <?php
-
-use Bitrix\Main\UserTable;
-
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST');
 header('Access-Control-Allow-Headers: Origin, X-Requested-With, Content-Type, Accept');
 
 require($_SERVER["DOCUMENT_ROOT"] . "/bitrix/modules/main/include/prolog_before.php");
 
-//$input_data = json_decode(file_get_contents('php://input'), true);
-//file_put_contents('../_logs/debug_request_new.json', json_encode($input_data));
-file_put_contents('../_logs/debug_new.json', json_encode($_REQUEST), FILE_APPEND);
-//
-//$input_data = json_decode(file_get_contents('debug_request_new.json'), true);
+use Bitrix\Main\UserTable;
 
-file_put_contents('../_logs/file.json', json_encode($_FILES), FILE_APPEND);
+$_REQUEST['date'] = date(\CDatabase::DateFormatToPHP("DD.MM.YYYY HH:MI:SS"), time());
+
+file_put_contents('../_logs/auth_data.log', json_encode($_REQUEST) . PHP_EOL, FILE_APPEND);
+
 $arFile = '';
 
-if($_FILES['file']){
+if ($_FILES['file']) {
 
     $fileId = CFile::SaveFile($_FILES['file'], '/main');
 
-    $arFile = CFile::MakeFileArray ($fileId);
+    $arFile = CFile::MakeFileArray($fileId);
 
-    file_put_contents('../_logs/file_id.json', json_encode(CFile::GetPath($fileId)), FILE_APPEND);
+    file_put_contents('../_logs/auth_file_id.log', json_encode(CFile::GetPath($fileId)) . PHP_EOL, FILE_APPEND);
 }
 
-$auth = new VueAuthClass($_REQUEST);
+if($_REQUEST){
+    $auth = new Prognos9ysAuthClass($_REQUEST);
 
-$response = $auth->getVueResult();
+    $response = $auth->result();
 
-if($response['status'] === 'ok' && $_FILES['file']){
+    if ($response['status'] === 'ok' && $_FILES['file']) {
 
-    $auth->setAvaImg($arFile, $_REQUEST['token']);
+        $auth->setAvaImg($arFile, $_REQUEST['token']);
+    }
+
+    echo json_encode($response);
 }
 
-echo json_encode($response);
 
-
-class VueAuthClass
+class Prognos9ysAuthClass
 {
 
-    protected $login;
-    protected $mail;
-    protected $pass;
-    protected $type;
-
-    protected $token;
-
-    protected $arAuthResult;
+    protected $data;
 
     protected $userId;
 
+    protected $arAuthResult;
+
     protected $userInfo = [];
 
-    protected $error = 'Ошибка авторизации';
+    protected $arResult = [];
 
     public function __construct($data)
     {
-        $this->mail = $data['mail'];
-        $this->pass = $data['pass'];
+        $this->data = $data;
 
-        $this->type = $data['type'];
-        $this->token = $data['token'];
-
-        if($this->type === 'newLogin') $this->newLogin();
-        if($this->type === 'tokenLogin' || $this->type === 'ava') $this->tokenLogin();
-
+        if ($this->data['type'] === 'newLogin') $this->newLogin();
+        if ($this->data['type'] === 'tokenLogin' || $this->data['type'] === 'ava') $this->tokenLogin();
     }
 
-    protected function newLogin(){
-
-        $this->error = '';
-
+    protected function newLogin()
+    {
         $this->getUserLogin();
 
-        if(!$this->login) {
-            $this->error = 'Пользователь не найден';
+        if (!$this->data['login']) {
+            $this->setResult('error', 'Пользователь не найден');
         } else {
             $this->setAuthorization();
-            if($this->arAuthResult["MESSAGE"]) {
-                $this->error = trim($this->arAuthResult["MESSAGE"], '<br>');
+
+            if ($this->arAuthResult["MESSAGE"]) {
+                $this->setResult('error', trim($this->arAuthResult["MESSAGE"], '<br>'));
             } else {
                 $this->getToken();
-                if(!$this->token) $this->genToken();
-
-                if($this->setToken()) {
-                    $this->loadUserInfo();
-
-
-                } else {
-                    $this->error = 'Ошибка! Попробуйте еще раз.';
+                if(!$this->data['token']) {
+                    $this->genToken();
+                    $this->setToken();
                 }
+                $this->loadUserInfo();
+                $this->setResult('ok', '', $this->userInfo);
             }
         }
     }
 
-    protected function tokenLogin(){
-        $this->error = '';
-
+    protected function tokenLogin()
+    {
         $this->checkToken();
-        if(!$this->login) {
-            $this->error = 'Токен не верный';
+        if (!$this->data['login']) {
+            $this->setResult('error', 'Токен не верный');
         } else {
             $this->loadUserInfo();
+            $this->setResult('ok', '', $this->userInfo);
         }
     }
 
@@ -111,9 +95,9 @@ class VueAuthClass
     {
         $dbUser = UserTable::getList(array(
             'select' => array('LOGIN', 'ID'),
-            'filter' => array('=EMAIL' => $this->mail)
+            'filter' => array('=EMAIL' => $this->data['mail'])
         ))->fetch();
-        $this->login = $dbUser["LOGIN"];
+        $this->data['login'] = $dbUser["LOGIN"];
         $this->userId = $dbUser["ID"];
     }
 
@@ -121,26 +105,24 @@ class VueAuthClass
     {
         $USER = new CUser;
         $this->arAuthResult = $USER->Login(
-            $this->login,
-            $this->pass,
+            $this->data['login'],
+            $this->data['pass'],
             "Y"
         );
-
     }
 
-    public function checkToken(){
-
+    public function checkToken()
+    {
         $dbUser = UserTable::getList(array(
             'select' => array('LOGIN'),
-            'filter' => array('=UF_TOKEN' => $this->token)
+            'filter' => array('=UF_TOKEN' => $this->data['token'])
         ))->fetch();
 
-        $this->login = $dbUser['LOGIN'];
-
+        $this->data['login'] = $dbUser['LOGIN'];
     }
 
-    protected function getUserIdForToken($token){
-
+    protected function getUserIdForToken($token)
+    {
         $dbUser = UserTable::getList(array(
             'select' => array('ID'),
             'filter' => array('=UF_TOKEN' => $token)
@@ -149,8 +131,8 @@ class VueAuthClass
         $this->userId = $dbUser['ID'];
     }
 
-    public function setAvaImg($arr, $token){
-
+    public function setAvaImg($arr, $token)
+    {
         $this->getUserIdForToken($token);
 
         $user = new CUser;
@@ -165,67 +147,47 @@ class VueAuthClass
     {
         $dbUser = UserTable::getList(array(
             'select' => array('ID', 'EMAIL', 'PERSONAL_PHONE', 'UF_TOKEN', 'NAME', 'LAST_NAME', 'PERSONAL_PHOTO'),
-            'filter' => array('=LOGIN' => $this->login)
+            'filter' => array('=LOGIN' => $this->data['login'])
         ))->fetch();
-//        $dbUser['ava'] = $this->imageFormat($dbUser['PERSONAL_PHOTO'], 105, 105, 90);
+
         $dbUser['ava'] = CFile::GetPath($dbUser['PERSONAL_PHOTO']);
         unset($dbUser['PERSONAL_PHOTO']);
         $this->userInfo = $dbUser;
     }
 
-    /**
-     * @return array
-     */
-    public function getVueResult(): array
+    protected function setToken()
     {
-
-        $res = [];
-        if($this->error) {
-            $res['status'] = 'error';
-            $res['mes'] = $this->error;
-        } else {
-            $res['status'] = 'ok';
-            $res['info'] = $this->userInfo;
-        }
-        return $res;
-    }
-
-    protected function setToken(){
-
         $user = new CUser;
         $fields = array(
-            "UF_TOKEN" => $this->token,
+            "UF_TOKEN" => $this->data['token'],
         );
         return $user->Update($this->userId, $fields);
-
     }
 
     protected function getToken(){
         $dbUser = UserTable::getList(array(
             'select' => array('UF_TOKEN'),
-            'filter' => array('=LOGIN' => $this->login)
+            'filter' => array('=LOGIN' => $this->data['login'])
         ))->fetch();
-//        $dbUser['ava'] = $this->imageFormat($dbUser['PERSONAL_PHOTO'], 105, 105, 90);
-        $this->token = $dbUser['UF_TOKEN'];
+        $this->data['token'] = $dbUser['UF_TOKEN'];
     }
 
-    protected function genToken(){
-
-        $token = random_bytes(16);
-        $this->token = implode('-', str_split(bin2hex($token), 4));
-
-    }
-
-    protected function imageFormat($id, $width, $height, $jpgQuality)
+    protected function genToken()
     {
+        $token = random_bytes(16);
+        $this->data['token'] = implode('-', str_split(bin2hex($token), 4));
+    }
 
-        $arFileTmp = CFile::ResizeImageGet(
-            $id,
-            ["width" => $width, "height" => $height],
-            BX_RESIZE_IMAGE_PROPORTIONAL,
-            true,
-        );
-        return $arFileTmp["src"];
+    protected function setResult($status,$mes, $info = '')
+    {
+        $this->arResult['status'] = $status;
+        $this->arResult['mes'] = $mes;
+        $this->arResult['info'] = $info;
+    }
+
+    public function result()
+    {
+        return $this->arResult;
     }
 
 }

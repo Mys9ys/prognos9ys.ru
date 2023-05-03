@@ -10,13 +10,12 @@ class GetArrMatchIdForNumber
 
     protected $arResult = [];
 
-    public function __construct($eventId)
+    public function __construct()
     {
         if (!Loader::includeModule('iblock')) {
             ShowError('Модуль Информационных блоков не установлен');
             return;
         }
-        $this->eventId = $eventId;
 
         $this->matchesIb = \CIBlock::GetList([], ['CODE' => 'matches'], false)->Fetch()['ID'] ?: 2; // установочные данные матча
         $this->createArray();
@@ -26,7 +25,6 @@ class GetArrMatchIdForNumber
     protected function createArray(){
         $arFilter = [
             'IBLOCK_ID' => $this->matchesIb,
-            'PROPERTY_EVENTS' => $this->eventId
         ];
 
         $response = CIBlockElement::GetList(
