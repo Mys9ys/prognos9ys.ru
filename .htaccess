@@ -14,9 +14,9 @@ ErrorDocument 404 /404.php
 	Options +FollowSymLinks
 	RewriteEngine On
 
-	RewriteCond %{REQUEST_URI} !/mob_app/(.+)$
-	RewriteCond %{REQUEST_URI} !/bitrix/
-    RewriteRule ^(.*)$ /mob_app/$1 [L,R=301]
+#	RewriteCond %{REQUEST_URI} !/mob_app/(.+)$
+#	RewriteCond %{REQUEST_URI} !/bitrix/
+#    RewriteRule ^(.*)$ /mob_app/$1 [L,R=301]
 
 
 
