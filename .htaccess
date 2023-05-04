@@ -16,7 +16,7 @@ ErrorDocument 404 /404.php
 
 	RewriteCond %{REQUEST_URI} !/mob_app/
 	RewriteCond %{REQUEST_URI} !/bitrix/
-    RewriteRule ^(.*)$ /mob_app/$1 [L,R=301]
+    RewriteRule ^(.*)$ /mob_app/index.html [L,R=301]
 
 #    RewriteBase /
 #    RewriteRule ^mob_app/index\.html$ - [L]
