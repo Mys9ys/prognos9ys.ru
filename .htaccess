@@ -14,7 +14,10 @@ ErrorDocument 404 /404.php
 	Options +FollowSymLinks
 	RewriteEngine On
 
-#    RewriteBase /mob_app
+	RewriteCond %{REQUEST_URI} !/mob_app/
+    RewriteRule ^(.*)$ /mob_app/$1 [L,R=301]
+
+#    RewriteBase /
 #    RewriteRule ^mob_app/index\.html$ - [L]
 #    RewriteCond %{REQUEST_FILENAME} !-f
 #    RewriteCond %{REQUEST_FILENAME} !-d
