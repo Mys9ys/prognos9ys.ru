@@ -33,8 +33,8 @@ ErrorDocument 404 /404.php
 	RewriteCond %{REQUEST_FILENAME} !-d
 	RewriteCond %{REQUEST_FILENAME} !/bitrix/urlrewrite.php$
 
-#	RewriteRule ^(.*)$ /bitrix/urlrewrite.php [L]
-#	RewriteRule .* - [E=REMOTE_USER:%{HTTP:Authorization}]
+	RewriteRule ^(.*)$ /bitrix/urlrewrite.php [L]
+	
 </IfModule>
 
 <IfModule mod_dir.c>
