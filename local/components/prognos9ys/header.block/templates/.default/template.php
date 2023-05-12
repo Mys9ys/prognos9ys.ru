@@ -1,16 +1,15 @@
 <?php if (!defined("B_PROLOG_INCLUDED") || B_PROLOG_INCLUDED !== true) die();?>
-
+<div class="new_version_wrapper">
+    <a class="new_version_btn" href="/mob_app/">
+        <span>Новая версия сайта</span><i class="fa fa-arrow-right" aria-hidden="true"></i>
+    </a>
+</div>
 <?php if($_SERVER["HTTP_HOST"] === 'prog.work'):?>
 <style>
     body{
         background: #fff;
     }
 </style>
-    <div class="new_version_wrapper">
-        <a class="new_version_btn" href="/mob_app/">
-            <span>Новая версия сайта</span><i class="fa fa-arrow-right" aria-hidden="true"></i>
-        </a>
-    </div>
 
 <div class="header_wrapper">
 

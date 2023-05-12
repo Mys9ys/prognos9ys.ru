@@ -10,34 +10,27 @@ ErrorDocument 404 /404.php
 	#php_value mbstring.internal_encoding UTF-8
 </IfModule>
 
+
 <IfModule mod_rewrite.c>
 	Options +FollowSymLinks
 	RewriteEngine On
 
-#	RewriteCond %{REQUEST_URI} !/mob_app/(.+)$
-#	RewriteCond %{REQUEST_URI} !/bitrix/
-#    RewriteRule ^(.*)$ /mob_app/$1 [L,R=301]
-
-    RewriteBase /mob_app
-    RewriteRule ^mob_app/index\.html$ - [L]
-
-#    RewriteRule . /mob_app/index.html [L]
-
-#    RewriteBase /
+#    RewriteCond %{REQUEST_URI} !/mob_app/
+#    RewriteCond %{REQUEST_URI} !/bitrix/
+#    RewriteRule ^(.*)$ /mob_app/$1 [R=301,L]
+#
+#    RewriteBase /mob_app
 #    RewriteRule ^mob_app/index\.html$ - [L]
 #    RewriteCond %{REQUEST_FILENAME} !-f
 #    RewriteCond %{REQUEST_FILENAME} !-d
 #    RewriteRule . /mob_app/index.html [L]
-#    RewriteCond %{REQUEST_FILENAME} /mob_app
-#    RewriteRule ^(.*)$ /mob_app/index.html [L]
 
 	RewriteCond %{REQUEST_FILENAME} !-f
 	RewriteCond %{REQUEST_FILENAME} !-l
 	RewriteCond %{REQUEST_FILENAME} !-d
 	RewriteCond %{REQUEST_FILENAME} !/bitrix/urlrewrite.php$
-
 	RewriteRule ^(.*)$ /bitrix/urlrewrite.php [L]
-
+	RewriteRule .* - [E=REMOTE_USER:%{HTTP:Authorization}]
 </IfModule>
 
 <IfModule mod_dir.c>
