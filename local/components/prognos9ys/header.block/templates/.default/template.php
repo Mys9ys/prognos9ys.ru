@@ -6,7 +6,14 @@
         background: #fff;
     }
 </style>
+    <div class="new_version_wrapper">
+        <a class="new_version_btn" href="/mob_app/">
+            <span>Новая версия сайта</span><i class="fa fa-arrow-right" aria-hidden="true"></i>
+        </a>
+    </div>
+
 <div class="header_wrapper">
+
     <div class="h_main_block">
         <div class="hm_left_block">
             <div class="hm_btn_block">

@@ -2,6 +2,25 @@ body {
   background: #2E8B57;
   min-height: 100vh;
 }
+.new_version_wrapper {
+  margin: 0 auto;
+  width: 400px;
+  max-width: 98%;
+  margin-bottom: 10px;
+}
+.new_version_wrapper .new_version_btn {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  background: #228B22;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.4), 0 -1px 0 rgba(0, 0, 0, 0.2);
+  padding: 3px 12px;
+  border-radius: 10px;
+  text-decoration: none;
+}
 .header_wrapper {
   margin: 0 auto;
   width: 400px;

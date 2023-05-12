@@ -94,7 +94,7 @@ class SetResultAllUsers
                 "PROPERTY_guest",
                 "PROPERTY_goal_guest",
                 "PROPERTY_number",
-                "PROPERTY_id",
+                "PROPERTY_match_id",
                 "PROPERTY_result",
                 "PROPERTY_diff",
                 "PROPERTY_corner",
@@ -137,7 +137,7 @@ class SetResultAllUsers
 
         $arFilter = [];
         $arFilter["IBLOCK_ID"] = $this->prognosisIb;
-        $arFilter["PROPERTY_ID"] = $this->matchId;
+        $arFilter["PROPERTY_MATCH_ID"] = $this->matchId;
 
         $response = CIBlockElement::GetList(
             [],
@@ -153,7 +153,7 @@ class SetResultAllUsers
                 "PROPERTY_guest",
                 "PROPERTY_goal_guest",
                 "PROPERTY_number",
-                "PROPERTY_id",
+                "PROPERTY_match_id",
                 "PROPERTY_user_id",
                 "PROPERTY_result",
                 "PROPERTY_diff",
@@ -187,7 +187,7 @@ class SetResultAllUsers
             $all = 0;
 
             $result['user'] = $prognosis["PROPERTY_USER_ID_VALUE"];
-            $result['match'] = $prognosis["PROPERTY_ID_VALUE"];
+            $result['match'] = $prognosis["PROPERTY_MATCH_ID_VALUE"];
             $result['number'] = $prognosis["PROPERTY_NUMBER_VALUE"];
 
             // счет матча
