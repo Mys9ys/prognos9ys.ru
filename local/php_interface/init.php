@@ -2,16 +2,32 @@
 
 use Bitrix\Main\Loader;
 
+$arClassMini = [
+    'GenValuesBotFootball',
+    'SetBotPrognosis',
+    'GetPrognosisEvents',
+    'GetArrMatchIdForNumber',
+    'GetUserIdForToken',
+    'GetFootballTeams',
+];
+
+$arClassElement = [
+    'Prognos9ysMainPageInfo',
+    'FootballHandlerClass',
+];
+
+$arClassInclude = [];
+
+foreach ($arClassMini as $class) {
+    $arClassInclude[$class] = '/local/classes/' . $class . '.php';
+}
+foreach ($arClassElement as $class) {
+    $arClassInclude[$class] = '/local/classes/ajax/' . $class . '.php';
+}
+
 \Bitrix\Main\Loader::registerAutoLoadClasses(
     null,
-    [
-        'GenValuesBotFootball' => '/local/classes/GenValuesBotFootball.php',
-        'SetBotPrognosis' => '/local/classes/SetBotPrognosis.php',
-        'GetPrognosisEvents' => '/local/classes/GetPrognosisEvents.php',
-        'GetArrMatchIdForNumber' => '/local/classes/GetArrMatchIdForNumber.php',
-        'GetUserIdForToken' => '/local/classes/GetUserIdForToken.php',
-        'GetFootballTeams' => '/local/classes/GetFootballTeams.php',
-    ]
+    $arClassInclude
 );
 
 //функция вывода дампа
@@ -30,26 +46,28 @@ function dump($var, $die = false, $all = false)
 function testAgent()
 {
 
-    file_put_contents('test.json',json_encode('test'));
+    file_put_contents('test.json', json_encode('test'));
     $res = new ChangeActiveItem();
     return "testAgent();";
 }
 
-function AgentChangeActiveItem(){
+function AgentChangeActiveItem()
+{
     CModule::IncludeModule("iblock");
     $arIb = [
         \CIBlock::GetList([], ['CODE' => 'matches'], false)->Fetch()['ID'] ?: 2,
     ];
 
     $res = new ChangeActiveItem();
-    foreach ($arIb as $ib){
+    foreach ($arIb as $ib) {
         $res->inActiveElement($ib);
     }
 
     return "AgentChangeActiveItem();";
 }
 
-class ChangeActiveItem {
+class ChangeActiveItem
+{
     public function __construct()
     {
         if (!Loader::includeModule('iblock')) {
@@ -58,7 +76,8 @@ class ChangeActiveItem {
         }
     }
 
-    public function inActiveElement($iblock_id){
+    public function inActiveElement($iblock_id)
+    {
         $now = date(\CDatabase::DateFormatToPHP("DD.MM.YYYY HH:MI:SS"), time());
         $arFilter["IBLOCK_ID"] = $iblock_id;
         $arFilter["<=DATE_ACTIVE_FROM"] = $now;
@@ -77,7 +96,7 @@ class ChangeActiveItem {
         while ($res = $response->GetNext()) {
             $obEl = new CIBlockElement();
             // Деактивация элемента
-            $boolResult = $obEl->Update($res['ID'],array('ACTIVE' => 'N'));
+            $boolResult = $obEl->Update($res['ID'], array('ACTIVE' => 'N'));
         }
 
     }
