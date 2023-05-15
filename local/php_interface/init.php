@@ -14,6 +14,7 @@ $arClassMini = [
 $arClassElement = [
     'Prognos9ysMainPageInfo',
     'FootballHandlerClass',
+    'Prognos9ysHumorHandler',
 ];
 
 $arClassInclude = [];
