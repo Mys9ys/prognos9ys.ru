@@ -60,6 +60,25 @@ class Prognos9ysHumorHandler
         return ['status' => 'ok'];
     }
 
+    public function loadPrank($arr){
+        $arFields = [
+            71 => $arr['userId']
+        ];
+        $ib = new CIBlockElement;
+        $data = [
+            "IBLOCK_ID" => 4,
+            'DATE_ACTIVE_FROM' => date(\CDatabase::DateFormatToPHP("DD.MM.YYYY HH:MI:SS"), time()),
+            "PROPERTY_VALUES"=>$arFields,
+            "PREVIEW_TEXT" => $arr['text'],
+            "NAME" => "Участник: " .$arr['userId'] . " Добавил : " . date(\CDatabase::DateFormatToPHP("DD.MM.YYYY HH:MI:SS"), time())
+        ];
+
+        $ib->Add($data);
+
+        return ['status' => 'ok'];
+
+    }
+
     public function result(){
         $this->setResult('ok', '', $this->one);
         return $this->arResult;
