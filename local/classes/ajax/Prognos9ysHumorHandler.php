@@ -42,7 +42,7 @@ class Prognos9ysHumorHandler
         $res['likes'] = $res['PROPERTY_LIKES_VALUE'];
         $res['author'] = $res['PROPERTY_AUTHOR_VALUE'];
 
-        $setResult = CIBlockElement::SetPropertyValueCode($res['ID'], 69 ,$res['seen']);
+        CIBlockElement::SetPropertyValueCode($res['ID'], 69 ,$res['seen']);
 
         $this->one = $res;
     }
@@ -52,6 +52,12 @@ class Prognos9ysHumorHandler
         $this->arResult['status'] = $status;
         $this->arResult['mes'] = $mes;
         $this->arResult['info'] =  $info;
+    }
+
+    public function setLike($arr): array{
+        CIBlockElement::SetPropertyValueCode($arr['prankId'], 70 ,$arr['likes']);
+
+        return ['status' => 'ok'];
     }
 
     public function result(){

@@ -7,9 +7,21 @@ require($_SERVER["DOCUMENT_ROOT"] . "/bitrix/modules/main/include/prolog_before.
 
 use Bitrix\Main\UserTable;
 
-$_REQUEST['date'] = date(\CDatabase::DateFormatToPHP("DD.MM.YYYY HH:MI:SS"), time());
+$arLog['date'] = date(\CDatabase::DateFormatToPHP("DD.MM.YYYY HH:MI:SS"), time());
 
-file_put_contents('../_logs/auth_data.log', json_encode($_REQUEST) . PHP_EOL, FILE_APPEND);
+$arName = [
+    'token',
+    'type',
+    'login',
+];
+
+foreach ($arName as $name){
+    $arLog[$name] = $_REQUEST[$name];
+}
+
+$arLog['userId'] = (new GetUserIdForToken($_REQUEST['userToken']))->getID();
+
+file_put_contents('../_logs/auth_data.log', json_encode($arLog) . PHP_EOL, FILE_APPEND);
 
 $arFile = '';
 
