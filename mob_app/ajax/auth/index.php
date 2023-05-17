@@ -114,9 +114,12 @@ class Prognos9ysAuthClass
     public function checkToken()
     {
         $dbUser = UserTable::getList(array(
-            'select' => array('LOGIN'),
+            'select' => array('LOGIN', 'ID'),
             'filter' => array('=UF_TOKEN' => $this->data['token'])
         ))->fetch();
+
+        $USER = new CUser;
+        $USER->Authorize($dbUser['ID']);
 
         $this->data['login'] = $dbUser['LOGIN'];
     }

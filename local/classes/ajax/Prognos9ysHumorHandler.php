@@ -31,10 +31,18 @@ class Prognos9ysHumorHandler
             [
                 "ID",
                 "PREVIEW_TEXT",
+                "PROPERTY_seen",
+                "PROPERTY_likes",
+                "PROPERTY_author",
             ]
         )->GetNext();
 
-        $res['likes'] = rand(5, 35);
+        $res['seen'] = $res['PROPERTY_SEEN_VALUE'] ?? 0;
+        $res['seen']++;
+        $res['likes'] = $res['PROPERTY_LIKES_VALUE'];
+        $res['author'] = $res['PROPERTY_AUTHOR_VALUE'];
+
+        $setResult = CIBlockElement::SetPropertyValueCode($res['ID'], 69 ,$res['seen']);
 
         $this->one = $res;
     }
@@ -43,6 +51,7 @@ class Prognos9ysHumorHandler
     {
         $this->arResult['status'] = $status;
         $this->arResult['mes'] = $mes;
+        $this->arResult['info'] =  $info;
     }
 
     public function result(){
