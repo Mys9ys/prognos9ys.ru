@@ -19,7 +19,7 @@ foreach ($arName as $name){
     $arLog[$name] = $_REQUEST[$name];
 }
 
-$arLog['userId'] = (new GetUserIdForToken($_REQUEST['userToken']))->getID();
+$arLog['userId'] = (new GetUserIdForToken($arLog['token']))->getID();
 
 file_put_contents('../_logs/auth_data.log', json_encode($arLog) . PHP_EOL, FILE_APPEND);
 
