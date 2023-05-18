@@ -20,6 +20,9 @@ ErrorDocument 404 /404.php
 
     RewriteBase /mob_app
     RewriteRule ^mob_app/index\.html$ - [L]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule . /mob_app/index.html [L]
 
 #    RewriteRule . /mob_app/index.html [L]
 
