@@ -8,13 +8,19 @@ $arClassMini = [
     'GetPrognosisEvents',
     'GetArrMatchIdForNumber',
     'GetUserIdForToken',
-    'GetFootballTeams',
 ];
 
-$arClassElement = [
+$arClassAjax = [
     'Prognos9ysMainPageInfo',
     'FootballHandlerClass',
     'Prognos9ysHumorHandler',
+    'RaceManyHandler',
+];
+
+$arClassMain = [
+    'GetF1RacersClass',
+    'GetF1TeamsClass',
+    'GetFootballTeams',
 ];
 
 $arClassInclude = [];
@@ -22,8 +28,11 @@ $arClassInclude = [];
 foreach ($arClassMini as $class) {
     $arClassInclude[$class] = '/local/classes/' . $class . '.php';
 }
-foreach ($arClassElement as $class) {
+foreach ($arClassAjax as $class) {
     $arClassInclude[$class] = '/local/classes/ajax/' . $class . '.php';
+}
+foreach ($arClassMain as $class) {
+    $arClassInclude[$class] = '/local/classes/main/' . $class . '.php';
 }
 
 \Bitrix\Main\Loader::registerAutoLoadClasses(
