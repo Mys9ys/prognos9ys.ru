@@ -15,6 +15,7 @@ $arClassAjax = [
     'FootballHandlerClass',
     'Prognos9ysHumorHandler',
     'RaceManyHandler',
+    'RaceOneHandler',
 ];
 
 $arClassMain = [

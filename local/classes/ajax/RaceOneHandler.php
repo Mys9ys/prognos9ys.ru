@@ -4,16 +4,16 @@ require($_SERVER["DOCUMENT_ROOT"] . "/bitrix/modules/main/include/prolog_before.
 
 use Bitrix\Main\Loader;
 
-class RaceManyHandler
+class RaceOneHandler
 {
     protected $arCountry;
+    protected $arTeam;
+    protected $arRacers;
     protected $arIBs = [
         'f1races' => ['code' => 'f1races', 'id' => 11],
     ];
 
     protected $arResult;
-
-    protected $arFill;
 
     protected $data = [];
 
@@ -27,11 +27,12 @@ class RaceManyHandler
         $this->data = $data;
 
         $this->arCountry = (new GetFootballTeams())->result();
+        $this->arRacers = (new GetF1RacersClass())->result();
 
         $this->getResult();
 
-        if ($this->arFill) {
-            $this->setResult('ok', '', $this->arFill);
+        if ($this->arResult) {
+            $this->setResult('ok', '');
         } else {
             $this->setResult('error', 'Ошибка запроса');
         }
@@ -43,27 +44,33 @@ class RaceManyHandler
 
         $arFilter = [
             "IBLOCK_ID" => $this->arIBs['f1races']['id'],
-            'PROPERTY_EVENTS' => $this->data['events']
+            'PROPERTY_events' => $this->data['events'],
+            'PROPERTY_number' => $this->data['number']
         ];
 
-        $response = CIBlockElement::GetList(
-            ["PROPERTY_72_VALUE" => "DESC"],
+        $res = CIBlockElement::GetList(
+            [],
             $arFilter,
             false,
             [],
             [
-                'ID', 'NAME', 'PREVIEW_PICTURE',
+                'ID',
+                'NAME',
+                'PREVIEW_PICTURE',
                 'ACTIVE_FROM',
                 'ACTIVE_TO',
                 'ACTIVE',
                 'PROPERTY_country',
                 'PROPERTY_number',
                 'PROPERTY_sprint',
-                'PROPERTY_events'
-            ]
-        );
+                'PROPERTY_events',
 
-        while ($res = $response->GetNext()) {
+                'PROPERTY_qual_res',
+                'PROPERTY_sprint_res',
+                'PROPERTY_race_res',
+
+            ]
+        )->GetNext();
             $el = [];
 
             $el["img"] = CFile::GetPath($res["PREVIEW_PICTURE"]);
@@ -77,6 +84,8 @@ class RaceManyHandler
 
             $el["race"] = $this->convertData($res["ACTIVE_TO"]);
 
+            $el["racers"] = $this->arRacers;
+
             if ($res["PROPERTY_SPRINT_VALUE"]) {
 
                 $el["sprint"] = $this->convertData($res["PROPERTY_SPRINT_VALUE"]);
@@ -86,19 +95,8 @@ class RaceManyHandler
 
             $el["number"] = $res["PROPERTY_NUMBER_VALUE"];
 
-            $arrIDs = $this->fillSectionArray($res["ACTIVE_FROM"]);
+            $this->arResult['info'] = $el;
 
-            $this->arFill[$arrIDs['section']]['items'][$el["date"]][$el["number"]] = $el;
-            if (!$this->arFill[$arrIDs['section']]['info']) $this->arFill[$arrIDs['section']]['info'] = $arrIDs;
-        }
-
-        foreach ($this->arFill as $section => $arr) {
-            $this->arFill[$section]['info']['count'] = count($arr['items']);
-
-            if($section === 'nearest' || $section === 'future'){
-                krsort($this->arFill[$section]['items']);
-            }
-        }
     }
 
     protected function convertData($data){
@@ -110,52 +108,10 @@ class RaceManyHandler
         ];
     }
 
-    protected function fillSectionArray($date)
-    {
-
-        $arr = ['section' => '', 'title' => '', 'visible' => false];
-
-        $now = date(\CDatabase::DateFormatToPHP("DD.MM.YYYY"), time());
-        $now = date_create($now);
-
-        $dateMatch = date_create(explode(' ', $date)[0]);
-
-        $interval = date_diff($dateMatch, $now);
-        $intervalDay = $interval->format('%R%a');
-
-        if ($intervalDay > 0 && $intervalDay < 2) {
-            $arr['section'] = 'recent';
-            $arr['title'] = 'Недавние';
-            $arr['visible'] = true;
-        }
-
-        if ($intervalDay > 1) {
-            $arr['section'] = 'past';
-            $arr['title'] = 'Прошедшие';
-            $arr['visible'] = false;
-        }
-
-        if ($intervalDay < 1 && $intervalDay > -2) {
-            $arr['section'] = 'nearest';
-            $arr['title'] = 'Ближайшие';
-            $arr['visible'] = true;
-        }
-
-        if ($intervalDay < 0) {
-            $arr['section'] = 'future';
-            $arr['title'] = 'Будущие';
-            $arr['visible'] = false;
-        }
-
-        return $arr;
-
-    }
-
     protected function setResult($status, $mes, $info = '')
     {
         $this->arResult['status'] = $status;
         $this->arResult['mes'] = $mes;
-        if ($info) $this->arResult['info'] = $info;
     }
 
     public function result()
