@@ -29,6 +29,7 @@ class GetF1RacersClass
 
         $arFilter = [
             "IBLOCK_ID" => $this->Ib['id'],
+            "ACTIVE" => 'Y'
         ];
 
         $response = CIBlockElement::GetList(
@@ -48,6 +49,13 @@ class GetF1RacersClass
             $res["img"] = CFile::GetPath($res["PREVIEW_PICTURE"]);
             $res["country"] = $this->arCountry[$res["PROPERTY_COUNTRY_VALUE"]];
             $res["team"] = $this->arTeams[$res["PROPERTY_TEAM_VALUE"]];
+
+            $arName = explode(' ',$res["NAME"]);
+
+            $arName[0] = mb_substr($arName[0], 0, 1) . '.';
+
+            $res["short_name"] = implode(' ', $arName);
+
             $this->arResult[$res["ID"]] = $res;
         }
 

@@ -1,13 +1,10 @@
 <?php
 
-require($_SERVER["DOCUMENT_ROOT"] . "/bitrix/modules/main/include/prolog_before.php");
-
 use Bitrix\Main\Loader;
 
 class RaceOneHandler
 {
     protected $arCountry;
-    protected $arTeam;
     protected $arRacers;
     protected $arIBs = [
         'f1races' => ['code' => 'f1races', 'id' => 11],
@@ -80,6 +77,8 @@ class RaceOneHandler
 
             $el["date"] = $el["qual"]["date"];
             $el["active"] = $res["ACTIVE"];
+            $el["id"] = $res["ID"];
+
             $el["event"] = $res["PROPERTY_EVENTS_VALUE"];
 
             $el["race"] = $this->convertData($res["ACTIVE_TO"]);
