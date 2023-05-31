@@ -10,6 +10,7 @@ class RaceSendHandler
         'qual' => 86,
         'sprint' => 87,
         'race' => 88,
+        'best_lap' => 90,
     ];
     protected $data;
     protected $arResult;
@@ -45,7 +46,8 @@ class RaceSendHandler
         $arFilter = [
             "IBLOCK_ID" => $this->arIb['prognosf1']['id'],
             'PROPERTY_events' => $this->data['events'],
-            'PROPERTY_number' => $this->data['number']
+            'PROPERTY_number' => $this->data['number'],
+            'PROPERTY_user_id' => $this->data['userId']
         ];
 
 
@@ -78,7 +80,9 @@ class RaceSendHandler
             "NAME" => "Участник: " .$this->data['userId'] . " Добавил : " . date(\CDatabase::DateFormatToPHP("DD.MM.YYYY HH:MI:SS"), time())
         ];
 
-        $ib->Add($data);
+//        $ib->Add($data);
+
+        var_dump($ib->Add($data));
 
         $this->arResult['status'] = 'ok';
     }

@@ -17,12 +17,14 @@ $arClassAjax = [
     'RaceManyHandler',
     'RaceOneHandler',
     'RaceSendHandler',
+    'RaceSetResult',
 ];
 
 $arClassMain = [
     'GetF1RacersClass',
     'GetF1TeamsClass',
     'GetFootballTeams',
+    'GetUserRole',
 ];
 
 $arClassInclude = [];
