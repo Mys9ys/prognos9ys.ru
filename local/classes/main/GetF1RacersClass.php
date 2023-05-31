@@ -50,6 +50,8 @@ class GetF1RacersClass
             $res["country"] = $this->arCountry[$res["PROPERTY_COUNTRY_VALUE"]];
             $res["team"] = $this->arTeams[$res["PROPERTY_TEAM_VALUE"]];
 
+            $res["score"] = $res["PROPERTY_SCORE_VALUE"] ?? 0;
+
             $arName = explode(' ',$res["NAME"]);
 
             $arName[0] = mb_substr($arName[0], 0, 1) . '.';

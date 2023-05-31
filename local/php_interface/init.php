@@ -25,6 +25,7 @@ $arClassMain = [
     'GetF1TeamsClass',
     'GetFootballTeams',
     'GetUserRole',
+    'GenRacePrognosis',
 ];
 
 $arClassInclude = [];
