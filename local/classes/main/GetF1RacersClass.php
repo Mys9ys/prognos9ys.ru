@@ -33,7 +33,7 @@ class GetF1RacersClass
         ];
 
         $response = CIBlockElement::GetList(
-            ["DATE_ACTIVE_FROM" => "ASC", "created" => "ASC"],
+            ["PROPERTY_74_VALUE" => "DESC","DATE_ACTIVE_FROM" => "ASC", "created" => "ASC"],
             $arFilter,
             false,
             [],

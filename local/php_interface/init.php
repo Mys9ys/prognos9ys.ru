@@ -13,6 +13,7 @@ $arClassMini = [
 $arClassAjax = [
     'Prognos9ysMainPageInfo',
     'FootballHandlerClass',
+    'CalcRacePrognosisResult',
     'Prognos9ysHumorHandler',
     'RaceManyHandler',
     'RaceOneHandler',
@@ -25,7 +26,10 @@ $arClassMain = [
     'GetF1TeamsClass',
     'GetFootballTeams',
     'GetUserRole',
+    'GetBotsClass',
     'GenRacePrognosis',
+    'SetRacersScore',
+    'SetBotRacePrognosis',
 ];
 
 $arClassInclude = [];

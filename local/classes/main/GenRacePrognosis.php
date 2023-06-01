@@ -5,7 +5,6 @@ use Bitrix\Main\Loader;
 class GenRacePrognosis
 {
 
-    protected $arResult;
     protected $arRacers;
 
     protected $arRandElems = [];
@@ -13,24 +12,24 @@ class GenRacePrognosis
     protected $arRandTemplate = [];
 
     protected $arEvents = [
-        'qual' => 10,
-        'race' => 10,
-        'best_lap' => 1
+        86 => 10, // qual
+        88 => 10, // race
+        90 => 1 // best_lap
     ];
 
     public function __construct($sprint = '')
     {
         $this->arRacers = (new GetF1RacersClass())->result();
 
-        if($sprint) $this->arEvents['sprint'] = 8;
+        if($sprint) $this->arEvents[87] = 8; // sprint
 
         $this->genArrRandTemplate();
 
-        $this->genQualification();
+        $this->genResult();
 
     }
 
-    protected function genQualification()
+    protected function genResult()
     {
         foreach ($this->arEvents as $title=>$count){
 
@@ -54,7 +53,7 @@ class GenRacePrognosis
     protected function genArrRandTemplate()
     {
         foreach ($this->arRacers as $id => $item) {
-            $this->arRandTemplate[$id] = $item['score'] ? $item['score'] * 10 : 20;
+            $this->arRandTemplate[$id] = $item['score'] ? $item['score'] * 20 : 20;
         }
     }
 
@@ -97,6 +96,13 @@ class GenRacePrognosis
         }
 
         return $res;
+    }
+
+    public function result(){
+        foreach ($this->arRandElems as $id=>$arr){
+            $this->arRandElems[$id] = json_encode($arr);
+        }
+        return $this->arRandElems;
     }
 
 }
