@@ -34,7 +34,7 @@ class SetBotRacePrognosis
 
         $arFilter = [
             'IBLOCK_ID' => $this->arIbs['f1races']['id'],
-            'PROPERTY_number' => 1
+            'PROPERTY_number' => 2
         ];
 
         $response = CIBlockElement::GetList(

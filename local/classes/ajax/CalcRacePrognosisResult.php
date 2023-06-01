@@ -183,8 +183,6 @@ class CalcRacePrognosisResult
         }
     }
 
-
-
     protected function setResultIb()
     {
 
@@ -201,6 +199,8 @@ class CalcRacePrognosisResult
 
         $score = new SetRacersScore(['number' => $this->number, 'racers' => $this->arRaceResult['race_res']]);
         if($this->arRaceResult['sprint_res']) $score = new SetRacersScore(['number' => $this->number . '_s', 'racers' => $this->arRaceResult['sprint_res']]);
+
+        $this->setResult('ok', '');
 
     }
     protected function checkOld($user_id)
@@ -249,8 +249,28 @@ class CalcRacePrognosisResult
         $result = $ib->Add($data);
     }
 
-    protected function updateData()
+    protected function updateData($item)
     {
+        $props = [];
+        foreach ($item['info'] as $name => $value) {
+            $props[$this->ibCell[$name]] = $value;
+        }
 
+        foreach ($item['data'] as $name => $value) {
+            $props[$this->ibCell[$name]] = json_encode($value);
+        }
+
+        CIBlockElement::SetPropertyValuesEx($item['race_id'], $this->arIbs['f1races']['id'], $props);
+    }
+
+    protected function setResult($status, $mes, $info = '')
+    {
+        $this->arResult['status'] = $status;
+        $this->arResult['mes'] = $mes;
+    }
+
+    public function result()
+    {
+        return $this->arResult;
     }
 }
