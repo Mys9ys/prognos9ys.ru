@@ -17,7 +17,7 @@ class GenRacePrognosis
         90 => 1 // best_lap
     ];
 
-    public function __construct($sprint = '')
+    public function __construct($sprint)
     {
         $this->arRacers = (new GetF1RacersClass())->result();
 

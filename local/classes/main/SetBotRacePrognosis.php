@@ -8,17 +8,21 @@ class SetBotRacePrognosis
     protected $arBots;
     protected $emptyEvent;
 
+    protected $data;
+
     protected $arIbs = [
         'f1races' => ['code' => 'f1races', 'id' => 11],
         'prognosf1' => ['code' => 'prognosf1', 'id' => 13]
     ];
 
-    public function __construct()
+    public function __construct($data)
     {
         if (!Loader::includeModule('iblock')) {
             ShowError('Модуль Информационных блоков не установлен');
             return;
         }
+
+        $this->data = $data;
 
         $this->arBots = (new GetBotsClass())->result();
 
@@ -34,7 +38,7 @@ class SetBotRacePrognosis
 
         $arFilter = [
             'IBLOCK_ID' => $this->arIbs['f1races']['id'],
-            'PROPERTY_number' => 2
+            'PROPERTY_number' => $this->data['number']
         ];
 
         $response = CIBlockElement::GetList(
@@ -93,7 +97,7 @@ class SetBotRacePrognosis
 
     protected function setPrognosis($props){
 
-        $gen = (new GenRacePrognosis())->result();
+        $gen = (new GenRacePrognosis($this->data['sprint']))->result();
 
         $props = array_replace($props, $gen);
 

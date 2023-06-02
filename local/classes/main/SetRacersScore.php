@@ -18,6 +18,18 @@ class SetRacersScore
         1
     ];
 
+    protected $arSprintScore = [
+        8,
+        7,
+        6,
+        6,
+        5,
+        4,
+        3,
+        2,
+        1,
+    ];
+
     protected $arIbs = [
         'racers' => ['code' => 'racers', 'id' => 8]
     ];
@@ -59,6 +71,7 @@ class SetRacersScore
             $arRaces = json_decode($res['~PROPERTY_RACES_SCORE_VALUE']['TEXT'], true);
 
             if($arFlip[$res['ID']]>-1){
+                if(strpos('_s', $this->data['number']))
                 $arRaces[$this->data['number']] = $this->arPositionScore[$arFlip[$res['ID']]];
             } else {
                 $arRaces[$this->data['number']] = 0;

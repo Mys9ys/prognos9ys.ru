@@ -9,11 +9,16 @@ class RaceManyHandler
     protected $arCountry;
     protected $arIBs = [
         'f1races' => ['code' => 'f1races', 'id' => 11],
+        'prognosf1' => ['code' => 'prognosf1', 'id' => 13],
+        'resultf1' => ['code' => 'resultf1', 'id' => 14]
     ];
 
     protected $arResult;
 
     protected $arFill;
+
+    protected $arPrognosis;
+    protected $arProgResult;
 
     protected $data = [];
 
@@ -27,6 +32,11 @@ class RaceManyHandler
         $this->data = $data;
 
         $this->arCountry = (new GetFootballTeams())->result();
+
+        $this->data['userId'] = (new GetUserIdForToken($_REQUEST['userToken']))->getID();
+
+        $this->getUserPrognosis();
+        $this->getUserResult();
 
         $this->getResult();
 
@@ -59,7 +69,8 @@ class RaceManyHandler
                 'PROPERTY_country',
                 'PROPERTY_number',
                 'PROPERTY_sprint',
-                'PROPERTY_events'
+                'PROPERTY_events',
+                'PROPERTY_status'
             ]
         );
 
@@ -82,6 +93,19 @@ class RaceManyHandler
                 $el["sprint"] = $this->convertData($res["PROPERTY_SPRINT_VALUE"]);
             }
 
+            $el["fill"] = $this->arPrognosis[$res["ID"]];
+            $el["result"] = $this->arProgResult[$res["ID"]];
+
+            $el["status"] = 'Ожидается';
+
+            if ($res["PROPERTY_STATUS_VALUE"]) {
+                $el["status"] = 'Отменена';
+            } else {
+                if ($el["active"] === 'N') {
+                    $el["status"] = 'Завершена';
+                }
+            }
+
             $el["name"] = $res["NAME"];
 
             $el["number"] = $res["PROPERTY_NUMBER_VALUE"];
@@ -98,6 +122,61 @@ class RaceManyHandler
             if($section === 'nearest' || $section === 'future'){
                 krsort($this->arFill[$section]['items']);
             }
+        }
+    }
+
+    protected function getUserPrognosis(){
+        $arFilter = [
+            "IBLOCK_ID" => $this->arIBs['prognosf1']['id'],
+            'PROPERTY_EVENTS' => $this->data['events'],
+            'PROPERTY_user_id' => $this->data['userId']
+        ];
+
+        $response = CIBlockElement::GetList(
+            [],
+            $arFilter,
+            false,
+            [],
+            [
+                'PROPERTY_race_id',
+                'TIMESTAMP_X',
+            ]
+        );
+
+        while ($res = $response->GetNext()) {
+            $this->arPrognosis[$res['PROPERTY_RACE_ID_VALUE']] = $res['TIMESTAMP_X'];
+        }
+    }
+
+    protected function getUserResult(){
+        $arFilter = [
+            "IBLOCK_ID" => $this->arIBs['resultf1']['id'],
+            'PROPERTY_EVENTS' => $this->data['events'],
+            'PROPERTY_user_id' => $this->data['userId']
+        ];
+
+        $response = CIBlockElement::GetList(
+            [],
+            $arFilter,
+            false,
+            [],
+            [
+                'PROPERTY_race_id',
+                'PROPERTY_all',
+                'PROPERTY_qual_sum',
+                'PROPERTY_race_sum',
+                'PROPERTY_sprint_sum',
+            ]
+        );
+
+        while ($res = $response->GetNext()) {
+            $el = [];
+            $el['qual_sum'] = $res['PROPERTY_QUAL_SUM_VALUE'] ?? 0;
+            $el['race_sum'] = $res['PROPERTY_RACE_SUM_VALUE'] ?? 0;
+            $el['sprint_sum'] = $res['PROPERTY_SPRINT_SUM_VALUE'] ?? 0;
+            $el['all'] = $res['PROPERTY_ALL_VALUE'] ?? 0;
+
+            $this->arProgResult[$res['PROPERTY_RACE_ID_VALUE']] = $el;
         }
     }
 

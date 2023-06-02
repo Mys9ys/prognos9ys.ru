@@ -61,6 +61,7 @@ class RaceOneHandler
                 'PROPERTY_number',
                 'PROPERTY_sprint',
                 'PROPERTY_events',
+                'PROPERTY_status',
 
                 'PROPERTY_qual_res',
                 'PROPERTY_sprint_res',
@@ -68,37 +69,38 @@ class RaceOneHandler
 
             ]
         )->GetNext();
-            $el = [];
+        $el = [];
 
-            $el["img"] = CFile::GetPath($res["PREVIEW_PICTURE"]);
-            $el["country"] = $this->arCountry[$res["PROPERTY_COUNTRY_VALUE"]];
+        $el["img"] = CFile::GetPath($res["PREVIEW_PICTURE"]);
+        $el["country"] = $this->arCountry[$res["PROPERTY_COUNTRY_VALUE"]];
 
-            $el["qual"] = $this->convertData($res["ACTIVE_FROM"]);
+        $el["qual"] = $this->convertData($res["ACTIVE_FROM"]);
 
-            $el["date"] = $el["qual"]["date"];
-            $el["active"] = $res["ACTIVE"];
-            $el["id"] = $res["ID"];
+        $el["date"] = $el["qual"]["date"];
+        $el["active"] = $res["ACTIVE"];
+        $el["id"] = $res["ID"];
 
-            $el["event"] = $res["PROPERTY_EVENTS_VALUE"];
+        $el["event"] = $res["PROPERTY_EVENTS_VALUE"];
 
-            $el["race"] = $this->convertData($res["ACTIVE_TO"]);
+        $el["race"] = $this->convertData($res["ACTIVE_TO"]);
 
-            $el["racers"] = $this->arRacers;
+        $el["racers"] = $this->arRacers;
 
-            if ($res["PROPERTY_SPRINT_VALUE"]) {
+        if ($res["PROPERTY_SPRINT_VALUE"]) {
 
-                $el["sprint"] = $this->convertData($res["PROPERTY_SPRINT_VALUE"]);
-            }
+            $el["sprint"] = $this->convertData($res["PROPERTY_SPRINT_VALUE"]);
+        }
 
-            $el["name"] = $res["NAME"];
+        $el["name"] = $res["NAME"];
 
-            $el["number"] = $res["PROPERTY_NUMBER_VALUE"];
+        $el["number"] = $res["PROPERTY_NUMBER_VALUE"];
 
-            $this->arResult['info'] = $el;
+        $this->arResult['info'] = $el;
 
     }
 
-    protected function convertData($data){
+    protected function convertData($data)
+    {
         $date = explode("+", ConvertDateTime($data, "DD.MM+HH:Mi"));
 
         return [

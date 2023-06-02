@@ -77,12 +77,10 @@ class RaceSendHandler
             "IBLOCK_ID" => $this->arIb['prognosf1']['id'],
             'DATE_ACTIVE_FROM' => date(\CDatabase::DateFormatToPHP("DD.MM.YYYY HH:MI:SS"), time()),
             "PROPERTY_VALUES"=>$arFields,
-            "NAME" => "Участник: " .$this->data['userId'] . " Добавил : " . date(\CDatabase::DateFormatToPHP("DD.MM.YYYY HH:MI:SS"), time())
+            "NAME" => "Участник: " .$this->data['userId'] . " Прогноз на гонку: " . $this->data['number']
         ];
 
-//        $ib->Add($data);
-
-        var_dump($ib->Add($data));
+        $ib->Add($data);
 
         $this->arResult['status'] = 'ok';
     }
