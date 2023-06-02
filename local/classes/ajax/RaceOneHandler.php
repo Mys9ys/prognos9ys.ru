@@ -8,6 +8,8 @@ class RaceOneHandler
     protected $arRacers;
     protected $arIBs = [
         'f1races' => ['code' => 'f1races', 'id' => 11],
+        'prognosf1' => ['code' => 'prognosf1', 'id' => 13],
+        'resultf1' => ['code' => 'resultf1', 'id' => 14]
     ];
 
     protected $arResult;
@@ -25,6 +27,8 @@ class RaceOneHandler
 
         $this->arCountry = (new GetFootballTeams())->result();
         $this->arRacers = (new GetF1RacersClass())->result();
+
+        $this->data['userId'] = (new GetUserIdForToken($_REQUEST['userToken']))->getID();
 
         $this->getResult();
 
@@ -86,6 +90,8 @@ class RaceOneHandler
 
         $el["racers"] = $this->arRacers;
 
+        $el["prognosis"] = $this->getUserPrognosis();
+
         if ($res["PROPERTY_SPRINT_VALUE"]) {
 
             $el["sprint"] = $this->convertData($res["PROPERTY_SPRINT_VALUE"]);
@@ -96,6 +102,38 @@ class RaceOneHandler
         $el["number"] = $res["PROPERTY_NUMBER_VALUE"];
 
         $this->arResult['info'] = $el;
+
+    }
+
+    protected function getUserPrognosis(){
+        $arFilter = [
+            "IBLOCK_ID" => $this->arIBs['prognosf1']['id'],
+            'PROPERTY_EVENTS' => $this->data['events'],
+            'PROPERTY_user_id' => $this->data['userId']
+        ];
+
+        $res = CIBlockElement::GetList(
+            [],
+            $arFilter,
+            false,
+            [],
+            [
+                'TIMESTAMP_X',
+                'PROPERTY_qual_res',
+                'PROPERTY_race_res',
+                'PROPERTY_sprint_res',
+                'PROPERTY_best_lap',
+            ]
+        )->GetNext();
+
+        $el = [];
+
+        $el['qual_res'] = json_decode($res['~PROPERTY_QUAL_RES_VALUE']['TEXT']) ?? [];
+        $el['race_res'] = json_decode($res['~PROPERTY_RACE_RES_VALUE']['TEXT']) ?? [];
+        $el['sprint_res'] = json_decode($res['~PROPERTY_SPRINT_RES_VALUE']['TEXT']) ?? [];
+        $el['best_lap'] = json_decode($res['~PROPERTY_BEST_LAP_VALUE']) ?? [];
+
+        return $el;
 
     }
 
