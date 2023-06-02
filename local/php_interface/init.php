@@ -2,14 +2,6 @@
 
 use Bitrix\Main\Loader;
 
-$arClassMini = [
-    'GenValuesBotFootball',
-    'SetBotPrognosis',
-    'GetPrognosisEvents',
-    'GetArrMatchIdForNumber',
-    'GetUserIdForToken',
-];
-
 $arClassAjax = [
     'Prognos9ysMainPageInfo',
     'FootballHandlerClass',
@@ -30,13 +22,15 @@ $arClassMain = [
     'GenRacePrognosis',
     'SetRacersScore',
     'SetBotRacePrognosis',
+    'GenValuesBotFootball',
+    'SetBotPrognosis',
+    'GetPrognosisEvents',
+    'GetArrMatchIdForNumber',
+    'GetUserIdForToken',
 ];
 
 $arClassInclude = [];
 
-foreach ($arClassMini as $class) {
-    $arClassInclude[$class] = '/local/classes/' . $class . '.php';
-}
 foreach ($arClassAjax as $class) {
     $arClassInclude[$class] = '/local/classes/ajax/' . $class . '.php';
 }
