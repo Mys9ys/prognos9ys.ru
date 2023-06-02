@@ -15,6 +15,7 @@ class CalcRacePrognosisResult
     protected $arUSerPrognosis;
 
     protected $arResult;
+    protected $arrResult;
     protected $number;
 
     protected $arScore = [
@@ -265,12 +266,12 @@ class CalcRacePrognosisResult
 
     protected function setResult($status, $mes, $info = '')
     {
-        $this->arResult['status'] = $status;
-        $this->arResult['mes'] = $mes;
+        $this->arrResult['status'] = $status;
+        $this->arrResult['mes'] = $mes;
     }
 
     public function result()
     {
-        return $this->arResult;
+        return $this->arrResult;
     }
 }
