@@ -241,7 +241,7 @@ class CalcRacePrognosisResult
 
         $ib = new CIBlockElement;
         $data = [
-            "NAME" => "Участник: " . $item['info']['user_id'] . " Прогноз на : " . $item['info']['race_id'],
+            "NAME" => "Участник: " . $item['info']['user_id'] . " Результаты на : " . $item['info']['number'],
             "IBLOCK_ID" => $this->arIbs['resultf1']['id'],
             'DATE_ACTIVE_FROM' => $now,
             "PROPERTY_VALUES" => $props

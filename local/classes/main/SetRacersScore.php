@@ -71,13 +71,14 @@ class SetRacersScore
             $arRaces = json_decode($res['~PROPERTY_RACES_SCORE_VALUE']['TEXT'], true);
 
             if($arFlip[$res['ID']]>-1){
-                if(strpos('_s', $this->data['number']))
-                $arRaces[$this->data['number']] = $this->arPositionScore[$arFlip[$res['ID']]];
+                if(strpos( $this->data['number'],'_s')) {
+                    $arRaces[$this->data['number']] = $this->arSprintScore[$arFlip[$res['ID']]];
+                } else {
+                    $arRaces[$this->data['number']] = $this->arPositionScore[$arFlip[$res['ID']]];
+                }
             } else {
                 $arRaces[$this->data['number']] = 0;
             }
-
-//            $arRaces = [];
 
             $sum = array_sum($arRaces);
 
