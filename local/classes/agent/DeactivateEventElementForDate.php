@@ -16,7 +16,7 @@ class DeactivateEventElementForDate
             return;
         }
 
-        $res = new ChangeActiveItem();
+        $res = new DeactivateEventElement();
         foreach ($this->arIbs as $ib) {
             $res->inActiveElement($ib['id']);
         }
