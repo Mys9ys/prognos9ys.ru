@@ -14,6 +14,11 @@ class RaceOneHandler
 
     protected $arResult;
 
+    protected $arGetValue = [
+        'prognosis' => 'prognosf1',
+        'result_race' => 'resultf1',
+    ];
+
     protected $data = [];
 
     public function __construct($data)
@@ -70,6 +75,7 @@ class RaceOneHandler
                 'PROPERTY_qual_res',
                 'PROPERTY_sprint_res',
                 'PROPERTY_race_res',
+                'PROPERTY_best_lap',
 
             ]
         )->GetNext();
@@ -90,7 +96,16 @@ class RaceOneHandler
 
         $el["racers"] = $this->arRacers;
 
-        $el["prognosis"] = $this->getUserPrognosis();
+        foreach ($this->arGetValue as $title=>$code){
+            $el[$title] = $this->getIbProps($code);
+        }
+
+        if ($res["PROPERTY_QUAL_RES_VALUE"]){
+            $el["result_data"]["qual_res"]= json_decode($res["~PROPERTY_QUAL_RES_VALUE"]["TEXT"]) ?? [];
+            $el["result_data"]["race_res"]= json_decode($res["~PROPERTY_RACE_RES_VALUE"]["TEXT"]) ?? [];
+            $el["result_data"]["sprint_res"]= json_decode($res["~PROPERTY_SPRINT_RES_VALUE"]["TEXT"]) ?? [];
+            $el["result_data"]["best_lap"]= json_decode($res["~PROPERTY_BEST_LAP_VALUE"]) ?? [];
+        }
 
         if ($res["PROPERTY_SPRINT_VALUE"]) {
 
@@ -105,9 +120,9 @@ class RaceOneHandler
 
     }
 
-    protected function getUserPrognosis(){
+    protected function getIbProps($code){
         $arFilter = [
-            "IBLOCK_ID" => $this->arIBs['prognosf1']['id'],
+            "IBLOCK_ID" => $this->arIBs[$code]['id'],
             'PROPERTY_EVENTS' => $this->data['events'],
             'PROPERTY_user_id' => $this->data['userId']
         ];
