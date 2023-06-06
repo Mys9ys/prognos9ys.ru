@@ -65,8 +65,10 @@ function dump($var, $die = false, $all = false)
     if ($die) die();
 }
 
+
 function AgentChangeActiveItem()
 {
+    CModule::IncludeModule("iblock");
 
     $res = new DeactivateEventElementForDate();
 
