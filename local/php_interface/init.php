@@ -2,6 +2,11 @@
 
 use Bitrix\Main\Loader;
 
+$arClassAgent = [
+    'DeactivateEventElementForDate',
+    'DeactivateEventElement',
+];
+
 $arClassAjax = [
     'Prognos9ysMainPageInfo',
     'FootballHandlerClass',
@@ -31,6 +36,10 @@ $arClassMain = [
 
 $arClassInclude = [];
 
+foreach ($arClassAgent as $class) {
+    $arClassInclude[$class] = '/local/classes/agent/' . $class . '.php';
+}
+
 foreach ($arClassAjax as $class) {
     $arClassInclude[$class] = '/local/classes/ajax/' . $class . '.php';
 }
@@ -56,61 +65,11 @@ function dump($var, $die = false, $all = false)
     if ($die) die();
 }
 
-function testAgent()
-{
-
-    file_put_contents('test.json', json_encode('test'));
-    $res = new ChangeActiveItem();
-    return "testAgent();";
-}
-
 function AgentChangeActiveItem()
 {
-    CModule::IncludeModule("iblock");
-    $arIb = [
-        \CIBlock::GetList([], ['CODE' => 'matches'], false)->Fetch()['ID'] ?: 2,
-    ];
 
-    $res = new ChangeActiveItem();
-    foreach ($arIb as $ib) {
-        $res->inActiveElement($ib);
-    }
+    $res = new DeactivateEventElementForDate();
 
     return "AgentChangeActiveItem();";
 }
 
-class ChangeActiveItem
-{
-    public function __construct()
-    {
-        if (!Loader::includeModule('iblock')) {
-            ShowError('Модуль Информационных блоков не установлен');
-            return;
-        }
-    }
-
-    public function inActiveElement($iblock_id)
-    {
-        $now = date(\CDatabase::DateFormatToPHP("DD.MM.YYYY HH:MI:SS"), time());
-        $arFilter["IBLOCK_ID"] = $iblock_id;
-        $arFilter["<=DATE_ACTIVE_FROM"] = $now;
-        $arFilter["ACTIVE"] = 'Y';
-
-        $response = CIBlockElement::GetList(
-            [],
-            $arFilter,
-            false,
-            [],
-            [
-                "ID",
-            ]
-        );
-
-        while ($res = $response->GetNext()) {
-            $obEl = new CIBlockElement();
-            // Деактивация элемента
-            $boolResult = $obEl->Update($res['ID'], array('ACTIVE' => 'N'));
-        }
-
-    }
-}
