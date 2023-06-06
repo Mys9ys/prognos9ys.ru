@@ -41,6 +41,7 @@ class Prognos9ysHumorHandler
         $res['seen']++;
         $res['likes'] = $res['PROPERTY_LIKES_VALUE'];
         $res['author'] = $res['PROPERTY_AUTHOR_VALUE'];
+        $res['text'] = $res['~PREVIEW_TEXT'];
 
         CIBlockElement::SetPropertyValueCode($res['ID'], 69 ,$res['seen']);
 
@@ -69,7 +70,7 @@ class Prognos9ysHumorHandler
             "IBLOCK_ID" => 4,
             'DATE_ACTIVE_FROM' => date(\CDatabase::DateFormatToPHP("DD.MM.YYYY HH:MI:SS"), time()),
             "PROPERTY_VALUES"=>$arFields,
-            "PREVIEW_TEXT" => $arr['text'],
+            "PREVIEW_TEXT" => htmlspecialchars($arr['text']),
             "NAME" => "Участник: " .$arr['userId'] . " Добавил : " . date(\CDatabase::DateFormatToPHP("DD.MM.YYYY HH:MI:SS"), time())
         ];
 
