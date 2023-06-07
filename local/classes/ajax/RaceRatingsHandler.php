@@ -96,7 +96,7 @@ class RaceRatingsHandler
                 if(!$this->arMiddleResults[$selector][$number-1][$res["PROPERTY_USER_ID_VALUE"]] && $number!=='1')
                 $this->arMiddleResults[$selector][$number-1][$res["PROPERTY_USER_ID_VALUE"]] = 0;
 
-                if ($res["PROPERTY_ALL_VALUE"] > 10) {
+                if ($res["PROPERTY_ALL_VALUE"] > 30) {
                     $this->arResults['best'][$number][$res["PROPERTY_USER_ID_VALUE"]] = $res["PROPERTY_ALL_VALUE"];
                 }
             }
