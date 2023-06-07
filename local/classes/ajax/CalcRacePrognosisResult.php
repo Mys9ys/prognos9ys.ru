@@ -19,17 +19,17 @@ class CalcRacePrognosisResult
     protected $number;
 
     protected $arScore = [
-        'qual' => [
+        'qual_res' => [
             0 => 3,
             1 => 2,
             2 => 1
         ],
-        'sprint' => [
-            0 => 2,
-            1 => 1,
-            2 => 0.5
+        'sprint_res' => [
+            0 => 3,
+            1 => 2,
+            2 => 1
         ],
-        'race' => [
+        'race_res' => [
             0 => 5,
             1 => 3,
             2 => 1
@@ -169,7 +169,7 @@ class CalcRacePrognosisResult
 
                             $this->arResult[$id]['data'][$title][$place] = $score ?? 0.5;
 
-                            if ($title === 'best_lap' && !$score) $this->arResult[$id]['data'][$title][$place] = 0;
+                            if ($title === 'best_lap' && !$score) $this->arResult[$id]['data'][$title][] = 0;
 
                             if ($title !== 'best_lap') {
                                 $this->arResult[$id]['data'][str_replace('res', 'sum', $title)] += $this->arResult[$id]['data'][$title][$place];
