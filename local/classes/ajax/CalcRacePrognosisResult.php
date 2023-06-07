@@ -162,7 +162,7 @@ class CalcRacePrognosisResult
                 if ($arUserProg) {
                     foreach ($arUserProg as $racer => $place) {
 
-                        if ($this->arRaceResult[$title][$racer]) {
+                        if ($this->arRaceResult[$title][$racer] && $this->arRaceResult[$title][$racer]>-1) {
                             $diff = $this->arRaceResult[$title][$racer] - $place;
 
                             $score = $this->arScore[$title][abs($diff)];
