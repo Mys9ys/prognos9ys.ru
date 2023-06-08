@@ -169,14 +169,14 @@ class CalcRacePrognosisResult
 
                             if ($title === 'best_lap') {
                                 if($score){
-                                    $this->arResult[$id]['data'][$title][$place] = $score;
+                                    $this->arResult[$id]['data'][$title][] = $score;
                                 } else {
                                     $this->arResult[$id]['data'][$title][] = 0;
                                 }
                             }
 
                             if ($title !== 'best_lap') {
-                                $this->arResult[$id]['data'][$title][] = $score ?? 0.5;
+                                $this->arResult[$id]['data'][$title][$place] = $score ?? 0.5;
                                 $this->arResult[$id]['data'][str_replace('res', 'sum', $title)] += $this->arResult[$id]['data'][$title][$place];
                             }
 
