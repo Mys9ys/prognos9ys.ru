@@ -91,6 +91,7 @@ class RaceOneHandler
         $el["id"] = $res["ID"];
 
         $el["event"] = $res["PROPERTY_EVENTS_VALUE"];
+        $el["status"] = $res["PROPERTY_STATUS_VALUE"];
 
         $el["race"] = $this->convertData($res["ACTIVE_TO"]);
 
