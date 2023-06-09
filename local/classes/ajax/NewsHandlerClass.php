@@ -26,12 +26,13 @@ class NewsHandlerClass
         ];
 
         $res = CIBlockElement::GetList(
-            ["DATE_ACTIVE_FROM" => "ASC"],
+            ["DATE_ACTIVE_FROM" => "DESC"],
             $arFilter,
             false,
-            [],
+            ["nTopCount" => 1],
             [
                 "ID",
+                "NAME",
                 "PREVIEW_TEXT",
                 "PROPERTY_seen",
                 "PROPERTY_likes",
@@ -39,7 +40,8 @@ class NewsHandlerClass
             ]
         )->GetNext();
 
-        var_dump($res);
+        $this->setResult('ok', '', $res);
+
     }
 
     protected function setResult($status, $mes, $info = '')
