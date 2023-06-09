@@ -84,6 +84,4 @@ class Prognos9ysHumorHandler
         $this->setResult('ok', '', $this->one);
         return $this->arResult;
     }
-
-
 }
