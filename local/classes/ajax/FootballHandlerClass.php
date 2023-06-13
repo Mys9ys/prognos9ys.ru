@@ -397,6 +397,10 @@ class FootballHandlerClass
 
     public function getNearest()
     {
-        return $this->arResult['res']['nearest'];
+        foreach ($this->arPeriod as $status=>$el){
+            if($el['visible'] === true) {
+                return $this->arResult['info'][$status];
+            }
+        }
     }
 }
