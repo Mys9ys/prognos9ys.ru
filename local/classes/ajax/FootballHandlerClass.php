@@ -115,15 +115,8 @@ class FootballHandlerClass
             $el["teams"]["home"] = $this->getTeamData($this->arTeams[$res["PROPERTY_HOME_VALUE"]], $res["PROPERTY_GOAL_HOME_VALUE"]);
             $el["teams"]["guest"] = $this->getTeamData($this->arTeams[$res["PROPERTY_GUEST_VALUE"]], $res["PROPERTY_GOAL_GUEST_VALUE"]);
 
-//            $el["write"] = $this->arUserPrognosis[$res["ID"]] ?? '';
-            if ($this->data['events'] == 34) {
-                $this->arNumbertoMatchId[$res["ID"]] = $el["number"];
-                $this->getUserPrognosisOld($res["ID"]);
-                $this->getUserResultOld($res["ID"]);
-            }
-
-            $el["send_info"]["send_time"] = $this->arUserPrognosis[$el["number"]] ?? '';
-            $el["send_info"]["score_result"] = $this->arUserResults[$el["number"]] ?? '';
+            $el["send_info"]["send_time"] = $this->arUserPrognosis[$res["ID"]] ?? '';
+            $el["send_info"]["score_result"] = $this->arUserResults[$res["ID"]] ?? '';
 
             $el["ratio"] = $this->setRatio($res['ID']);
 
@@ -244,38 +237,14 @@ class FootballHandlerClass
             false,
             [],
             [
-                "PROPERTY_number",
+                "ID",
                 "DATE_ACTIVE_FROM",
             ]
         );
 
         while ($res = $response->GetNext()) {
-            $this->arUserPrognosis[$res["PROPERTY_NUMBER_VALUE"]] = ConvertDateTime($res["DATE_ACTIVE_FROM"], "DD.MM HH:Mi");
+            $this->arUserPrognosis[$res["ID"]] = ConvertDateTime($res["DATE_ACTIVE_FROM"], "DD.MM HH:Mi");
         }
-
-    }
-
-    protected function getUserPrognosisOld($matchId)
-    {
-        $arFilter = [
-            'IBLOCK_ID' => $this->arIbs['prognosis']['id'],
-            'PROPERTY_MATCH_ID' => $matchId,
-            'PROPERTY_USER_ID' => $this->data['userId']
-        ];
-
-        $res = CIBlockElement::GetList(
-            [],
-            $arFilter,
-            false,
-            [],
-            [
-                "PROPERTY_number",
-                "PROPERTY_match_id",
-                "DATE_ACTIVE_FROM",
-            ]
-        )->GetNext();
-
-        $this->arUserPrognosis[$this->arNumbertoMatchId[$res['PROPERTY_MATCH_ID_VALUE']]] = ConvertDateTime($res["DATE_ACTIVE_FROM"], "DD.MM HH:Mi");
 
     }
 
@@ -294,38 +263,14 @@ class FootballHandlerClass
             [],
             [
                 "PROPERTY_all",
-                "PROPERTY_number",
+                "PROPERTY_match_id",
 
             ]
         );
 
         while ($res = $response->GetNext()) {
-            $this->arUserResults[$res['PROPERTY_NUMBER_VALUE']] = $res["PROPERTY_ALL_VALUE"];
+            $this->arUserResults[$res['PROPERTY_MATCH_ID_VALUE']] = $res["PROPERTY_ALL_VALUE"];
         }
-    }
-
-    protected function getUserResultOld($matchId)
-    {
-        $arFilter = [
-            'IBLOCK_ID' => $this->arIbs['result']['id'],
-            'PROPERTY_MATCH_ID' => $matchId,
-            'PROPERTY_USER_ID' => $this->data['userId']
-        ];
-
-        $res = CIBlockElement::GetList(
-            [],
-            $arFilter,
-            false,
-            [],
-            [
-                "ID",
-                "PROPERTY_all",
-                "PROPERTY_match_id",
-            ]
-        )->GetNext();
-
-        $this->arUserResults[$this->arNumbertoMatchId[$res['PROPERTY_MATCH_ID_VALUE']]] = $res["PROPERTY_ALL_VALUE"];
-
     }
 
     protected function getTeamData($data, $goals): array
