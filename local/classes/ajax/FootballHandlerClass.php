@@ -7,18 +7,21 @@ use Bitrix\Main\Loader;
 class FootballHandlerClass
 {
 
-    protected $eventsIb;
-    protected $matchesIb;
-    protected $groupIb;
-    protected $prognIb;
-    protected $resultIb;
+    protected $arIbs = [
+        'events' => ['code' => 'events', 'id' => 1],
+        'matches' => ['code' => 'matches', 'id' => 2],
+        'group' => ['code' => 'group', 'id' => 5],
+        'prognosis' => ['code' => 'prognosis', 'id' => 6],
+        'result' => ['code' => 'result', 'id' => 7],
+    ];
 
-    protected $userId;
-    protected $eventId;
+    protected $data;
 
     protected $arTeams = [];
 
     protected $arError = [];
+
+    protected $arFill;
 
     protected $arNumbertoMatchId = [];
 
@@ -29,6 +32,16 @@ class FootballHandlerClass
         'status' => 'ok'
     ];
 
+    protected $arPeriod = [
+        'past' => ['period' => 'past', 'title' => 'Прошедшие', 'visible' => false, 'count' => 0],
+        'recent' => ['period' => 'recent', 'title' => 'Недавние', 'visible' => false, 'count' => 0],
+        'yesterday' => ['period' => 'yesterday', 'title' => 'Вчера', 'visible' => false, 'count' => 0],
+        'today' => ['period' => 'today', 'title' => 'Сегодня', 'visible' => true, 'count' => 0],
+        'tomorrow' => ['period' => 'tomorrow', 'title' => 'Завтра', 'visible' => false, 'count' => 0],
+        'nearest' => ['period' => 'nearest', 'title' => 'Ближайшие', 'visible' => false, 'count' => 0],
+        'future' => ['period' => 'future', 'title' => 'Будущие', 'visible' => false, 'count' => 0],
+    ];
+
     public function __construct($data)
     {
         if (!Loader::includeModule('iblock')) {
@@ -36,37 +49,34 @@ class FootballHandlerClass
             return;
         }
 
-        $this->eventsIb = \CIBlock::GetList([], ['CODE' => 'events'], false)->Fetch()['ID'] ?: 1;
-        $this->matchesIb = \CIBlock::GetList([], ['CODE' => 'matches'], false)->Fetch()['ID'] ?: 2; // установочные данные матча
-        $this->groupIb = \CIBlock::GetList([], ['CODE' => 'group'], false)->Fetch()['ID'] ?: 5;
+        $this->data = $data;
 
-        $this->prognIb = \CIBlock::GetList([], ['CODE' => 'prognosis'], false)->Fetch()['ID'] ?: 6; //прогнозы
-        $this->resultIb = \CIBlock::GetList([], ['CODE' => 'result'], false)->Fetch()['ID'] ?: 7; //результаты футбол
-
-        if ($data['eventId']) $this->eventId = $data['eventId'];
-
-        if ($data['userToken']) {
-            $userRes = new GetUserIdForToken($data['userToken']);
-            $this->userId = $userRes->getId();
+        if ($this->data['userToken']) {
+            $this->data['userId'] = (new GetUserIdForToken($data['userToken']))->getId();
         }
 
         $this->getUserPrognos();
         $this->getUserResult();
 
-        $team = new GetFootballTeams();
-        $this->arTeams = $team->result();
+        $this->arTeams = (new GetFootballTeams())->result();
 
         $this->getMatchOfData();
 
         $this->reverseArrayOldMatches();
+
+        if ($this->arFill) {
+            $this->setResult('ok', '', $this->arFill);
+        } else {
+            $this->setResult('error', 'Ошибка запроса');
+        }
 
     }
 
     protected function getMatchOfData()
     {
         $arFilter = [
-            'IBLOCK_ID' => $this->matchesIb,
-            'PROPERTY_EVENTS' => $this->eventId
+            'IBLOCK_ID' => $this->arIbs['matches']['id'],
+            'PROPERTY_EVENTS' => $this->data['events']
         ];
 
         $response = CIBlockElement::GetList(
@@ -106,7 +116,7 @@ class FootballHandlerClass
             $el["teams"]["guest"] = $this->getTeamData($this->arTeams[$res["PROPERTY_GUEST_VALUE"]], $res["PROPERTY_GOAL_GUEST_VALUE"]);
 
 //            $el["write"] = $this->arUserPrognosis[$res["ID"]] ?? '';
-            if ($this->eventId == 34) {
+            if ($this->data['events'] == 34) {
                 $this->arNumbertoMatchId[$res["ID"]] = $el["number"];
                 $this->getUserPrognosisOld($res["ID"]);
                 $this->getUserResultOld($res["ID"]);
@@ -115,61 +125,107 @@ class FootballHandlerClass
             $el["send_info"]["send_time"] = $this->arUserPrognosis[$el["number"]] ?? '';
             $el["send_info"]["score_result"] = $this->arUserResults[$el["number"]] ?? '';
 
-            // блок разделения матчей на 4 категории по дате
-            $now = date(\CDatabase::DateFormatToPHP("DD.MM.YYYY"), time());
-            $now = date_create($now);
-
-            $dateMatch = date_create(explode(' ', $res["ACTIVE_FROM"])[0]);
-
-            $interval = date_diff($dateMatch, $now);
-            $intervalDay = $interval->format('%R%a');
-
             $el["ratio"] = $this->setRatio($res['ID']);
 
-            if ($intervalDay > 0 && $intervalDay < 2) {
-                $this->arResult['res']['recent']['matches'][$el["date"]][$el["number"]] = $el;
-                $this->arResult['res']['recent']['count'] += 1;
-                $this->arResult['res']['recent']['title'] = 'Недавние';
-                $this->arResult['res']['recent']['visible'] = true;
-                continue;
+            $period = $this->fillSectionArray($res["ACTIVE_FROM"]);
+
+            $this->arFill[$period['period']]['items'][$el["date"]][$el["number"]] = $el;
+            $this->arFill[$period['period']]['info'] = $period;
+
+        }
+
+        foreach ($this->arFill as $section => $arr) {
+            if ($section === 'nearest' || $section === 'future') {
+                krsort($this->arFill[$section]['items']);
             }
 
-            if ($intervalDay > 1) {
-                $this->arResult['res']['past']['matches'][$el["date"]][$el["number"]] = $el;
-                $this->arResult['res']['past']['count'] += 1;
-                $this->arResult['res']['past']['title'] = 'Прошедшие';
-                $this->arResult['res']['past']['visible'] = false;
-                continue;
-            }
+            $this->checkVisible();
 
-            if ($intervalDay < 1 && $intervalDay > -2) {
-                $this->arResult['res']['nearest']['matches'][$el["date"]][$el["number"]] = $el;
-                $this->arResult['res']['nearest']['count'] += 1;
-                $this->arResult['res']['nearest']['title'] = 'Ближайшие';
-                $this->arResult['res']['nearest']['visible'] = true;
-                continue;
-            }
-            if ($intervalDay < 0) {
-                $this->arResult['res']['future']['matches'][$el["date"]][$el["number"]] = $el;
-                $this->arResult['res']['future']['count'] += 1;
-                $this->arResult['res']['future']['title'] = 'Будущие';
-                $this->arResult['res']['future']['visible'] = false;
-                continue;
-            }
+            $this->arFill[$section]['info'] = $this->arPeriod[$section];
 
         }
 
     }
 
-    protected function fillSectionArray($arr,$section, $title, $visible){
+    protected function fillSectionArray($date)
+    {
 
+        $now = date(\CDatabase::DateFormatToPHP("DD.MM.YYYY"), time());
+        $now = date_create($now);
+
+        $dateMatch = date_create(explode(' ', $date)[0]);
+
+        $interval = date_diff($now, $dateMatch);
+
+        $intervalDay = +$interval->format('%R%a');
+
+        if ($intervalDay === 0) {
+            $this->arPeriod['today']['count'] += 1;
+            $arr = $this->arPeriod['today'];
+        }
+
+        if ($intervalDay === 1) {
+            $this->arPeriod['tomorrow']['count'] += 1;
+            $arr = $this->arPeriod['tomorrow'];
+        }
+
+        if ($intervalDay === -1) {
+            $this->arPeriod['yesterday']['count'] += 1;
+            $arr = $this->arPeriod['yesterday'];
+        }
+
+        if ($intervalDay > 1 && $intervalDay < 6) {
+            $this->arPeriod['nearest']['count'] += 1;
+            $arr = $this->arPeriod['nearest'];
+        }
+
+        if ($intervalDay > 5) {
+            $this->arPeriod['future']['count'] += 1;
+            $arr = $this->arPeriod['future'];
+        }
+
+        if ($intervalDay < -1 && $intervalDay > -6 ) {
+            $this->arPeriod['recent']['count'] += 1;
+            $arr = $this->arPeriod['recent'];
+        }
+
+        if ($intervalDay < -5) {
+            $this->arPeriod['past']['count'] += 1;
+            $arr = $this->arPeriod['past'];
+        }
+
+        $this->checkVisible();
+
+        return $arr;
+
+    }
+
+    protected function checkVisible(){
+        $this->visibleReset();
+
+        if($this->arPeriod['today']['count']> 0) {
+            $this->arPeriod['today']['visible'] = true;
+        } elseif($this->arPeriod['tomorrow']['count']> 0) {
+            $this->arPeriod['tomorrow']['visible'] = true;
+        } elseif($this->arPeriod['yesterday']['count']> 0) {
+            $this->arPeriod['yesterday']['visible'] = true;
+        } elseif($this->arPeriod['nearest']['count']> 0) {
+            $this->arPeriod['nearest']['visible'] = true;
+        }
+
+    }
+
+    protected function visibleReset(){
+        foreach ($this->arPeriod as $status=>$period){
+            $this->arPeriod[$status]['visible'] = false;
+        }
     }
 
     protected function reverseArrayOldMatches()
     {
-        if(count($this->arResult['res']['recent']['matches']))
+        if (count($this->arResult['res']['recent']['matches']))
             $this->arResult['res']['recent']['matches'] = array_reverse($this->arResult['res']['recent']['matches'], true);
-        if(count($this->arResult['res']['past']['matches']))
+        if (count($this->arResult['res']['past']['matches']))
             $this->arResult['res']['past']['matches'] = array_reverse($this->arResult['res']['past']['matches'], true);
     }
 
@@ -177,9 +233,9 @@ class FootballHandlerClass
     {
 
         $arFilter = [
-            'IBLOCK_ID' => $this->prognIb,
-            'PROPERTY_EVENTS' => $this->eventId,
-            'PROPERTY_USER_ID' => $this->userId
+            'IBLOCK_ID' => $this->arIbs['prognosis']['id'],
+            'PROPERTY_EVENTS' => $this->data['events'],
+            'PROPERTY_USER_ID' => $this->data['userId']
         ];
 
         $response = CIBlockElement::GetList(
@@ -202,9 +258,9 @@ class FootballHandlerClass
     protected function getUserPrognosisOld($matchId)
     {
         $arFilter = [
-            'IBLOCK_ID' => $this->prognIb,
+            'IBLOCK_ID' => $this->arIbs['prognosis']['id'],
             'PROPERTY_MATCH_ID' => $matchId,
-            'PROPERTY_USER_ID' => $this->userId
+            'PROPERTY_USER_ID' => $this->data['userId']
         ];
 
         $res = CIBlockElement::GetList(
@@ -226,9 +282,9 @@ class FootballHandlerClass
     protected function getUserResult()
     {
         $arFilter = [
-            'IBLOCK_ID' => $this->resultIb,
-            'PROPERTY_EVENTS' => $this->eventId,
-            'PROPERTY_USER_ID' => $this->userId
+            'IBLOCK_ID' => $this->arIbs['result']['id'],
+            'PROPERTY_EVENTS' => $this->data['events'],
+            'PROPERTY_USER_ID' => $this->data['userId']
         ];
 
         $response = CIBlockElement::GetList(
@@ -251,9 +307,9 @@ class FootballHandlerClass
     protected function getUserResultOld($matchId)
     {
         $arFilter = [
-            'IBLOCK_ID' => $this->resultIb,
+            'IBLOCK_ID' => $this->arIbs['result']['id'],
             'PROPERTY_MATCH_ID' => $matchId,
-            'PROPERTY_USER_ID' => $this->userId
+            'PROPERTY_USER_ID' => $this->data['userId']
         ];
 
         $res = CIBlockElement::GetList(
@@ -281,10 +337,11 @@ class FootballHandlerClass
         ];
     }
 
-    protected function setRatio($matchId){
+    protected function setRatio($matchId)
+    {
 
         $arFilter = [
-            'IBLOCK_ID' => $this->prognIb,
+            'IBLOCK_ID' => $this->arIbs['prognosis']['id'],
             'PROPERTY_MATCH_ID' => $matchId,
         ];
 
@@ -305,20 +362,20 @@ class FootballHandlerClass
             ]
         );
 
-        while($res = $response->GetNext()){
+        while ($res = $response->GetNext()) {
 
-            if($res['PROPERTY_DIFF_VALUE'] > 0)  $arRatio['plus'] +=1;
-            if($res['PROPERTY_DIFF_VALUE'] == 0)  $arRatio['equal'] +=1;
-            if($res['PROPERTY_DIFF_VALUE'] < 0)  $arRatio['minus'] +=1;
+            if ($res['PROPERTY_DIFF_VALUE'] > 0) $arRatio['plus'] += 1;
+            if ($res['PROPERTY_DIFF_VALUE'] == 0) $arRatio['equal'] += 1;
+            if ($res['PROPERTY_DIFF_VALUE'] < 0) $arRatio['minus'] += 1;
 
             $arRatio['count'] += 1;
 
         }
 
         $arRatioScore = [
-            0 => ['name' => 'п1', 'count' => number_format (($arRatio['count']+1) / ($arRatio['plus']+1), 2)],
-            1 => ['name' => 'н', 'count' => number_format (($arRatio['count']+1) / ($arRatio['equal']+1), 2)],
-            2 => ['name' => 'п2', 'count' => number_format (($arRatio['count']+1) / ($arRatio['minus']+1), 2)],
+            0 => ['name' => 'п1', 'count' => number_format(($arRatio['count'] + 1) / ($arRatio['plus'] + 1), 2)],
+            1 => ['name' => 'н', 'count' => number_format(($arRatio['count'] + 1) / ($arRatio['equal'] + 1), 2)],
+            2 => ['name' => 'п2', 'count' => number_format(($arRatio['count'] + 1) / ($arRatio['minus'] + 1), 2)],
             3 => ['name' => 'Σ', 'count' => $arRatio['count']]
         ];
 
@@ -326,13 +383,20 @@ class FootballHandlerClass
 
     }
 
+    protected function setResult($status, $mes, $info = '')
+    {
+        $this->arResult['status'] = $status;
+        $this->arResult['mes'] = $mes;
+        if ($info) $this->arResult['info'] = $info;
+    }
+
     public function result()
     {
-        file_put_contents('../../_logs/matches_l.log', $this->userId . PHP_EOL , FILE_APPEND);
         return $this->arResult;
     }
 
-    public function getNearest(){
+    public function getNearest()
+    {
         return $this->arResult['res']['nearest'];
     }
 }
