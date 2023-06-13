@@ -38,6 +38,9 @@ class SetBotPrognosis
     protected function getActiveMatch(){
         $arFilter["IBLOCK_ID"] = $this->matchesIb;
         $arFilter["ACTIVE"] = 'Y';
+        $now = new DateTime();
+        $arFilter[">=DATE_ACTIVE_FROM"] = $now->modify('-1 day')->format('d.m.Y H:i:s');
+        $arFilter["<=DATE_ACTIVE_FROM"] = $now->modify('+2 day')->format('d.m.Y H:i:s');
 
         $response = CIBlockElement::GetList(
             ["DATE_ACTIVE_FROM" => "ASC", "created" => "ASC"],
@@ -46,6 +49,7 @@ class SetBotPrognosis
             [],
             [
                 "ID",
+                "NAME",
                 "PROPERTY_number",
                 "PROPERTY_events",
             ]
@@ -57,11 +61,12 @@ class SetBotPrognosis
     }
 
     protected function getEmptyBotPrognosis(){
+
         foreach ($this->arBots as $botID){
             foreach ($this->arAciveMatches as $botPrognos){
 
                 $arFilter["IBLOCK_ID"] = $this->prognosisIb;
-                $arFilter["PROPERTY_ID"] = $botPrognos['ID'];
+                $arFilter["PROPERTY_MATCH_ID"] = $botPrognos['ID'];
                 $arFilter["PROPERTY_USER_ID"] = $botID;
 
                 $res = CIBlockElement::GetList(
