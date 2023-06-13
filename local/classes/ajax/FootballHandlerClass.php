@@ -237,13 +237,13 @@ class FootballHandlerClass
             false,
             [],
             [
-                "ID",
+                "PROPERTY_match_id",
                 "DATE_ACTIVE_FROM",
             ]
         );
 
         while ($res = $response->GetNext()) {
-            $this->arUserPrognosis[$res["ID"]] = ConvertDateTime($res["DATE_ACTIVE_FROM"], "DD.MM HH:Mi");
+            $this->arUserPrognosis[$res["PROPERTY_MATCH_ID_VALUE"]] = ConvertDateTime($res["DATE_ACTIVE_FROM"], "DD.MM HH:Mi");
         }
 
     }
