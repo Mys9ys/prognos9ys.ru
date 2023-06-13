@@ -185,13 +185,13 @@ class CalcFootballPrognosisResult
 
             // дополнительное время
             if ($prognosis["PROPERTY_OTIME_VALUE"] || $prognosis["PROPERTY_OTIME_VALUE"] !== null) {
-                $result['otime'] = $this->calcRedCard($prognosis["PROPERTY_OTIME_VALUE"], $matchRes["PROPERTY_OTIME_VALUE"]);
+                $result['otime'] = $this->calcPlayOff($prognosis["PROPERTY_OTIME_VALUE"], $matchRes["PROPERTY_OTIME_VALUE"]);
                 $all += $result['otime'];
             } else { $result['otime'] = 0;}
 
             // серия пенальти
             if ($prognosis["PROPERTY_SPENALTY_VALUE"] || $prognosis["PROPERTY_SPENALTY_VALUE"] !== null) {
-                $result['spenalty'] = $this->calcRedCard($prognosis["PROPERTY_SPENALTY_VALUE"], $matchRes["PROPERTY_SPENALTY_VALUE"]);
+                $result['spenalty'] = $this->calcPlayOff($prognosis["PROPERTY_SPENALTY_VALUE"], $matchRes["PROPERTY_SPENALTY_VALUE"]);
                 $all += $result['spenalty'];
             } else { $result['spenalty'] = 0;}
 
@@ -266,6 +266,16 @@ class CalcFootballPrognosisResult
         }
 
         return 0;
+    }
+
+    protected function calcPlayOff($prognos, $res){
+        if($prognos !== ''){
+            if ($prognos === 'Не будет' && $res === 'Не будет') return 0.5;
+            if ($prognos === 'Будет' && $res === 'Будет') return 0.5;
+            return 0;
+        }
+        return 0;
+
     }
 
     protected function setManyResult()
