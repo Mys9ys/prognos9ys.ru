@@ -7,7 +7,7 @@ class GenValuesBotFootball
 
     protected $arFields;
 
-    public function __construct()
+    public function __construct($playOff = false)
     {
         if (!Loader::includeModule('iblock')) {
             ShowError('Модуль Информационных блоков не установлен');
@@ -21,6 +21,10 @@ class GenValuesBotFootball
         $this->setRedCards();
         $this->setPenalty();
         $this->setOffsides();
+
+        if($playOff) $this->setPlayOff();
+
+        var_dump($this->arFields);
     }
 
     protected function setGoals(){
@@ -286,6 +290,39 @@ class GenValuesBotFootball
 
     protected function setOffsides(){
         $this->arFields[29] = '';
+    }
+
+    protected function setPlayOff(){
+        // 49 otime
+        // 50 spen
+        if($this->arFields[18] == 0){
+            $win = random_int(1, 2);
+            if($win == 1){
+                $this->arFields[19] += 1;
+                $this->arFields[15] +=1;
+            } else {
+                $this->arFields[19] -= 1;
+                $this->arFields[16] += 1;
+            }
+            $this->arFields[28] += 1;
+            $this->arFields[18] = 'п' . $win;
+
+        }
+
+        $otime = random_int(1, 2);
+        if($otime == 1){
+            $this->arFields[45] = 'Будет';
+        } else {
+            $this->arFields[45] = 'Не будет';
+        }
+
+        $spenalty = random_int(1, 2);
+        if($spenalty == 1){
+            $this->arFields[46] = 'Будет';
+        } else {
+            $this->arFields[46] = 'Не будет';
+        }
+
     }
 
     /**

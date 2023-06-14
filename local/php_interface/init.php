@@ -79,3 +79,12 @@ function AgentChangeActiveItem()
     return "AgentChangeActiveItem();";
 }
 
+function AgentFootballBotSetPrognosis()
+{
+    CModule::IncludeModule("iblock");
+
+    $res = new SetBotPrognosis();
+
+    return "AgentFootballBotSetPrognosis();";
+}
+

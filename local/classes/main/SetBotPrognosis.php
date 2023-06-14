@@ -52,6 +52,7 @@ class SetBotPrognosis
                 "NAME",
                 "PROPERTY_number",
                 "PROPERTY_events",
+                "PROPERTY_stage",
             ]
         );
 
@@ -84,7 +85,8 @@ class SetBotPrognosis
                         17 => $botPrognos['ID'],
                         30 => $botPrognos['PROPERTY_NUMBER_VALUE'],
                         31 => $botID,
-                        52 => $botPrognos['PROPERTY_EVENTS_VALUE']
+                        52 => $botPrognos['PROPERTY_EVENTS_VALUE'],
+                        'stage' => $botPrognos['PROPERTY_STAGE_VALUE'], // Плей-офф
                     ];
                     $this->setBotPrognosis($this->arEmptyPrognosis[$botID.'_'.$botPrognos['ID']]);
                 }
@@ -94,8 +96,11 @@ class SetBotPrognosis
     }
 
     protected function setBotPrognosis($arr){
+        $playOff = false;
+        if($arr['stage'] === 'Плей-офф') $playOff = true;
+        unset($arr['stage']);
 
-        $response = new GenValuesBotFootball();
+        $response = new GenValuesBotFootball($playOff);
 
         $props = $response->getArFields();
 
@@ -105,7 +110,7 @@ class SetBotPrognosis
 
         $ib = new CIBlockElement;
         $data = [
-            "NAME" => "Участник: " . $props[31] . " Прогноз на матч: " .$props[17],
+            "NAME" => "Участник: " . $props[31] . " Прогноз на матч: " .$props[17] . "  номер " . $props[30],
             "IBLOCK_ID" => $this->prognosisIb,
             'DATE_ACTIVE_FROM' => $now,
             "PROPERTY_VALUES" => $props
