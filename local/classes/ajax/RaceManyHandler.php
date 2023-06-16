@@ -119,8 +119,12 @@ class RaceManyHandler
         foreach ($this->arFill as $section => $arr) {
             $this->arFill[$section]['info']['count'] = count($arr['items']);
 
-            if($section === 'nearest' || $section === 'future'){
+            if($section === 'nearest'){
                 krsort($this->arFill[$section]['items']);
+            }
+
+            if($section === 'future'){
+                $this->arFill[$section]['items'] =  array_reverse($this->arFill[$section]['items']);
             }
         }
     }

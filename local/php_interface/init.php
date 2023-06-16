@@ -5,6 +5,7 @@ use Bitrix\Main\Loader;
 $arClassAgent = [
     'DeactivateEventElementForDate',
     'DeactivateEventElement',
+    'TelegramBotHandler',
 ];
 
 $arClassAjax = [
