@@ -17,6 +17,7 @@ $arClassAjax = [
     'RaceRatingsHandler',
     'NewsHandlerClass',
     'FootballSetResult',
+    'ProfileHandlerClass',
     'RaceManyHandler',
     'RaceOneHandler',
     'RaceSendHandler',

@@ -1,5 +1,8 @@
 <?php
 
+use Bitrix\Main\Loader;
+use Bitrix\Main\UserTable;
+
 class ProfileHandlerClass
 {
 
@@ -22,7 +25,9 @@ class ProfileHandlerClass
     ];
     
     protected $arRaceIbs = [
-        'result' => []
+        'f1races' => ['code' => 'f1races', 'id' => 11],
+        'prognosf1' => ['code' => 'prognosf1', 'id' => 13],
+        'resultf1' => ['code' => 'resultf1', 'id' => 14]
     ];
 
     public function __construct($data)
@@ -33,19 +38,16 @@ class ProfileHandlerClass
         }
 
         if($data['token']) {
-            $token = new GetUserIdForToken($data['token']);
-            $this->data['userId'] = $token->getId();
+            $this->data['userId'] = (new GetUserIdForToken($data['token']))->getId();
         } else {
             $this->data['userId'] = $data['userId'];
         }
 
-        $arEv = new GetPrognosisEvents();
-        $this->arEvents = $arEv->result()['events'];
+        $this->arEvents = (new GetPrognosisEvents())->result()['events'];
 
         $this->data = $data;
 
-        $team = new GetFootballTeams();
-        $this->arTeams = $team->result();
+        $this->arTeams = (new GetFootballTeams())->result();
 
         $this->getUserInfo();
 
@@ -155,9 +157,9 @@ class ProfileHandlerClass
                 $arr['guest'] = $this->arTeams[$res["PROPERTY_GUEST_VALUE"]];
             }
 
-            $events = $res['PROPERTY_EVENTS_VALUE'] ?? 34;
+            $events = $res['PROPERTY_EVENTS_VALUE'];
 
-            if($res["PROPERTY_ALL_VALUE"]) $this->arRes['info']['count']++;
+            if ($res["PROPERTY_ALL_VALUE"] > -1) $this->arRes['info']['count'] += 1;
 
             $this->arFresh[$code][$events][$res[$info['select']]] = $arr;
 
