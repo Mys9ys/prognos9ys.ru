@@ -271,7 +271,7 @@ class CalcFootballPrognosisResult
     protected function calcPlayOff($prognos, $res){
         if($prognos !== ''){
             if ($prognos === 'Не будет' && $res === 'Не будет') return 0.5;
-            if ($prognos === 'Будет' && $res === 'Будет') return 0.5;
+            if ($prognos === 'Будет' && $res === 'Будет') return 5;
             return 0;
         }
         return 0;
