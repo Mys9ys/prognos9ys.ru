@@ -5,7 +5,9 @@ use Bitrix\Main\Loader;
 class Prognos9ysMainPageInfo {
 
 
-    public $arResult = [];
+    protected $arResult = [];
+
+    protected $userToken;
 
     public function __construct($data)
     {
@@ -15,6 +17,8 @@ class Prognos9ysMainPageInfo {
             return;
         }
 
+        $this->userToken = $data['userToken'];
+
         $this->getNearestMatch();
 
         $this->setResult('ok', '');
@@ -22,7 +26,7 @@ class Prognos9ysMainPageInfo {
 
     protected function getNearestMatch(){
 
-        $res = new FootballHandlerClass(['type' => 'nearest']);
+        $res = new FootballHandlerClass(['type' => 'nearest', 'userToken' => $this->userToken]);
 
         $this->arResult['nearest'] = $res->getNearest();
     }
