@@ -15,8 +15,10 @@ class ProfileHandlerClass
     protected $arFresh = [];
 
     protected $arEvents = [];
-
     protected $arTeams = [];
+
+    protected $arCountry = [];
+    protected $arRacers = [];
 
     protected $arFootballIbs = [
         'result' => ['id' => 7, 'filter' => 'PROPERTY_USER_ID', 'select' => 'PROPERTY_MATCH_ID_VALUE'],
@@ -25,9 +27,9 @@ class ProfileHandlerClass
     ];
     
     protected $arRaceIbs = [
-        'f1races' => ['code' => 'f1races', 'id' => 11],
-        'prognosf1' => ['code' => 'prognosf1', 'id' => 13],
-        'resultf1' => ['code' => 'resultf1', 'id' => 14]
+        'f1races' => ['code' => 'f1races', 'id' => 11, 'filter' => '', 'select' => 'ID'],
+        'prognosf1' => ['code' => 'prognosf1', 'id' => 13, 'filter' => 'PROPERTY_USER_ID', 'select' => 'PROPERTY_MATCH_ID_VALUE'],
+        'resultf1' => ['code' => 'resultf1', 'id' => 14, 'filter' => 'PROPERTY_USER_ID', 'select' => 'PROPERTY_MATCH_ID_VALUE']
     ];
 
     public function __construct($data)
@@ -43,15 +45,19 @@ class ProfileHandlerClass
             $this->data['userId'] = $data['userId'];
         }
 
-        $this->arEvents = (new GetPrognosisEvents())->result()['events'];
-
         $this->data = $data;
 
+        $this->arEvents = (new GetPrognosisEvents())->result()['events'];
         $this->arTeams = (new GetFootballTeams())->result();
+
+        $this->arCountry = (new GetFootballTeams())->result();
+        $this->arRacers = (new GetF1RacersClass())->result();
 
         $this->getUserInfo();
 
         $this->getUserPrognosis();
+
+        $this->sortFootballInfo();
 
         $this->setResult('ok', '');
 
@@ -85,6 +91,104 @@ class ProfileHandlerClass
             $this->getFootBallPr($arr, $code);
         }
 
+        foreach ($this->arRaceIbs as $code => $arr){
+            $this->getRaceData($arr, $code);
+        }
+
+    }
+
+    protected function getRaceData($arr, $code){
+        $arFilter = [
+            "IBLOCK_ID" => $arr['id'],
+        ];
+
+        if($arr['filter']) $arFilter[$arr['filter']] = $this->data['userId'];
+
+        $arSelect = [
+            "ID",
+            "TIMESTAMP_X",
+            'NAME',
+            'PREVIEW_PICTURE',
+            'ACTIVE_FROM',
+            'ACTIVE_TO',
+            'ACTIVE',
+            'PROPERTY_country',
+            'PROPERTY_number',
+            'PROPERTY_sprint',
+            'PROPERTY_events',
+            'PROPERTY_status',
+
+            'PROPERTY_race_id',
+            'PROPERTY_all',
+            'PROPERTY_qual_sum',
+            'PROPERTY_race_sum',
+            'PROPERTY_sprint_sum',
+            'PROPERTY_best_lap',
+            "PROPERTY_events",
+
+        ];
+
+        $response = CIBlockElement::GetList(
+            [],
+            $arFilter,
+            false,
+            [],
+            $arSelect,
+        );
+
+        while ($res = $response->GetNext()) {
+
+            $el = [];
+
+            $el["country"] = $this->arCountry[$res["PROPERTY_COUNTRY_VALUE"]];
+
+            $el['qual_sum'] = $res['PROPERTY_QUAL_SUM_VALUE'] ?? 0;
+            $el['race_sum'] = $res['PROPERTY_RACE_SUM_VALUE'] ?? 0;
+            $el['sprint_sum'] = $res['PROPERTY_SPRINT_SUM_VALUE'] ?? 0;
+            $el['best_lap'] = $res['PROPERTY_BEST_LAP_VALUE'] ?? 0;
+            $el['all'] = $res['PROPERTY_ALL_VALUE'] ?? 0;
+
+            $el["qual"] = $this->convertData($res["ACTIVE_FROM"]);
+
+            $el["date"] = $el["qual"]["date"];
+            $el["active"] = $res["ACTIVE"];
+            $el["id"] = $res["ID"];
+
+            $el["event"] = $res["PROPERTY_EVENTS_VALUE"];
+            $el["status"] = $res["PROPERTY_STATUS_VALUE"];
+
+            $el["race"] = $this->convertData($res["ACTIVE_TO"]);
+
+            if($res['PROPERTY_QUAL_RES_VALUE']){
+                $el["result_race"]["qual_res"]= json_decode($res["~PROPERTY_QUAL_RES_VALUE"]["TEXT"]) ?? [];
+                $el["result_race"]["race_res"]= json_decode($res["~PROPERTY_RACE_RES_VALUE"]["TEXT"]) ?? [];
+                $el["result_race"]["sprint_res"]= json_decode($res["~PROPERTY_SPRINT_RES_VALUE"]["TEXT"]) ?? [];
+                $el["result_race"]["best_lap"]= json_decode($res["~PROPERTY_BEST_LAP_VALUE"]) ?? [];
+            }
+
+            if ($res["PROPERTY_SPRINT_VALUE"]) {
+
+                $el["sprint"] = $this->convertData($res["PROPERTY_SPRINT_VALUE"]);
+            }
+
+            $events = $res['PROPERTY_EVENTS_VALUE'];
+
+            $el["name"] = $res["NAME"];
+
+            $el["number"] = $res["PROPERTY_NUMBER_VALUE"];
+
+            if($el["active"] === 'N') $this->arRes['race'][$events][$el["number"]][$code] = $el;
+        }
+    }
+
+    protected function convertData($data)
+    {
+        $date = explode("+", ConvertDateTime($data, "DD.MM+HH:Mi"));
+
+        return [
+            "date" => $date[0],
+            "time" => $date[1]
+        ];
     }
 
     protected function getFootBallPr($info, $code)
@@ -95,6 +199,7 @@ class ProfileHandlerClass
         ];
 
         if($info['filter']) $arFilter[$info['filter']] = $this->data['userId'];
+        if($code === 'matches') $arFilter['ACTIVE'] = 'N';
 
         $arSelect = [
             "ID",
@@ -158,43 +263,36 @@ class ProfileHandlerClass
             }
 
             $events = $res['PROPERTY_EVENTS_VALUE'];
+            if(!$this->arRes['football'][$events]['info']) $this->arRes['football'][$events]['info'] = $this->arEvents[$events];
 
-            if ($res["PROPERTY_ALL_VALUE"] > -1) $this->arRes['info']['count'] += 1;
+            if ($res["PROPERTY_ALL_VALUE"] > -1) $this->arRes['football'][$events]['info']['count'] += 1;
 
-            $this->arFresh[$code][$events][$res[$info['select']]] = $arr;
+//            $this->arFresh[$code][$events][$arr["number"]] = $arr;
+
+                $this->arRes['football'][$events]['matches'][$arr["number"]][$code] = $arr;
+
 
         }
-
-        $this->sortFootballInfo();
 
     }
 
     protected function sortFootballInfo(){
-        foreach ($this->arFresh as $code=>$arEvents){
-            foreach ($arEvents as $eventId=>$arMatches){
-                foreach ($arMatches as $matchId=>$matchInfo){
-                    $this->arRes['football'][$eventId]['matches'][$matchId][$code] = $matchInfo;
-                }
-                $this->arRes['football'][$eventId]['info'] = $this->arEvents[$eventId];
-            }
-        }
 
         foreach ($this->arRes['football'] as $e_id=>$event){
             $arSort = [];
             foreach ($event['matches'] as $m_id=>$arr){
-                if(count($arr) ===3){
+                if(count($arr) ===3){ // проверка на наличие всех 3х массивов протокола, результата и ставки
                     $arSort[$m_id] = $arr;
                 }
             }
             $this->arRes['football'][$e_id]['matches'] = $arSort;
-
         }
-
     }
 
     protected function setResult($status, $mes, $info = '')
     {
         $this->arResult['profile'] = $this->arRes;
+        $this->arResult['profile']["racers"] = $this->arRacers;
         $this->arResult['status'] = $status;
         $this->arResult['mes'] = $mes;
     }
