@@ -12,13 +12,16 @@ class ProfileHandlerClass
 
     protected $arRes = [];
 
-    protected $arFresh = [];
-
     protected $arEvents = [];
     protected $arTeams = [];
 
     protected $arCountry = [];
     protected $arRacers = [];
+
+    protected $arEntity = [
+        'football',
+        'race',
+    ];
 
     protected $arFootballIbs = [
         'result' => ['id' => 7, 'filter' => 'PROPERTY_USER_ID', 'select' => 'PROPERTY_MATCH_ID_VALUE'],
@@ -28,8 +31,8 @@ class ProfileHandlerClass
     
     protected $arRaceIbs = [
         'f1races' => ['code' => 'f1races', 'id' => 11, 'filter' => '', 'select' => 'ID'],
-        'prognosf1' => ['code' => 'prognosf1', 'id' => 13, 'filter' => 'PROPERTY_USER_ID', 'select' => 'PROPERTY_MATCH_ID_VALUE'],
-        'resultf1' => ['code' => 'resultf1', 'id' => 14, 'filter' => 'PROPERTY_USER_ID', 'select' => 'PROPERTY_MATCH_ID_VALUE']
+        'prognosf1' => ['code' => 'prognosf1', 'id' => 13, 'filter' => 'PROPERTY_USER_ID', 'select' => 'PROPERTY_RACE_ID_VALUE'],
+        'resultf1' => ['code' => 'resultf1', 'id' => 14, 'filter' => 'PROPERTY_USER_ID', 'select' => 'PROPERTY_RACE_ID_VALUE']
     ];
 
     public function __construct($data)
@@ -57,7 +60,9 @@ class ProfileHandlerClass
 
         $this->getUserPrognosis();
 
-        $this->sortFootballInfo();
+        foreach ($this->arEntity as $entity){
+            $this->sortComplexArray($entity);
+        }
 
         $this->setResult('ok', '');
 
@@ -124,7 +129,6 @@ class ProfileHandlerClass
             'PROPERTY_race_sum',
             'PROPERTY_sprint_sum',
             'PROPERTY_best_lap',
-            "PROPERTY_events",
 
         ];
 
@@ -154,7 +158,10 @@ class ProfileHandlerClass
             $el["active"] = $res["ACTIVE"];
             $el["id"] = $res["ID"];
 
-            $el["event"] = $res["PROPERTY_EVENTS_VALUE"];
+            $events = $res['PROPERTY_EVENTS_VALUE'];
+
+            if($events) $this->arRes['race'][$events]['info'] = $this->arEvents[$events];
+
             $el["status"] = $res["PROPERTY_STATUS_VALUE"];
 
             $el["race"] = $this->convertData($res["ACTIVE_TO"]);
@@ -167,17 +174,14 @@ class ProfileHandlerClass
             }
 
             if ($res["PROPERTY_SPRINT_VALUE"]) {
-
                 $el["sprint"] = $this->convertData($res["PROPERTY_SPRINT_VALUE"]);
             }
-
-            $events = $res['PROPERTY_EVENTS_VALUE'];
 
             $el["name"] = $res["NAME"];
 
             $el["number"] = $res["PROPERTY_NUMBER_VALUE"];
 
-            if($el["active"] === 'N') $this->arRes['race'][$events][$el["number"]][$code] = $el;
+            $this->arRes['race'][$events]['items'][$el["number"]][$code] = $el;
         }
     }
 
@@ -199,7 +203,6 @@ class ProfileHandlerClass
         ];
 
         if($info['filter']) $arFilter[$info['filter']] = $this->data['userId'];
-        if($code === 'matches') $arFilter['ACTIVE'] = 'N';
 
         $arSelect = [
             "ID",
@@ -269,23 +272,23 @@ class ProfileHandlerClass
 
 //            $this->arFresh[$code][$events][$arr["number"]] = $arr;
 
-                $this->arRes['football'][$events]['matches'][$arr["number"]][$code] = $arr;
+                $this->arRes['football'][$events]['items'][$arr["number"]][$code] = $arr;
 
 
         }
 
     }
 
-    protected function sortFootballInfo(){
+    protected function sortComplexArray($selector){
 
-        foreach ($this->arRes['football'] as $e_id=>$event){
+        foreach ($this->arRes[$selector] as $e_id=>$event){
             $arSort = [];
-            foreach ($event['matches'] as $m_id=>$arr){
+            foreach ($event['items'] as $m_id=>$arr){
                 if(count($arr) ===3){ // проверка на наличие всех 3х массивов протокола, результата и ставки
                     $arSort[$m_id] = $arr;
                 }
             }
-            $this->arRes['football'][$e_id]['matches'] = $arSort;
+            $this->arRes[$selector][$e_id]['items'] = $arSort;
         }
     }
 
