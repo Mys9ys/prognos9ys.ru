@@ -18,6 +18,14 @@ class ProfileHandlerClass
     protected $arCountry = [];
     protected $arRacers = [];
 
+    protected $arStageName = [
+        'qual' => 'Квалификация',
+        'race' => 'Гонка',
+        'sprint' => 'Спринт',
+        'lap' => 'Лучший круг',
+        'all' => 'Итого',
+    ];
+
     protected $arEntity = [
         'football',
         'race',
@@ -128,6 +136,9 @@ class ProfileHandlerClass
             'PROPERTY_qual_sum',
             'PROPERTY_race_sum',
             'PROPERTY_sprint_sum',
+            'PROPERTY_qual_res',
+            'PROPERTY_race_res',
+            'PROPERTY_sprint_res',
             'PROPERTY_best_lap',
 
         ];
@@ -149,7 +160,6 @@ class ProfileHandlerClass
             $el['qual_sum'] = $res['PROPERTY_QUAL_SUM_VALUE'] ?? 0;
             $el['race_sum'] = $res['PROPERTY_RACE_SUM_VALUE'] ?? 0;
             $el['sprint_sum'] = $res['PROPERTY_SPRINT_SUM_VALUE'] ?? 0;
-            $el['best_lap'] = $res['PROPERTY_BEST_LAP_VALUE'] ?? 0;
             $el['all'] = $res['PROPERTY_ALL_VALUE'] ?? 0;
 
             $el["qual"] = $this->convertData($res["ACTIVE_FROM"]);
@@ -166,12 +176,11 @@ class ProfileHandlerClass
 
             $el["race"] = $this->convertData($res["ACTIVE_TO"]);
 
-            if($res['PROPERTY_QUAL_RES_VALUE']){
-                $el["result_race"]["qual_res"]= json_decode($res["~PROPERTY_QUAL_RES_VALUE"]["TEXT"]) ?? [];
-                $el["result_race"]["race_res"]= json_decode($res["~PROPERTY_RACE_RES_VALUE"]["TEXT"]) ?? [];
-                $el["result_race"]["sprint_res"]= json_decode($res["~PROPERTY_SPRINT_RES_VALUE"]["TEXT"]) ?? [];
-                $el["result_race"]["best_lap"]= json_decode($res["~PROPERTY_BEST_LAP_VALUE"]) ?? [];
-            }
+            $el["qual_res"]= json_decode($res["~PROPERTY_QUAL_RES_VALUE"]["TEXT"]) ?? [];
+            $el["race_res"]= json_decode($res["~PROPERTY_RACE_RES_VALUE"]["TEXT"]) ?? [];
+            $el["sprint_res"]= json_decode($res["~PROPERTY_SPRINT_RES_VALUE"]["TEXT"]) ?? [];
+            $el["best_lap"]= json_decode($res["~PROPERTY_BEST_LAP_VALUE"]) ?? [];
+
 
             if ($res["PROPERTY_SPRINT_VALUE"]) {
                 $el["sprint"] = $this->convertData($res["PROPERTY_SPRINT_VALUE"]);
@@ -182,6 +191,35 @@ class ProfileHandlerClass
             $el["number"] = $res["PROPERTY_NUMBER_VALUE"];
 
             $this->arRes['race'][$events]['items'][$el["number"]][$code] = $el;
+
+
+            if($code == 'f1races'){
+                $item = [];
+                $item['stage']['qual']['info'] = $el["qual"];
+                if($el["sprint"]) $item['stage']['sprint']['info'] = $el["sprint"];
+                $item['stage']['race']['info'] = $el["race"];
+                $item['stage']['lap']['info'] = '';
+                $item['stage']['all']['info'] = '';
+                $this->arRes['race'][$events]['items'][$el["number"]]['f1races']['stage'] = $item['stage'];
+
+                foreach ($item['stage'] as $stageName=>$a){
+                    $this->arRes['race'][$events]['items'][$el["number"]]['f1races']['stage'][$stageName]['name'] = $this->arStageName[$stageName];
+                }
+            }
+
+            if($code == 'resultf1'){
+                $item = [];
+                $item['qual'] = $el['qual_sum'];
+                $item['race'] = $el['race_sum'];
+                $item['lap'] = $el["best_lap"][0];
+                $item['all'] =  $el['all'];
+                if($el["sprint_sum"]) $item['sprint'] = $el['sprint_sum'];
+                foreach ($item as $name=>$sum){
+                    $this->arRes['race'][$events]['items'][$el["number"]]['f1races']['stage'][$name]['sum'] = $sum;
+                }
+
+            }
+
         }
     }
 
