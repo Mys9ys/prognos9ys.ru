@@ -35,6 +35,7 @@ $arClassMain = [
     'SetBotRacePrognosis',
     'GenValuesBotFootball',
     'SetBotPrognosis',
+    'GetUserRank',
     'GetPrognosisEvents',
     'GetArrMatchIdForNumber',
     'GetUserIdForToken',

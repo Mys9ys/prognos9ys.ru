@@ -92,6 +92,9 @@ class ProfileHandlerClass
 
         if ($dbUser['ID']) {
             $this->arRes['info'] = $dbUser;
+
+            $this->arRes['rank_info'] = (new GetUserRank($dbUser['ID']))->result()['info'];
+
         } else {
             $this->setResult('error', 'Пользователь не найден');
         }
