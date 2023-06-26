@@ -15,20 +15,18 @@ class SetBotRacePrognosis
         'prognosf1' => ['code' => 'prognosf1', 'id' => 13]
     ];
 
-    public function __construct($data)
+    public function __construct()
     {
         if (!Loader::includeModule('iblock')) {
             ShowError('Модуль Информационных блоков не установлен');
             return;
         }
 
-        $this->data = $data;
-
         $this->arBots = (new GetBotsClass())->result();
 
         $this->getEmptyRace();
 
-        if($this->emptyEvent) $this->checkEmptyPrognosis();
+        if ($this->emptyEvent) $this->checkEmptyPrognosis();
 
 
     }
@@ -38,8 +36,12 @@ class SetBotRacePrognosis
 
         $arFilter = [
             'IBLOCK_ID' => $this->arIbs['f1races']['id'],
-            'PROPERTY_number' => $this->data['number']
+            'ACTIVE' => 'Y'
         ];
+
+        $now = new DateTime();
+        $arFilter[">=DATE_ACTIVE_FROM"] = $now->modify('-1 day')->format('d.m.Y H:i:s');
+        $arFilter["<=DATE_ACTIVE_FROM"] = $now->modify('+2 day')->format('d.m.Y H:i:s');
 
         $response = CIBlockElement::GetList(
             ["DATE_ACTIVE_FROM" => "ASC", "created" => "ASC"],
@@ -50,10 +52,18 @@ class SetBotRacePrognosis
                 "ID",
                 "PROPERTY_number",
                 "PROPERTY_events",
+                "PROPERTY_sprint",
             ]
         );
 
         while ($res = $response->GetNext()) {
+
+            $res['sprint'] = false;
+
+            if($res['PROPERTY_SPRINT_VALUE']) {
+                $res['sprint'] = true;
+            }
+
             $this->emptyEvent[] = $res;
         }
 
@@ -64,7 +74,6 @@ class SetBotRacePrognosis
 
         foreach ($this->emptyEvent as $race) {
             foreach ($this->arBots as $botId) {
-
 
                 $arFilter = [
                     'IBLOCK_ID' => $this->arIbs['prognosf1']['id'],
@@ -82,8 +91,9 @@ class SetBotRacePrognosis
                     ]
                 )->GetNext();
 
-                if(!$res){
+                if (!$res) {
                     $props = [];
+                    $props['sprint'] = $race['sprint'];
                     $props[83] = $race['PROPERTY_NUMBER_VALUE']; // number
                     $props[84] = $botId; // user_id
                     $props[85] = $race['ID']; // race_id
@@ -95,9 +105,12 @@ class SetBotRacePrognosis
         }
     }
 
-    protected function setPrognosis($props){
+    protected function setPrognosis($props)
+    {
 
-        $gen = (new GenRacePrognosis($this->data['sprint']))->result();
+        $sprint = $props['sprint'];
+        unset($props['sprint']);
+        $gen = (new GenRacePrognosis($sprint))->result();
 
         $props = array_replace($props, $gen);
 
@@ -105,7 +118,7 @@ class SetBotRacePrognosis
 
         $ib = new CIBlockElement;
         $data = [
-            'NAME' => "Участник: " . $props[84] . " Прогноз на гонку: " .$props[83],
+            'NAME' => "Участник: " . $props[84] . " Прогноз на гонку: " . $props[83],
             'IBLOCK_ID' => $this->arIbs['prognosf1']['id'],
             'DATE_ACTIVE_FROM' => $now,
             'PROPERTY_VALUES' => $props

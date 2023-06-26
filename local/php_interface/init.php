@@ -91,3 +91,12 @@ function AgentFootballBotSetPrognosis()
     return "AgentFootballBotSetPrognosis();";
 }
 
+function AgentRaceBotSetPrognosis()
+{
+    CModule::IncludeModule("iblock");
+
+    $res = new SetBotRacePrognosis();
+
+    return "AgentRaceBotSetPrognosis();";
+}
+
