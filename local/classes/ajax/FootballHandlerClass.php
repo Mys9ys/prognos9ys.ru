@@ -131,6 +131,9 @@ class FootballHandlerClass
             if ($section === 'nearest' || $section === 'future') {
                 krsort($this->arFill[$section]['items']);
             }
+            if ($section === 'past') {
+                $this->arFill[$section]['items'] = array_reverse($this->arFill[$section]['items']);
+            }
 
             $this->checkVisible();
 
