@@ -91,13 +91,13 @@ class GetUserRank
     }
 
     protected function checkRankFunc(){
-        $this->arRes['rank'] = $this->arRanks[18];
-//        for($i=$this->arRes['count']; $i>1; $i--){
-//            if($this->arRanks[$i]) {
-//                $this->arRes['rank'] = $this->arRanks[$i];
-//                break;
-//            }
-//        }
+//        $this->arRes['rank'] = $this->arRanks[18];
+        for($i=$this->arRes['count']; $i>1; $i--){
+            if($this->arRanks[$i]) {
+                $this->arRes['rank'] = $this->arRanks[$i];
+                break;
+            }
+        }
     }
 
     protected function setResult($status, $mes, $info = '')
