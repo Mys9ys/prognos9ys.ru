@@ -128,7 +128,7 @@ class FootballHandlerClass
         }
 
         foreach ($this->arFill as $section => $arr) {
-            if ($section === 'nearest' || $section === 'future') {
+            if ($section === 'nearest') {
                 krsort($this->arFill[$section]['items']);
             }
             if ($section === 'past') {
