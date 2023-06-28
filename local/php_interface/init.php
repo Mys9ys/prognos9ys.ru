@@ -11,6 +11,7 @@ $arClassAgent = [
 $arClassAjax = [
     'Prognos9ysMainPageInfo',
     'FootballHandlerClass',
+    'FootballSendPrognosis',
     'CalcRacePrognosisResult',
     'CalcFootballPrognosisResult',
     'Prognos9ysHumorHandler',
@@ -41,17 +42,23 @@ $arClassMain = [
     'GetUserIdForToken',
 ];
 
+$arTemplate = [
+     'PrognosisGiveInfo'
+];
+
 $arClassInclude = [];
 
 foreach ($arClassAgent as $class) {
     $arClassInclude[$class] = '/local/classes/agent/' . $class . '.php';
 }
-
 foreach ($arClassAjax as $class) {
     $arClassInclude[$class] = '/local/classes/ajax/' . $class . '.php';
 }
 foreach ($arClassMain as $class) {
     $arClassInclude[$class] = '/local/classes/main/' . $class . '.php';
+}
+foreach ($arTemplate as $class) {
+    $arClassInclude[$class] = '/local/classes/template/' . $class . '.php';
 }
 
 \Bitrix\Main\Loader::registerAutoLoadClasses(
