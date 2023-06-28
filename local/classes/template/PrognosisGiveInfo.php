@@ -11,7 +11,7 @@ class PrognosisGiveInfo
     {
         $this->arGive['status'] = $status;
         $this->arGive['mes'] = $mes;
-        if ($data) $this->arGive['data'] = $data;
+        if ($data) $this->arGive['result'] = $data;
     }
 
     public function result()
