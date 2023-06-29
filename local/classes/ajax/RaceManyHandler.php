@@ -33,7 +33,7 @@ class RaceManyHandler
 
         $this->arCountry = (new GetFootballTeams())->result();
 
-        $this->data['userId'] = (new GetUserIdForToken($_REQUEST['userToken']))->getID();
+        $this->data['userId'] = (new GetUserIdForToken($this->data['userToken']))->getID();
 
         $this->getUserPrognosis();
         $this->getUserResult();

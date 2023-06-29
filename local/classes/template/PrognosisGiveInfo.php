@@ -7,6 +7,15 @@ class PrognosisGiveInfo
         'mes' => ''
     ];
 
+    protected function convertData($data){
+        $date = explode("+", ConvertDateTime($data, "DD.MM+HH:Mi"));
+
+        return [
+            "date" => $date[0],
+            "time" => $date[1]
+        ];
+    }
+
     protected function setResult($status, $mes, $data = '')
     {
         $this->arGive['status'] = $status;

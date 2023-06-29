@@ -24,6 +24,7 @@ $arClassAjax = [
     'RaceOneHandler',
     'RaceSendHandler',
     'RaceSetResult',
+    'RaceNearestCome',
 ];
 
 $arClassMain = [
