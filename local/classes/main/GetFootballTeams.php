@@ -33,6 +33,7 @@ class GetFootballTeams
 
         while ($res = $response->fetch()) {
             $res["flag"] = CFile::GetPath($res["PREVIEW_PICTURE"]);
+            $res["name"] = $res["NAME"];
             $this->arTeams[$res["ID"]] = $res;
         }
     }

@@ -10,9 +10,9 @@ class Prognos9ysMainPageInfo extends PrognosisGiveInfo
     protected $userToken;
 
     protected $arPeriod = [
-        'yesterday',
-        'today',
-        'tomorrow',
+        'yesterday' => ['period' => 'yesterday', 'name' => 'Вчера', 'visible' => false, 'count' => 0, 'set' => 0],
+        'today' => ['period' => 'today', 'name' => 'Сегодня', 'visible' => true, 'count' => 0, 'set' => 0],
+        'tomorrow' => ['period' => 'tomorrow', 'name' => 'Завтра', 'visible' => false, 'count' => 0, 'set' => 0],
     ];
 
     public function __construct($data)
@@ -29,24 +29,45 @@ class Prognos9ysMainPageInfo extends PrognosisGiveInfo
 
         $this->getNearestRace();
 
+        $this->checkVisible();
+
+        foreach ($this->arResult as $period=>$ar){
+            $this->arResult[$period]['info'] = $this->arPeriod[$period];
+        }
+
+
+
+
         $this->setResult('ok', '', $this->arResult);
     }
 
     protected function getNearestMatch(){
-//
-//        $res = (new FootballHandlerClass(['type' => 'nearest', 'userToken' => $this->userToken]))->getNearest();
-//
-//        foreach ($this->arPeriod as $period){
-//            $this->arResult[$period] = $res[$period];
-//        }
+
+        $res = (new FootballNearestCome(['userToken' => $this->userToken]))->result()['result'];
+
+        $this->fillData($res);
 
     }
 
     protected function getNearestRace(){
         $res = (new RaceNearestCome(['userToken' => $this->userToken]))->result()['result'];
 
-        foreach ($this->arPeriod as $period){
-            $this->arResult[$period] = $res[$period];
+        $this->fillData($res);
+
+    }
+
+    protected function fillData($res){
+        foreach ($this->arPeriod as $period=>$array){
+            if($res[$period]['items']){
+                foreach ($res[$period]['info'] as $select=>$value){
+                    if($value && is_numeric($value)) $this->arPeriod[$period][$select] += $value;
+                }
+
+                foreach ($res[$period]['items'] as $event=>$items){
+                    $this->arResult[$period]['items'][$event] = $items;
+                }
+            }
+
         }
     }
 
