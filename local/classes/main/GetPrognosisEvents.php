@@ -28,12 +28,14 @@ class GetPrognosisEvents
             $arFilter,
             false,
             [],
-            ["ID","NAME","PREVIEW_PICTURE", "DETAIL_TEXT", "ACTIVE", "PREVIEW_TEXT", "EXTERNAL_ID", "PROPERTY_e_type"]
+            ["ID","NAME","PREVIEW_PICTURE", "DETAIL_TEXT", "ACTIVE",
+                "PREVIEW_TEXT", "EXTERNAL_ID", "PROPERTY_e_type", "PROPERTY_table"]
         );
         while ($res=$response->GetNext()){
 
             $res["img"] = CFile::GetPath($res["PREVIEW_PICTURE"]);
             $res['code'] = $res["PROPERTY_E_TYPE_VALUE"];
+            if($res["PROPERTY_TABLE_VALUE"] === 'Есть') $res['table'] = true;
 
             $this->arEvents[$res["ID"]] = $res;
 
