@@ -120,7 +120,7 @@ class FootballHandlerClass
 
             $el["ratio"] = $this->setRatio($res['ID']);
 
-            $period = $this->fillSectionArray($res["ACTIVE_FROM"]);
+            $period = $this->fillSectionArray($res["DATE_ACTIVE_FROM"]);
 
             $this->arFill[$period['period']]['items'][$el["date"]][$el["number"]] = $el;
             $this->arFill[$period['period']]['info'] = $period;
