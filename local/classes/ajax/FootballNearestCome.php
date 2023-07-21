@@ -82,7 +82,7 @@ class FootballNearestCome extends PrognosisGiveInfo
             $el["teams"]["home"] = $this->arTeams[$res["PROPERTY_HOME_VALUE"]];
             $el["teams"]["guest"] = $this->arTeams[$res["PROPERTY_GUEST_VALUE"]];
 
-            $el["send_info"]["send_time"] = $this->getPrognosis($res["ID"]);
+            $el["send_info"]["send_time"] = $this->getPrognosis($res["ID"]) ?? null;
             $set = 0;
             if($el["send_info"]["send_time"]) $set = 1;
 
@@ -115,9 +115,15 @@ class FootballNearestCome extends PrognosisGiveInfo
             ]
         )->GetNext();
 
-        $convert = $this->convertData($response['TIMESTAMP_X']);
+        if($response){
+            $convert = $this->convertData($response['TIMESTAMP_X']);
 
-        return $convert['date'] . ' ' . $convert['time'];
+            return $convert['date'] . ' ' . $convert['time'];
+        } else {
+            return null;
+        }
+
+
 
     }
 
