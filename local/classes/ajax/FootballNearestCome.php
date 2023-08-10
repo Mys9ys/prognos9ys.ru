@@ -82,6 +82,9 @@ class FootballNearestCome extends PrognosisGiveInfo
             $el["teams"]["home"] = $this->arTeams[$res["PROPERTY_HOME_VALUE"]];
             $el["teams"]["guest"] = $this->arTeams[$res["PROPERTY_GUEST_VALUE"]];
 
+            $el["teams"]["home"]["goals"] = $res["PROPERTY_GOAL_HOME_VALUE"] ?? 0;
+            $el["teams"]["guest"]["goals"] = $res["PROPERTY_GOAL_GUEST_VALUE"] ?? 0;
+
             $el["send_info"]["send_time"] = $this->getPrognosis($res["ID"]) ?? null;
             $set = 0;
             if($el["send_info"]["send_time"]) $set = 1;
