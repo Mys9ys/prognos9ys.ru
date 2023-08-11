@@ -95,7 +95,7 @@ class FootballNearestCome extends PrognosisGiveInfo
 
             $arDataSort = $this->fillSectionArray($res["DATE_ACTIVE_FROM"], $set);
 
-            $this->arResult[$arDataSort['period']]['items']['football'][$el["number"]] = $el;
+            $this->arResult[$arDataSort['period']]['items']['football'][$res["ID"]] = $el;
 
         }
     }
