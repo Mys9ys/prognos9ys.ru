@@ -12,6 +12,8 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
     protected $teamsIds;
 
     protected $arTable;
+    protected $arTableInfo;
+    protected $arTableUnsort;
 
     public function __construct($data)
     {
@@ -27,13 +29,16 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
 
         $arEvents = (new GetPrognosisEvents())->result()['events'];
 
-        if(count($this->teamsIds)) $this->getTeamsInfo();
+        if (count($this->teamsIds)) $this->getTeamsInfo();
 
-        if(count($this->arTable)) $this->setResult('ok', '', ['teams' => $this->arTable, 'info' => $arEvents[$this->data['events']]]);
+        $this->calcAllTurs();
+
+        if (count($this->arTable)) $this->setResult('ok', '', ['teams' => $this->arTable, 'info' => $arEvents[$this->data['events']]]);
 
     }
 
-    protected function getTeamsOneTurIds(){
+    protected function getTeamsOneTurIds()
+    {
         $arFilter = [
             'IBLOCK_ID' => $this->arIbs['matches']['id'],
             'PROPERTY_events' => $this->data['events'],
@@ -50,13 +55,14 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
             ]
         );
 
-        while ($res=$response->GetNext()){
+        while ($res = $response->GetNext()) {
             $this->teamsIds[] = $res['PROPERTY_HOME_VALUE'];
             $this->teamsIds[] = $res['PROPERTY_GUEST_VALUE'];
         }
     }
 
-    protected function getTeamsInfo(){
+    protected function getTeamsInfo()
+    {
         $arFilter = [
             'ID' => $this->teamsIds
         ];
@@ -68,9 +74,87 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
             [],
             ['NAME', 'ID', 'PREVIEW_PICTURE']
         );
-        while ($res=$response->GetNext()){
+        while ($res = $response->GetNext()) {
             $res['img'] = CFile::GetPath($res['PREVIEW_PICTURE']);
-            $this->arTable[] = $res;
+            $this->arTable[] = ['info' => $res];
+            $this->arTableInfo[$res["ID"]] = $res;
+        }
+    }
+
+    protected function calcAllTurs()
+    {
+        $arFilter = [
+            'IBLOCK_ID' => $this->arIbs['matches']['id'],
+            'PROPERTY_events' => $this->data['events'],
+            'ACTIVE' => "N",
+        ];
+
+        $response = CIBlockElement::GetList(
+            [],
+            $arFilter,
+            false,
+            [],
+            [
+                "PROPERTY_home",
+                "PROPERTY_guest",
+                "PROPERTY_goal_home",
+                "PROPERTY_goal_guest",
+                "PROPERTY_result",
+            ]
+        );
+
+        while ($res = $response->GetNext()) {
+
+            $this->arTableUnsort[$res['PROPERTY_HOME_VALUE']]['score'] += $this->getScore($res['PROPERTY_RESULT_VALUE'], 'home');
+            $this->arTableUnsort[$res['PROPERTY_GUEST_VALUE']]['score'] += $this->getScore($res['PROPERTY_RESULT_VALUE']);
+
+            $this->arTableUnsort[$res['PROPERTY_HOME_VALUE']]['matches']++;
+            $this->arTableUnsort[$res['PROPERTY_GUEST_VALUE']]['matches']++;
+
+            if (!$this->arTableUnsort[$res['PROPERTY_HOME_VALUE']]['info']) $this->arTableUnsort[$res['PROPERTY_HOME_VALUE']]['info'] = $this->arTableInfo[$res['PROPERTY_HOME_VALUE']];
+            if (!$this->arTableUnsort[$res['PROPERTY_GUEST_VALUE']]['info']) $this->arTableUnsort[$res['PROPERTY_GUEST_VALUE']]['info'] = $this->arTableInfo[$res['PROPERTY_GUEST_VALUE']];
+
+            switch ($res['PROPERTY_RESULT_VALUE']) {
+                case 'п1':
+                    $this->arTableUnsort[$res['PROPERTY_HOME_VALUE']]['win']++;
+                    $this->arTableUnsort[$res['PROPERTY_GUEST_VALUE']]['lose']++;
+                    break;
+                case 'н':
+                    $this->arTableUnsort[$res['PROPERTY_HOME_VALUE']]['draw']++;
+                    $this->arTableUnsort[$res['PROPERTY_GUEST_VALUE']]['draw']++;
+                    break;
+                case 'п2':
+                    $this->arTableUnsort[$res['PROPERTY_GUEST_VALUE']]['win']++;
+                    $this->arTableUnsort[$res['PROPERTY_HOME_VALUE']]['lose']++;
+                    break;
+            }
+
+            $this->arTableUnsort[$res['PROPERTY_HOME_VALUE']]['plus'] += $res['PROPERTY_GOAL_HOME_VALUE'];
+            $this->arTableUnsort[$res['PROPERTY_GUEST_VALUE']]['plus'] += $res['PROPERTY_GOAL_GUEST_VALUE'];
+
+            $this->arTableUnsort[$res['PROPERTY_HOME_VALUE']]['minus'] += $res['PROPERTY_GOAL_GUEST_VALUE'];
+            $this->arTableUnsort[$res['PROPERTY_GUEST_VALUE']]['minus'] += $res['PROPERTY_GOAL_HOME_VALUE'];
+
+        }
+
+        array_multisort(array_column($this->arTableUnsort, 'score'), SORT_DESC,
+            array_column($this->arTableUnsort, 'plus'), SORT_DESC, $this->arTableUnsort);
+
+        $this->arTable = $this->arTableUnsort;
+    }
+
+    protected function getScore($res, $side = 'guest')
+    {
+        switch ($res) {
+            case 'п1':
+                return $side === 'home' ? 3 : 0;
+                break;
+            case 'н':
+                return 1;
+                break;
+            case 'п2':
+                return $side === 'home' ? 0 : 3;
+                break;
         }
     }
 }
