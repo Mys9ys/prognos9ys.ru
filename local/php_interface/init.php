@@ -41,6 +41,7 @@ $arClassMain = [
     'SetBotRacePrognosis',
     'GenValuesBotFootball',
     'SetBotPrognosis',
+    'SetMatchReminder',
     'GetUserRank',
     'GetPrognosisEvents',
     'GetArrMatchIdForNumber',
@@ -110,5 +111,13 @@ function AgentRaceBotSetPrognosis()
     $res = new SetBotRacePrognosis();
 
     return "AgentRaceBotSetPrognosis();";
+}
+
+function AgentSaveReminderMessages(){
+    CModule::IncludeModule("iblock");
+
+    $res = new SetMatchReminder();
+
+    return "AgentSaveReminderMessages();";
 }
 

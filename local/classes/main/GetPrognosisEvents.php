@@ -28,7 +28,7 @@ class GetPrognosisEvents
             $arFilter,
             false,
             [],
-            ["ID","NAME","PREVIEW_PICTURE", "DETAIL_TEXT", "ACTIVE",
+            ["ID","NAME","PREVIEW_PICTURE", "DETAIL_TEXT", "DETAIL_PICTURE", "ACTIVE",
                 "PREVIEW_TEXT", "EXTERNAL_ID", "PROPERTY_e_type", "PROPERTY_table"]
         );
         while ($res=$response->GetNext()){
