@@ -61,7 +61,7 @@ class SetMatchReminder
         );
 
         while ($res = $response->GetNext()) {
-            $this->arTodayMatches[$res['PROPERTY_EVENTS_VALUE']][$res['ACTIVE_FROM']] = $res;
+            $this->arTodayMatches[$res['PROPERTY_EVENTS_VALUE']][$res['ID']] = $res;
         }
     }
 
@@ -76,9 +76,10 @@ class SetMatchReminder
 
             $mCount = count($items);
 
-            sort($items);
+            array_multisort(array_column($items, 'ACTIVE_FROM'), SORT_ASC, $items);
+
             $first = array_shift($items)['ACTIVE_FROM'];
-            $message .= 'Первый начало: ' . date('H:i', strtotime($first) - 60 * 60 * 3) . PHP_EOL;
+            $message .= 'Первый - начало: ' . date('H:i', strtotime($first)) . PHP_EOL;
             $message .= 'Количество: ' . $mCount . PHP_EOL;
             $message .= PHP_EOL;
             $message .= 'prognos9ys.ru' . PHP_EOL;
@@ -87,7 +88,7 @@ class SetMatchReminder
                 'message' => $message,
                 'name' => $this->arEvents[$event]['PREVIEW_TEXT'] . ' ' . date('d.m.y', strtotime($first)) . ' матчей: ' . $mCount,
                 'pic' => $this->arEvents[$event]['DETAIL_PICTURE'],
-                'start_date' =>  date('d.m.y H:i:s', strtotime($first) - 60 * 60 * 3)
+                'start_date' =>  date('d.m.Y H:i:s', strtotime($first) - 60 * 60 * 3)
             ];
 
         }
@@ -102,6 +103,7 @@ class SetMatchReminder
                 "NAME" => $mes['name'],
                 "IBLOCK_ID" => $this->messagesIb,
                 "DATE_ACTIVE_FROM" => $mes['start_date'],
+                "PREVIEW_TEXT" => $mes['message'],
                 "PROPERTY_VALUES" => [110 => $mes['pic']]
             ];
 
