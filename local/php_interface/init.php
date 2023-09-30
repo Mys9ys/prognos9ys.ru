@@ -1,7 +1,5 @@
 <?php
 
-use Bitrix\Main\Loader;
-
 $arClassAgent = [
     'DeactivateEventElementForDate',
     'DeactivateEventElement',
@@ -45,11 +43,12 @@ $arClassMain = [
     'GetUserRank',
     'GetPrognosisEvents',
     'GetArrMatchIdForNumber',
+    'SendMatchReminderMessage',
     'GetUserIdForToken',
 ];
 
 $arTemplate = [
-     'PrognosisGiveInfo'
+    'PrognosisGiveInfo'
 ];
 
 $arClassInclude = [];
@@ -113,11 +112,21 @@ function AgentRaceBotSetPrognosis()
     return "AgentRaceBotSetPrognosis();";
 }
 
-function AgentSaveReminderMessages(){
+function AgentSaveReminderMessages()
+{
     CModule::IncludeModule("iblock");
 
     $res = new SetMatchReminder();
 
     return "AgentSaveReminderMessages();";
+}
+
+function AgentSendReminderMessageToTelegramm()
+{
+    CModule::IncludeModule("iblock");
+
+    $res = new SendMatchReminderMessage();
+
+    return "AgentSendReminderMessageToTelegramm();";
 }
 
