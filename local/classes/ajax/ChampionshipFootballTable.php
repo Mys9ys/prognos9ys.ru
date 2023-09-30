@@ -135,9 +135,15 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
             $this->arTableUnsort[$res['PROPERTY_HOME_VALUE']]['minus'] += $res['PROPERTY_GOAL_GUEST_VALUE'];
             $this->arTableUnsort[$res['PROPERTY_GUEST_VALUE']]['minus'] += $res['PROPERTY_GOAL_HOME_VALUE'];
 
+            $this->arTableUnsort[$res['PROPERTY_HOME_VALUE']]['draw'] =
+                $this->arTableUnsort[$res['PROPERTY_HOME_VALUE']]['plus'] - $this->arTableUnsort[$res['PROPERTY_HOME_VALUE']]['minus'];
+            $this->arTableUnsort[$res['PROPERTY_GUEST_VALUE']]['draw'] =
+                $this->arTableUnsort[$res['PROPERTY_GUEST_VALUE']]['plus'] - $this->arTableUnsort[$res['PROPERTY_GUEST_VALUE']]['minus'];
+
         }
 
         array_multisort(array_column($this->arTableUnsort, 'score'), SORT_DESC,
+            array_column($this->arTableUnsort, 'draw'), SORT_DESC,
             array_column($this->arTableUnsort, 'plus'), SORT_DESC, $this->arTableUnsort);
 
         if($this->arTableUnsort) $this->arTable = $this->arTableUnsort;
