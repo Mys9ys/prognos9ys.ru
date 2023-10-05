@@ -16,6 +16,7 @@ $arClassAjax = [
     'CalcFootballPrognosisResult',
     'Prognos9ysHumorHandler',
     'RaceRatingsHandler',
+    'FootballMatchLoadInfo',
     'NewsHandlerClass',
     'CatalogEvents',
     'FootballSetResult',
