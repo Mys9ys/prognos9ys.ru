@@ -64,11 +64,17 @@ class Prognos9ysMainPageInfo extends PrognosisGiveInfo
                 }
 
                 foreach ($res[$period]['items'] as $event=>$items){
-                    $this->arResult[$period]['items'][$event] = $items;
+                    if($event === 'football'){
+                        foreach ($items as $id=>$match){
+                            $this->arResult[$period][$event][$match['event']]['info'] = (new GetPrognosisEvents())->result()['events'][$match['event']];
+                            $this->arResult[$period][$event][$match['event']]['items'] = $items;
+                        }
+                    } else {
+                        $this->arResult[$period][$event]['items'] = $items;
+                    }
                 }
             }
 
         }
     }
-
 }
