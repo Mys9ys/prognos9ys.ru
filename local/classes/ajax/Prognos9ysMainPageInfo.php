@@ -67,7 +67,7 @@ class Prognos9ysMainPageInfo extends PrognosisGiveInfo
                     if($event === 'football'){
                         foreach ($items as $id=>$match){
                             $this->arResult[$period][$event][$match['event']]['info'] = (new GetPrognosisEvents())->result()['events'][$match['event']];
-                            $this->arResult[$period][$event][$match['event']]['items'] = $items;
+                            $this->arResult[$period][$event][$match['event']]['items'][] = $match;
                         }
                     } else {
                         $this->arResult[$period][$event]['items'] = $items;
