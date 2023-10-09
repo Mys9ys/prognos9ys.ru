@@ -143,6 +143,7 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
         }
 
         array_multisort(array_column($this->arTableUnsort, 'score'), SORT_DESC,
+            array_column($this->arTableUnsort, 'win'), SORT_DESC,
             array_column($this->arTableUnsort, 'diff'), SORT_DESC,
             array_column($this->arTableUnsort, 'plus'), SORT_DESC, $this->arTableUnsort);
 
