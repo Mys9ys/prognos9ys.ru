@@ -105,6 +105,9 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
 
         while ($res = $response->GetNext()) {
 
+            if(!$this->arTableUnsort[$res['PROPERTY_HOME_VALUE']]['win']) $this->arTableUnsort[$res['PROPERTY_HOME_VALUE']]['win'] = 0;
+            if(!$this->arTableUnsort[$res['PROPERTY_GUEST_VALUE']]['win']) $this->arTableUnsort[$res['PROPERTY_GUEST_VALUE']]['win'] = 0;
+
             $this->arTableUnsort[$res['PROPERTY_HOME_VALUE']]['score'] += $this->getScore($res['PROPERTY_RESULT_VALUE'], 'home');
             $this->arTableUnsort[$res['PROPERTY_GUEST_VALUE']]['score'] += $this->getScore($res['PROPERTY_RESULT_VALUE']);
 
@@ -142,12 +145,12 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
 
         }
 
-        array_multisort(array_column($this->arTableUnsort, 'score'), SORT_DESC, SORT_NUMERIC,
-//            array_column($this->arTableUnsort, 'win'), SORT_DESC, SORT_NUMERIC,
+        array_multisort(
+            array_column($this->arTableUnsort, 'score'), SORT_DESC, SORT_NUMERIC,
+            array_column($this->arTableUnsort, 'win'), SORT_DESC, SORT_NUMERIC,
             array_column($this->arTableUnsort, 'diff'), SORT_DESC, SORT_NUMERIC,
             array_column($this->arTableUnsort, 'plus'), SORT_DESC, SORT_NUMERIC,
             $this->arTableUnsort);
-
 
         if($this->arTableUnsort) $this->arTable = $this->arTableUnsort;
     }
