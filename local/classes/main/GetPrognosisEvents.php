@@ -35,7 +35,7 @@ class GetPrognosisEvents
 
             $res["img"] = CFile::GetPath($res["PREVIEW_PICTURE"]);
             $res['code'] = $res["PROPERTY_E_TYPE_VALUE"];
-            if($res["PROPERTY_TABLE_VALUE"] === 'Есть') $res['table'] = true;
+            $res['table'] = $res["PROPERTY_TABLE_VALUE"];
 
             $this->arEvents[$res["ID"]] = $res;
 
