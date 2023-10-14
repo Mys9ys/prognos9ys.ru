@@ -45,7 +45,7 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
         $arFilter = [
             'IBLOCK_ID' => $this->arIbs['matches']['id'],
             'PROPERTY_events' => $this->data['events'],
-            'PROPERTY_round' => 1
+            'PROPERTY_round' => [1,2,3]
         ];
 
         $response = CIBlockElement::GetList(
@@ -58,14 +58,20 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
             ]
         );
 
+        $arr = [];
+
         while ($res = $response->GetNext()) {
-            $this->teamsIds[] = $res['PROPERTY_HOME_VALUE'];
-            $this->teamsIds[] = $res['PROPERTY_GUEST_VALUE'];
+            $arr[] = $res['PROPERTY_HOME_VALUE'];
+            $arr[] = $res['PROPERTY_GUEST_VALUE'];
         }
+
+        $this->teamsIds = array_unique($arr, SORT_NUMERIC);
+
     }
 
     protected function getTeamsInfo()
     {
+
         $arFilter = [
             'ID' => $this->teamsIds
         ];
@@ -144,7 +150,6 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
                 }
 
                 $arGroupTemp = [];
-
 
                 foreach ($this->arGroupTeams as $groupName=>$teams){
                     $arGroupTemp[$groupName] = $this->myMultiSort($teams);
