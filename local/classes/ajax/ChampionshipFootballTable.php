@@ -15,6 +15,9 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
     protected $arTableInfo;
     protected $arTableUnsort;
 
+    protected $arGroup;
+    protected $arGroupTeams;
+
     public function __construct($data)
     {
 
@@ -33,7 +36,7 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
 
         $this->calcAllTurs();
 
-        if (count($this->arTable)) $this->setResult('ok', '', ['teams' => $this->arTable, 'info' => $arEvents[$this->data['events']]]);
+        if (count($this->arTable)) $this->setResult('ok', '', ['groups' => $this->arTable, 'info' => $arEvents[$this->data['events']]]);
 
     }
 
@@ -100,13 +103,13 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
                 "PROPERTY_goal_home",
                 "PROPERTY_goal_guest",
                 "PROPERTY_result",
+                "PROPERTY_group",
             ]
         );
 
         while ($res = $response->GetNext()) {
 
-            if(!$this->arTableUnsort[$res['PROPERTY_HOME_VALUE']]['win']) $this->arTableUnsort[$res['PROPERTY_HOME_VALUE']]['win'] = 0;
-            if(!$this->arTableUnsort[$res['PROPERTY_GUEST_VALUE']]['win']) $this->arTableUnsort[$res['PROPERTY_GUEST_VALUE']]['win'] = 0;
+            if($res["PROPERTY_GROUP_VALUE"]) $this->arGroup[$res['PROPERTY_HOME_VALUE']] = $res["PROPERTY_GROUP_VALUE"];
 
             $this->arTableUnsort[$res['PROPERTY_HOME_VALUE']]['score'] += $this->getScore($res['PROPERTY_RESULT_VALUE'], 'home');
             $this->arTableUnsort[$res['PROPERTY_GUEST_VALUE']]['score'] += $this->getScore($res['PROPERTY_RESULT_VALUE']);
@@ -117,20 +120,7 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
             if (!$this->arTableUnsort[$res['PROPERTY_HOME_VALUE']]['info']) $this->arTableUnsort[$res['PROPERTY_HOME_VALUE']]['info'] = $this->arTableInfo[$res['PROPERTY_HOME_VALUE']];
             if (!$this->arTableUnsort[$res['PROPERTY_GUEST_VALUE']]['info']) $this->arTableUnsort[$res['PROPERTY_GUEST_VALUE']]['info'] = $this->arTableInfo[$res['PROPERTY_GUEST_VALUE']];
 
-            switch ($res['PROPERTY_RESULT_VALUE']) {
-                case 'п1':
-                    $this->arTableUnsort[$res['PROPERTY_HOME_VALUE']]['win']++;
-                    $this->arTableUnsort[$res['PROPERTY_GUEST_VALUE']]['lose']++;
-                    break;
-                case 'н':
-                    $this->arTableUnsort[$res['PROPERTY_HOME_VALUE']]['draw']++;
-                    $this->arTableUnsort[$res['PROPERTY_GUEST_VALUE']]['draw']++;
-                    break;
-                case 'п2':
-                    $this->arTableUnsort[$res['PROPERTY_GUEST_VALUE']]['win']++;
-                    $this->arTableUnsort[$res['PROPERTY_HOME_VALUE']]['lose']++;
-                    break;
-            }
+            $this->getWin($res['PROPERTY_RESULT_VALUE'], $res['PROPERTY_HOME_VALUE'], $res['PROPERTY_GUEST_VALUE']);
 
             $this->arTableUnsort[$res['PROPERTY_HOME_VALUE']]['plus'] += $res['PROPERTY_GOAL_HOME_VALUE'];
             $this->arTableUnsort[$res['PROPERTY_GUEST_VALUE']]['plus'] += $res['PROPERTY_GOAL_GUEST_VALUE'];
@@ -145,14 +135,67 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
 
         }
 
-        array_multisort(
-            array_column($this->arTableUnsort, 'score'), SORT_DESC, SORT_NUMERIC,
-            array_column($this->arTableUnsort, 'win'), SORT_DESC, SORT_NUMERIC,
-            array_column($this->arTableUnsort, 'diff'), SORT_DESC, SORT_NUMERIC,
-            array_column($this->arTableUnsort, 'plus'), SORT_DESC, SORT_NUMERIC,
-            $this->arTableUnsort);
+        if($this->arTableUnsort){
 
-        if($this->arTableUnsort) $this->arTable = $this->arTableUnsort;
+            if(count($this->arGroup) >1) {
+
+                foreach ($this->arGroup as $id=>$group){
+                    $this->arGroupTeams[$group][] = $this->arTableUnsort[$id];
+                }
+
+                $arGroupTemp = [];
+
+
+                foreach ($this->arGroupTeams as $groupName=>$teams){
+                    $arGroupTemp[$groupName] = $this->myMultiSort($teams);
+                }
+
+                ksort($arGroupTemp, SORT_LOCALE_STRING );
+
+                $this->arTable = $arGroupTemp;
+
+            } else {
+                $this->arTable = [];
+                $this->arTable[0] = $this->myMultiSort($this->arTableUnsort);
+            }
+
+        }
+
+
+    }
+
+    protected function getWin($res, $home, $guest){
+
+        if(!$this->arTableUnsort[$home]['win']) $this->arTableUnsort[$home]['win'] = 0;
+        if(!$this->arTableUnsort[$guest]['win']) $this->arTableUnsort[$guest]['win'] = 0;
+
+        switch ($res) {
+            case 'п1':
+                $this->arTableUnsort[$home]['win']++;
+                $this->arTableUnsort[$guest]['lose']++;
+                break;
+            case 'н':
+                $this->arTableUnsort[$home]['draw']++;
+                $this->arTableUnsort[$guest]['draw']++;
+                break;
+            case 'п2':
+                $this->arTableUnsort[$home]['lose']++;
+                $this->arTableUnsort[$guest]['win']++;
+                break;
+        }
+    }
+
+    protected function myMultiSort($arr){
+
+         array_multisort(
+            array_column($arr, 'score'), SORT_DESC, SORT_NUMERIC,
+            array_column($arr, 'win'), SORT_DESC, SORT_NUMERIC,
+            array_column($arr, 'diff'), SORT_DESC, SORT_NUMERIC,
+            array_column($arr, 'plus'), SORT_DESC, SORT_NUMERIC,
+            $arr);
+
+        return $arr;
+
     }
 
     protected function getScore($res, $side = 'guest')
