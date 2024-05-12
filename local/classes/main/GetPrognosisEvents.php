@@ -8,20 +8,26 @@ class GetPrognosisEvents
 
     protected $arEvents = [];
 
-    public function __construct()
+    public function __construct($eventId = '')
     {
         if (!Loader::includeModule('iblock')) {
             ShowError('Модуль Информационных блоков не установлен');
             return;
         }
 
-        $this->getEvents();
+        $this->getEvents($eventId);
     }
 
-    protected function getEvents(){
+    protected function getEvents($eventId = ''){
         $arFilter = [
             'IBLOCK_ID' => $this->eventsIb,
         ];
+
+        if(!empty($eventId)){
+            $arFilter = [
+                'ID' => $eventId,
+            ];
+        }
 
         $response = CIBlockElement::GetList(
             [],
