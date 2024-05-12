@@ -30,7 +30,7 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
 
         $this->getTeamsOneTurids();
 
-        $arEventsInfo = (new GetPrognosisEvents($this->data['events']))->result()['events'];
+        $arEventsInfo = (new GetPrognosisEvents($this->data['events']))->result()['events'][$this->data['events']];
 
         if (count($this->teamsIds)) $this->getTeamsInfo();
 
