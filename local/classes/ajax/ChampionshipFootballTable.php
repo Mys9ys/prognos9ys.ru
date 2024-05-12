@@ -10,6 +10,7 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
     ];
 
     protected $teamsIds;
+    protected $userId;
 
     protected $arTable;
     protected $arTableInfo;
@@ -28,6 +29,8 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
 
         $this->data = $data;
 
+        $this->userId = (new GetUserIdForToken($data['token']))->getId();
+
         $this->getTeamsOneTurids();
 
         $arEventsInfo = (new GetPrognosisEvents($this->data['events']))->result()['events'][$this->data['events']];
@@ -35,6 +38,9 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
         if (count($this->teamsIds)) $this->getTeamsInfo();
 
         $this->calcAllTurs();
+
+        $this->getTurMatches();
+        die();
 
         if (count($this->arTable)) $this->setResult('ok', '', ['groups' => $this->arTable, 'info' => $arEventsInfo]);
 
@@ -45,7 +51,7 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
         $arFilter = [
             'IBLOCK_ID' => $this->arIbs['matches']['id'],
             'PROPERTY_events' => $this->data['events'],
-            'PROPERTY_round' => [1,2,3]
+            'PROPERTY_round' => [1, 2, 3]
         ];
 
         $response = CIBlockElement::GetList(
@@ -116,14 +122,13 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
 
         while ($res = $response->GetNext()) {
 
-            if($res["PROPERTY_GROUP_VALUE"]) $this->arGroup[$res['PROPERTY_HOME_VALUE']] = $res["PROPERTY_GROUP_VALUE"];
-
+            if ($res["PROPERTY_GROUP_VALUE"]) $this->arGroup[$res['PROPERTY_HOME_VALUE']] = $res["PROPERTY_GROUP_VALUE"];
 
 
             $this->arTableUnsort[$res['PROPERTY_HOME_VALUE']]['score'] += $this->getScore($res['PROPERTY_RESULT_VALUE'], 'home');
             $this->arTableUnsort[$res['PROPERTY_GUEST_VALUE']]['score'] += $this->getScore($res['PROPERTY_RESULT_VALUE']);
 
-            if($res["PROPERTY_GROUP_VALUE"] == 'N' || !empty($res['PROPERTY_RESULT_VALUE'])) {
+            if ($res["PROPERTY_GROUP_VALUE"] == 'N' || !empty($res['PROPERTY_RESULT_VALUE'])) {
                 $this->arTableUnsort[$res['PROPERTY_HOME_VALUE']]['matches']++;
                 $this->arTableUnsort[$res['PROPERTY_GUEST_VALUE']]['matches']++;
             }
@@ -146,21 +151,21 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
 
         }
 
-        if($this->arTableUnsort){
+        if ($this->arTableUnsort) {
 
-            if(count($this->arGroup) >1) {
+            if (count($this->arGroup) > 1) {
 
-                foreach ($this->arGroup as $id=>$group){
+                foreach ($this->arGroup as $id => $group) {
                     $this->arGroupTeams[$group][] = $this->arTableUnsort[$id];
                 }
 
                 $arGroupTemp = [];
 
-                foreach ($this->arGroupTeams as $groupName=>$teams){
+                foreach ($this->arGroupTeams as $groupName => $teams) {
                     $arGroupTemp[$groupName] = $this->myMultiSort($teams);
                 }
 
-                ksort($arGroupTemp, SORT_LOCALE_STRING );
+                ksort($arGroupTemp, SORT_LOCALE_STRING);
 
                 $this->arTable = $arGroupTemp;
 
@@ -173,10 +178,77 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
 
     }
 
-    protected function getWin($res, $home, $guest){
+    protected function getTurMatches()
+    {
+        $arFilter = [
+            'IBLOCK_ID' => $this->arIbs['matches']['id'],
+            'PROPERTY_events' => $this->data['events'],
+        ];
 
-        if(!$this->arTableUnsort[$home]['win']) $this->arTableUnsort[$home]['win'] = 0;
-        if(!$this->arTableUnsort[$guest]['win']) $this->arTableUnsort[$guest]['win'] = 0;
+        $response = CIBlockElement::GetList(
+            [],
+            $arFilter,
+            false,
+            [],
+            [
+                "ID",
+                "NAME",
+                "PROPERTY_number",
+                "ACTIVE",
+                "DATE_ACTIVE_FROM",
+                "PROPERTY_number",
+                "PROPERTY_round",
+            ]
+        );
+
+        $arTursMatches = [];
+
+        while ($res = $response->GetNext()) {
+
+            if(!$arTursMatches[$res['PROPERTY_ROUND_VALUE']]['period']['min'])
+                $arTursMatches[$res['PROPERTY_ROUND_VALUE']]['period']['min'] = $arTursMatches[$res['PROPERTY_ROUND_VALUE']]['period']['max'] = strtotime($res['DATE_ACTIVE_FROM']);
+
+            $arTursMatches[$res['PROPERTY_ROUND_VALUE']]['period']['min'] =
+                $arTursMatches[$res['PROPERTY_ROUND_VALUE']]['period']['min'] > strtotime($res['DATE_ACTIVE_FROM'])
+                    ? strtotime($res['DATE_ACTIVE_FROM'])
+                    : $arTursMatches[$res['PROPERTY_ROUND_VALUE']]['period']['min'];
+
+            $arTursMatches[$res['PROPERTY_ROUND_VALUE']]['period']['max'] =
+                $arTursMatches[$res['PROPERTY_ROUND_VALUE']]['period']['max'] < strtotime($res['DATE_ACTIVE_FROM'])
+                    ? strtotime($res['DATE_ACTIVE_FROM'])
+                    : $arTursMatches[$res['PROPERTY_ROUND_VALUE']]['period']['max'];
+
+            $arTursMatches[$res['PROPERTY_ROUND_VALUE']]['matches'][] = $res;
+        }
+
+
+        $arResult = [];
+        foreach ($arTursMatches as $turnId=>$turnArr){
+            $matches = [];
+            foreach ($turnArr['matches'] as $matches){
+                $data = [
+                    'eventId' => $this->data['eventId'],
+                    'userToken' => $this->data['token'],
+                    'number' => $matches['PROPERTY_NUMBER_VALUE']
+                ];
+                $matches[] = (new FootballMatchLoadInfo($data))->result();
+            }
+            dump($matches);
+            $arResult[$this->checkDateNearestMatch($turnArr['period'])][$turnId] = $turnArr;
+        }
+
+
+
+        dump($arResult);
+    }
+
+
+
+    protected function getWin($res, $home, $guest)
+    {
+
+        if (!$this->arTableUnsort[$home]['win']) $this->arTableUnsort[$home]['win'] = 0;
+        if (!$this->arTableUnsort[$guest]['win']) $this->arTableUnsort[$guest]['win'] = 0;
 
         switch ($res) {
             case 'п1':
@@ -194,9 +266,10 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
         }
     }
 
-    protected function myMultiSort($arr){
+    protected function myMultiSort($arr)
+    {
 
-         array_multisort(
+        array_multisort(
             array_column($arr, 'score'), SORT_DESC, SORT_NUMERIC,
             array_column($arr, 'win'), SORT_DESC, SORT_NUMERIC,
             array_column($arr, 'diff'), SORT_DESC, SORT_NUMERIC,
@@ -220,5 +293,13 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
                 return $side === 'home' ? 0 : 3;
                 break;
         }
+    }
+
+    protected function checkDateNearestMatch($arr){
+        if($arr['max'] < time() && $arr['max'] < time())
+            return 'old';
+        if($arr['max'] > time() && $arr['max'] > time())
+            return 'nearest';
+        return 'now';
     }
 }
