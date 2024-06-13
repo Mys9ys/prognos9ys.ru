@@ -39,8 +39,8 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
 
         $this->calcAllTurs();
 
-        $this->getTurMatches();
-        die();
+//        $this->getTurMatches();
+//        die();
 
         if (count($this->arTable)) $this->setResult('ok', '', ['groups' => $this->arTable, 'info' => $arEventsInfo]);
 
