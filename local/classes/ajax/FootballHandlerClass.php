@@ -219,10 +219,10 @@ class FootballHandlerClass
 
     protected function reverseArrayOldMatches()
     {
-        if (count($this->arResult['res']['recent']['matches']))
-            $this->arResult['res']['recent']['matches'] = array_reverse($this->arResult['res']['recent']['matches'], true);
-        if (count($this->arResult['res']['past']['matches']))
-            $this->arResult['res']['past']['matches'] = array_reverse($this->arResult['res']['past']['matches'], true);
+//        if (count($this->arResult['res']['recent']['matches']))
+//            $this->arResult['res']['recent']['matches'] = array_reverse($this->arResult['res']['recent']['matches'], true);
+//        if (count($this->arResult['res']['past']['matches']))
+//            $this->arResult['res']['past']['matches'] = array_reverse($this->arResult['res']['past']['matches'], true);
     }
 
     protected function getUserPrognos()
