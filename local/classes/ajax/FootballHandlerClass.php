@@ -129,10 +129,10 @@ class FootballHandlerClass
 
         foreach ($this->arFill as $section => $arr) {
             if ($section === 'nearest') {
-                krsort($this->arFill[$section]['items']);
+//                krsort($this->arFill[$section]['items']);
             }
             if ($section === 'past') {
-                $this->arFill[$section]['items'] = array_reverse($this->arFill[$section]['items']);
+//                $this->arFill[$section]['items'] = array_reverse($this->arFill[$section]['items']);
             }
 
             $this->checkVisible();
