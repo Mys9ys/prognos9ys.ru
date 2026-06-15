@@ -11,7 +11,6 @@
   </div>
 
   <div v-if="tableData.groups">
-
     <div class="table_wrapper" v-for="(teams, char) in tableData.groups" :key="char">
       <div class="title_wrapper group_wrapper" v-if="char !== 0">
         <span class="title"> Группа: {{char}}</span>
@@ -46,7 +45,43 @@
         </tr>
       </table>
     </div>
+  </div>
 
+  <div class="table_wrapper third_places_wrapper" v-if="thirdPlaces.length">
+    <div class="title_wrapper group_wrapper">
+      <span class="title">Третьи места (сравнение групп)</span>
+    </div>
+
+    <table class="table table-hover table_temp">
+      <tr class="table_row">
+        <th><span class="t_col">#</span></th>
+        <th><span class="t_col">Гр.</span></th>
+        <th><span class="t_col">Команда</span></th>
+        <th><span class="t_col">И</span></th>
+        <th><span class="t_col">В</span></th>
+        <th><span class="t_col">Н</span></th>
+        <th><span class="t_col">П</span></th>
+        <th><span class="t_col">Мячи</span></th>
+        <th><span class="t_col">Очки</span></th>
+      </tr>
+
+      <tr v-for="(item, index) in thirdPlaces" :key="'third-' + index">
+        <td><span class="t_col">{{ index + 1 }}</span></td>
+        <td><span class="t_col">{{ item.sourceGroup }}</span></td>
+        <td class="team_col">
+          <div class="flag">
+            <img :src="url + item.info.img" alt="">
+          </div>
+          <div class="title">{{ item.info.NAME }}</div>
+        </td>
+        <td><span class="t_col">{{ item.matches ?? 0 }}</span></td>
+        <td><span class="t_col">{{ item.win ?? 0 }}</span></td>
+        <td><span class="t_col">{{ item.draw ?? 0 }}</span></td>
+        <td><span class="t_col">{{ item.lose ?? 0 }}</span></td>
+        <td><span class="t_col">{{ item.plus ?? 0 }}-{{ item.minus ?? 0 }}</span></td>
+        <td><span class="t_col">{{ item.score ?? 0 }}</span></td>
+      </tr>
+    </table>
   </div>
 </template>
 
@@ -87,7 +122,11 @@ export default {
     ...mapState({
       queryData: state => state.championship.queryData,
       tableData: state => state.championship.footballData
-    })
+    }),
+    thirdPlaces() {
+      const places = this.tableData?.thirdPlaces;
+      return Array.isArray(places) ? places : Object.values(places || {});
+    },
   },
 }
 </script>
@@ -131,6 +170,10 @@ export default {
   .shadow_inset;
   color: @colorText;
   .flex_center;
+}
+
+.third_places_wrapper{
+  margin-top: 16px;
 }
 
 .team_col{

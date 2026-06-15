@@ -67,7 +67,12 @@ export const championshipModule = {
                 }
 
                 if (responseData.status == 'ok') {
-                    commit('setFootballData', responseData.result)
+                    const tablePayload = responseData.result || responseData;
+                    commit('setFootballData', {
+                        groups: tablePayload.groups || {},
+                        thirdPlaces: tablePayload.thirdPlaces || [],
+                        info: tablePayload.info || {},
+                    });
                 } else {
                     commit('setErrors', responseData.mes)
                 }

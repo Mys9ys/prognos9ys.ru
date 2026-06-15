@@ -18,6 +18,7 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
 
     protected $arGroup;
     protected $arGroupTeams;
+    protected $arThirdPlaces = [];
 
     public function __construct($data)
     {
@@ -42,7 +43,13 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
 //        $this->getTurMatches();
 //        die();
 
-        if (count($this->arTable)) $this->setResult('ok', '', ['groups' => $this->arTable, 'info' => $arEventsInfo]);
+        if (count($this->arTable)) {
+            $this->setResult('ok', '', [
+                'groups' => $this->arTable,
+                'thirdPlaces' => $this->arThirdPlaces,
+                'info' => $arEventsInfo,
+            ]);
+        }
 
     }
 
@@ -51,7 +58,6 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
         $arFilter = [
             'IBLOCK_ID' => $this->arIbs['matches']['id'],
             'PROPERTY_events' => $this->data['events'],
-            'PROPERTY_round' => [1, 2, 3]
         ];
 
         $response = CIBlockElement::GetList(
@@ -60,13 +66,20 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
             false,
             [],
             [
-                'PROPERTY_home', 'PROPERTY_guest'
+                'PROPERTY_home',
+                'PROPERTY_guest',
+                'PROPERTY_group',
             ]
         );
 
         $arr = [];
 
         while ($res = $response->GetNext()) {
+            $group = $res['PROPERTY_GROUP_VALUE'];
+            if ($group === 'N' || $group === '' || $group === null) {
+                continue;
+            }
+
             $arr[] = $res['PROPERTY_HOME_VALUE'];
             $arr[] = $res['PROPERTY_GUEST_VALUE'];
         }
@@ -122,7 +135,10 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
 
         while ($res = $response->GetNext()) {
 
-            if ($res["PROPERTY_GROUP_VALUE"]) $this->arGroup[$res['PROPERTY_HOME_VALUE']] = $res["PROPERTY_GROUP_VALUE"];
+            if ($res['PROPERTY_GROUP_VALUE'] && $res['PROPERTY_GROUP_VALUE'] !== 'N') {
+                $this->arGroup[$res['PROPERTY_HOME_VALUE']] = $res['PROPERTY_GROUP_VALUE'];
+                $this->arGroup[$res['PROPERTY_GUEST_VALUE']] = $res['PROPERTY_GROUP_VALUE'];
+            }
 
 
             $this->arTableUnsort[$res['PROPERTY_HOME_VALUE']]['score'] += $this->getScore($res['PROPERTY_RESULT_VALUE'], 'home');
@@ -174,8 +190,37 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
                 $this->arTable[0] = $this->myMultiSort($this->arTableUnsort);
             }
 
+            $this->arThirdPlaces = $this->buildThirdPlacesOverview();
         }
 
+    }
+
+    /**
+     * Сводная таблица команд на 3-м месте в своих группах (регламент ЧМ).
+     */
+    protected function buildThirdPlacesOverview(): array
+    {
+        if (!$this->arTable || count($this->arGroup) <= 1) {
+            return [];
+        }
+
+        $thirdPlaces = [];
+
+        foreach ($this->arTable as $groupName => $teams) {
+            if ($groupName === 0 || $groupName === '0' || !is_array($teams) || count($teams) < 3) {
+                continue;
+            }
+
+            $team = $teams[2];
+            $team['sourceGroup'] = $groupName;
+            $thirdPlaces[] = $team;
+        }
+
+        if (!$thirdPlaces) {
+            return [];
+        }
+
+        return $this->myMultiSort($thirdPlaces);
     }
 
     protected function getTurMatches()

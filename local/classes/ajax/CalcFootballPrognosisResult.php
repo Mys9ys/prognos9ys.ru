@@ -17,6 +17,9 @@ class CalcFootballPrognosisResult
 
     protected $arMiddleResult;
 
+    /** @var array<int|string, int> userId => elementId */
+    protected $existingResultByUser = [];
+
     protected $arProps = [
         33 => "goals",
         34 => "result",
@@ -280,14 +283,36 @@ class CalcFootballPrognosisResult
 
     protected function setManyResult()
     {
-        foreach ($this->arResults as $res){
+        $this->loadExistingResultIds();
+
+        foreach ($this->arResults as $res) {
             $this->setOneResult($res);
         }
     }
 
-    protected function setOneResult($arr){
+    protected function loadExistingResultIds(): void
+    {
+        if (empty($this->data['matchId'])) {
+            return;
+        }
 
-        $arSet = [];
+        $response = CIBlockElement::GetList(
+            [],
+            [
+                'IBLOCK_ID' => $this->arIbs['result']['id'],
+                'PROPERTY_match_id' => $this->data['matchId'],
+            ],
+            false,
+            false,
+            ['ID', 'PROPERTY_user_id']
+        );
+
+        while ($res = $response->GetNext()) {
+            $this->existingResultByUser[$res['PROPERTY_USER_ID_VALUE']] = (int)$res['ID'];
+        }
+    }
+
+    protected function setOneResult($arr){
 
         $prop = [
             33 => $arr["goals"],
@@ -308,20 +333,33 @@ class CalcFootballPrognosisResult
             53 => $arr["event"],
         ];
 
-        $now = date(\CDatabase::DateFormatToPHP("DD.MM.YYYY HH:MI:SS"), time());
-
         $ib = new CIBlockElement;
-        $data = [
-            "NAME" => "Участник: " .$prop[44] . " Результаты прогноза на матч: " . $arr["number"],
-            "IBLOCK_ID" => $this->arIbs['result']['id'],
-            "DATE_ACTIVE_FROM" => $now,
-            "PROPERTY_VALUES"=>$prop
-        ];
+        $name = 'Участник: ' . $prop[44] . ' Результаты прогноза на матч: ' . $arr['number'];
+        $userId = $prop[44];
+        $existingId = $this->existingResultByUser[$userId] ?? null;
 
-        $arSet[$prop[44]] = $ib->Add($data);
+        if ($existingId) {
+            $success = $ib->Update($existingId, [
+                'NAME' => $name,
+                'PROPERTY_VALUES' => $prop,
+            ]);
+        } else {
+            $now = date(\CDatabase::DateFormatToPHP('DD.MM.YYYY HH:MI:SS'), time());
+            $newId = $ib->Add([
+                'NAME' => $name,
+                'IBLOCK_ID' => $this->arIbs['result']['id'],
+                'DATE_ACTIVE_FROM' => $now,
+                'PROPERTY_VALUES' => $prop,
+            ]);
+            $success = (bool)$newId;
+            if ($success) {
+                $this->existingResultByUser[$userId] = (int)$newId;
+            }
+        }
 
-        $this->setResult('ok', '');
-
+        if ($success) {
+            $this->setResult('ok', '');
+        }
     }
 
     protected function setResult($status, $mes, $info = '')
