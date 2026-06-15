@@ -1,19 +1,29 @@
 @ECHO OFF
 setlocal
 
-set PROG_VUE=D:\OSPanel\home\prog.vue
-set PROGNOS9YS=D:\OSPanel\home\prognos9ys
-set NODE_PATH=C:\Program Files\nodejs
+rem Корень репозитория prognos9ys (на два уровня выше local\mob_app_ajax)
+set "ROOT=%~dp0..\.."
+set "FRONTEND=%ROOT%\frontend"
+set "MOB_APP=%ROOT%\mob_app"
+set "MOB_APP_AJAX=%ROOT%\local\mob_app_ajax\ajax"
+set "NODE_PATH=C:\Program Files\nodejs"
 
 set PATH=%NODE_PATH%;%PATH%
 
-cd /d "%PROG_VUE%"
+if not exist "%FRONTEND%\package.json" (
+    echo Error: frontend not found at %FRONTEND%
+    exit /b 1
+)
+
+cd /d "%FRONTEND%"
 call npm run build
 if errorlevel 1 exit /b 1
 
-robocopy "%PROG_VUE%\dist" "%PROGNOS9YS%\mob_app" /E /XF .htaccess /XD ajax /NFL /NDL /NJH /NJS /nc /ns /np
-robocopy "%PROGNOS9YS%\local\mob_app_ajax\ajax" "%PROGNOS9YS%\mob_app\ajax" /E /NFL /NDL /NJH /NJS /nc /ns /np
-robocopy "%PROG_VUE%\dist\ajax" "%PROGNOS9YS%\mob_app\ajax" /E /NFL /NDL /NJH /NJS /nc /ns /np
+robocopy "%FRONTEND%\dist" "%MOB_APP%" /E /XF .htaccess /XD ajax /NFL /NDL /NJH /NJS /nc /ns /np
+robocopy "%MOB_APP_AJAX%" "%MOB_APP%\ajax" /E /NFL /NDL /NJH /NJS /nc /ns /np
+if exist "%FRONTEND%\dist\ajax" (
+    robocopy "%FRONTEND%\dist\ajax" "%MOB_APP%\ajax" /E /NFL /NDL /NJH /NJS /nc /ns /np
+)
 
-echo Deploy complete: %PROGNOS9YS%\mob_app
+echo Deploy complete: %MOB_APP%
 exit /b 0

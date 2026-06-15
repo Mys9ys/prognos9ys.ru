@@ -5,4 +5,8 @@
 /mob_app/
 /test/
 /vendor/
-/local/php_interface/archive/
+/local/php_interface/archive/composer.phar
+
+# Vue frontend (исходники в frontend/, сборка в mob_app/)
+/frontend/node_modules/
+/frontend/dist/

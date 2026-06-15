@@ -1,6 +1,6 @@
 ---
 description: Именование Bitrix Engine actions для модуля prognos9ys.main и Vue-клиента
-globs: local/modules/prognos9ys.main/**/*
+globs: local/modules/prognos9ys.main/**/*,frontend/src/**/*
 alwaysApply: false
 ---
 
@@ -41,7 +41,7 @@ alwaysApply: false
 ## Где править вызовы
 
 - PHP: `local/modules/prognos9ys.main/lib/Controller/*Controller.php` — методы `{actionName}Action()`
-- Vue: `D:\OSPanel\home\prog.vue\src\api\bitrixClient.js` — строки `runBitrixAction('prognos9ys:main....')`
+- Vue: `frontend/src/api/bitrixClient.js` — строки `runBitrixAction('prognos9ys:main....')`
 - После правок Vue: `local/mob_app_ajax/deploy_mob_app.bat`
 
 ## Примеры action для проекта
