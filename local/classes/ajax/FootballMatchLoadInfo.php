@@ -194,9 +194,13 @@ class FootballMatchLoadInfo extends PrognosisGiveInfo
             $arSelect,
         )->GetNext();
 
+        if (!$res) {
+            return null;
+        }
+
         $arr = [];
 
-        $arr["id"] = $res["ID"];
+        $arr['id'] = $res['ID'];
 
         if ($ib === 6) $arr['time_send'] = $res['TIMESTAMP_X'] ?? '';
         $arr["goal_home"] = $res["PROPERTY_GOAL_HOME_VALUE"];
@@ -208,8 +212,12 @@ class FootballMatchLoadInfo extends PrognosisGiveInfo
         $arr["result"] = $res["PROPERTY_RESULT_VALUE"];
         $arr["sum"] = $res["PROPERTY_SUM_VALUE"];
         $arr["diff"] = $res["PROPERTY_DIFF_VALUE"];
-        $arr["domination"] = $res["PROPERTY_DOMINATION_VALUE"];
-        $arr["domination2"] = $res["PROPERTY_DOMINATION_VALUE"] .' - '. (100-$res["PROPERTY_DOMINATION_VALUE"]);
+        $arr['domination'] = $res['PROPERTY_DOMINATION_VALUE'];
+        if ($res['PROPERTY_DOMINATION_VALUE'] !== null && $res['PROPERTY_DOMINATION_VALUE'] !== '') {
+            $arr['domination2'] = $res['PROPERTY_DOMINATION_VALUE'] . ' - ' . (100 - (int)$res['PROPERTY_DOMINATION_VALUE']);
+        } else {
+            $arr['domination2'] = null;
+        }
         $arr["yellow"] = $res["PROPERTY_YELLOW_VALUE"];
         $arr["red"] = $res["PROPERTY_RED_VALUE"];
         $arr["corner"] = $res["PROPERTY_CORNER_VALUE"];

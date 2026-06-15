@@ -6,6 +6,7 @@ use Bitrix\Main\Engine\ActionFilter\Base;
 use Bitrix\Main\Error;
 use Bitrix\Main\Event;
 use Bitrix\Main\EventResult;
+use Bitrix\Main\HttpRequest;
 use Prognos9ys\Main\Service\Auth\TokenAuthService;
 
 class TokenAuthFilter extends Base
@@ -46,7 +47,7 @@ class TokenAuthFilter extends Base
             return (string)$token;
         }
 
-        $json = $request->getJsonList()->toArray();
+        $json = $this->getRequestJsonData();
         $token = $json['userToken'] ?? $json['token'] ?? null;
 
         if ($token) {
@@ -60,5 +61,23 @@ class TokenAuthFilter extends Base
         }
 
         return $authHeader ? (string)$authHeader : null;
+    }
+
+    private function getRequestJsonData(): array
+    {
+        $request = $this->getAction()->getController()->getRequest();
+
+        if (method_exists($request, 'getJsonList')) {
+            return $request->getJsonList()->toArray();
+        }
+
+        $raw = HttpRequest::getInput();
+        if (!$raw) {
+            return [];
+        }
+
+        $decoded = json_decode($raw, true);
+
+        return is_array($decoded) ? $decoded : [];
     }
 }

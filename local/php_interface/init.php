@@ -50,6 +50,7 @@ $arClassMain = [
     'GetArrMatchIdForNumber',
     'SendMatchReminderMessage',
     'GetUserIdForToken',
+    'Prognos9ysAuthClass',
 ];
 
 $arTemplate = [

@@ -2,7 +2,6 @@
 
 namespace Prognos9ys\Main\Controller;
 
-use Prognos9ys\Main\Service\Auth\TokenAuthService;
 use Prognos9ys\Main\Service\Football\FootballEventListService;
 use Prognos9ys\Main\Service\Football\FootballMatchService;
 use Prognos9ys\Main\Service\Football\FootballPrognosisService;
@@ -49,13 +48,13 @@ class FootballController extends BaseController
      */
     public function sendPrognosisAction(array $fields, ?string $userToken = null): array
     {
-        if (!TokenAuthService::getCurrentUserId()) {
-            throw new ApiException('Пользователь не авторизован', 401);
-        }
-
         $token = $userToken
             ?: (string)$this->getRequest()->get('userToken')
             ?: (string)$this->getRequest()->getPost('userToken');
+
+        if (!$token) {
+            throw new ApiException('Требуется токен авторизации', 401);
+        }
 
         return (new FootballPrognosisService())->send($token, $fields);
     }

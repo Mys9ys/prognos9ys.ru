@@ -1,7 +1,7 @@
 <template>
   <PreLoader v-if="prognosisLoader"></PreLoader>
   <SendSuccess v-if="prognosisSuccess" :closeSuccess="closeSuccess"></SendSuccess>
-  <ActionFailure v-if="actionFailure" :closeSuccess="closeSuccess">{{errors.mes}}</ActionFailure>
+  <ActionFailure v-if="actionFailure" :closeSuccess="closeSuccess">{{ errorMessage }}</ActionFailure>
 
   <div v-else class="match_wrapper">
     <PageHeader class="header" :path="'/football/' + $route.params.event">Матч № {{ $route.params.number }}</PageHeader>
@@ -51,7 +51,7 @@
     <div v-else>
       <div class="match_record_wrapper" v-if="arMatch.active === 'Y'">
         <div class="prognosis_block">
-          <div class="time_send" v-if="prognosis.time_send">
+          <div class="time_send" v-if="prognosis?.time_send">
             <div class="title_block">
               Заполнено: {{prognosis.time_send}}
             </div>
@@ -259,7 +259,7 @@
             <div class="annotation_btn" @click="annotationVis = !annotationVis">Расшифровка
               <span class="annotation_arrow" :class="{'up' : annotationVis === true}">v</span>
             </div>
-            <div class="btn_send" @click="sendPrognosis" v-if="!prognosis.result">Отправить</div>
+            <div class="btn_send" @click="sendPrognosis" v-if="!prognosis?.result">Отправить</div>
             <div class="btn_send rewrite" @click="sendPrognosis" v-else>Изменить</div>
 
           </div>
@@ -270,7 +270,7 @@
 
       <div class="match_result_wrapper" v-else>
 
-        <FootballResultTable v-if="prognosis"
+        <FootballResultTable
             :match="arMatch"
         ></FootballResultTable>
 
@@ -435,39 +435,71 @@ export default {
 
     async sendPrognosis() {
       this.prognosisLoader = true
-
       this.error = ''
+      this.actionFailure = false
 
-      if (!this.data[18]) this.error = 'Вы ничего не заполнили'
+      if (!this.data[18]) {
+        this.error = 'Укажите счёт матча (кнопки +/-) или исход (п1 / н / п2)'
+        this.prognosisLoader = false
+        return
+      }
 
-      if (!this.error) {
+      if (!this.arMatch?.id) {
+        this.error = 'Матч ещё не загружен, попробуйте снова'
+        this.prognosisLoader = false
+        return
+      }
+
+      try {
         this.queryPrognosis.userToken = this.token
-        this.queryPrognosis.fields = this.data
-
         this.data[17] = this.arMatch.id
+        this.data[30] = this.$route.params.number
+        this.data[52] = this.$route.params.event
+        this.queryPrognosis.fields = { ...this.data }
 
-        await this.sendUserPrognosis()
+        const result = await this.sendUserPrognosis()
 
-
-        if(!this.errors.mes) {
+        if (result?.ok) {
           this.prognosisSuccess = true
-          console.log('this.errors.mes', this.errors.mes)
+          await this.getMatchRequest()
+          this.syncFormFromPrognosis()
         } else {
           this.actionFailure = true
-          console.log('this.errors.mes', this.errors.mes)
         }
+      } finally {
         this.prognosisLoader = false
-
-        if(!this.prognosis.result) {
-          this.prognosis.result = true
-          this.prognosis.time_send = 'Сейчас'
-        }
       }
     },
 
     closeSuccess() {
       this.prognosisSuccess = false
       this.actionFailure = false
+    },
+
+    syncScoreFromGoals() {
+      this.data[28] = Number(this.data[15]) + Number(this.data[16])
+      this.data[19] = Number(this.data[15]) - Number(this.data[16])
+
+      if (this.data[19] > 0) this.data[18] = 'п1'
+      else if (this.data[19] === 0) this.data[18] = 'н'
+      else if (this.data[19] < 0) this.data[18] = 'п2'
+    },
+
+    syncFormFromPrognosis() {
+      const prognosis = this.arMatch?.prognosis ?? {}
+
+      this.data[15] = prognosis.goal_home ?? 0
+      this.data[16] = prognosis.goal_guest ?? 0
+      this.data[18] = prognosis.result ?? ''
+      this.data[19] = prognosis.diff ?? ''
+      this.data[28] = prognosis.sum ?? ''
+      this.data[32] = prognosis.domination ?? 50
+      this.data[21] = prognosis.yellow ?? ''
+      this.data[22] = prognosis.red ?? ''
+      this.data[20] = prognosis.corner ?? ''
+      this.data[23] = prognosis.penalty ?? ''
+      this.data[45] = prognosis.otime ?? ''
+      this.data[46] = prognosis.spenalty ?? ''
     },
 
     setGoals(type, id) {
@@ -482,14 +514,7 @@ export default {
       if (type === 'two') this.data[id] = 2
       if (type === 'five') this.data[id] = 5
 
-      this.data[28] = this.data[15] + this.data[16]
-
-      this.data[19] = this.data[15] - this.data[16]
-
-      if (this.data[19] > 0) this.data[18] = 'п1'
-      if (this.data[19] === 0) this.data[18] = 'н'
-      if (this.data[19] < 0) this.data[18] = 'п2'
-
+      this.syncScoreFromGoals()
     },
 
     setMath(operation, id, type = '') {
@@ -552,23 +577,7 @@ export default {
       this.queryMatch.userToken = this.token
 
       await this.getMatchRequest()
-
-      // запись полученных значений
-
-      this.data[15] = this.prognosis.goal_home ?? 0
-      this.data[16] = this.prognosis.goal_guest ?? 0
-      this.data[18] = this.prognosis.result ?? ''
-      this.data[19] = this.prognosis.diff ?? ''
-      this.data[28] = this.prognosis.sum ?? ''
-
-      this.data[32] = this.prognosis.domination ?? 50
-      this.data[21] = this.prognosis.yellow ?? ''
-      this.data[22] = this.prognosis.red ?? ''
-      this.data[20] = this.prognosis.corner ?? ''
-      this.data[23] = this.prognosis.penalty ?? ''
-
-      this.data[45] = this.prognosis.otime ?? ''
-      this.data[46] = this.prognosis.spenalty ?? ''
+      this.syncFormFromPrognosis()
 
       this.prognosisLoader = false
     }
@@ -588,7 +597,18 @@ export default {
 
       role: state => state.auth.userInfo.role,
       errors: state => state.football.errors
-    })
+    }),
+    errorMessage() {
+      if (this.errors?.mes) {
+        return this.errors.mes
+      }
+
+      if (typeof this.errors === 'string' && this.errors) {
+        return this.errors
+      }
+
+      return 'Не удалось сохранить прогноз'
+    },
   },
 }
 </script>

@@ -15,24 +15,28 @@
     </tr>
     </thead>
     <tbody>
-    <tr v-if="match.match_result">
-      <td class="pr_table_col" v-for="(selector, index) in selectors" :key="index">{{match.match_result[selector]}}</td>
+    <tr v-if="match.match_result" class="match_result_row">
+      <td class="pr_table_col" v-for="(selector, index) in selectors" :key="index">{{ displayValue(match.match_result, selector) }}</td>
       <td class="pr_table_col"></td>
     </tr>
 
-    <tr v-if="match.prognosis">
-      <td class="pr_table_col result" v-for="(selector, index) in selectors" :key="index">{{match.prognosis[selector]}}</td>
+    <tr v-if="hasPrognosis" class="prognosis_row">
+      <td class="pr_table_col" v-for="(selector, index) in selectors" :key="index">{{ displayValue(match.prognosis, selector) }}</td>
       <td class="pr_table_col"></td>
     </tr>
 
-    <tr v-if="match.prog_result" class="prog_r">
+    <tr v-else-if="showNoPrognosisHint" class="no_prognosis_row">
+      <td :colspan="columnCount" class="no_prognosis_cell">Прогноз не заполнен</td>
+    </tr>
+
+    <tr v-if="hasProgResult" class="prog_r">
       <td class="pr_table_col"
           :class="{'green' : match.prog_result[selector] >0}"
           v-for="(selector, index) in selectors" :key="index">
-        <span v-if="selector !== 'domination2'" >{{match.prog_result[selector]}}</span>
-        <span v-else :class="{'green' : match.prog_result['domination2'] && match.prog_result['domination2'] !==0}">{{match.prog_result['domination']}}</span>
+        <span v-if="selector !== 'domination2'">{{ displayValue(match.prog_result, selector) }}</span>
+        <span v-else :class="{'green' : match.prog_result['domination2'] && match.prog_result['domination2'] !==0}">{{ displayValue(match.prog_result, 'domination') }}</span>
       </td>
-      <td class="pr_table_col" :class="{'green' : match.prog_result.all >0}">{{match.prog_result.all}}</td>
+      <td class="pr_table_col" :class="{'green' : match.prog_result.all >0}">{{ displayValue(match.prog_result, 'all') }}</td>
     </tr>
     </tbody>
   </table>
@@ -72,8 +76,8 @@ export default {
       selectors: {
         1: 'goal_score',
         2: 'result',
-        3: 'sum',
-        4: 'diff',
+        3: 'diff',
+        4: 'sum',
         5: 'domination2',
         6: 'yellow',
         7: 'red',
@@ -81,10 +85,32 @@ export default {
         9: 'penalty',
         10: 'otime',
         11: 'spenalty',
-
       }
     }
-  }
+  },
+  computed: {
+    columnCount() {
+      return Object.keys(this.selectors).length + 1;
+    },
+    hasPrognosis() {
+      return Boolean(this.match?.prognosis?.id);
+    },
+    hasProgResult() {
+      return Boolean(this.match?.prog_result?.id);
+    },
+    showNoPrognosisHint() {
+      return !this.hasPrognosis && !this.hasProgResult;
+    },
+  },
+  methods: {
+    displayValue(row, selector) {
+      if (!row) {
+        return '';
+      }
+      const value = row[selector];
+      return value === null || value === undefined || value === '' ? '—' : value;
+    },
+  },
 }
 </script>
 
@@ -99,8 +125,20 @@ export default {
     font-size: 11px;
   }
 
-  .result {
+  .match_result_row td {
+    color: @orange;
+    font-weight: 600;
+  }
+
+  .prognosis_row td {
     color: @NoWrite;
+  }
+
+  .no_prognosis_row td {
+    color: @colorBlur;
+    font-style: italic;
+    text-align: center;
+    padding: 4px 2px;
   }
 
   .prog_r {
@@ -142,7 +180,7 @@ export default {
     .shadow_inset;
   }
   .match_res{
-    color: @colorText;
+    color: @orange;
   }
   .prognosis{
     color: @NoWrite;

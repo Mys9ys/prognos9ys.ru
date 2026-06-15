@@ -6,11 +6,19 @@ import { baseConfig } from '@/store/config';
  * Ответ: { status: 'success', data: {...}, errors: [...] }
  */
 export async function runBitrixAction(action, data = {}) {
+    const params = { action, mode: 'class' };
+
+    if (data.userToken) {
+        params.userToken = data.userToken;
+    } else if (data.token) {
+        params.token = data.token;
+    }
+
     const response = await axios.post(
         baseConfig.BITRIX_ACTION_URL,
         data,
         {
-            params: { action, mode: 'class' },
+            params,
             headers: { 'Content-Type': 'application/json' },
             withCredentials: true,
         }

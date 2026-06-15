@@ -132,6 +132,7 @@ export const footballModule = {
         },
 
         async sendUserPrognosis({state, commit}) {
+            commit('setError', {});
 
             try {
                 let responseData;
@@ -152,14 +153,18 @@ export const footballModule = {
                     responseData = response.data;
                 }
 
-                if (responseData.status == 'ok') {
-                    console.log('axios data', responseData)
-                } else {
-                    commit('setErrors', responseData.mes)
+                if (responseData.status === 'ok') {
+                    console.log('axios data', responseData);
+                    return { ok: true };
                 }
 
+                commit('setError', { mes: responseData.mes || 'Не удалось сохранить прогноз' });
+                return { ok: false };
+
             } catch (e) {
-                console.log('error', e)
+                console.log('error', e);
+                commit('setError', { mes: e.message || 'Ошибка при отправке прогноза' });
+                return { ok: false };
             }
         },
 
