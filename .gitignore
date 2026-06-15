@@ -2,11 +2,11 @@
 .htaccess
 /bitrix/
 /upload/
-/mob_app/
 /test/
 /vendor/
 /local/php_interface/archive/composer.phar
 
-# Vue frontend (исходники в frontend/, сборка в mob_app/)
+# Vue frontend (исходники в frontend/, сборка в mob_app/ — коммитится в репозиторий)
 /frontend/node_modules/
 /frontend/dist/
+/mob_app/ajax/_logs/

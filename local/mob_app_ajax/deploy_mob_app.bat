@@ -19,6 +19,9 @@ cd /d "%FRONTEND%"
 call npm run build
 if errorlevel 1 exit /b 1
 
+if exist "%MOB_APP%\js" rd /s /q "%MOB_APP%\js"
+if exist "%MOB_APP%\css" rd /s /q "%MOB_APP%\css"
+
 robocopy "%FRONTEND%\dist" "%MOB_APP%" /E /XF .htaccess /XD ajax /NFL /NDL /NJH /NJS /nc /ns /np
 robocopy "%MOB_APP_AJAX%" "%MOB_APP%\ajax" /E /NFL /NDL /NJH /NJS /nc /ns /np
 if exist "%FRONTEND%\dist\ajax" (
