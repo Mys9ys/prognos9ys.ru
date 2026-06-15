@@ -62,13 +62,39 @@ export const apiActions = {
         ),
     },
     rating: {
-        getFootball: (event) => runBitrixAction(
+        getFootball: (event, setId = null, userToken = '') => runBitrixAction(
             'prognos9ys:main.RatingController.getFootballRatings',
-            { event }
+            { event, setId: setId || undefined, userToken: userToken || undefined }
         ),
         getRace: (events) => runBitrixAction(
             'prognos9ys:main.RatingController.getRaceRatings',
             { events }
+        ),
+    },
+    ratingSet: {
+        create: (userToken, payload) => runBitrixAction(
+            'prognos9ys:main.RatingSetController.create',
+            { userToken, ...payload }
+        ),
+        update: (userToken, setId, payload) => runBitrixAction(
+            'prognos9ys:main.RatingSetController.update',
+            { userToken, setId, ...payload }
+        ),
+        delete: (userToken, setId) => runBitrixAction(
+            'prognos9ys:main.RatingSetController.delete',
+            { userToken, setId }
+        ),
+        listMy: (userToken, sport = 'football', eventId = null) => runBitrixAction(
+            'prognos9ys:main.RatingSetController.listMy',
+            { userToken, sport, eventId: eventId || undefined }
+        ),
+        listPublic: (sport = 'football', eventId = null) => runBitrixAction(
+            'prognos9ys:main.RatingSetController.listPublic',
+            { sport, eventId: eventId || undefined }
+        ),
+        get: (setId, userToken = '') => runBitrixAction(
+            'prognos9ys:main.RatingSetController.get',
+            { setId, userToken: userToken || undefined }
         ),
     },
     championship: {

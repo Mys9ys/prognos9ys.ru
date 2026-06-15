@@ -12,6 +12,7 @@ export const ratingModule = {
 
         ratingData: {
             event: '',
+            setId: null,
         },
 
     }),
@@ -27,12 +28,17 @@ export const ratingModule = {
 
     },
     actions: {
-        async getFootballRatings({state, commit}) {
+        async getFootballRatings({state, commit, rootState}) {
             try {
                 let responseData;
 
                 if (baseConfig.USE_BITRIX_API) {
-                    responseData = await apiActions.rating.getFootball(state.ratingData.event);
+                    const userToken = rootState.auth?.authData?.token || '';
+                    responseData = await apiActions.rating.getFootball(
+                        state.ratingData.event,
+                        state.ratingData.setId || null,
+                        userToken
+                    );
                 } else {
                     const response = await axios.post(baseConfig.BASE_URL + 'football/ratings/', state.ratingData,
                         {

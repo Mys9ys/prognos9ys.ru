@@ -30,6 +30,7 @@ import PreLoader from "@/components/main/PreLoader";
 
 export default {
   name: "FootballRatingBlock",
+  emits: ['loaded'],
   components: {
     PreLoader,
     FootballRatingBody
@@ -37,7 +38,11 @@ export default {
   props: {
     eventId: {
       type: String
-    }
+    },
+    setId: {
+      type: [Number, String, null],
+      default: null,
+    },
   },
   data() {
     return {
@@ -98,7 +103,11 @@ export default {
     eventId(){
       this.thisLoader = true
       this.loadRating(this.eventId)
-    }
+    },
+    setId(){
+      this.thisLoader = true
+      this.loadRating(this.eventId)
+    },
   },
 
   methods: {
@@ -108,8 +117,10 @@ export default {
 
     async loadRating(id) {
       this.ratingData.event = id
+      this.ratingData.setId = this.setId ? Number(this.setId) : null
       await this.getFootballRatings()
       this.thisLoader = false
+      this.$emit('loaded')
     }
   },
 
@@ -134,7 +145,7 @@ export default {
   justify-content: space-between;
   gap: 3px;
   border-radius: 5px;
-  margin-top: 4px;
+  margin-top: 12px;
 
   .rating_title_cell {
     min-width: 23px;

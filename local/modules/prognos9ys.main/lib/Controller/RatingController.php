@@ -15,9 +15,12 @@ class RatingController extends BaseController
         ];
     }
 
-    public function getFootballRatingsAction($event): array
+    public function getFootballRatingsAction($event, ?int $setId = null, ?string $userToken = null, ?string $token = null): array
     {
-        return (new FootballRatingService())->getByEvent($event);
+        $service = new FootballRatingService();
+        $viewerUserId = $service->resolveViewerUserId($userToken ?: $token);
+
+        return $service->getByEvent($event, $setId, $viewerUserId);
     }
 
     public function getRaceRatingsAction(string $events): array

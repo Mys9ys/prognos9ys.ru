@@ -17,9 +17,9 @@
           <tbody>
           <tr v-for="(el) in data" :key="el.id">
             <td class="pr_table_col">{{el.place}}</td>
-            <td class="pr_table_col" v-if="el.diff === 0"><div class="zero_diff">–</div></td>
-            <td class="pr_table_col" v-else-if="el.diff >0"><div class="plus_diff">{{el.diff}}</div></td>
-            <td class="pr_table_col" v-else-if="el.diff <0"><div class="minus_diff">{{el.diff}}</div></td>
+            <td class="pr_table_col" v-if="diffValue(el) === 0"><div class="zero_diff">–</div></td>
+            <td class="pr_table_col" v-else-if="diffValue(el) > 0"><div class="plus_diff">{{ diffValue(el) }}</div></td>
+            <td class="pr_table_col" v-else-if="diffValue(el) < 0"><div class="minus_diff">{{ diffValue(el) }}</div></td>
             <td class="pr_table_col user_cell">
               <span class="user_ava">
                 <img :src="url+el.user.img" alt="" v-if="el.user.img">
@@ -62,6 +62,10 @@ export default {
   },
 
   methods: {
+    diffValue(row) {
+      return Number(row?.diff ?? 0);
+    },
+
     selectMatch(arRating){
       this.matchNumbers = Object.keys(arRating || {})
 

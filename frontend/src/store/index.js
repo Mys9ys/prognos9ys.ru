@@ -14,6 +14,7 @@ import {raceModule} from "@/store/raceModule";
 import {adminModule} from "@/store/adminModule";
 import {newsModule} from "@/store/newsModule";
 import {championshipModule} from "@/store/championshipModule";
+import {ratingSetModule} from "@/store/ratingSetModule";
 
 export default createStore({
     state: {
@@ -42,6 +43,7 @@ export default createStore({
 
         catalog: catalogModule,
         rating: ratingModule,
+        ratingSet: ratingSetModule,
         mainPage: mainPageModule,
 
         icons: iconModule,
