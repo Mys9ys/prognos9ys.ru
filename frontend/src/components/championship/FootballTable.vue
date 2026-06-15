@@ -12,8 +12,16 @@
 
   <div v-if="tableData.groups">
     <div class="table_wrapper" v-for="(teams, char) in tableData.groups" :key="char">
-      <div class="title_wrapper group_wrapper" v-if="char !== 0">
-        <span class="title"> Группа: {{char}}</span>
+      <div class="title_wrapper group_wrapper group_header" v-if="!isDefaultGroup(char)">
+        <span class="title">Группа: {{ char }}</span>
+        <div
+            class="group_matches_toggle"
+            v-if="groupMatchesFor(char).length"
+            @click="toggleGroupMatches(char)"
+        >
+          <span class="toggle_icon">{{ isGroupExpanded(char) ? '▼' : '▶' }}</span>
+          <span>Матчи ({{ groupMatchesFor(char).length }})</span>
+        </div>
       </div>
 
       <table class="table table-hover table_temp">
@@ -44,7 +52,21 @@
           <td><span class="t_col">{{item.score ?? 0}}</span></td>
         </tr>
       </table>
+
+      <div class="group_matches_list" v-if="!isDefaultGroup(char) && isGroupExpanded(char)">
+        <EventMatch
+            v-for="match in groupMatchesFor(char)"
+            :key="match.number"
+            :match="match"
+            class="group_match_item"
+        />
+      </div>
     </div>
+  </div>
+
+  <div class="table_empty" v-if="!elLoader && loadAttempted && !hasTableData">
+    <span v-if="loadError">{{ loadError }}</span>
+    <span v-else>Турнирная таблица пока пуста</span>
   </div>
 
   <div class="table_wrapper third_places_wrapper" v-if="thirdPlaces.length">
@@ -89,17 +111,21 @@
 import PageHeader from "@/components/main/PageHeader";
 import {mapActions, mapState} from "vuex";
 import PreLoader from "@/components/main/PreLoader";
+import EventMatch from "@/components/football/EventMatch";
 
 export default {
   name: "FootballTable",
   components: {
     PageHeader,
-    PreLoader
+    PreLoader,
+    EventMatch,
   },
   data() {
     return {
-      url:  'https://prognos9ys.ru/',
-      elLoader: false
+      url: `${window.location.origin}/`,
+      elLoader: false,
+      loadAttempted: false,
+      expandedGroups: {},
     }
   },
   created() {
@@ -113,16 +139,52 @@ export default {
 
     async fillTable() {
       this.elLoader = true
-      this.queryData.events = this.$route.params.event
-      await this.getTableInfo()
-      this.elLoader = false
-    }
+      this.loadAttempted = false
+      try {
+        await this.$store.commit('championship/setQueryData', {
+          events: this.$route.params.event,
+          token: this.token || '',
+        })
+        await this.getTableInfo()
+      } finally {
+        this.loadAttempted = true
+        this.elLoader = false
+      }
+    },
+
+    groupMatchesFor(group) {
+      const matches = this.tableData?.groupMatches?.[group];
+      return Array.isArray(matches) ? matches : [];
+    },
+
+    isGroupExpanded(group) {
+      return Boolean(this.expandedGroups[group]);
+    },
+
+    toggleGroupMatches(group) {
+      this.expandedGroups = {
+        ...this.expandedGroups,
+        [group]: !this.expandedGroups[group],
+      };
+    },
+
+    isDefaultGroup(group) {
+      return group === 0 || group === '0';
+    },
   },
   computed: {
     ...mapState({
-      queryData: state => state.championship.queryData,
-      tableData: state => state.championship.footballData
+      tableData: state => state.championship.footballData,
+      token: state => state.auth.authData.token,
+      loadError: state => state.championship.errors,
     }),
+    hasTableData() {
+      const groups = this.tableData?.groups;
+      if (groups && Object.keys(groups).some((key) => !this.isDefaultGroup(key))) {
+        return true;
+      }
+      return this.thirdPlaces.length > 0 || Boolean(this.tableData?.info?.NAME);
+    },
     thirdPlaces() {
       const places = this.tableData?.thirdPlaces;
       return Array.isArray(places) ? places : Object.values(places || {});
@@ -149,7 +211,22 @@ export default {
 }
 .group_wrapper{
   margin: 0;
-  gap:0;
+  gap: 4px;
+}
+
+.group_header{
+  width: 100%;
+  justify-content: space-between;
+  align-items: stretch;
+  margin-bottom: 4px;
+
+  .title{
+    flex: 1;
+    display: flex;
+    align-items: center;
+    text-align: left;
+    .shadow_inset;
+  }
 }
 .table_wrapper{
   background: @DarkColorBG;
@@ -174,6 +251,54 @@ export default {
 
 .third_places_wrapper{
   margin-top: 16px;
+}
+
+.table_empty{
+  margin-top: 16px;
+  padding: 12px;
+  border-radius: 5px;
+  background: @DarkColorBG;
+  color: @colorText;
+  font-size: 14px;
+  .shadow_inset;
+}
+
+.group_matches_toggle{
+  flex-shrink: 0;
+  align-self: stretch;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  border-radius: 3px;
+  background: @colorText2;
+  color: @colorText;
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  border: 1px solid transparent;
+  box-sizing: border-box;
+  .shadow_template;
+
+  &:hover{
+    background: @colorText;
+    color: @colorText2;
+    border-color: @colorText2;
+  }
+
+  .toggle_icon{
+    width: 10px;
+    font-size: 9px;
+    text-align: center;
+  }
+}
+
+.group_matches_list{
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .team_col{

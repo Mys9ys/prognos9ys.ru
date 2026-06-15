@@ -20,7 +20,13 @@ export const championshipModule = {
         },
         setFootballData(state, data){
             state.footballData = data
-        }
+        },
+        setQueryData(state, data) {
+            state.queryData = data
+        },
+        setError(state, data) {
+            state.errors = data
+        },
     },
     actions: {
         async getRaceTable({state, commit}) {
@@ -37,11 +43,12 @@ export const championshipModule = {
                 if (response.data.status == 'ok') {
                     commit('setRaceData', response.data.result)
                 } else {
-                    commit('setErrors', response.data.mes)
+                    commit('setError', response.data.mes || 'Не удалось загрузить таблицу')
                 }
 
             } catch (e) {
                 console.log('error', e)
+                commit('setError', 'Ошибка загрузки таблицы')
             }
         },
 
@@ -56,7 +63,7 @@ export const championshipModule = {
                         state.queryData.token || ''
                     );
                 } else {
-                    const response = await axios.post(baseConfig.BASE_URL + '/championship/football/', state.queryData,
+                    const response = await axios.post(baseConfig.BASE_URL + 'championship/football/', state.queryData,
                         {
                             headers: {
                                 'Content-Type': 'multipart/form-data'
@@ -71,14 +78,17 @@ export const championshipModule = {
                     commit('setFootballData', {
                         groups: tablePayload.groups || {},
                         thirdPlaces: tablePayload.thirdPlaces || [],
+                        groupMatches: tablePayload.groupMatches || {},
                         info: tablePayload.info || {},
                     });
+                    commit('setError', null)
                 } else {
-                    commit('setErrors', responseData.mes)
+                    commit('setError', responseData.mes || 'Не удалось загрузить таблицу')
                 }
 
             } catch (e) {
                 console.log('error', e)
+                commit('setError', e?.message || 'Ошибка загрузки таблицы')
             }
         },
 

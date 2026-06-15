@@ -22,6 +22,7 @@ if (empty($result['result'])) {
 $data = $result['result'];
 $groups = $data['groups'] ?? [];
 $third = $data['thirdPlaces'] ?? [];
+$groupMatches = $data['groupMatches'] ?? [];
 
 echo 'groups: ' . count($groups) . PHP_EOL;
 foreach ($groups as $name => $teams) {
@@ -29,6 +30,11 @@ foreach ($groups as $name => $teams) {
         continue;
     }
     echo '  group ' . $name . ': ' . count($teams) . ' teams' . PHP_EOL;
+}
+
+echo 'groupMatches: ' . count($groupMatches) . PHP_EOL;
+foreach ($groupMatches as $name => $matches) {
+    echo '  group ' . $name . ': ' . count($matches) . ' matches' . PHP_EOL;
 }
 
 echo 'thirdPlaces: ' . count($third) . PHP_EOL;

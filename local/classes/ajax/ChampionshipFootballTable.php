@@ -19,6 +19,9 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
     protected $arGroup;
     protected $arGroupTeams;
     protected $arThirdPlaces = [];
+    protected $arGroupMatches = [];
+    protected $arUserPrognosis = [];
+    protected $arUserResults = [];
 
     public function __construct($data)
     {
@@ -44,9 +47,12 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
 //        die();
 
         if (count($this->arTable)) {
+            $this->arGroupMatches = $this->buildGroupMatches();
+
             $this->setResult('ok', '', [
                 'groups' => $this->arTable,
                 'thirdPlaces' => $this->arThirdPlaces,
+                'groupMatches' => $this->arGroupMatches,
                 'info' => $arEventsInfo,
             ]);
         }
@@ -223,71 +229,146 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
         return $this->myMultiSort($thirdPlaces);
     }
 
-    protected function getTurMatches()
+    /**
+     * Матчи группового этапа, сгруппированные по букве группы (A, B, C…).
+     */
+    protected function buildGroupMatches(): array
     {
+        if (!$this->arTable || count($this->arGroup) <= 1) {
+            return [];
+        }
+
+        $this->loadUserMatchMarks();
+
         $arFilter = [
             'IBLOCK_ID' => $this->arIbs['matches']['id'],
             'PROPERTY_events' => $this->data['events'],
         ];
 
         $response = CIBlockElement::GetList(
-            [],
+            ['DATE_ACTIVE_FROM' => 'ASC', 'PROPERTY_number' => 'ASC'],
             $arFilter,
             false,
             [],
             [
-                "ID",
-                "NAME",
-                "PROPERTY_number",
-                "ACTIVE",
-                "DATE_ACTIVE_FROM",
-                "PROPERTY_number",
-                "PROPERTY_round",
+                'ID',
+                'ACTIVE',
+                'DATE_ACTIVE_FROM',
+                'PROPERTY_home',
+                'PROPERTY_guest',
+                'PROPERTY_goal_home',
+                'PROPERTY_goal_guest',
+                'PROPERTY_group',
+                'PROPERTY_number',
+                'PROPERTY_events',
             ]
         );
 
-        $arTursMatches = [];
+        $groupMatches = [];
 
         while ($res = $response->GetNext()) {
-
-            if(!$arTursMatches[$res['PROPERTY_ROUND_VALUE']]['period']['min'])
-                $arTursMatches[$res['PROPERTY_ROUND_VALUE']]['period']['min'] = $arTursMatches[$res['PROPERTY_ROUND_VALUE']]['period']['max'] = strtotime($res['DATE_ACTIVE_FROM']);
-
-            $arTursMatches[$res['PROPERTY_ROUND_VALUE']]['period']['min'] =
-                $arTursMatches[$res['PROPERTY_ROUND_VALUE']]['period']['min'] > strtotime($res['DATE_ACTIVE_FROM'])
-                    ? strtotime($res['DATE_ACTIVE_FROM'])
-                    : $arTursMatches[$res['PROPERTY_ROUND_VALUE']]['period']['min'];
-
-            $arTursMatches[$res['PROPERTY_ROUND_VALUE']]['period']['max'] =
-                $arTursMatches[$res['PROPERTY_ROUND_VALUE']]['period']['max'] < strtotime($res['DATE_ACTIVE_FROM'])
-                    ? strtotime($res['DATE_ACTIVE_FROM'])
-                    : $arTursMatches[$res['PROPERTY_ROUND_VALUE']]['period']['max'];
-
-            $arTursMatches[$res['PROPERTY_ROUND_VALUE']]['matches'][] = $res;
-        }
-
-
-        $arResult = [];
-        foreach ($arTursMatches as $turnId=>$turnArr){
-            $matches = [];
-            foreach ($turnArr['matches'] as $matches){
-                $data = [
-                    'eventId' => $this->data['eventId'],
-                    'userToken' => $this->data['token'],
-                    'number' => $matches['PROPERTY_NUMBER_VALUE']
-                ];
-                $matches[] = (new FootballMatchLoadInfo($data))->result();
+            $group = $res['PROPERTY_GROUP_VALUE'];
+            if ($group === 'N' || $group === '' || $group === null) {
+                continue;
             }
-            dump($matches);
-            $arResult[$this->checkDateNearestMatch($turnArr['period'])][$turnId] = $turnArr;
+
+            $matchId = $res['ID'];
+            $date = explode('+', ConvertDateTime($res['DATE_ACTIVE_FROM'], 'DD.MM+HH:Mi'));
+
+            $groupMatches[$group][] = [
+                'number' => $res['PROPERTY_NUMBER_VALUE'],
+                'event' => $res['PROPERTY_EVENTS_VALUE'],
+                'date' => $date[0] ?? '',
+                'time' => $date[1] ?? '',
+                'active' => $res['ACTIVE'],
+                'teams' => [
+                    'home' => $this->formatGroupMatchTeam(
+                        $res['PROPERTY_HOME_VALUE'],
+                        $res['PROPERTY_GOAL_HOME_VALUE']
+                    ),
+                    'guest' => $this->formatGroupMatchTeam(
+                        $res['PROPERTY_GUEST_VALUE'],
+                        $res['PROPERTY_GOAL_GUEST_VALUE']
+                    ),
+                ],
+                'send_info' => [
+                    'send_time' => $this->arUserPrognosis[$matchId] ?? '',
+                    'score_result' => $this->arUserResults[$matchId] ?? '',
+                ],
+                'ratio' => [],
+            ];
         }
 
+        if (!$groupMatches) {
+            return [];
+        }
 
+        ksort($groupMatches, SORT_NATURAL);
 
-        dump($arResult);
+        return $groupMatches;
     }
 
+    protected function formatGroupMatchTeam($teamId, $goals): array
+    {
+        $info = $this->arTableInfo[$teamId] ?? [];
 
+        return [
+            'flag' => $info['img'] ?? '',
+            'name' => $info['NAME'] ?? '',
+            'goals' => $goals ?? 0,
+        ];
+    }
+
+    protected function loadUserMatchMarks(): void
+    {
+        if (!$this->userId) {
+            return;
+        }
+
+        $prognosisIb = \CIBlock::GetList([], ['CODE' => 'prognosis'], false)->Fetch()['ID'] ?: 6;
+        $resultIb = \CIBlock::GetList([], ['CODE' => 'result'], false)->Fetch()['ID'] ?: 7;
+
+        $prognosisResponse = CIBlockElement::GetList(
+            [],
+            [
+                'IBLOCK_ID' => $prognosisIb,
+                'PROPERTY_EVENTS' => $this->data['events'],
+                'PROPERTY_USER_ID' => $this->userId,
+            ],
+            false,
+            [],
+            [
+                'PROPERTY_match_id',
+                'DATE_ACTIVE_FROM',
+            ]
+        );
+
+        while ($res = $prognosisResponse->GetNext()) {
+            $this->arUserPrognosis[$res['PROPERTY_MATCH_ID_VALUE']] = ConvertDateTime(
+                $res['DATE_ACTIVE_FROM'],
+                'DD.MM HH:Mi'
+            );
+        }
+
+        $resultResponse = CIBlockElement::GetList(
+            [],
+            [
+                'IBLOCK_ID' => $resultIb,
+                'PROPERTY_EVENTS' => $this->data['events'],
+                'PROPERTY_USER_ID' => $this->userId,
+            ],
+            false,
+            [],
+            [
+                'PROPERTY_all',
+                'PROPERTY_match_id',
+            ]
+        );
+
+        while ($res = $resultResponse->GetNext()) {
+            $this->arUserResults[$res['PROPERTY_MATCH_ID_VALUE']] = $res['PROPERTY_ALL_VALUE'];
+        }
+    }
 
     protected function getWin($res, $home, $guest)
     {
@@ -338,13 +419,5 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
                 return $side === 'home' ? 0 : 3;
                 break;
         }
-    }
-
-    protected function checkDateNearestMatch($arr){
-        if($arr['max'] < time() && $arr['max'] < time())
-            return 'old';
-        if($arr['max'] > time() && $arr['max'] > time())
-            return 'nearest';
-        return 'now';
     }
 }
