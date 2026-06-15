@@ -45,6 +45,10 @@
             :key="user.id"
         >
           <input type="checkbox" :value="user.id" v-model="form.userIds">
+          <span class="user_ava">
+            <img :src="avatarUrl(user)" alt="" v-if="user.img">
+            <img src="@/assets/img/ava_no_img.jpg" alt="" v-else>
+          </span>
           <span class="user_name">{{ user.name }}</span>
         </label>
       </div>
@@ -172,6 +176,15 @@ export default {
 
     close() {
       this.$emit('close');
+    },
+
+    avatarUrl(user) {
+      if (!user?.img) {
+        return '';
+      }
+
+      const path = user.img.startsWith('/') ? user.img : `/${user.img}`;
+      return `${window.location.origin}${path}`;
     },
 
     buildPayload() {
@@ -347,6 +360,30 @@ export default {
   gap: 8px;
   font-size: 13px;
   cursor: pointer;
+}
+
+.user_ava{
+  flex-shrink: 0;
+  width: 36px;
+  background: @colorBlur;
+  border-radius: 5px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+
+  img{
+    border: 1px solid @YesWrite;
+    width: 100%;
+    border-radius: 50%;
+  }
+}
+
+.user_name{
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .users_empty{
