@@ -2,18 +2,12 @@
 
 namespace Prognos9ys\Main\Service\Football;
 
+use Prognos9ys\Main\Service\Rating\FootballRatingCalculator;
+
 class FootballRatingService
 {
     public function getByEvent($eventId): array
     {
-        $handler = new \CreateFootballRatings(['event' => $eventId]);
-        $result = $handler->result();
-
-        if (isset($result['result']) && !isset($result['ratings'])) {
-            $result['ratings'] = $result['result'];
-            unset($result['result']);
-        }
-
-        return $result;
+        return (new FootballRatingCalculator())->calculate((int)$eventId);
     }
 }
