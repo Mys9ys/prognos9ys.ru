@@ -1,0 +1,80 @@
+---
+description: Именование Bitrix Engine actions для модуля prognos9ys.main и Vue-клиента
+globs: local/modules/prognos9ys.main/**/*
+alwaysApply: false
+---
+
+# Bitrix Engine Actions (prognos9ys.main)
+
+При вызове API через `/bitrix/services/main/ajax.php?action=...&mode=class` имя action **обязательно** в формате:
+
+```
+{vendor}:{module}.{ControllerName}.{actionName}
+```
+
+- `vendor` — префикс партнёра: `prognos9ys`
+- `module` — короткое имя модуля: `main` (полный ID: `prognos9ys.main`)
+- `ControllerName` — **PascalCase + суффикс `Controller`**, как имя PHP-класса
+- `actionName` — camelCase, **без** суффикса `Action`
+
+## Правильно / неправильно
+
+```
+✅ prognos9ys:main.ProfileController.getPublicProfile
+❌ prognos9ys:main.profile.getPublicProfile
+❌ prognos9ys:main.Profile.getPublicProfile
+```
+
+Резолвинг: `ProfileController.getPublicProfile` → `Prognos9ys\Main\Controller\ProfileController::getPublicProfileAction()`.
+
+Если имя контроллера с маленькой буквы (`profile`), Bitrix не найдёт класс и уйдёт в `DefaultController` с ошибкой:
+`Could not find description of profile.getPublicProfile in Bitrix\Main\Engine\DefaultController`.
+
+## Конфигурация модуля
+
+В `local/modules/prognos9ys.main/.settings.php` должен быть `defaultNamespace`:
+
+```php
+'defaultNamespace' => '\\Prognos9ys\\Main\\Controller',
+```
+
+## Где править вызовы
+
+- PHP: `local/modules/prognos9ys.main/lib/Controller/*Controller.php` — методы `{actionName}Action()`
+- Vue: `D:\OSPanel\home\prog.vue\src\api\bitrixClient.js` — строки `runBitrixAction('prognos9ys:main....')`
+- После правок Vue: `local/mob_app_ajax/deploy_mob_app.bat`
+
+## Примеры action для проекта
+
+| Action | PHP-метод |
+|--------|-----------|
+| `prognos9ys:main.ProfileController.getPublicProfile` | `getPublicProfileAction` |
+| `prognos9ys:main.ProfileController.getMyProfile` | `getMyProfileAction` |
+| `prognos9ys:main.FootballController.getEventMatches` | `getEventMatchesAction` |
+| `prognos9ys:main.FootballController.getMatchesByEvent` | `getMatchesByEventAction` |
+| `prognos9ys:main.FootballController.getMatch` | `getMatchAction` |
+| `prognos9ys:main.FootballController.sendPrognosis` | `sendPrognosisAction` (+ `userToken`) |
+| `prognos9ys:main.RatingController.getFootballRatings` | `getFootballRatingsAction` |
+| `prognos9ys:main.RatingController.getRaceRatings` | `getRaceRatingsAction` |
+| `prognos9ys:main.ChampionshipController.getFootballTable` | `getFootballTableAction` |
+| `prognos9ys:main.CatalogController.getEvents` | `getEventsAction` |
+
+## Запрос из Vue (axios)
+
+Параметры action передаются **в корне JSON-тела**, не в обёртке `{ data: ... }`:
+
+```js
+// ✅ правильно — Bitrix ищет userId в корне POST/JSON
+axios.post('/bitrix/services/main/ajax.php', { userId: 1 }, {
+  params: { action: 'prognos9ys:main.ProfileController.getPublicProfile', mode: 'class' },
+  headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
+});
+
+// ❌ неправильно — Bitrix не найдёт userId внутри data
+axios.post(url, { data: { userId: 1 } }, { ... });
+```
+
+Ошибка при обёртке: `Could not find value for parameter {userId}`.
+
+Ответ Bitrix: `{ status: 'success', data: {...}, errors: [...] }`.

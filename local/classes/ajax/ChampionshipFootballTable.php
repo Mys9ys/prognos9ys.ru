@@ -165,7 +165,7 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
                     $arGroupTemp[$groupName] = $this->myMultiSort($teams);
                 }
 
-                ksort($arGroupTemp, SORT_LOCALE_STRING);
+                ksort($arGroupTemp, SORT_NATURAL); /// test
 
                 $this->arTable = $arGroupTemp;
 
