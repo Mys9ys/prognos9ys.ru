@@ -19,7 +19,7 @@
             <td class="pr_table_col">{{el.place}}</td>
             <td class="pr_table_col" v-if="diffValue(el) === 0"><div class="zero_diff">–</div></td>
             <td class="pr_table_col" v-else-if="diffValue(el) > 0"><div class="plus_diff">{{ diffValue(el) }}</div></td>
-            <td class="pr_table_col" v-else-if="diffValue(el) < 0"><div class="minus_diff">{{ diffValue(el) }}</div></td>
+            <td class="pr_table_col" v-else-if="0 > diffValue(el)"><div class="minus_diff">{{ diffValue(el) }}</div></td>
             <td class="pr_table_col user_cell" v-if="el.user">
               <span class="user_ava">
                 <img :src="url + el.user.img" alt="" v-if="el.user.img">
