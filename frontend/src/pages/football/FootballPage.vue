@@ -84,9 +84,13 @@
 
           <div class="part_block">
             <div class="title_block auto_block_title">
-              <div class="item icon">Заполняется автоматически</div>
+              <div class="item auto_title_text">Заполняется автоматически</div>
               <div class="more_btn" @click="autoBlock = !autoBlock"><span
                   :class="{'close' : !autoBlock, 'open' : autoBlock}"> > </span></div>
+              <label class="bet_checkbox">
+                <input class="bet_input" type="checkbox" v-model="withBet">
+                <span>Ставка 10 🪙</span>
+              </label>
             </div>
           </div>
 
@@ -350,6 +354,7 @@ export default {
       nextLink: '',
       error: '',
       annotationVis: false,
+      withBet: true,
       data: {
         30: this.$route.params.number, //number
         17: '', //matchId
@@ -456,6 +461,7 @@ export default {
         this.data[30] = this.$route.params.number
         this.data[52] = this.$route.params.event
         this.queryPrognosis.fields = { ...this.data }
+        this.queryPrognosis.withBet = this.withBet
 
         const result = await this.sendUserPrognosis()
 
@@ -578,6 +584,7 @@ export default {
 
       await this.getMatchRequest()
       this.syncFormFromPrognosis()
+      this.withBet = this.canAffordBet
 
       this.prognosisLoader = false
     }
@@ -596,8 +603,13 @@ export default {
       progR: state => state.football.match.prog_result,
 
       role: state => state.auth.userInfo.role,
+      userInfo: state => state.auth.userInfo,
       errors: state => state.football.errors
     }),
+    canAffordBet() {
+      const prognobaks = Number(this.userInfo?.game_info?.wallet?.prognobaks ?? 0)
+      return prognobaks >= 10
+    },
     errorMessage() {
       if (this.errors?.mes) {
         return this.errors.mes
@@ -799,6 +811,73 @@ export default {
     }
   }
 
+  .auto_block_title {
+    align-items: center;
+    gap: 4px;
+
+    .auto_title_text {
+      text-align: left;
+      justify-content: flex-start;
+      padding-left: 6px;
+      font-size: 12px;
+      width: auto;
+      flex: 0 1 auto;
+    }
+
+    .more_btn {
+      flex-shrink: 0;
+    }
+
+    .bet_checkbox {
+      margin-left: auto;
+    }
+  }
+
+  .bet_checkbox {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 14px;
+    font-weight: 700;
+    color: @orange;
+    .shadow_inset;
+    padding: 2px 6px;
+    border-radius: 3px;
+    line-height: 1.1;
+    white-space: nowrap;
+  }
+
+  .bet_input {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border: 2px solid @orange;
+    border-radius: 3px;
+    background: @darkbg;
+    position: relative;
+    margin: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+
+    &:checked {
+      background: @orange;
+      border-color: @orange;
+    }
+
+    &:checked::after {
+      content: '';
+      position: absolute;
+      left: 4px;
+      top: 1px;
+      width: 4px;
+      height: 8px;
+      border: solid @darkbg;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+    }
+  }
+
   .block_absolute{
     position: absolute;
   }
@@ -957,6 +1036,8 @@ export default {
     display: flex;
     flex-direction: row;
     justify-content: space-between;
+    align-items: center;
+    gap: 4px;
 
     margin-top: 10px;
 

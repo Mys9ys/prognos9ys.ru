@@ -375,7 +375,14 @@ class CalcFootballPrognosisResult
         }
 
         try {
-            (new \Prognos9ys\Main\Service\Game\ExperienceService())->syncPendingForMatch((int)$this->data['matchId']);
+            $matchId = (int)$this->data['matchId'];
+            (new \Prognos9ys\Main\Service\Game\ExperienceService())->syncPendingForMatch($matchId);
+
+            $betService = new \Prognos9ys\Main\Service\Game\BetService();
+            // For old matches (до релиза ставок) создаём ставки из уже существующих прогнозов
+            // и списываем монетки у тех, у кого хватает средств, а затем распределяем выигрыши.
+            $betService->backfillBetsFromPrognosis($matchId);
+            $betService->settleMatch($matchId);
         } catch (\Throwable $exception) {
             // Не блокируем пересчёт результатов матча.
         }

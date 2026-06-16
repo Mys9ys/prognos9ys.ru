@@ -107,6 +107,45 @@ class WalletService
         return $this->getWalletSummary($userId);
     }
 
+    public function debit(
+        int $userId,
+        string $currency,
+        float $amount,
+        string $reason,
+        ?string $refType = null,
+        ?int $refId = null
+    ): array {
+        if ($amount <= 0) {
+            throw new \InvalidArgumentException('Сумма списания должна быть положительной');
+        }
+
+        $wallet = $this->ensureWalletRow($userId);
+        $field = $this->currencyField($currency);
+        $currentBalance = round((float)$wallet[$field], 1);
+        $newBalance = round($currentBalance - $amount, 1);
+
+        if ($newBalance < 0) {
+            throw new \RuntimeException('Недостаточно средств');
+        }
+
+        $this->repository->updateWallet((int)$wallet['ID'], [
+            $field => $newBalance,
+        ]);
+
+        $this->repository->addWalletTx([
+            'UF_USER_ID' => $userId,
+            'UF_CURRENCY' => $currency,
+            'UF_AMOUNT' => -$amount,
+            'UF_BALANCE_AFTER' => $newBalance,
+            'UF_REASON' => $reason,
+            'UF_REF_TYPE' => $refType,
+            'UF_REF_ID' => $refId,
+            'UF_CREATED_AT' => new DateTime(),
+        ]);
+
+        return $this->getWalletSummary($userId);
+    }
+
     public function getWalletSummary(int $userId): array
     {
         $wallet = $this->ensureWallet($userId);

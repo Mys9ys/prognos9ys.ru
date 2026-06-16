@@ -27,6 +27,10 @@
           <div class="hm_achieve_box hm_box rank" v-else>
             Ур. 0
           </div>
+          <div class="hm_money_box hm_box">
+            <span class="hm_money_label">💵</span>
+            <span class="hm_money_value">{{ wallet.prognobaks }}</span>
+          </div>
         </div>
         <div class="hm_btn_block">
 <!--          <BtnMini v-for="(btn, index) in l_btns"-->
@@ -51,6 +55,10 @@
             {{ userInfo.NAME }}
           </div>
           <div class="hm_nick_box hm_box nickname" v-else>Гость</div>
+          <div class="hm_rublius_box hm_box">
+            <span class="hm_money_label">💎</span>
+            <span class="hm_money_value">{{ wallet.rublius }}</span>
+          </div>
         </div>
 
 
@@ -120,6 +128,16 @@ export default {
     }),
     gameProgress() {
       return this.userInfo?.game_info?.progress || null;
+    },
+    wallet() {
+      const wallet = this.userInfo?.game_info?.wallet || {};
+      const prognobaks = Number(wallet.prognobaks ?? 0).toFixed(1).replace(/\.0$/, '');
+      const rublius = Number(wallet.rublius ?? 0).toFixed(1).replace(/\.0$/, '');
+
+      return {
+        prognobaks,
+        rublius,
+      };
     },
   },
 
@@ -199,6 +217,7 @@ export default {
         width: 130px;
         display: flex;
         flex-direction: column;
+        gap: 4px;
       }
     }
 
@@ -210,6 +229,9 @@ export default {
 
       .hm_nick_wrap {
         width: 130px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
       }
 
       .hm_nick_box {
@@ -351,6 +373,39 @@ export default {
     }
     .hm_achieve_box{
       text-align: left;
+    }
+
+    .hm_money_box,
+    .hm_rublius_box {
+      height: 22px;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      box-sizing: border-box;
+    }
+
+    .hm_money_box {
+      justify-content: flex-start;
+      color: @YesWrite2;
+      text-align: left;
+    }
+
+    .hm_rublius_box {
+      justify-content: flex-end;
+      color: @valleyball;
+      text-align: right;
+    }
+
+    .hm_money_label {
+      font-size: 11px;
+      line-height: 1;
+    }
+
+    .hm_money_value {
+      font-weight: 600;
+      line-height: 1;
     }
   }
 }

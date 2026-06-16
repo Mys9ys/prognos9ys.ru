@@ -27,7 +27,8 @@ export const footballModule = {
 
         queryPrognosis: {
             userToken: '',
-            fields: []
+            fields: [],
+            withBet: false
         },
 
     }),
@@ -140,7 +141,8 @@ export const footballModule = {
                 if (baseConfig.USE_BITRIX_API) {
                     responseData = await apiActions.football.sendPrognosis(
                         state.queryPrognosis.userToken,
-                        state.queryPrognosis.fields
+                        state.queryPrognosis.fields,
+                        state.queryPrognosis.withBet
                     );
                 } else {
                     const response = await axios.post(baseConfig.BASE_URL + 'football/send/', state.queryPrognosis,

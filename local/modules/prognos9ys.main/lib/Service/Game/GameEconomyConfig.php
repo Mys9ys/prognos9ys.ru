@@ -13,6 +13,12 @@ class GameEconomyConfig
 
     public const XP_STATUS_PENDING = 'pending';
     public const XP_STATUS_CLAIMED = 'claimed';
+    public const BET_STATUS_PENDING = 'pending';
+    public const BET_STATUS_WON = 'won';
+    public const BET_STATUS_LOST = 'lost';
+    public const BET_STATUS_REFUNDED = 'refunded';
+    public const BET_STAKE_PROGNOBAKS = 10.0;
+    public const GAME_BANK_CODE_FOOTBALL_PARIMUTUEL = 'football_parimutuel';
 
     /** ID события-якоря (ЧМ-2026). 0 — автоопределение по названию. */
     public const ANCHOR_EVENT_ID = 63849;

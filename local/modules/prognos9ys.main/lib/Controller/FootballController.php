@@ -46,7 +46,7 @@ class FootballController extends BaseController
     /**
      * Сохранение прогноза пользователя — legacy /mob_app/ajax/football/send/
      */
-    public function sendPrognosisAction(array $fields, ?string $userToken = null): array
+    public function sendPrognosisAction(array $fields, ?string $userToken = null, $withBet = null): array
     {
         $token = $userToken
             ?: (string)$this->getRequest()->get('userToken')
@@ -56,6 +56,22 @@ class FootballController extends BaseController
             throw new ApiException('Требуется токен авторизации', 401);
         }
 
-        return (new FootballPrognosisService())->send($token, $fields);
+        $rawWithBet = $withBet;
+        if ($rawWithBet === null) {
+            $rawWithBet = $this->getRequest()->get('withBet');
+        }
+        if ($rawWithBet === null) {
+            $rawWithBet = $this->getRequest()->getPost('withBet');
+        }
+
+        $withBetFlag = null;
+        if ($rawWithBet !== null && $rawWithBet !== '') {
+            $withBetFlag = filter_var($rawWithBet, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            if ($withBetFlag === null) {
+                $withBetFlag = (string)$rawWithBet === '1';
+            }
+        }
+
+        return (new FootballPrognosisService())->send($token, $fields, $withBetFlag);
     }
 }

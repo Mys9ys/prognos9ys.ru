@@ -14,6 +14,7 @@ class GameEconomyRepository
     private ?string $userProgressDataClass = null;
     private ?string $pendingXpDataClass = null;
     private ?string $gameBankDataClass = null;
+    private ?string $matchBetDataClass = null;
 
     public function getWalletDataClass(): string
     {
@@ -43,6 +44,11 @@ class GameEconomyRepository
     public function getGameBankDataClass(): string
     {
         return $this->gameBankDataClass ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_GAME_BANK);
+    }
+
+    public function getMatchBetDataClass(): string
+    {
+        return $this->matchBetDataClass ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_MATCH_BET);
     }
 
     public function getWalletByUserId(int $userId): ?array
@@ -283,6 +289,107 @@ class GameEconomyRepository
         $row = $dataClass::getById($id)->fetch();
 
         return $row ?: null;
+    }
+
+    public function getMatchBet(int $userId, int $matchId): ?array
+    {
+        $dataClass = $this->getMatchBetDataClass();
+        $row = $dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '=UF_MATCH_ID' => $matchId,
+            ],
+            'order' => [
+                'UF_PAYOUT' => 'DESC',
+                'ID' => 'DESC',
+            ],
+            'limit' => 1,
+        ])->fetch();
+
+        return $row ?: null;
+    }
+
+    /**
+     * @param int[] $matchIds
+     * @return array<int, array{status:string,payout:float}>
+     */
+    public function getMatchBetMapForUser(int $userId, array $matchIds): array
+    {
+        if ($userId <= 0 || !$matchIds) {
+            return [];
+        }
+
+        $dataClass = $this->getMatchBetDataClass();
+        $map = [];
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '@UF_MATCH_ID' => array_values(array_unique($matchIds)),
+            ],
+            'order' => [
+                'UF_PAYOUT' => 'DESC',
+                'ID' => 'DESC',
+            ],
+            'select' => ['*'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $matchId = (int)($row['UF_MATCH_ID'] ?? 0);
+            if ($matchId <= 0 || isset($map[$matchId])) {
+                continue;
+            }
+
+            $map[$matchId] = [
+                'status' => (string)($row['UF_STATUS'] ?? ''),
+                'payout' => round((float)($row['UF_PAYOUT'] ?? 0), 1),
+            ];
+        }
+
+        return $map;
+    }
+
+    /**
+     * @return array<int, array>
+     */
+    public function getPendingMatchBetsByMatch(int $matchId): array
+    {
+        $dataClass = $this->getMatchBetDataClass();
+        $rows = [];
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_MATCH_ID' => $matchId,
+                '=UF_STATUS' => \Prognos9ys\Main\Service\Game\GameEconomyConfig::BET_STATUS_PENDING,
+            ],
+            'select' => ['*'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
+    public function addMatchBet(array $fields): int
+    {
+        $dataClass = $this->getMatchBetDataClass();
+        $result = $dataClass::add($fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+
+        return (int)$result->getId();
+    }
+
+    public function updateMatchBet(int $id, array $fields): void
+    {
+        $dataClass = $this->getMatchBetDataClass();
+        $result = $dataClass::update($id, $fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
     }
 
     private function compileDataClass(string $tableName): string

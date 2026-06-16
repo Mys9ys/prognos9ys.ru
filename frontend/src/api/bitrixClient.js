@@ -56,9 +56,9 @@ export const apiActions = {
             'prognos9ys:main.FootballController.getMatch',
             { eventId, number, userToken }
         ),
-        sendPrognosis: (userToken, fields) => runBitrixAction(
+        sendPrognosis: (userToken, fields, withBet = null) => runBitrixAction(
             'prognos9ys:main.FootballController.sendPrognosis',
-            { userToken, fields }
+            { userToken, fields, withBet: withBet === null ? undefined : withBet }
         ),
     },
     rating: {

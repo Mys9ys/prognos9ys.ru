@@ -27,6 +27,8 @@ class FootballHandlerClass
 
     protected $arUserPrognosis = [];
     protected $arUserResults = [];
+    protected $ratioStatsByMatch = [];
+    protected $userBetRewardByMatch = [];
 
     protected $arResult = [
         'status' => 'ok'
@@ -118,8 +120,12 @@ class FootballHandlerClass
 
             $el["send_info"]["send_time"] = $this->arUserPrognosis[$res["ID"]] ?? '';
             $el["send_info"]["score_result"] = $this->arUserResults[$res["ID"]] ?? '';
+            $el["bet_reward"] = $this->getUserBetReward((int)$res["ID"]);
 
             $el["ratio"] = $this->setRatio($res['ID']);
+            $betRatio = $this->setBetRatio((int)$res['ID']);
+            $el["bet_ratio"] = $betRatio['odds'];
+            $el["bet_ratio_meta"] = $betRatio['meta'];
 
             $period = $this->fillSectionArray($res["DATE_ACTIVE_FROM"]);
 
@@ -321,6 +327,8 @@ class FootballHandlerClass
 
         }
 
+        $this->ratioStatsByMatch[(int)$matchId] = $arRatio;
+
         $arRatioScore = [
             0 => ['name' => 'п1', 'count' => number_format(($arRatio['count'] + 1) / ($arRatio['plus'] + 1), 2)],
             1 => ['name' => 'н', 'count' => number_format(($arRatio['count'] + 1) / ($arRatio['equal'] + 1), 2)],
@@ -330,6 +338,109 @@ class FootballHandlerClass
 
         return $arRatioScore;
 
+    }
+
+    protected function getUserBetReward(int $matchId): array
+    {
+        if ($matchId <= 0) {
+            return [
+                'status' => '',
+                'payout' => 0.0,
+            ];
+        }
+
+        if (array_key_exists($matchId, $this->userBetRewardByMatch)) {
+            return $this->userBetRewardByMatch[$matchId];
+        }
+
+        $default = [
+            'status' => '',
+            'payout' => 0.0,
+        ];
+
+        $userId = (int)($this->data['userId'] ?? 0);
+        if ($userId <= 0 || !\Bitrix\Main\Loader::includeModule('prognos9ys.main')) {
+            $this->userBetRewardByMatch[$matchId] = $default;
+            return $default;
+        }
+
+        try {
+            $repository = new \Prognos9ys\Main\Model\Repository\GameEconomyRepository();
+            $bet = $repository->getMatchBet($userId, $matchId);
+            if (!$bet) {
+                $this->userBetRewardByMatch[$matchId] = $default;
+                return $default;
+            }
+
+            $reward = [
+                'status' => (string)($bet['UF_STATUS'] ?? ''),
+                'payout' => round((float)($bet['UF_PAYOUT'] ?? 0), 1),
+            ];
+            $this->userBetRewardByMatch[$matchId] = $reward;
+            return $reward;
+        } catch (\Throwable $exception) {
+            $this->userBetRewardByMatch[$matchId] = $default;
+            return $default;
+        }
+    }
+
+    protected function setBetRatio(int $matchId): array
+    {
+        if ($matchId <= 0 || !\Bitrix\Main\Loader::includeModule('prognos9ys.main')) {
+            return [
+                'odds' => [],
+                'meta' => [
+                    'mode' => 'financial',
+                    'financial_count' => 0,
+                ],
+            ];
+        }
+
+        try {
+            $betService = new \Prognos9ys\Main\Service\Game\BetService();
+            $bet = $betService->getMatchBetCounts($matchId);
+
+            $mode = 'financial';
+            $plus = (float)$bet['plus'];
+            $equal = (float)$bet['equal'];
+            $minus = (float)$bet['minus'];
+
+            $hybridMinFinancial = 10;
+            if (($bet['count'] ?? 0) < $hybridMinFinancial) {
+                $classic = $this->ratioStatsByMatch[$matchId] ?? null;
+                if ($classic && (int)$classic['count'] > 0) {
+                    $mode = 'hybrid';
+                    $fallbackWeight = 0.3;
+                    $plus += (float)$classic['plus'] * $fallbackWeight;
+                    $equal += (float)$classic['equal'] * $fallbackWeight;
+                    $minus += (float)$classic['minus'] * $fallbackWeight;
+                }
+            }
+
+            $count = $plus + $equal + $minus;
+            $odds = [
+                0 => ['name' => 'п1', 'count' => number_format(($count + 1) / ($plus + 1), 2)],
+                1 => ['name' => 'н', 'count' => number_format(($count + 1) / ($equal + 1), 2)],
+                2 => ['name' => 'п2', 'count' => number_format(($count + 1) / ($minus + 1), 2)],
+                3 => ['name' => 'Σ', 'count' => (int)round($count)],
+            ];
+
+            return [
+                'odds' => $odds,
+                'meta' => [
+                    'mode' => $mode,
+                    'financial_count' => (int)$bet['count'],
+                ],
+            ];
+        } catch (\Throwable $exception) {
+            return [
+                'odds' => [],
+                'meta' => [
+                    'mode' => 'financial',
+                    'financial_count' => 0,
+                ],
+            ];
+        }
     }
 
     protected function setResult($status, $mes, $info = '')

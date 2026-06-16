@@ -1,6 +1,12 @@
 <template>
-  <div class="match_card" v-if="match" :class="{ 'has_xp': showXpReward }">
-    <div class="match_xp_tab" v-if="showXpReward">
+  <div class="match_card" v-if="match" :class="{ 'has_xp': showRewardTabs }">
+    <div class="reward_tabs" v-if="showRewardTabs">
+      <div class="match_xp_tab" v-if="showMoneyReward">
+        <div class="money_claimed">
+          Выигрыш +{{ moneyPayout }} 💵
+        </div>
+      </div>
+      <div class="match_xp_tab" v-if="showXpReward">
       <button
           class="xp_btn"
           v-if="canClaimXp"
@@ -13,6 +19,7 @@
         Опыт +{{ xpPoints }}
       </div>
       <div class="xp_error" v-if="claimError">{{ claimError }}</div>
+      </div>
     </div>
 
     <div class="match_box">
@@ -59,8 +66,15 @@
       <div class="title">Коэффициенты на матч</div>
       <div class="box">
         <div class="cell" v-for="(ratio, index) in match.ratio" :key="index">
-          <div class="title_cell">{{ratio.name}}</div>
-          <div class="count">{{ratio.count}}</div>
+          <div class="title_cell">{{ ratio.name }}</div>
+          <div class="count" v-if="match.bet_ratio?.length">
+            <span class="count_main">{{ ratio.count }}</span>
+            <span class="count_sep"> / </span>
+            <span class="count_bet">{{ match.bet_ratio[index]?.count ?? '-' }}</span>
+          </div>
+          <div class="count" v-else>
+            {{ ratio.count }}
+          </div>
         </div>
       </div>
     </div>
@@ -97,6 +111,18 @@ export default {
       }
 
       return this.canClaimXp || this.xpStatus === 'claimed' || this.xpPoints > 0;
+    },
+    betReward() {
+      return this.match?.bet_reward || null;
+    },
+    moneyPayout() {
+      return Number(this.betReward?.payout ?? 0).toFixed(1);
+    },
+    showMoneyReward() {
+      return Number(this.betReward?.payout ?? 0) > 0;
+    },
+    showRewardTabs() {
+      return this.showXpReward || this.showMoneyReward;
     },
     xpPoints() {
       return this.xpReward?.points ?? 0;
@@ -160,7 +186,7 @@ export default {
 
 .match_xp_tab {
   width: auto;
-  min-width: 25%;
+  min-width: 24%;
   max-width: 130px;
   background: @DarkColorBG;
   padding: 4px 4px 0;
@@ -210,6 +236,21 @@ export default {
     white-space: nowrap;
   }
 
+  .money_claimed {
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 10px;
+    line-height: 1.2;
+    border-radius: 3px 3px 0 0;
+    .shadow_inset;
+    padding: 5px 9px;
+    min-height: 15px;
+    color: @YesWrite2;
+    text-align: center;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
   .xp_error {
     margin-top: 2px;
     font-size: 8px;
@@ -217,6 +258,13 @@ export default {
     line-height: 1.1;
     text-align: center;
   }
+}
+
+.reward_tabs {
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+  align-items: flex-end;
 }
 
 .match_box {
@@ -430,6 +478,7 @@ export default {
   width: 100%;
   background: @DarkColorBG;
   color: @colorBlur;
+  font-size: 10px;
   display: flex;
   flex-direction: column;
   gap:4px;
@@ -457,6 +506,7 @@ export default {
       flex-direction: row;
       color: @pearl;
       font-weight: 700;
+      font-size: 10px;
 
       .title_cell{
         text-align: right;
@@ -469,6 +519,21 @@ export default {
         width: 65%;
         text-align: left;
         padding-left: 6px;
+
+        .count_main {
+          color: @pearl;
+        }
+
+        .count_bet {
+          color: @valleyball;
+          font-weight: 800;
+        }
+
+        .count_sep {
+          color: @colorBlur;
+          font-weight: 700;
+          padding: 0 2px;
+        }
       }
     }
   }
