@@ -14,16 +14,16 @@ class WealthRatingService
         $this->repository = $repository ?? new GameEconomyRepository();
     }
 
-    public function getRating(int $limit = 30, string $mode = 'rich'): array
+    public function getRating(int $limit = 30, string $wealthSort = 'rich'): array
     {
         $limit = max(1, min(100, $limit));
-        $mode = in_array($mode, ['rich', 'poor', 'pending_xp'], true) ? $mode : 'rich';
+        $wealthSort = in_array($wealthSort, ['rich', 'poor', 'pending_xp'], true) ? $wealthSort : 'rich';
 
-        if ($mode === 'pending_xp') {
+        if ($wealthSort === 'pending_xp') {
             return $this->getPendingXpRating($limit);
         }
 
-        return $this->getWealthRating($limit, $mode === 'poor');
+        return $this->getWealthRating($limit, $wealthSort === 'poor');
     }
 
     private function getWealthRating(int $limit, bool $poorestFirst): array
@@ -86,7 +86,7 @@ class WealthRatingService
 
         return [
             'status' => 'ok',
-            'mode' => $poorestFirst ? 'poor' : 'rich',
+            'wealth_sort' => $poorestFirst ? 'poor' : 'rich',
             'ratings' => $ratings,
         ];
     }
@@ -150,7 +150,7 @@ class WealthRatingService
 
         return [
             'status' => 'ok',
-            'mode' => 'pending_xp',
+            'wealth_sort' => 'pending_xp',
             'ratings' => $ratings,
         ];
     }

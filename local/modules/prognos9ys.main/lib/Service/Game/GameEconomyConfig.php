@@ -20,6 +20,13 @@ class GameEconomyConfig
     public const BET_STAKE_PROGNOBAKS = 10.0;
     public const GAME_BANK_CODE_FOOTBALL_PARIMUTUEL = 'football_parimutuel';
 
+    /** Фаза C+ — частные банки и кредиты (см. ROADMAP). */
+    public const BANK_MIN_CAPITAL_PROGNOBAKS = 200.0;
+    public const LOAN_MIN_AMOUNT_PROGNOBAKS = 50.0;
+    public const LOAN_TERM_MATCHES = 7;
+    public const LOAN_INTEREST_PERCENT = 15.0;
+    public const DEPOSIT_INTEREST_PERCENT = 7.0;
+
     /** ID события-якоря (ЧМ-2026). 0 — автоопределение по названию. */
     public const ANCHOR_EVENT_ID = 63849;
 
