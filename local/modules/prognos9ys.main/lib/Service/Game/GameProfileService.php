@@ -6,13 +6,16 @@ class GameProfileService
 {
     private WalletService $walletService;
     private UserProgressService $progressService;
+    private TreasureService $treasureService;
 
     public function __construct(
         ?WalletService $walletService = null,
-        ?UserProgressService $progressService = null
+        ?UserProgressService $progressService = null,
+        ?TreasureService $treasureService = null
     ) {
         $this->walletService = $walletService ?? new WalletService();
         $this->progressService = $progressService ?? new UserProgressService();
+        $this->treasureService = $treasureService ?? new TreasureService();
     }
 
     public function getSummary(int $userId): array
@@ -25,6 +28,7 @@ class GameProfileService
             return [
                 'wallet' => $this->walletService->getWalletSummary($userId),
                 'progress' => $this->progressService->getSummary($userId),
+                'treasure' => $this->treasureService->getTreasureSummary($userId),
             ];
         } catch (\Throwable $exception) {
             return [
@@ -34,6 +38,9 @@ class GameProfileService
                     'rublius_rate' => GameEconomyConfig::RUBLIUS_TO_PROGNOBAKS,
                 ],
                 'progress' => (new LevelService())->getProgressSummary(0),
+                'treasure' => [
+                    'closed_chests' => 0,
+                ],
             ];
         }
     }

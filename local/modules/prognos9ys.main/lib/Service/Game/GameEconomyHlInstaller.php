@@ -15,6 +15,7 @@ class GameEconomyHlInstaller
     public const TABLE_PENDING_XP = 'prognos9ys_pending_xp';
     public const TABLE_GAME_BANK = 'prognos9ys_game_bank';
     public const TABLE_MATCH_BET = 'prognos9ys_match_bet';
+    public const TABLE_TREASURE_CHEST = 'prognos9ys_treasure_chest';
 
     public function install(): array
     {
@@ -77,6 +78,16 @@ class GameEconomyHlInstaller
             'UF_SETTLED_AT' => ['USER_TYPE_ID' => 'datetime'],
         ]);
 
+        $chestHlId = $this->ensureHlBlock('Prognos9ysTreasureChest', self::TABLE_TREASURE_CHEST, [
+            'UF_USER_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_MATCH_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_EVENT_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_COUNT' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_STATUS' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_CREATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+            'UF_UPDATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+        ]);
+
         (new LevelService())->seedDefaultTiers();
 
         return [
@@ -87,6 +98,7 @@ class GameEconomyHlInstaller
             'pending_xp_hl_id' => $pendingHlId,
             'game_bank_hl_id' => $bankHlId,
             'match_bet_hl_id' => $betHlId,
+            'treasure_chest_hl_id' => $chestHlId,
         ];
     }
 

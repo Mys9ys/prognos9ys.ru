@@ -106,7 +106,6 @@ class MatchXpEnricher
                     if (
                         !empty($match['id'])
                         && (string)($match['active'] ?? '') === 'N'
-                        && !empty($match['send_info']['score_result'])
                         && $this->isMatchInScope($match)
                     ) {
                         $ids[] = (int)$match['id'];

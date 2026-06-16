@@ -360,6 +360,20 @@ class CalcFootballPrognosisResult
         }
 
         if ($success) {
+            // Treasure chests: 30+ => 1, 40+ => 2 (closed, not openable yet)
+            if (\Bitrix\Main\Loader::includeModule('prognos9ys.main')) {
+                try {
+                    (new \Prognos9ys\Main\Service\Game\TreasureService())->upsertFromScore(
+                        (int)$prop[44],
+                        (int)$prop[43],
+                        (int)$prop[53],
+                        (int)$prop[51],
+                        (float)$prop[42]
+                    );
+                } catch (\Throwable $exception) {
+                    // не блокируем пересчёт результатов
+                }
+            }
             $this->setResult('ok', '');
         }
     }

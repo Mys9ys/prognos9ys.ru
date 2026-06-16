@@ -57,6 +57,10 @@ class BetService
             return;
         }
 
+        if (!$this->canUserAffordStake($userId)) {
+            return;
+        }
+
         $this->walletService->debit(
             $userId,
             GameEconomyConfig::CURRENCY_PROGNOBAKS,

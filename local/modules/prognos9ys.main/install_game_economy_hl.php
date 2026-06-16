@@ -28,7 +28,11 @@ try {
         echo 'Eligible events: ' . implode(', ', $scope->getEligibleEventIds()) . PHP_EOL;
 
         if (GameEconomyConfig::isTestMatchNumberLimitEnabled()) {
-            echo 'TEST MODE: only match #' . GameEconomyConfig::TEST_ONLY_MATCH_NUMBER . PHP_EOL;
+            echo 'TEST MODE: matches #'
+                . GameEconomyConfig::getTestMatchNumberMin()
+                . '–'
+                . GameEconomyConfig::getTestMatchNumberMax()
+                . PHP_EOL;
         }
 
         $count = (new ExperienceService())->syncAllFinishedMatches();

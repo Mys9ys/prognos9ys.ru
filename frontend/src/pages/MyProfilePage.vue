@@ -64,6 +64,8 @@
         </div>
       </div>
 
+      <ImpersonationPanel></ImpersonationPanel>
+
       <div class="settings_item" @click="logoutProfile">
         <div class="icon">
           <img :src="require('@/assets/icon/header/exit.svg')" alt="">
@@ -84,6 +86,7 @@ import ProfileEventBody from "@/components/football/ProfileEventBody";
 import ProfileRaceBlock from "@/components/profile/ProfileRaceBlock";
 import ProfileTitle from "@/components/profile/ProfileTitle";
 import ProfileGameBlock from "@/components/profile/ProfileGameBlock";
+import ImpersonationPanel from "@/components/profile/ImpersonationPanel";
 
 export default {
   name: "MyProfilePage",
@@ -94,6 +97,7 @@ export default {
     ProfileTitle,
     ProfileEventBody,
     ProfileGameBlock,
+    ImpersonationPanel,
   },
   data() {
     return {

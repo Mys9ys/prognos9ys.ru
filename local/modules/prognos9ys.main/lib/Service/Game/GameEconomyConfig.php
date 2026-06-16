@@ -23,15 +23,53 @@ class GameEconomyConfig
     /** ID события-якоря (ЧМ-2026). 0 — автоопределение по названию. */
     public const ANCHOR_EVENT_ID = 63849;
 
+    /** true — только якорное событие; false — якорь и все последующие турниры. */
+    public const ANCHOR_ONLY_SCOPE = true;
+
     /**
-     * Тестовый режим: опыт только за матч с этим номером.
-     * 0 — без ограничения (прод). На локалке для проверки ставим 1.
+     * Тестовый режим: экономика только для матчей в диапазоне номеров.
+     * MIN=0 и MAX=0 — без ограничения (прод).
+     * TEST_ONLY_MATCH_NUMBER > 0 — legacy: один матч (перекрывает диапазон).
      */
-    public const TEST_ONLY_MATCH_NUMBER = 1;
+    public const TEST_MATCH_NUMBER_MIN = 0;
+    public const TEST_MATCH_NUMBER_MAX = 0;
+    public const TEST_ONLY_MATCH_NUMBER = 0;
 
     public static function isTestMatchNumberLimitEnabled(): bool
     {
-        return self::TEST_ONLY_MATCH_NUMBER > 0;
+        if (self::TEST_ONLY_MATCH_NUMBER > 0) {
+            return true;
+        }
+
+        return self::TEST_MATCH_NUMBER_MIN > 0 && self::TEST_MATCH_NUMBER_MAX > 0;
+    }
+
+    public static function getTestMatchNumberMin(): int
+    {
+        if (self::TEST_ONLY_MATCH_NUMBER > 0) {
+            return self::TEST_ONLY_MATCH_NUMBER;
+        }
+
+        return self::TEST_MATCH_NUMBER_MIN;
+    }
+
+    public static function getTestMatchNumberMax(): int
+    {
+        if (self::TEST_ONLY_MATCH_NUMBER > 0) {
+            return self::TEST_ONLY_MATCH_NUMBER;
+        }
+
+        return self::TEST_MATCH_NUMBER_MAX;
+    }
+
+    public static function isMatchNumberInTestScope(int $matchNumber): bool
+    {
+        if (!self::isTestMatchNumberLimitEnabled()) {
+            return true;
+        }
+
+        return $matchNumber >= self::getTestMatchNumberMin()
+            && $matchNumber <= self::getTestMatchNumberMax();
     }
 
     /**
@@ -55,5 +93,38 @@ class GameEconomyConfig
         }
 
         return $tiers;
+    }
+
+    /**
+     * Награда за переход на указанный уровень (не за текущий статус, а за факт апа).
+     *
+     * @return array{prognobaks: float, rublius: float}
+     */
+    public static function getLevelUpReward(int $level): array
+    {
+        if ($level <= 0) {
+            return ['prognobaks' => 0.0, 'rublius' => 0.0];
+        }
+
+        if ($level <= 5) {
+            $baseP = 50.0;
+            $baseR = 5.0;
+        } elseif ($level <= 10) {
+            $baseP = 100.0;
+            $baseR = 10.0;
+        } else {
+            $baseP = 150.0;
+            $baseR = 15.0;
+        }
+
+        if ($level % 5 === 0) {
+            $baseP *= 4;
+            $baseR *= 4;
+        }
+
+        return [
+            'prognobaks' => $baseP,
+            'rublius' => $baseR,
+        ];
     }
 }

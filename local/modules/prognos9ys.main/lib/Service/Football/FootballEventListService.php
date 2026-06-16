@@ -4,6 +4,7 @@ namespace Prognos9ys\Main\Service\Football;
 
 use Prognos9ys\Main\Service\Game\GameEventScopeService;
 use Prognos9ys\Main\Service\Game\MatchBetRewardEnricher;
+use Prognos9ys\Main\Service\Game\MatchTreasureEnricher;
 use Prognos9ys\Main\Service\Game\MatchXpEnricher;
 
 class FootballEventListService
@@ -36,6 +37,7 @@ class FootballEventListService
         if ($userId > 0) {
             (new MatchXpEnricher())->enrichEventMatches($userId, $result['info']);
             (new MatchBetRewardEnricher())->enrichEventMatches($userId, $result['info']);
+            (new MatchTreasureEnricher())->enrichEventMatches($userId, $result['info']);
         }
 
         return $result;

@@ -121,7 +121,7 @@ class CreateFootballRatings extends PrognosisGiveInfo
 
                 $this->arMiddleResults[$selector][$number][$res["PROPERTY_USER_ID_VALUE"]] = (float)$res["PROPERTY_" . strtoupper($selector) . "_VALUE"] ?? 0;
 
-                if ($res["PROPERTY_ALL_VALUE"] > 30) {
+                if ($res["PROPERTY_ALL_VALUE"] >= 30) {
                     $this->arResults['best'][$number][$res["PROPERTY_USER_ID_VALUE"]]=$res["PROPERTY_ALL_VALUE"];
                 }
             }

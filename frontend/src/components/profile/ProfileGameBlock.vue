@@ -19,6 +19,9 @@
       <div class="coin prognobaks">{{ wallet.prognobaks }} 🪙</div>
       <div class="coin rublius">{{ wallet.rublius }} 💎</div>
     </div>
+    <div class="wallet_row">
+      <div class="coin chest">Сокровища: {{ treasure.closed_chests }} 🎁</div>
+    </div>
   </div>
 </template>
 
@@ -44,6 +47,9 @@ export default {
         xp_to_next: 100,
         next_level: 1,
       };
+    },
+    treasure() {
+      return this.game?.treasure || { closed_chests: 0 };
     },
   },
 };

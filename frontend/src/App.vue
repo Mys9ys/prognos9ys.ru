@@ -17,7 +17,7 @@ export default {
   name: 'App',
   components: {
     HeaderBlock,
-    NavbarMenu
+    NavbarMenu,
   },
   // data(){
   //   return{

@@ -192,13 +192,19 @@
       </div>
 
 
+      <div class="quick_hint">
+        Достаточно счёта — исход, сумма и разница посчитаются сами.
+        Пустые метрики: владение 50%, жёлтые 3, угловые 9.
+      </div>
+
       <div class="btns_block">
 
-        <div class="btn_send" @click="sendResult">Заполнить</div>
+        <div class="btn_send btn_send_primary" @click="sendAndCalc">Сохранить и пересчитать</div>
+        <div class="btn_send" @click="sendResult">Только сохранить</div>
 
       </div>
 
-      <div class="btn_set_result" @click="calcResult">Рассчитать результаты</div>
+      <div class="btn_set_result" @click="calcResult">Только пересчитать</div>
     </div>
 
     <div class="error_message" v-if="error">{{ error }}</div>
@@ -375,20 +381,68 @@ export default {
       if (type === 'half') this.data[10] = 50
     },
 
-    async sendResult() {
-      this.loader = true
+    normalizeBeforeSave() {
+      const home = Number(this.data[7]) || 0
+      const guest = Number(this.data[8]) || 0
+
+      this.data[26] = home + guest
+      this.data[25] = home - guest
+
+      if (this.data[25] > 0) this.data[9] = 'п1'
+      else if (this.data[25] === 0) this.data[9] = 'н'
+      else this.data[9] = 'п2'
+
+      const defaults = {
+        10: 50,
+        12: 3,
+        13: 0,
+        11: 9,
+        14: 0,
+      }
+
+      Object.keys(defaults).forEach((key) => {
+        const id = Number(key)
+        const value = this.data[id]
+        if (value === '' || value === null || value === undefined) {
+          this.data[id] = defaults[id]
+        }
+      })
+
+      this.data[10] = Math.min(100, Math.max(0, Number(this.data[10]) || 50))
+    },
+
+    prepareQuery() {
+      this.normalizeBeforeSave()
       this.queryEvent.userToken = this.token
       this.queryEvent.role = this.role
       this.queryEvent.matchId = this.id
       this.queryEvent.data = this.data
+    },
+
+    async sendResult() {
+      this.loader = true
+      this.error = ''
+      this.prepareQuery()
 
       await this.sendFootballResult()
 
       this.loader = false
     },
 
+    async sendAndCalc() {
+      this.loader = true
+      this.error = ''
+      this.prepareQuery()
+
+      await this.sendFootballResult()
+      await this.calcFootballResult()
+
+      this.loader = false
+    },
+
     async calcResult(){
       this.loader = true
+      this.error = ''
 
       this.queryEvent.userToken = this.token
       this.queryEvent.role = this.role
@@ -663,6 +717,7 @@ export default {
     display: flex;
     flex-direction: row;
     justify-content: space-between;
+    gap: 4px;
 
     margin-top: 10px;
 
@@ -697,13 +752,31 @@ export default {
     .btn_send {
       .prognosis_btn;
       width: 140px;
-      max-width: 40%;
+      max-width: 48%;
 
       &.rewrite {
         background: @NoWrite;
       }
+
+      &.btn_send_primary {
+        background: @YesWrite;
+        color: @DarkColorBG;
+        font-weight: 700;
+        max-width: 58%;
+      }
     }
   }
+}
+
+.quick_hint {
+  margin-top: 6px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.2);
+  color: @colorText;
+  font-size: 10px;
+  line-height: 1.35;
+  text-align: left;
 }
 
 .error_message {

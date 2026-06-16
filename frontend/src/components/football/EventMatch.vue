@@ -1,6 +1,11 @@
 <template>
   <div class="match_card" v-if="match" :class="{ 'has_xp': showRewardTabs }">
     <div class="reward_tabs" v-if="showRewardTabs">
+      <div class="match_xp_tab" v-if="showTreasureReward">
+        <div class="chest_claimed">
+          {{ treasureCount > 1 ? 'x' + treasureCount + ' ' : '' }}🎁
+        </div>
+      </div>
       <div class="match_xp_tab" v-if="showMoneyReward">
         <div class="money_claimed">
           Выигрыш +{{ moneyPayout }} 💵
@@ -18,6 +23,7 @@
       <div class="xp_claimed" v-else-if="xpStatus === 'claimed'">
         Опыт +{{ xpPoints }}
       </div>
+      <div class="xp_level_up" v-if="levelUpMessage">{{ levelUpMessage }}</div>
       <div class="xp_error" v-if="claimError">{{ claimError }}</div>
       </div>
     </div>
@@ -98,6 +104,7 @@ export default {
       urlImg: 'https://prognos9ys.ru/',
       claiming: false,
       claimError: '',
+      levelUpMessage: '',
       localXpStatus: null,
     }
   },
@@ -106,7 +113,16 @@ export default {
       return this.match?.xp_reward || null;
     },
     showXpReward() {
-      if (this.match?.active !== 'N' || !this.match?.send_info?.send_time || !this.xpReward) {
+      if (this.match?.active !== 'N' || !this.xpReward) {
+        return false;
+      }
+
+      const participated = Boolean(this.match?.send_info?.send_time)
+        || Number(this.xpReward?.points) > 0
+        || this.xpStatus === 'claimed'
+        || this.xpStatus === 'pending';
+
+      if (!participated) {
         return false;
       }
 
@@ -115,6 +131,15 @@ export default {
     betReward() {
       return this.match?.bet_reward || null;
     },
+    treasure() {
+      return this.match?.treasure || null;
+    },
+    treasureCount() {
+      return Number(this.treasure?.count ?? 0);
+    },
+    showTreasureReward() {
+      return this.match?.active === 'N' && this.treasureCount > 0;
+    },
     moneyPayout() {
       return Number(this.betReward?.payout ?? 0).toFixed(1);
     },
@@ -122,7 +147,7 @@ export default {
       return Number(this.betReward?.payout ?? 0) > 0;
     },
     showRewardTabs() {
-      return this.showXpReward || this.showMoneyReward;
+      return this.showXpReward || this.showMoneyReward || this.showTreasureReward;
     },
     xpPoints() {
       return this.xpReward?.points ?? 0;
@@ -151,8 +176,25 @@ export default {
       this.claimError = '';
 
       try {
-        await this.claimXp(this.match.id);
+        const result = await this.claimXp(this.match.id);
         this.localXpStatus = 'claimed';
+        if (result?.level_rewards?.length) {
+          const parts = result.level_rewards.map((reward) => {
+            const bits = [`ур. ${reward.level}`];
+            if (reward.prognobaks > 0) {
+              bits.push(`+${reward.prognobaks} 💵`);
+            }
+            if (reward.rublius > 0) {
+              bits.push(`+${reward.rublius} 💎`);
+            }
+            if (reward.chests > 0) {
+              bits.push(`+${reward.chests} 🎁`);
+            }
+            return bits.join(' ');
+          });
+          this.claimError = '';
+          this.levelUpMessage = `Новый уровень! ${parts.join('; ')}`;
+        }
         await this.$store.dispatch('auth/refreshGameInfo');
       } catch (error) {
         this.claimError = error.message || 'Не удалось получить опыт';
@@ -249,6 +291,30 @@ export default {
     text-align: center;
     font-weight: 600;
     white-space: nowrap;
+  }
+
+  .chest_claimed {
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 10px;
+    line-height: 1.2;
+    border-radius: 3px 3px 0 0;
+    .shadow_inset;
+    padding: 5px 9px;
+    min-height: 15px;
+    color: @yellow;
+    text-align: center;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .xp_level_up {
+    margin-top: 2px;
+    font-size: 8px;
+    color: @YesWrite;
+    line-height: 1.1;
+    text-align: center;
+    font-weight: 600;
   }
 
   .xp_error {

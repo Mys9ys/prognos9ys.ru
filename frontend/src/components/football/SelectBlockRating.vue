@@ -15,17 +15,30 @@
           </tr>
           </thead>
           <tbody>
-          <tr v-for="(el) in data" :key="el.id">
+          <tr v-for="(el, rowIndex) in data" :key="rowKey(el, rowIndex)">
             <td class="pr_table_col">{{el.place}}</td>
             <td class="pr_table_col" v-if="diffValue(el) === 0"><div class="zero_diff">–</div></td>
             <td class="pr_table_col" v-else-if="diffValue(el) > 0"><div class="plus_diff">{{ diffValue(el) }}</div></td>
             <td class="pr_table_col" v-else-if="diffValue(el) < 0"><div class="minus_diff">{{ diffValue(el) }}</div></td>
-            <td class="pr_table_col user_cell">
+            <td class="pr_table_col user_cell" v-if="el.user">
               <span class="user_ava">
-                <img :src="url+el.user.img" alt="" v-if="el.user.img">
+                <img :src="url + el.user.img" alt="" v-if="el.user.img">
                 <img src="@/assets/img/ava_no_img.jpg" alt="" v-else>
               </span>
-              <div class="user_nick">{{el.user.name}}</div><span class="user_info" @click="$router.push('/profile/' + el.user.id)">i</span></td>
+              <div class="user_nick">{{ el.user.name }}</div>
+              <div class="user_actions" v-if="el.user.id">
+                <span
+                    v-if="canImpersonate"
+                    class="user_enter"
+                    title="Войти как пользователь"
+                    @click.stop="loginAsUser(el.user.id)"
+                >🚪</span>
+                <span class="user_info" @click.stop="$router.push('/profile/' + el.user.id)">i</span>
+              </div>
+            </td>
+            <td class="pr_table_col user_cell" v-else>
+              <div class="user_nick">—</div>
+            </td>
             <td class="pr_table_col score">{{el.score}}</td>
           </tr>
           </tbody>
@@ -36,6 +49,8 @@
 </template>
 
 <script>
+import { mapActions, mapState } from 'vuex'
+
 export default {
   name: "SelectBlockRating",
   props: {
@@ -48,7 +63,20 @@ export default {
       matchNumbers: [],
       selected: '',
       url:  'https://prognos9ys.ru',
+      impersonateError: '',
     }
+  },
+
+  computed: {
+    ...mapState({
+      userInfo: state => state.auth.userInfo,
+    }),
+    canImpersonate() {
+      const role = this.userInfo?.role
+      return !!this.userInfo?.can_impersonate
+          || role === 'admin'
+          || role === 'super_moder'
+    },
   },
 
   // mounted() {
@@ -62,6 +90,25 @@ export default {
   },
 
   methods: {
+    ...mapActions({
+      impersonateStart: 'auth/impersonateStart',
+    }),
+
+    async loginAsUser(userId) {
+      this.impersonateError = ''
+      try {
+        await this.impersonateStart(userId)
+        this.$router.push('/').then(() => { this.$router.go() })
+      } catch (e) {
+        this.impersonateError = e.message || 'Не удалось войти'
+        console.log('loginAsUser error', e)
+      }
+    },
+
+    rowKey(el, rowIndex) {
+      return el?.user?.id || el?.id || rowIndex
+    },
+
     diffValue(row) {
       return Number(row?.diff ?? 0);
     },
@@ -107,8 +154,31 @@ export default {
       }
     }
     .user_nick{
-      width: 85%;
+      flex: 1;
+      min-width: 0;
       text-align: left;
+    }
+
+    .user_actions{
+      display: flex;
+      flex-direction: row;
+      gap: 3px;
+      flex-shrink: 0;
+    }
+
+    .user_enter{
+      cursor: pointer;
+      display: flex;
+      flex-direction: row;
+      justify-content: center;
+      align-items: center;
+      width: 24px;
+      height: 24px;
+      font-size: 12px;
+      line-height: 1;
+      border: 2px solid @yellow;
+      border-radius: 5px;
+      background: rgba(0, 0, 0, 0.15);
     }
 
     .user_info{

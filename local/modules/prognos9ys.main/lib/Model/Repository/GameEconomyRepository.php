@@ -15,6 +15,7 @@ class GameEconomyRepository
     private ?string $pendingXpDataClass = null;
     private ?string $gameBankDataClass = null;
     private ?string $matchBetDataClass = null;
+    private ?string $treasureChestDataClass = null;
 
     public function getWalletDataClass(): string
     {
@@ -49,6 +50,11 @@ class GameEconomyRepository
     public function getMatchBetDataClass(): string
     {
         return $this->matchBetDataClass ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_MATCH_BET);
+    }
+
+    public function getTreasureChestDataClass(): string
+    {
+        return $this->treasureChestDataClass ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_TREASURE_CHEST);
     }
 
     public function getWalletByUserId(int $userId): ?array
@@ -94,6 +100,31 @@ class GameEconomyRepository
         }
 
         return (int)$result->getId();
+    }
+
+    public function hasWalletTx(int $userId, string $reason, ?string $refType = null, ?int $refId = null): bool
+    {
+        $filter = [
+            '=UF_USER_ID' => $userId,
+            '=UF_REASON' => $reason,
+        ];
+
+        if ($refType !== null) {
+            $filter['=UF_REF_TYPE'] = $refType;
+        }
+
+        if ($refId !== null) {
+            $filter['=UF_REF_ID'] = $refId;
+        }
+
+        $dataClass = $this->getWalletTxDataClass();
+        $row = $dataClass::getList([
+            'filter' => $filter,
+            'limit' => 1,
+            'select' => ['ID'],
+        ])->fetch();
+
+        return (bool)$row;
     }
 
     public function getProgressByUserId(int $userId): ?array
@@ -346,6 +377,99 @@ class GameEconomyRepository
         }
 
         return $map;
+    }
+
+    public function getTreasureChest(int $userId, int $matchId): ?array
+    {
+        $dataClass = $this->getTreasureChestDataClass();
+        $row = $dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '=UF_MATCH_ID' => $matchId,
+            ],
+            'limit' => 1,
+        ])->fetch();
+
+        return $row ?: null;
+    }
+
+    public function addTreasureChest(array $fields): int
+    {
+        $dataClass = $this->getTreasureChestDataClass();
+        $result = $dataClass::add($fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+
+        return (int)$result->getId();
+    }
+
+    public function updateTreasureChest(int $id, array $fields): void
+    {
+        $dataClass = $this->getTreasureChestDataClass();
+        $result = $dataClass::update($id, $fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+    }
+
+    /**
+     * @param int[] $matchIds
+     * @return array<int, int> matchId => count
+     */
+    public function getTreasureChestCountMapForUser(int $userId, array $matchIds): array
+    {
+        if ($userId <= 0 || !$matchIds) {
+            return [];
+        }
+
+        $dataClass = $this->getTreasureChestDataClass();
+        $map = [];
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '@UF_MATCH_ID' => array_values(array_unique($matchIds)),
+            ],
+            'select' => ['UF_MATCH_ID', 'UF_COUNT'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $matchId = (int)($row['UF_MATCH_ID'] ?? 0);
+            if ($matchId <= 0) {
+                continue;
+            }
+            $map[$matchId] = (int)($row['UF_COUNT'] ?? 0);
+        }
+
+        return $map;
+    }
+
+    /**
+     * @return int total chests for user
+     */
+    public function getTreasureChestTotalForUser(int $userId): int
+    {
+        if ($userId <= 0) {
+            return 0;
+        }
+
+        $dataClass = $this->getTreasureChestDataClass();
+        $total = 0;
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '=UF_STATUS' => 'closed',
+            ],
+            'select' => ['UF_COUNT'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $total += (int)($row['UF_COUNT'] ?? 0);
+        }
+
+        return $total;
     }
 
     /**

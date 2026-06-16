@@ -5,7 +5,8 @@ namespace Prognos9ys\Main\Service\Game;
 use Bitrix\Main\Loader;
 
 /**
- * Игровая экономика действует только на ЧМ-2026 и события, начавшиеся не раньше него.
+ * Игровая экономика действует на ЧМ-2026 (якорь) и, при ANCHOR_ONLY_SCOPE=false,
+ * на события, начавшиеся не раньше якоря.
  */
 class GameEventScopeService
 {
@@ -31,6 +32,10 @@ class GameEventScopeService
 
         if ($eventId === $anchorId) {
             return true;
+        }
+
+        if (GameEconomyConfig::ANCHOR_ONLY_SCOPE) {
+            return false;
         }
 
         $anchorTs = $this->getAnchorActiveFromTs();
@@ -82,7 +87,7 @@ class GameEventScopeService
         }
 
         if (GameEconomyConfig::isTestMatchNumberLimitEnabled()) {
-            return $matchNumber === GameEconomyConfig::TEST_ONLY_MATCH_NUMBER;
+            return GameEconomyConfig::isMatchNumberInTestScope($matchNumber);
         }
 
         return true;
@@ -101,6 +106,10 @@ class GameEventScopeService
 
         if ($anchorId <= 0) {
             return [];
+        }
+
+        if (GameEconomyConfig::ANCHOR_ONLY_SCOPE) {
+            return [$anchorId];
         }
 
         $anchorTs = $this->getAnchorActiveFromTs();

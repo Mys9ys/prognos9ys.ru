@@ -7,6 +7,7 @@ class GetUserRole
     protected $userId;
     protected $arRole = [
         'moder' => 7,
+        'super_moder' => 8,
         'admin' => 1, // если до нее доходит у этой роли приоритет
     ];
 

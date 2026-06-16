@@ -124,7 +124,10 @@ class Prognos9ysAuthClass
         unset($dbUser['PERSONAL_PHOTO']);
 
         $token = $dbUser['UF_TOKEN'] ?: ($this->data['token'] ?? '');
-        $dbUser['role'] = $token ? (new GetUserRole($token))->result() : 'user';
+        $role = $token ? (new GetUserRole($token))->result() : 'user';
+        $dbUser['role'] = $role;
+        $dbUser['can_impersonate'] = $this->canUserImpersonate((int)$dbUser['ID'])
+            || in_array($role, ['admin', 'super_moder'], true);
 
         if (\Bitrix\Main\Loader::includeModule('prognos9ys.main')) {
             $dbUser['game_info'] = (new \Prognos9ys\Main\Service\Game\GameProfileService())
@@ -157,6 +160,15 @@ class Prognos9ysAuthClass
     {
         $token = random_bytes(16);
         $this->data['token'] = implode('-', str_split(bin2hex($token), 4));
+    }
+
+    protected function canUserImpersonate(int $userId): bool
+    {
+        if (!\Bitrix\Main\Loader::includeModule('prognos9ys.main')) {
+            return false;
+        }
+
+        return (new \Prognos9ys\Main\Service\Auth\ImpersonationService())->canImpersonate($userId);
     }
 
     protected function setResult($status, $mes, $info = '')

@@ -99,26 +99,59 @@ class FootballRatingCalculator
         ]);
 
         while ($res = $row->fetch()) {
-            $this->users[$res['ID']] = [
-                'id' => $res['ID'],
-                'name' => $res['NAME'],
+            $id = (int)$res['ID'];
+            $this->users[$id] = [
+                'id' => $id,
+                'name' => $res['NAME'] ?: ('Игрок #' . $id),
                 'img' => $res['PERSONAL_PHOTO'] ? \CFile::GetPath($res['PERSONAL_PHOTO']) : null,
             ];
         }
     }
 
+    private function resolveUser($userId): array
+    {
+        $id = (int)$userId;
+        if ($id <= 0) {
+            return [
+                'id' => 0,
+                'name' => 'Неизвестный',
+                'img' => null,
+            ];
+        }
+
+        if (isset($this->users[$id])) {
+            return $this->users[$id];
+        }
+
+        return [
+            'id' => $id,
+            'name' => 'Игрок #' . $id,
+            'img' => null,
+        ];
+    }
+
     private function loadResults(): void
     {
         foreach ($this->resultsRepository->fetchByEvent($this->eventId) as $res) {
-            $this->userScore[$res['PROPERTY_USER_ID_VALUE']] += 1;
+            $userId = (int)($res['PROPERTY_USER_ID_VALUE'] ?? 0);
+            if ($userId <= 0) {
+                continue;
+            }
+
+            $this->userScore[$userId] = ($this->userScore[$userId] ?? 0) + 1;
 
             foreach (self::SELECTORS as $selector) {
-                $number = $this->matchIdToNumber[$res['PROPERTY_MATCH_ID_VALUE']];
+                $matchId = (int)($res['PROPERTY_MATCH_ID_VALUE'] ?? 0);
+                $number = $this->matchIdToNumber[$matchId] ?? null;
+                if ($number === null) {
+                    continue;
+                }
 
-                $this->middleResults[$selector][$number][$res['PROPERTY_USER_ID_VALUE']] = (float)$res['PROPERTY_' . strtoupper($selector) . '_VALUE'] ?? 0;
+                $propKey = 'PROPERTY_' . strtoupper($selector) . '_VALUE';
+                $this->middleResults[$selector][$number][$userId] = (float)($res[$propKey] ?? 0);
 
-                if ($res['PROPERTY_ALL_VALUE'] > 30) {
-                    $this->results['best'][$number][$res['PROPERTY_USER_ID_VALUE']] = $res['PROPERTY_ALL_VALUE'];
+                if ((float)($res['PROPERTY_ALL_VALUE'] ?? 0) >= 30) {
+                    $this->results['best'][$number][$userId] = $res['PROPERTY_ALL_VALUE'];
                 }
             }
         }
@@ -164,7 +197,7 @@ class FootballRatingCalculator
 
                     $row = [
                         'place' => $place,
-                        'user' => $this->users[$uid],
+                        'user' => $this->resolveUser($uid),
                         'score' => $score,
                         'diff' => 0,
                     ];

@@ -1,6 +1,6 @@
 <template>
-  <div class="header_wrapper">
-    <div class="header_absolute">
+  <div class="header_wrapper" :class="{'header_wrapper_impersonating': impersonation.active}">
+    <div class="header_absolute" :style="{ top: headerTop }">
       <div class="header_block">
         <div class="block_title">
           <slot></slot>
@@ -13,13 +13,23 @@
 </template>
 
 <script>
+import { mapState } from 'vuex'
+
 export default {
   name: "PageHeader",
   props: {
     path: {
       type: String
     }
-  }
+  },
+  computed: {
+    ...mapState({
+      impersonation: state => state.auth.impersonation,
+    }),
+    headerTop() {
+      return this.impersonation.active ? '6px' : '-20px'
+    },
+  },
 }
 </script>
 
@@ -29,6 +39,11 @@ export default {
   position: relative;
   height: 25px;
   z-index: 0;
+
+  &.header_wrapper_impersonating {
+    height: 32px;
+  }
+
   .header_absolute{
     position: absolute;
     top:-20px;

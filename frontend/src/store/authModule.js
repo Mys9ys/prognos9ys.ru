@@ -26,6 +26,11 @@ export const authModule = {
 
         userInfo: [],
 
+        impersonation: {
+            active: localStorage.getItem('lk_impersonating') === 'true',
+            originalToken: localStorage.getItem('lk_token_original') || '',
+        },
+
     }),
     getters: {},
     mutations: {
@@ -61,6 +66,21 @@ export const authModule = {
 
         setTypeRequest(state, type) {
             state.authData.type = type
+        },
+
+        setImpersonation(state, payload) {
+            state.impersonation = {
+                ...state.impersonation,
+                ...payload,
+            }
+            localStorage.setItem('lk_impersonating', payload.active ? 'true' : 'false')
+            if (payload.originalToken !== undefined) {
+                if (payload.originalToken) {
+                    localStorage.setItem('lk_token_original', payload.originalToken)
+                } else {
+                    localStorage.removeItem('lk_token_original')
+                }
+            }
         }
     },
     actions: {
@@ -68,6 +88,65 @@ export const authModule = {
         logoutVue({commit}) {
             commit('setAuth', false)
             commit('setToken', '')
+            commit('setImpersonation', { active: false, originalToken: '' })
+        },
+
+        applyAuthUser({ commit }, userInfo) {
+            commit('setUserInfo', userInfo)
+            commit('setAuth', true)
+            commit('setToken', userInfo.UF_TOKEN)
+            commit('setLoginError', '')
+        },
+
+        async impersonateStart({ state, commit, dispatch }, targetUserId) {
+            const actorToken = state.impersonation.active
+                ? state.impersonation.originalToken
+                : state.authData.token
+
+            if (!actorToken) {
+                return
+            }
+
+            const originalToken = state.impersonation.active
+                ? state.impersonation.originalToken
+                : state.authData.token
+
+            const data = await apiActions.impersonation.start(actorToken, targetUserId)
+
+            commit('setImpersonation', {
+                active: true,
+                originalToken,
+            })
+            dispatch('applyAuthUser', data.user)
+        },
+
+        async impersonateStop({ state, commit, dispatch }) {
+            const moderatorToken = state.impersonation.originalToken
+            if (!moderatorToken) {
+                return
+            }
+
+            const data = await apiActions.impersonation.stop(moderatorToken)
+
+            commit('setImpersonation', {
+                active: false,
+                originalToken: '',
+            })
+            dispatch('applyAuthUser', data.user)
+        },
+
+        async searchImpersonationUsers({ state }, query) {
+            const actorToken = state.impersonation.active
+                ? state.impersonation.originalToken
+                : state.authData.token
+
+            if (!actorToken) {
+                return []
+            }
+
+            const data = await apiActions.impersonation.searchUsers(actorToken, query)
+
+            return data.users || []
         },
 
         async authRequest({state, commit}) {
@@ -88,6 +167,7 @@ export const authModule = {
                     commit('setAuth', true)
                     commit('setToken', response.data.info.UF_TOKEN)
                     commit('setLoginError', '')
+                    commit('setImpersonation', { active: false, originalToken: '' })
                 } else {
                     commit('setLoginError', response.data.mes)
                     commit('setAuth', false)

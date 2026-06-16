@@ -123,4 +123,18 @@ export const apiActions = {
             {}
         ),
     },
+    impersonation: {
+        searchUsers: (userToken, query) => runBitrixAction(
+            'prognos9ys:main.ImpersonationController.searchUsers',
+            { userToken, query }
+        ),
+        start: (userToken, targetUserId) => runBitrixAction(
+            'prognos9ys:main.ImpersonationController.start',
+            { userToken, targetUserId }
+        ),
+        stop: (moderatorToken) => runBitrixAction(
+            'prognos9ys:main.ImpersonationController.stop',
+            { moderatorToken }
+        ),
+    },
 };

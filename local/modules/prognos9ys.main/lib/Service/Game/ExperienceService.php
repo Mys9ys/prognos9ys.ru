@@ -82,7 +82,8 @@ class ExperienceService
         ];
 
         if (GameEconomyConfig::isTestMatchNumberLimitEnabled()) {
-            $filter['PROPERTY_number'] = GameEconomyConfig::TEST_ONLY_MATCH_NUMBER;
+            $filter['>=PROPERTY_number'] = GameEconomyConfig::getTestMatchNumberMin();
+            $filter['<=PROPERTY_number'] = GameEconomyConfig::getTestMatchNumberMax();
         }
 
         $count = 0;
@@ -138,7 +139,7 @@ class ExperienceService
         }
 
         if (!$this->eventScope->isMatchEligible($matchId)) {
-            throw new ApiException('Опыт начисляется только за матчи ЧМ-2026 и последующих турниров', 422);
+            throw new ApiException('Опыт начисляется только за матчи ЧМ-2026', 422);
         }
 
         if (!$this->isMatchFinished($matchId)) {
@@ -169,11 +170,14 @@ class ExperienceService
         ]);
 
         $newProgress = $this->progressService->addXp($userId, $points);
+        $levelRewards = (new LevelUpRewardService($this->repository))
+            ->grantForLevelRange($userId, (int)$oldProgress['level'], (int)$newProgress['level']);
 
         return [
             'claimed_points' => $points,
             'match_id' => $matchId,
             'level_up' => $newProgress['level'] > $oldProgress['level'],
+            'level_rewards' => $levelRewards,
             'progress' => $newProgress,
         ];
     }

@@ -75,18 +75,20 @@
         </div>
       </div>
     </div>
+    <ImpersonationBanner v-if="impersonation.active" class="hm_impersonation"></ImpersonationBanner>
   </div>
-
 </template>
 <script>
 import {mapActions, mapState} from "vuex";
 import AvaComponent from "@/components/main/AvaComponent";
+import ImpersonationBanner from "@/components/profile/ImpersonationBanner";
 // import BtnMini from "@/components/ui/btn/BtnMini";
 
 export default {
   name: "HeaderBlock",
   components: {
     AvaComponent,
+    ImpersonationBanner,
     // BtnMini
   },
   data() {
@@ -125,6 +127,7 @@ export default {
     ...mapState({
       token: state => state.auth.authData.token,
       userInfo: state => state.auth.userInfo,
+      impersonation: state => state.auth.impersonation,
     }),
     gameProgress() {
       return this.userInfo?.game_info?.progress || null;
@@ -185,6 +188,15 @@ export default {
   border-radius: 0 0 5px 5px;
 
   z-index: 15;
+
+  .hm_impersonation {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -40px;
+    z-index: 14;
+    margin: 0;
+  }
 
   .h_header_block {
     display: flex;
