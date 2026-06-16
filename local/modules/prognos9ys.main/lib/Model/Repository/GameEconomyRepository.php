@@ -226,6 +226,23 @@ class GameEconomyRepository
         return $updated;
     }
 
+    public function resetAllWalletBalances(float $prognobaks, float $rublius): int
+    {
+        $dataClass = $this->getWalletDataClass();
+        $updated = 0;
+        $response = $dataClass::getList(['select' => ['ID']]);
+
+        while ($row = $response->fetch()) {
+            $dataClass::update((int)$row['ID'], [
+                'UF_PROGNOBAKS' => $prognobaks,
+                'UF_RUBLIUS' => $rublius,
+            ]);
+            $updated++;
+        }
+
+        return $updated;
+    }
+
     /**
      * @return array<int, array>
      */
