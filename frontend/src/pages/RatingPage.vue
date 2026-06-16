@@ -3,6 +3,8 @@
   <div class="ratings_wrapper">
     <PageHeader class="header">Рейтинги</PageHeader>
 
+    <WealthRatingBlock />
+
     <div class="period_filter" v-if="hasNowEvents || hasOldEvents">
       <div
           class="period_btn"
@@ -91,6 +93,7 @@ import FootballRatingBlock from "@/components/football/FootballRatingBlock";
 import RaceRatingBlock from "@/components/race/RaceRatingBlock";
 import RatingSetBar from "@/components/rating/RatingSetBar";
 import RatingSetModal from "@/components/rating/RatingSetModal";
+import WealthRatingBlock from "@/components/game/WealthRatingBlock";
 import { apiActions } from "@/api/bitrixClient";
 
 export default {
@@ -102,6 +105,7 @@ export default {
     RaceRatingBlock,
     RatingSetBar,
     RatingSetModal,
+    WealthRatingBlock,
   },
   data() {
     return {

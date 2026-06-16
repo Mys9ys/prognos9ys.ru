@@ -68,6 +68,33 @@ class GameEconomyRepository
         return $row ?: null;
     }
 
+    /**
+     * @return array<int, array{user_id:int,prognobaks:float,rublius:float}>
+     */
+    public function getAllWallets(): array
+    {
+        $dataClass = $this->getWalletDataClass();
+        $rows = [];
+        $response = $dataClass::getList([
+            'select' => ['UF_USER_ID', 'UF_PROGNOBAKS', 'UF_RUBLIUS'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $userId = (int)($row['UF_USER_ID'] ?? 0);
+            if ($userId <= 0) {
+                continue;
+            }
+
+            $rows[] = [
+                'user_id' => $userId,
+                'prognobaks' => round((float)($row['UF_PROGNOBAKS'] ?? 0), 1),
+                'rublius' => round((float)($row['UF_RUBLIUS'] ?? 0), 1),
+            ];
+        }
+
+        return $rows;
+    }
+
     public function addWallet(array $fields): int
     {
         $dataClass = $this->getWalletDataClass();

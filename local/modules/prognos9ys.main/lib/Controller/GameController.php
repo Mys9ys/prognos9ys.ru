@@ -7,6 +7,7 @@ use Prognos9ys\Main\Service\Game\ExperienceService;
 use Prognos9ys\Main\Service\Game\GameProfileService;
 use Prognos9ys\Main\Service\Game\LevelService;
 use Prognos9ys\Main\Service\Game\WalletService;
+use Prognos9ys\Main\Service\Game\WealthRatingService;
 
 class GameController extends BaseController
 {
@@ -16,6 +17,7 @@ class GameController extends BaseController
             'getState' => $this->getDefaultConfigureForPostToken(),
             'claimXp' => $this->getDefaultConfigureForPostToken(),
             'getLevelTiers' => $this->getDefaultConfigureForPostPublic(),
+            'getWealthRating' => $this->getDefaultConfigureForPostPublic(),
         ];
     }
 
@@ -52,5 +54,10 @@ class GameController extends BaseController
             'status' => 'ok',
             'tiers' => array_values((new LevelService())->getTiers()),
         ];
+    }
+
+    public function getWealthRatingAction(int $limit = 30): array
+    {
+        return (new WealthRatingService())->getRating($limit);
     }
 }
