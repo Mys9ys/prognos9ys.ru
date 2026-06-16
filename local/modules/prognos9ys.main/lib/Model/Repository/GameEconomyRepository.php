@@ -188,6 +188,44 @@ class GameEconomyRepository
         }
     }
 
+    public function resetAllUserProgressXp(): int
+    {
+        $dataClass = $this->getUserProgressDataClass();
+        $updated = 0;
+        $response = $dataClass::getList(['select' => ['ID', 'UF_XP']]);
+
+        while ($row = $response->fetch()) {
+            if (round((float)($row['UF_XP'] ?? 0), 1) === 0.0) {
+                continue;
+            }
+
+            $dataClass::update((int)$row['ID'], ['UF_XP' => 0]);
+            $updated++;
+        }
+
+        return $updated;
+    }
+
+    public function reopenClaimedPendingXp(): int
+    {
+        $dataClass = $this->getPendingXpDataClass();
+        $updated = 0;
+        $response = $dataClass::getList([
+            'filter' => ['=UF_STATUS' => GameEconomyConfig::XP_STATUS_CLAIMED],
+            'select' => ['ID'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $dataClass::update((int)$row['ID'], [
+                'UF_STATUS' => GameEconomyConfig::XP_STATUS_PENDING,
+                'UF_CLAIMED_AT' => null,
+            ]);
+            $updated++;
+        }
+
+        return $updated;
+    }
+
     /**
      * @return array<int, array>
      */
