@@ -126,6 +126,10 @@ export const apiActions = {
             'prognos9ys:main.GameController.getWealthRating',
             { limit, wealthSort }
         ),
+        getGameBank: (userToken) => runBitrixAction(
+            'prognos9ys:main.GameController.getGameBank',
+            { userToken }
+        ),
     },
     impersonation: {
         searchUsers: (userToken, query) => runBitrixAction(

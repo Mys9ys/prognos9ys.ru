@@ -5,6 +5,10 @@
         <div class="wealth_title" @click="expanded = !expanded">{{ blockTitle }}</div>
         <div class="wealth_toggle" @click="expanded = !expanded">{{ expanded ? '−' : '+' }}</div>
       </div>
+      <div class="game_bank_row" v-if="isModerator && gameBank" @click.stop>
+        🏛 Госбанк: <strong>{{ formatMoney(gameBank.prognobaks) }} 💵</strong>
+        <span class="bank_hint">остатки паримутуеля</span>
+      </div>
       <div class="wealth_filters" v-if="expanded" @click.stop>
         <button
             type="button"
@@ -89,6 +93,7 @@ export default {
       loading: false,
       mode: 'poor',
       ratings: [],
+      gameBank: null,
       url: 'https://prognos9ys.ru',
     };
   },
@@ -101,6 +106,9 @@ export default {
       return !!this.userInfo?.can_impersonate
           || role === 'admin'
           || role === 'super_moder';
+    },
+    isModerator() {
+      return this.canImpersonate;
     },
     blockTitle() {
       if (this.mode === 'poor') {
@@ -135,6 +143,14 @@ export default {
   },
   created() {
     this.loadRating();
+    this.loadGameBank();
+  },
+  watch: {
+    'userInfo.token'(token) {
+      if (token) {
+        this.loadGameBank();
+      }
+    },
   },
   methods: {
     ...mapActions({
@@ -161,6 +177,26 @@ export default {
         console.log('wealth rating error', e);
       } finally {
         this.loading = false;
+      }
+    },
+
+    async loadGameBank() {
+      if (!this.isModerator) {
+        return;
+      }
+
+      const userToken = this.userInfo?.token;
+      if (!userToken) {
+        return;
+      }
+
+      try {
+        const data = await apiActions.game.getGameBank(userToken);
+        if (data?.status === 'ok') {
+          this.gameBank = data.bank || null;
+        }
+      } catch (e) {
+        console.log('game bank error', e);
       }
     },
 
@@ -199,6 +235,26 @@ export default {
 .wealth_header {
   .shadow_inset;
   padding: 6px 8px;
+}
+
+.game_bank_row {
+  margin-top: 6px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.2);
+  font-size: 12px;
+  text-align: left;
+
+  strong {
+    color: @yellow;
+  }
+
+  .bank_hint {
+    display: block;
+    margin-top: 2px;
+    font-size: 10px;
+    color: @colorBlur;
+  }
 }
 
 .wealth_title_row {

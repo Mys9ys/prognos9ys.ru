@@ -2,8 +2,10 @@
 
 namespace Prognos9ys\Main\Controller;
 
+use Prognos9ys\Main\Service\Auth\ImpersonationService;
 use Prognos9ys\Main\Service\Auth\TokenAuthService;
 use Prognos9ys\Main\Service\Game\ExperienceService;
+use Prognos9ys\Main\Service\Game\GameBankService;
 use Prognos9ys\Main\Service\Game\GameProfileService;
 use Prognos9ys\Main\Service\Game\LevelService;
 use Prognos9ys\Main\Service\Game\WalletService;
@@ -18,6 +20,7 @@ class GameController extends BaseController
             'claimXp' => $this->getDefaultConfigureForPostToken(),
             'getLevelTiers' => $this->getDefaultConfigureForPostPublic(),
             'getWealthRating' => $this->getDefaultConfigureForPostPublic(),
+            'getGameBank' => $this->getDefaultConfigureForPostToken(),
         ];
     }
 
@@ -59,5 +62,23 @@ class GameController extends BaseController
     public function getWealthRatingAction(int $limit = 30, string $wealthSort = 'rich'): array
     {
         return (new WealthRatingService())->getRating($limit, $wealthSort);
+    }
+
+    public function getGameBankAction(): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        if (!(new ImpersonationService())->canImpersonate($userId)) {
+            throw new ApiException('Нет доступа', 403);
+        }
+
+        return [
+            'status' => 'ok',
+            'bank' => (new GameBankService())->getSummary(),
+        ];
     }
 }
