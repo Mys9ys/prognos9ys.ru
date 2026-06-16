@@ -89,7 +89,8 @@ export default {
   components: { PreLoader },
   data() {
     return {
-      expanded: true,
+      expanded: false,
+      ratingLoaded: false,
       loading: false,
       mode: 'poor',
       ratings: [],
@@ -142,10 +143,15 @@ export default {
     },
   },
   created() {
-    this.loadRating();
     this.loadGameBank();
   },
   watch: {
+    expanded(isExpanded) {
+      if (isExpanded && !this.ratingLoaded) {
+        this.ratingLoaded = true;
+        this.loadRating();
+      }
+    },
     'userInfo.token'(token) {
       if (token) {
         this.loadGameBank();

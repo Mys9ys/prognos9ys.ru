@@ -73,6 +73,57 @@ class WalletService
         (new UserProgressService($this->repository))->ensureProgress($userId);
     }
 
+    /**
+     * Стартовый пакет для аккаунтов без registration_bonus (например, созданных в админке).
+     */
+    public function grantStarterPackIfMissing(int $userId): bool
+    {
+        if ($userId <= 0) {
+            return false;
+        }
+
+        if ($this->repository->hasWalletTx($userId, 'registration_bonus', 'user', $userId)) {
+            return false;
+        }
+
+        $wallet = $this->repository->getWalletByUserId($userId);
+
+        if (!$wallet) {
+            $this->grantStarterPack($userId);
+
+            return true;
+        }
+
+        $prognobaks = round((float)($wallet['UF_PROGNOBAKS'] ?? 0), 1);
+        $rublius = round((float)($wallet['UF_RUBLIUS'] ?? 0), 1);
+
+        if ($prognobaks > 0 || $rublius > 0) {
+            return false;
+        }
+
+        $this->credit(
+            $userId,
+            GameEconomyConfig::CURRENCY_PROGNOBAKS,
+            GameEconomyConfig::START_PROGNOBAKS,
+            'registration_bonus',
+            'user',
+            $userId
+        );
+
+        $this->credit(
+            $userId,
+            GameEconomyConfig::CURRENCY_RUBLIUS,
+            GameEconomyConfig::START_RUBLIUS,
+            'registration_bonus',
+            'user',
+            $userId
+        );
+
+        (new UserProgressService($this->repository))->ensureProgress($userId);
+
+        return true;
+    }
+
     public function credit(
         int $userId,
         string $currency,
