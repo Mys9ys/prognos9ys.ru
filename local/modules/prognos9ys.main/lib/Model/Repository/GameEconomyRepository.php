@@ -4,6 +4,7 @@ namespace Prognos9ys\Main\Model\Repository;
 
 use Bitrix\Highloadblock\HighloadBlockTable;
 use Bitrix\Main\Loader;
+use Prognos9ys\Main\Service\Game\GameEconomyConfig;
 use Prognos9ys\Main\Service\Game\GameEconomyHlInstaller;
 
 class GameEconomyRepository
@@ -290,6 +291,40 @@ class GameEconomyRepository
         if (!$result->isSuccess()) {
             throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
         }
+    }
+
+    /**
+     * @return array<int, array{count:int,points:float}>
+     */
+    public function getPendingXpAggregatesByUser(): array
+    {
+        $dataClass = $this->getPendingXpDataClass();
+        $map = [];
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_STATUS' => GameEconomyConfig::XP_STATUS_PENDING,
+            ],
+            'select' => ['UF_USER_ID', 'UF_POINTS'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $userId = (int)($row['UF_USER_ID'] ?? 0);
+            if ($userId <= 0) {
+                continue;
+            }
+
+            if (!isset($map[$userId])) {
+                $map[$userId] = ['count' => 0, 'points' => 0.0];
+            }
+
+            $map[$userId]['count']++;
+            $map[$userId]['points'] = round(
+                $map[$userId]['points'] + (float)($row['UF_POINTS'] ?? 0),
+                1
+            );
+        }
+
+        return $map;
     }
 
     public function getGameBankByCode(string $code): ?array

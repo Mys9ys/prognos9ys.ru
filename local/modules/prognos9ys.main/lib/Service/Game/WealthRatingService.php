@@ -14,15 +14,26 @@ class WealthRatingService
         $this->repository = $repository ?? new GameEconomyRepository();
     }
 
-    public function getRating(int $limit = 30): array
+    public function getRating(int $limit = 30, string $mode = 'rich'): array
     {
         $limit = max(1, min(100, $limit));
-        $wallets = $this->repository->getAllWallets();
+        $mode = in_array($mode, ['rich', 'poor', 'pending_xp'], true) ? $mode : 'rich';
 
+        if ($mode === 'pending_xp') {
+            return $this->getPendingXpRating($limit);
+        }
+
+        return $this->getWealthRating($limit, $mode === 'poor');
+    }
+
+    private function getWealthRating(int $limit, bool $poorestFirst): array
+    {
+        $wallets = $this->repository->getAllWallets();
         $prepared = [];
+
         foreach ($wallets as $wallet) {
             $total = $this->calcTotalWealth($wallet['prognobaks'], $wallet['rublius']);
-            if ($total <= 0) {
+            if (!$poorestFirst && $total <= 0) {
                 continue;
             }
 
@@ -34,12 +45,16 @@ class WealthRatingService
             ];
         }
 
-        usort($prepared, static function (array $a, array $b): int {
+        usort($prepared, static function (array $a, array $b) use ($poorestFirst): int {
             if ($a['total'] === $b['total']) {
-                return $b['user_id'] <=> $a['user_id'];
+                return $poorestFirst
+                    ? ($a['user_id'] <=> $b['user_id'])
+                    : ($b['user_id'] <=> $a['user_id']);
             }
 
-            return $b['total'] <=> $a['total'];
+            return $poorestFirst
+                ? ($a['total'] <=> $b['total'])
+                : ($b['total'] <=> $a['total']);
         });
 
         $prepared = array_slice($prepared, 0, $limit);
@@ -50,22 +65,20 @@ class WealthRatingService
         $prevTotal = null;
 
         foreach ($prepared as $index => $row) {
-            if ($prevTotal === null || $row['total'] < $prevTotal) {
+            if ($prevTotal === null || $row['total'] !== $prevTotal) {
                 $place = $index + 1;
             }
 
             $userId = $row['user_id'];
             $ratings[] = [
                 'place' => $place,
-                'user' => $users[$userId] ?? [
-                    'id' => $userId,
-                    'name' => 'Игрок #' . $userId,
-                    'img' => null,
-                ],
+                'user' => $this->resolveUser($users, $userId),
                 'prognobaks' => $row['prognobaks'],
                 'rublius' => $row['rublius'],
                 'total' => $row['total'],
                 'score' => $row['total'],
+                'pending_count' => 0,
+                'pending_points' => 0.0,
             ];
 
             $prevTotal = $row['total'];
@@ -73,6 +86,71 @@ class WealthRatingService
 
         return [
             'status' => 'ok',
+            'mode' => $poorestFirst ? 'poor' : 'rich',
+            'ratings' => $ratings,
+        ];
+    }
+
+    private function getPendingXpRating(int $limit): array
+    {
+        $aggregates = $this->repository->getPendingXpAggregatesByUser();
+        $walletMap = [];
+
+        foreach ($this->repository->getAllWallets() as $wallet) {
+            $walletMap[$wallet['user_id']] = $wallet;
+        }
+
+        $prepared = [];
+        foreach ($aggregates as $userId => $agg) {
+            $wallet = $walletMap[$userId] ?? ['prognobaks' => 0.0, 'rublius' => 0.0];
+            $prepared[] = [
+                'user_id' => $userId,
+                'prognobaks' => $wallet['prognobaks'],
+                'rublius' => $wallet['rublius'],
+                'total' => $this->calcTotalWealth($wallet['prognobaks'], $wallet['rublius']),
+                'pending_count' => $agg['count'],
+                'pending_points' => $agg['points'],
+            ];
+        }
+
+        usort($prepared, static function (array $a, array $b): int {
+            if ($a['pending_points'] === $b['pending_points']) {
+                return $b['pending_count'] <=> $a['pending_count'];
+            }
+
+            return $b['pending_points'] <=> $a['pending_points'];
+        });
+
+        $prepared = array_slice($prepared, 0, $limit);
+        $users = $this->loadUsers(array_column($prepared, 'user_id'));
+
+        $ratings = [];
+        $place = 0;
+        $prevPoints = null;
+
+        foreach ($prepared as $index => $row) {
+            if ($prevPoints === null || $row['pending_points'] !== $prevPoints) {
+                $place = $index + 1;
+            }
+
+            $userId = $row['user_id'];
+            $ratings[] = [
+                'place' => $place,
+                'user' => $this->resolveUser($users, $userId),
+                'prognobaks' => $row['prognobaks'],
+                'rublius' => $row['rublius'],
+                'total' => $row['total'],
+                'score' => $row['pending_points'],
+                'pending_count' => $row['pending_count'],
+                'pending_points' => $row['pending_points'],
+            ];
+
+            $prevPoints = $row['pending_points'];
+        }
+
+        return [
+            'status' => 'ok',
+            'mode' => 'pending_xp',
             'ratings' => $ratings,
         ];
     }
@@ -83,6 +161,19 @@ class WealthRatingService
             $prognobaks + $rublius * GameEconomyConfig::RUBLIUS_TO_PROGNOBAKS,
             1
         );
+    }
+
+    /**
+     * @param array<int, array{id:int,name:string,img:?string}> $users
+     * @return array{id:int,name:string,img:?string}
+     */
+    private function resolveUser(array $users, int $userId): array
+    {
+        return $users[$userId] ?? [
+            'id' => $userId,
+            'name' => 'Игрок #' . $userId,
+            'img' => null,
+        ];
     }
 
     /**
