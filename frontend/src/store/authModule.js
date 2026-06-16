@@ -2,6 +2,7 @@
 import axios from "axios";
 
 import {baseConfig} from "@/store/config";
+import {apiActions} from "@/api/bitrixClient";
 
 export const authModule = {
     state: () => ({
@@ -119,6 +120,24 @@ export const authModule = {
 
             } catch (e) {
                 console.log('error', e)
+            }
+        },
+
+        async refreshGameInfo({ state, commit }) {
+            if (!state.authData.token) {
+                return;
+            }
+
+            try {
+                if (baseConfig.USE_BITRIX_API) {
+                    const data = await apiActions.game.getState(state.authData.token);
+                    commit('setUserInfo', {
+                        ...state.userInfo,
+                        game_info: data.game,
+                    });
+                }
+            } catch (e) {
+                console.log('refreshGameInfo error', e);
             }
         },
 

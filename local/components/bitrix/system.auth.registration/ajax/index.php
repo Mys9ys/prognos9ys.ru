@@ -72,6 +72,9 @@ class myRegisterNewUser
 
         if($res) {
             $this->result = ["status" => "ok", "mes" => "регистрация успешна"];
+            if (\Bitrix\Main\Loader::includeModule('prognos9ys.main')) {
+                \Prognos9ys\Main\Service\Game\RegistrationBonusService::onUserRegistered((int)$res);
+            }
             $user->Authorize($res);
         } else {
             $this->result = ["status" => "err", "mes" => "Ошибка регистрации"];

@@ -109,4 +109,18 @@ export const apiActions = {
             { type }
         ),
     },
+    game: {
+        getState: (userToken) => runBitrixAction(
+            'prognos9ys:main.GameController.getState',
+            { userToken }
+        ),
+        claimXp: (userToken, matchId) => runBitrixAction(
+            'prognos9ys:main.GameController.claimXp',
+            { userToken, matchId }
+        ),
+        getLevelTiers: () => runBitrixAction(
+            'prognos9ys:main.GameController.getLevelTiers',
+            {}
+        ),
+    },
 };

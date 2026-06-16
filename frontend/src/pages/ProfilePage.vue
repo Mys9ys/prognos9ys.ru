@@ -9,8 +9,10 @@
     <div class="right_block">
       <div class="right_el"><div class="title">Ник:</div> <span> {{profileData.info.NAME}}</span></div>
       <div class="right_el"><div class="title">Рег. дата:</div> <span>{{profileData.info.reg}}</span></div>
-      <div class="right_el"><div class="title">Звание:</div> <span>{{profileData.rank_info.rank.name}}</span></div>
-      <div class="right_el"><div class="title">Прогнозов:</div> <span>{{profileData.rank_info.count}}</span></div>
+      <template v-if="profileData.game_info">
+        <div class="right_el"><div class="title">Уровень:</div> <span>{{ profileData.game_info.progress.level }} — {{ profileData.game_info.progress.title }}</span></div>
+        <div class="right_el"><div class="title">Опыт:</div> <span>{{ profileData.game_info.progress.xp }}</span></div>
+      </template>
     </div>
   </div>
   <div class="prognosis_block">

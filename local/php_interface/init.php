@@ -2,6 +2,14 @@
 
 \Bitrix\Main\Loader::includeModule('prognos9ys.main');
 
+use Prognos9ys\Main\Service\Game\RegistrationBonusService;
+
+AddEventHandler('main', 'OnAfterUserAdd', static function (array &$arFields): void {
+    if (!empty($arFields['ID'])) {
+        RegistrationBonusService::onUserRegistered((int)$arFields['ID']);
+    }
+});
+
 $arClassAgent = [
     'DeactivateEventElementForDate',
     'DeactivateEventElement',

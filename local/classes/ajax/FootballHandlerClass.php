@@ -109,6 +109,7 @@ class FootballHandlerClass
             $el["time"] = $date[1];
 
             $el["active"] = $res["ACTIVE"];
+            $el["id"] = (int)$res["ID"];
             $el["number"] = $res["PROPERTY_NUMBER_VALUE"];
             $el["event"] = $res["PROPERTY_EVENTS_VALUE"];
 

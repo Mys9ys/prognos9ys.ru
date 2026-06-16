@@ -126,8 +126,10 @@ class Prognos9ysAuthClass
         $token = $dbUser['UF_TOKEN'] ?: ($this->data['token'] ?? '');
         $dbUser['role'] = $token ? (new GetUserRole($token))->result() : 'user';
 
-        $rank = (new GetUserRank($dbUser['ID']))->result();
-        $dbUser['rank_info'] = $rank['info'] ?? null;
+        if (\Bitrix\Main\Loader::includeModule('prognos9ys.main')) {
+            $dbUser['game_info'] = (new \Prognos9ys\Main\Service\Game\GameProfileService())
+                ->getSummary((int)$dbUser['ID']);
+        }
 
         $this->userInfo = $dbUser;
     }

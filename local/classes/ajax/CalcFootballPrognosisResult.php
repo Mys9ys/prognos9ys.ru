@@ -82,6 +82,8 @@ class CalcFootballPrognosisResult
 
         if($this->arResults) $this->setManyResult();
 
+        $this->syncGamePendingXp();
+
     }
 
     protected function getEventResult()
@@ -359,6 +361,23 @@ class CalcFootballPrognosisResult
 
         if ($success) {
             $this->setResult('ok', '');
+        }
+    }
+
+    protected function syncGamePendingXp(): void
+    {
+        if (empty($this->data['matchId'])) {
+            return;
+        }
+
+        if (!\Bitrix\Main\Loader::includeModule('prognos9ys.main')) {
+            return;
+        }
+
+        try {
+            (new \Prognos9ys\Main\Service\Game\ExperienceService())->syncPendingForMatch((int)$this->data['matchId']);
+        } catch (\Throwable $exception) {
+            // Не блокируем пересчёт результатов матча.
         }
     }
 

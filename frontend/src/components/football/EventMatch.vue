@@ -1,55 +1,75 @@
 <template>
-  <div class="match_box" v-if="match">
-    <div class="left_block">
-      <div class="number"># {{ match.number }}</div>
-      <div class="time">{{ match.time }}</div>
+  <div class="match_card" v-if="match" :class="{ 'has_xp': showXpReward }">
+    <div class="match_xp_tab" v-if="showXpReward">
+      <button
+          class="xp_btn"
+          v-if="canClaimXp"
+          :disabled="claiming"
+          @click.stop="claimExperience"
+      >
+        {{ claiming ? '...' : `Получить опыт +${xpPoints}` }}
+      </button>
+      <div class="xp_claimed" v-else-if="xpStatus === 'claimed'">
+        Опыт +{{ xpPoints }}
+      </div>
+      <div class="xp_error" v-if="claimError">{{ claimError }}</div>
     </div>
 
-    <div class="team_block">
-      <div class="team" v-for="(team, index) in match.teams"
-           :key="index">
-        <div class="flag">
-          <img :src="urlImg + team.flag" alt="">
+    <div class="match_box">
+      <div class="left_block">
+        <div class="number"># {{ match.number }}</div>
+        <div class="time">{{ match.time }}</div>
+      </div>
+
+      <div class="team_block">
+        <div class="team" v-for="(team, index) in match.teams"
+             :key="index">
+          <div class="flag">
+            <img :src="urlImg + team.flag" alt="">
+          </div>
+          <div class="name">{{ team.name }}</div>
+          <div class="score" :class="{'score_blur' : match.active === 'Y'}">{{ team.goals ?? 0 }}</div>
         </div>
-        <div class="name">{{ team.name }}</div>
-        <div class="score" :class="{'score_blur' : match.active === 'Y'}">{{ team.goals ?? 0 }}</div>
+      </div>
+
+      <div class="right_block">
+        <div class="send_info_block" v-if="!match.send_info.send_time">
+          <div class="send_info">не заполнено</div>
+        </div>
+        <div class="send_info_block" v-else>
+          <div class="send_info send_fill" :class="{'send_info_min' : match.send_info.score_result}">заполнено {{ match.send_info.send_time }}</div>
+          <div class="score_result" v-if="match.send_info.score_result">{{ match.send_info.score_result }}</div>
+        </div>
+
+        <div class="btn_box">
+          <div class="more_btn" @click="moreInfo = !moreInfo"><span
+              :class="{'close' : !moreInfo, 'open' : moreInfo}"> > </span></div>
+          <div class="match_btn" v-if="!match.send_info.send_time && match.active === 'Y'" @click="$router.push(link)">
+            Заполнить
+          </div>
+          <div class="match_btn btn_change" v-if="match.send_info.send_time && match.active === 'Y'"
+               @click="$router.push(link)">Изменить
+          </div>
+          <div class="match_btn btn_last" v-if="match.active === 'N'" @click="$router.push(link)">Посмотреть</div>
+        </div>
       </div>
     </div>
 
-    <div class="right_block">
-      <div class="send_info_block" v-if="!match.send_info.send_time">
-        <div class="send_info">не заполнено</div>
-      </div>
-      <div class="send_info_block" v-else>
-        <div class="send_info send_fill" :class="{'send_info_min' : match.send_info.score_result}">заполнено {{ match.send_info.send_time }}</div>
-        <div class="score_result" v-if="match.send_info.score_result">{{ match.send_info.score_result }}</div>
-      </div>
-
-      <div class="btn_box">
-        <div class="more_btn" @click="moreInfo = !moreInfo"><span
-            :class="{'close' : !moreInfo, 'open' : moreInfo}"> > </span></div>
-        <div class="match_btn" v-if="!match.send_info.send_time && match.active === 'Y'" @click="$router.push(link)">
-          Заполнить
+    <div class="more_info" v-if="moreInfo">
+      <div class="title">Коэффициенты на матч</div>
+      <div class="box">
+        <div class="cell" v-for="(ratio, index) in match.ratio" :key="index">
+          <div class="title_cell">{{ratio.name}}</div>
+          <div class="count">{{ratio.count}}</div>
         </div>
-        <div class="match_btn btn_change" v-if="match.send_info.send_time && match.active === 'Y'"
-             @click="$router.push(link)">Изменить
-        </div>
-        <div class="match_btn btn_last" v-if="match.active === 'N'" @click="$router.push(link)">Посмотреть</div>
-      </div>
-    </div>
-  </div>
-  <div class="more_info" v-if="moreInfo">
-    <div class="title">Коэффициенты на матч</div>
-    <div class="box">
-      <div class="cell" v-for="(ratio, index) in match.ratio" :key="index">
-        <div class="title_cell">{{ratio.name}}</div>
-        <div class="count">{{ratio.count}}</div>
       </div>
     </div>
   </div>
 </template>
 
 <script>
+import { mapActions } from 'vuex';
+
 export default {
   name: "EventMatch",
   props: {
@@ -61,14 +81,143 @@ export default {
     return {
       moreInfo: false,
       link: '/football/' + this.match.event + '/' + this.match.number,
-      urlImg: 'https://prognos9ys.ru/'
+      urlImg: 'https://prognos9ys.ru/',
+      claiming: false,
+      claimError: '',
+      localXpStatus: null,
     }
-  }
+  },
+  computed: {
+    xpReward() {
+      return this.match?.xp_reward || null;
+    },
+    showXpReward() {
+      if (this.match?.active !== 'N' || !this.match?.send_info?.send_time || !this.xpReward) {
+        return false;
+      }
+
+      return this.canClaimXp || this.xpStatus === 'claimed' || this.xpPoints > 0;
+    },
+    xpPoints() {
+      return this.xpReward?.points ?? 0;
+    },
+    xpStatus() {
+      if (this.localXpStatus) {
+        return this.localXpStatus;
+      }
+
+      return this.xpReward?.status;
+    },
+    canClaimXp() {
+      return this.xpStatus === 'pending' || (this.xpReward?.can_claim && this.xpStatus !== 'claimed');
+    },
+  },
+  methods: {
+    ...mapActions({
+      claimXp: 'game/claimXp',
+    }),
+    async claimExperience() {
+      if (!this.match?.id || this.claiming) {
+        return;
+      }
+
+      this.claiming = true;
+      this.claimError = '';
+
+      try {
+        await this.claimXp(this.match.id);
+        this.localXpStatus = 'claimed';
+        await this.$store.dispatch('auth/refreshGameInfo');
+      } catch (error) {
+        this.claimError = error.message || 'Не удалось получить опыт';
+      } finally {
+        this.claiming = false;
+      }
+    },
+  },
 }
 </script>
 
 <style lang="less" scoped>
 @import "src/assets/css/variables.less";
+
+.match_card {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  align-items: stretch;
+
+  &.has_xp {
+    align-items: flex-end;
+
+    .match_box {
+      align-self: stretch;
+      width: 100%;
+      border-radius: 5px 0 5px 5px;
+    }
+  }
+}
+
+.match_xp_tab {
+  width: auto;
+  min-width: 25%;
+  max-width: 130px;
+  background: @DarkColorBG;
+  padding: 4px 4px 0;
+  border-radius: 5px 5px 0 0;
+  box-sizing: border-box;
+
+  .xp_btn {
+    display: block;
+    width: 100%;
+    border: none;
+    cursor: pointer;
+    background: @YesWrite;
+    color: @orange;
+    font-size: 10px;
+    line-height: 1.2;
+    border-radius: 3px 3px 0 0;
+    .shadow_inset;
+    padding: 5px 9px;
+    box-sizing: border-box;
+    min-height: 15px;
+    text-align: center;
+    font-weight: 600;
+    white-space: nowrap;
+
+    &:disabled {
+      opacity: 0.65;
+      cursor: wait;
+    }
+
+    &:hover:not(:disabled) {
+      filter: brightness(1.04);
+    }
+  }
+
+  .xp_claimed {
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 10px;
+    line-height: 1.2;
+    border-radius: 3px 3px 0 0;
+    .shadow_inset;
+    padding: 5px 9px;
+    min-height: 15px;
+    color: @orange;
+    text-align: center;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .xp_error {
+    margin-top: 2px;
+    font-size: 8px;
+    color: @boks;
+    line-height: 1.1;
+    text-align: center;
+  }
+}
 
 .match_box {
   display: flex;

@@ -1,0 +1,308 @@
+<?php
+
+namespace Prognos9ys\Main\Model\Repository;
+
+use Bitrix\Highloadblock\HighloadBlockTable;
+use Bitrix\Main\Loader;
+use Prognos9ys\Main\Service\Game\GameEconomyHlInstaller;
+
+class GameEconomyRepository
+{
+    private ?string $walletDataClass = null;
+    private ?string $walletTxDataClass = null;
+    private ?string $levelTierDataClass = null;
+    private ?string $userProgressDataClass = null;
+    private ?string $pendingXpDataClass = null;
+    private ?string $gameBankDataClass = null;
+
+    public function getWalletDataClass(): string
+    {
+        return $this->walletDataClass ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_WALLET);
+    }
+
+    public function getWalletTxDataClass(): string
+    {
+        return $this->walletTxDataClass ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_WALLET_TX);
+    }
+
+    public function getLevelTierDataClass(): string
+    {
+        return $this->levelTierDataClass ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_LEVEL_TIER);
+    }
+
+    public function getUserProgressDataClass(): string
+    {
+        return $this->userProgressDataClass ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_USER_PROGRESS);
+    }
+
+    public function getPendingXpDataClass(): string
+    {
+        return $this->pendingXpDataClass ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_PENDING_XP);
+    }
+
+    public function getGameBankDataClass(): string
+    {
+        return $this->gameBankDataClass ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_GAME_BANK);
+    }
+
+    public function getWalletByUserId(int $userId): ?array
+    {
+        $dataClass = $this->getWalletDataClass();
+        $row = $dataClass::getList([
+            'filter' => ['=UF_USER_ID' => $userId],
+            'limit' => 1,
+        ])->fetch();
+
+        return $row ?: null;
+    }
+
+    public function addWallet(array $fields): int
+    {
+        $dataClass = $this->getWalletDataClass();
+        $result = $dataClass::add($fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+
+        return (int)$result->getId();
+    }
+
+    public function updateWallet(int $id, array $fields): void
+    {
+        $dataClass = $this->getWalletDataClass();
+        $result = $dataClass::update($id, $fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+    }
+
+    public function addWalletTx(array $fields): int
+    {
+        $dataClass = $this->getWalletTxDataClass();
+        $result = $dataClass::add($fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+
+        return (int)$result->getId();
+    }
+
+    public function getProgressByUserId(int $userId): ?array
+    {
+        $dataClass = $this->getUserProgressDataClass();
+        $row = $dataClass::getList([
+            'filter' => ['=UF_USER_ID' => $userId],
+            'limit' => 1,
+        ])->fetch();
+
+        return $row ?: null;
+    }
+
+    public function addProgress(array $fields): int
+    {
+        $dataClass = $this->getUserProgressDataClass();
+        $result = $dataClass::add($fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+
+        return (int)$result->getId();
+    }
+
+    public function updateProgress(int $id, array $fields): void
+    {
+        $dataClass = $this->getUserProgressDataClass();
+        $result = $dataClass::update($id, $fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+    }
+
+    /**
+     * @return array<int, array>
+     */
+    public function getLevelTiers(): array
+    {
+        $dataClass = $this->getLevelTierDataClass();
+        $tiers = [];
+        $response = $dataClass::getList([
+            'order' => ['UF_LEVEL' => 'ASC'],
+            'select' => ['*'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $tiers[] = $row;
+        }
+
+        return $tiers;
+    }
+
+    public function getLevelTierByLevel(int $level): ?array
+    {
+        $dataClass = $this->getLevelTierDataClass();
+        $row = $dataClass::getList([
+            'filter' => ['=UF_LEVEL' => $level],
+            'limit' => 1,
+        ])->fetch();
+
+        return $row ?: null;
+    }
+
+    public function addLevelTier(array $fields): int
+    {
+        $dataClass = $this->getLevelTierDataClass();
+        $result = $dataClass::add($fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+
+        return (int)$result->getId();
+    }
+
+    public function getPendingXp(int $userId, int $matchId): ?array
+    {
+        $dataClass = $this->getPendingXpDataClass();
+        $row = $dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '=UF_MATCH_ID' => $matchId,
+            ],
+            'limit' => 1,
+        ])->fetch();
+
+        return $row ?: null;
+    }
+
+    /**
+     * @param int[] $matchIds
+     * @return array<int, array>
+     */
+    public function getPendingXpMap(int $userId, array $matchIds): array
+    {
+        if (!$matchIds) {
+            return [];
+        }
+
+        $dataClass = $this->getPendingXpDataClass();
+        $map = [];
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '@UF_MATCH_ID' => array_values(array_unique($matchIds)),
+            ],
+            'select' => ['*'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $map[(int)$row['UF_MATCH_ID']] = $row;
+        }
+
+        return $map;
+    }
+
+    public function addPendingXp(array $fields): int
+    {
+        $dataClass = $this->getPendingXpDataClass();
+        $result = $dataClass::add($fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+
+        return (int)$result->getId();
+    }
+
+    public function updatePendingXp(int $id, array $fields): void
+    {
+        $dataClass = $this->getPendingXpDataClass();
+        $result = $dataClass::update($id, $fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+    }
+
+    public function getGameBankByCode(string $code): ?array
+    {
+        $dataClass = $this->getGameBankDataClass();
+        $row = $dataClass::getList([
+            'filter' => ['=UF_CODE' => $code],
+            'limit' => 1,
+        ])->fetch();
+
+        return $row ?: null;
+    }
+
+    public function ensureGameBank(string $code): array
+    {
+        $row = $this->getGameBankByCode($code);
+
+        if ($row) {
+            return $row;
+        }
+
+        $id = $this->addGameBank([
+            'UF_CODE' => $code,
+            'UF_PROGNOBAKS' => 0,
+        ]);
+
+        return $this->getGameBankById($id);
+    }
+
+    public function addGameBank(array $fields): int
+    {
+        $dataClass = $this->getGameBankDataClass();
+        $result = $dataClass::add($fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+
+        return (int)$result->getId();
+    }
+
+    public function updateGameBank(int $id, array $fields): void
+    {
+        $dataClass = $this->getGameBankDataClass();
+        $result = $dataClass::update($id, $fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+    }
+
+    public function getGameBankById(int $id): ?array
+    {
+        $dataClass = $this->getGameBankDataClass();
+        $row = $dataClass::getById($id)->fetch();
+
+        return $row ?: null;
+    }
+
+    private function compileDataClass(string $tableName): string
+    {
+        if (!Loader::includeModule('highloadblock')) {
+            throw new \RuntimeException('Модуль highloadblock не установлен');
+        }
+
+        $hlblock = HighloadBlockTable::getList([
+            'filter' => ['=TABLE_NAME' => $tableName],
+        ])->fetch();
+
+        if (!$hlblock) {
+            throw new \RuntimeException(
+                'HL-блок не найден: ' . $tableName . '. Запустите install_game_economy_hl.php'
+            );
+        }
+
+        $entity = HighloadBlockTable::compileEntity($hlblock);
+
+        return $entity->getDataClass();
+    }
+}

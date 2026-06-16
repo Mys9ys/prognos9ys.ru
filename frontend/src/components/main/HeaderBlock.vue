@@ -4,13 +4,28 @@
     <div class="h_main_block">
       <div class="hm_left_block">
         <div class="hm_achieve_block">
-          <div class="hm_achieve_box hm_box rank" v-if="userInfo.rank_info"
-               :class="{'rank15' : userInfo.rank_info.rank.name.length >14, 'rank20' : userInfo.rank_info.rank.name.length >19}"
-          >
-            {{userInfo.rank_info.rank.name}}
+          <div class="hm_level_block hm_box" v-if="gameProgress">
+            <div class="hm_level_top">
+              <div class="hm_level_title">
+                <span class="hm_level_word">Ур.</span>
+                <span class="hm_level_num">{{ gameProgress.level }}</span>
+              </div>
+              <div class="hm_level_bar_wrap">
+                <div class="hm_level_bar">
+                  <div
+                      class="hm_level_fill"
+                      :style="{ width: gameProgress.progress_percent + '%' }"
+                  ></div>
+                </div>
+                <div class="hm_level_xp_line" v-if="gameProgress.next_min_xp">
+                  {{ gameProgress.xp }}/{{ gameProgress.next_min_xp }}
+                </div>
+                <div class="hm_level_xp_line" v-else>{{ gameProgress.xp }} XP</div>
+              </div>
+            </div>
           </div>
           <div class="hm_achieve_box hm_box rank" v-else>
-            Некто
+            Ур. 0
           </div>
         </div>
         <div class="hm_btn_block">
@@ -30,11 +45,13 @@
       ></AvaComponent>
 
       <div class="hm_right_block">
-        <div class="hm_nick_box hm_box nickname" v-if="userInfo.NAME"
-             :class="{'rank15' : userInfo.NAME.length >14, 'rank20' : userInfo.NAME.length >19}">
-          {{ userInfo.NAME }}
+        <div class="hm_nick_wrap">
+          <div class="hm_nick_box hm_box nickname" v-if="userInfo.NAME"
+               :class="{'rank15' : userInfo.NAME.length >14, 'rank20' : userInfo.NAME.length >19}">
+            {{ userInfo.NAME }}
+          </div>
+          <div class="hm_nick_box hm_box nickname" v-else>Гость</div>
         </div>
-        <div class="hm_nick_box hm_box nickname" v-else>Гость</div>
 
 
         <div class="hm_btn_block hm_right">
@@ -100,7 +117,10 @@ export default {
     ...mapState({
       token: state => state.auth.authData.token,
       userInfo: state => state.auth.userInfo,
-    })
+    }),
+    gameProgress() {
+      return this.userInfo?.game_info?.progress || null;
+    },
   },
 
 
@@ -140,9 +160,9 @@ export default {
   flex-direction: column;
   flex-wrap: wrap;
   justify-content: space-between;
-  height: 80px;
+  height: 88px;
 
-  margin-bottom: 40px;
+  margin-bottom: 44px;
 
   border-radius: 0 0 5px 5px;
 
@@ -173,6 +193,7 @@ export default {
     .hm_left_block {
       display: flex;
       flex-direction: column;
+      justify-content: flex-end;
 
       .hm_achieve_block {
         width: 130px;
@@ -186,6 +207,10 @@ export default {
       flex-direction: column;
       justify-content: flex-end;
       align-items: flex-end;
+
+      .hm_nick_wrap {
+        width: 130px;
+      }
 
       .hm_nick_box {
         width: 130px;
@@ -240,6 +265,76 @@ export default {
     .rank{
     .flex_center;
       justify-content: flex-start;
+    }
+    .hm_level_block {
+      width: 130px;
+      height: 28px;
+      padding: 2px 4px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      box-sizing: border-box;
+
+      .hm_level_top {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 6px;
+        width: 100%;
+      }
+
+      .hm_level_bar_wrap {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+      }
+
+      .hm_level_title {
+        display: flex;
+        flex-direction: row;
+        align-items: baseline;
+        gap: 3px;
+        flex-shrink: 0;
+      }
+
+      .hm_level_word {
+        font-size: 10px;
+        color: @colorBlur;
+        line-height: 1;
+      }
+
+      .hm_level_num {
+        font-size: 14px;
+        font-weight: 600;
+        color: @orange;
+        line-height: 1;
+      }
+
+      .hm_level_bar {
+        width: 100%;
+        height: 6px;
+        background: @darkbg;
+        border-radius: 3px;
+        overflow: hidden;
+        box-shadow: inset 0 1px 3px rgba(0, 0, 0, .4);
+      }
+
+      .hm_level_fill {
+        height: 100%;
+        background: @orange;
+        border-radius: 3px;
+        transition: width 0.3s ease;
+        min-width: 2px;
+      }
+
+      .hm_level_xp_line {
+        font-size: 7px;
+        line-height: 1;
+        color: @colorBlur;
+        text-align: right;
+      }
     }
     .nickname{
       .flex_center;

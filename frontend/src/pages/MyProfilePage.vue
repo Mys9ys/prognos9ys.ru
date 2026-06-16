@@ -1,6 +1,8 @@
 <template>
   <PageHeader class="header">Ваш профиль</PageHeader>
 
+  <ProfileGameBlock :game="profileData.game_info" v-if="profileData.game_info"></ProfileGameBlock>
+
   <div class="title_block">
     <div class="title_wrapper" v-for="(el, index) in profileMenu" :key="index" @click="active = index" :class="{'active':active === index}">
       <div class="title">
@@ -81,6 +83,7 @@ import {mapActions, mapState} from "vuex";
 import ProfileEventBody from "@/components/football/ProfileEventBody";
 import ProfileRaceBlock from "@/components/profile/ProfileRaceBlock";
 import ProfileTitle from "@/components/profile/ProfileTitle";
+import ProfileGameBlock from "@/components/profile/ProfileGameBlock";
 
 export default {
   name: "MyProfilePage",
@@ -89,7 +92,8 @@ export default {
     PageHeader,
     ProfileAchievementBlock,
     ProfileTitle,
-    ProfileEventBody
+    ProfileEventBody,
+    ProfileGameBlock,
   },
   data() {
     return {
