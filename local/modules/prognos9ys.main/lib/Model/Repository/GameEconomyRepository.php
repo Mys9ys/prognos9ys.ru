@@ -537,6 +537,27 @@ class GameEconomyRepository
     /**
      * @return array<int, array>
      */
+    public function getMatchBetsByMatch(int $matchId): array
+    {
+        $dataClass = $this->getMatchBetDataClass();
+        $rows = [];
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_MATCH_ID' => $matchId,
+            ],
+            'select' => ['*'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @return array<int, array>
+     */
     public function getPendingMatchBetsByMatch(int $matchId): array
     {
         $dataClass = $this->getMatchBetDataClass();
@@ -554,6 +575,82 @@ class GameEconomyRepository
         }
 
         return $rows;
+    }
+
+    public function deleteMatchBetsByMatch(int $matchId): int
+    {
+        $deleted = 0;
+        foreach ($this->getMatchBetsByMatch($matchId) as $row) {
+            $dataClass = $this->getMatchBetDataClass();
+            $dataClass::delete((int)$row['ID']);
+            $deleted++;
+        }
+
+        return $deleted;
+    }
+
+    public function deleteAllMatchBets(): int
+    {
+        $dataClass = $this->getMatchBetDataClass();
+        $deleted = 0;
+        $response = $dataClass::getList(['select' => ['ID']]);
+        while ($row = $response->fetch()) {
+            $dataClass::delete((int)$row['ID']);
+            $deleted++;
+        }
+
+        return $deleted;
+    }
+
+    public function deleteAllWalletTx(): int
+    {
+        $dataClass = $this->getWalletTxDataClass();
+        $deleted = 0;
+        $response = $dataClass::getList(['select' => ['ID']]);
+        while ($row = $response->fetch()) {
+            $dataClass::delete((int)$row['ID']);
+            $deleted++;
+        }
+
+        return $deleted;
+    }
+
+    public function deleteAllPendingXp(): int
+    {
+        $dataClass = $this->getPendingXpDataClass();
+        $deleted = 0;
+        $response = $dataClass::getList(['select' => ['ID']]);
+        while ($row = $response->fetch()) {
+            $dataClass::delete((int)$row['ID']);
+            $deleted++;
+        }
+
+        return $deleted;
+    }
+
+    public function deleteAllTreasureChests(): int
+    {
+        $dataClass = $this->getTreasureChestDataClass();
+        $deleted = 0;
+        $response = $dataClass::getList(['select' => ['ID']]);
+        while ($row = $response->fetch()) {
+            $dataClass::delete((int)$row['ID']);
+            $deleted++;
+        }
+
+        return $deleted;
+    }
+
+    public function resetGameBank(string $code): void
+    {
+        $row = $this->getGameBankByCode($code);
+        if (!$row) {
+            return;
+        }
+
+        $this->updateGameBank((int)$row['ID'], [
+            'UF_PROGNOBAKS' => 0,
+        ]);
     }
 
     public function addMatchBet(array $fields): int

@@ -115,7 +115,12 @@ class BetService
             return ['plus' => 0.0, 'equal' => 0.0, 'minus' => 0.0, 'count' => 0];
         }
 
-        $bets = $this->repository->getPendingMatchBetsByMatch($matchId);
+        $matchRow = $this->loadMatchRow($matchId);
+        $isFinished = $matchRow && (string)$matchRow['ACTIVE'] === 'N';
+        $bets = $isFinished
+            ? $this->repository->getMatchBetsByMatch($matchId)
+            : $this->repository->getPendingMatchBetsByMatch($matchId);
+
         $plus = 0.0;
         $equal = 0.0;
         $minus = 0.0;
@@ -238,6 +243,18 @@ class BetService
     }
 
     /**
+     * Удалить все ставки матча перед повторным пересчётом.
+     */
+    public function resetMatchBetsForRecalc(int $matchId): int
+    {
+        if ($matchId <= 0) {
+            return 0;
+        }
+
+        return $this->repository->deleteMatchBetsByMatch($matchId);
+    }
+
+    /**
      * Backfill financial bets for an already finished match based on existing prognosis records.
      * Used for old matches that existed before the betting release.
      */
@@ -256,12 +273,6 @@ class BetService
         $matchNumber = (int)$matchRow['PROPERTY_NUMBER_VALUE'];
 
         if (!$this->scopeService->isMatchInScope($eventId, $matchNumber)) {
-            return;
-        }
-
-        // If there are already any bets for this match, we don't need backfill.
-        $existingPending = $this->repository->getPendingMatchBetsByMatch($matchId);
-        if (!empty($existingPending)) {
             return;
         }
 
@@ -295,6 +306,8 @@ class BetService
             if ($userId <= 0) {
                 continue;
             }
+
+            $this->walletService->ensureWallet($userId);
 
             // Skip if bet already exists for this user+match (even if not pending).
             if ($this->repository->getMatchBet($userId, $matchId)) {
