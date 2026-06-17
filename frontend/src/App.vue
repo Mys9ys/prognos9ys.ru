@@ -1,5 +1,5 @@
 <template>
-    <HeaderBlock v-if="token"></HeaderBlock>
+    <HeaderBlock v-if="showAppHeader"></HeaderBlock>
     <router-view></router-view>
     <div class="navbar_wrapper">
       <NavbarMenu v-if="token" class="menu_fixed"></NavbarMenu>
@@ -34,7 +34,11 @@ export default {
   computed: {
     ...mapState({
       token: state => state.auth.authData.token,
-    })
+    }),
+    showAppHeader() {
+      const hideOn = ['/auth', '/register', '/recover', '/recover_success'];
+      return !hideOn.includes(this.$route.path);
+    },
   },
 }
 </script>

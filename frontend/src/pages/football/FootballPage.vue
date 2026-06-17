@@ -49,7 +49,15 @@
     </div>
 
     <div v-else>
-      <div class="match_record_wrapper" v-if="arMatch.active === 'Y'">
+      <div class="guest_prognosis_block" v-if="arMatch.active === 'Y' && !token">
+        <p class="guest_prognosis_text">Посмотрите матч и сделайте прогноз — для этого нужен аккаунт.</p>
+        <div class="btn_send guest_cta" @click="goToAuthForPrognosis">Сделать прогноз</div>
+        <div class="guest_auth_links">
+          <span @click="goToRegisterForPrognosis">Регистрация</span>
+        </div>
+      </div>
+
+      <div class="match_record_wrapper" v-else-if="arMatch.active === 'Y'">
         <div class="prognosis_block">
           <div class="time_send" v-if="prognosis?.time_send">
             <div class="title_block">
@@ -324,6 +332,7 @@ import SendSuccess from "@/components/main/SendSuccess";
 import FootballAdminSetResult from "@/components/football/FootballAdminSetResult";
 import ActionFailure from "@/components/main/ActionFailure";
 import FootballResultTable from "@/components/football/FootballResultTable";
+import {authRoute, registerRoute} from "@/utils/authRedirect";
 
 
 export default {
@@ -439,6 +448,11 @@ export default {
     },
 
     async sendPrognosis() {
+      if (!this.token) {
+        this.goToAuthForPrognosis();
+        return;
+      }
+
       this.prognosisLoader = true
       this.error = ''
       this.actionFailure = false
@@ -480,6 +494,14 @@ export default {
     closeSuccess() {
       this.prognosisSuccess = false
       this.actionFailure = false
+    },
+
+    goToAuthForPrognosis() {
+      this.$router.push(authRoute(this.$route.fullPath));
+    },
+
+    goToRegisterForPrognosis() {
+      this.$router.push(registerRoute(this.$route.fullPath));
     },
 
     syncScoreFromGoals() {
@@ -703,6 +725,43 @@ export default {
 
 .dash {
   .shadow_inset;
+}
+
+.guest_prognosis_block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 16px 12px;
+  background: @DarkColorBG;
+  border-radius: 5px;
+  text-align: center;
+
+  .guest_prognosis_text {
+    color: @colorText;
+    font-size: 14px;
+    line-height: 1.4;
+    margin: 0;
+  }
+
+  .btn_send.guest_cta {
+    .prognosis_btn;
+    width: 180px;
+    max-width: 100%;
+    padding: 8px 12px;
+    font-weight: 700;
+  }
+
+  .guest_auth_links {
+    font-size: 13px;
+
+    span {
+      color: @darkbg;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+  }
 }
 
 .prognosis_btn {

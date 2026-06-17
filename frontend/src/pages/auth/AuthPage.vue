@@ -24,7 +24,7 @@
 
     <div class="btn_link_box">
       <div class="btn_link" @click="$router.push('/recover')">Забыли свой пароль?</div>
-      <div class="btn_link" @click="$router.push('/register')">Регистрация</div>
+      <div class="btn_link" @click="$router.push(registerLink)">Регистрация</div>
     </div>
 
   </div>
@@ -36,6 +36,7 @@ import {mapMutations, mapActions, mapState} from 'vuex'
 import AuthInput from "@/components/ui/input/AuthInput";
 import PageHeader from "@/components/main/PageHeader";
 import FillBtn from "@/components/ui/btn/FillBtn";
+import {postLoginPath, registerRoute} from "@/utils/authRedirect";
 
 export default {
   name: "AuthPage",
@@ -106,7 +107,7 @@ export default {
 
         await this.authRequest()
 
-        if (!this.loginError) this.$router.push('/main')
+        if (!this.loginError) this.$router.push(postLoginPath(this.$route))
       }
 
     },
@@ -121,7 +122,10 @@ export default {
     ...mapState({
       loginData: state => state.auth.loginData,
       loginError: state => state.auth.loginError,
-    })
+    }),
+    registerLink() {
+      return registerRoute(this.$route.query.redirect);
+    },
   },
 }
 </script>

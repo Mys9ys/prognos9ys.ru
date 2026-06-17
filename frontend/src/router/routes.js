@@ -9,7 +9,6 @@ import ProfilePage from "@/pages/ProfilePage";
 import RecoverMail from "@/pages/auth/RecoverMail";
 import RecoverSuccess from "@/pages/auth/RecoverSuccess";
 import HumorPage from "@/pages/HumorPage";
-import HelloPage from "@/pages/HelloPage";
 import NewsPage from "@/pages/NewsPage";
 import RaceEvent from "@/pages/race/RaceEvent";
 import RacePage from "@/pages/race/RacePage";
@@ -22,8 +21,7 @@ import FaqPage from "@/pages/FaqPage";
 const routes = [
     {
         path: '/',
-        component: HelloPage,
-        meta: { public: true },
+        redirect: '/catalog',
     },
     {
         path: '/main',
@@ -113,7 +111,8 @@ const routes = [
     {
         path: '/football/:event/:number',
         component: FootballPage,
-        props: true
+        props: true,
+        meta: { public: true },
     },
 
     {

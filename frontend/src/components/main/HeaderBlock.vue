@@ -4,23 +4,23 @@
     <div class="h_main_block">
       <div class="hm_left_block">
         <div class="hm_achieve_block">
-          <div class="hm_level_block hm_box" v-if="gameProgress">
+          <div class="hm_level_block hm_box" v-if="displayGameProgress">
             <div class="hm_level_top">
               <div class="hm_level_title">
                 <span class="hm_level_word">Ур.</span>
-                <span class="hm_level_num">{{ gameProgress.level }}</span>
+                <span class="hm_level_num">{{ displayGameProgress.level }}</span>
               </div>
               <div class="hm_level_bar_wrap">
                 <div class="hm_level_bar">
                   <div
                       class="hm_level_fill"
-                      :style="{ width: gameProgress.progress_percent + '%' }"
+                      :style="{ width: displayGameProgress.progress_percent + '%' }"
                   ></div>
                 </div>
-                <div class="hm_level_xp_line" v-if="gameProgress.next_min_xp">
-                  {{ gameProgress.xp }}/{{ gameProgress.next_min_xp }}
+                <div class="hm_level_xp_line" v-if="displayGameProgress.next_min_xp">
+                  {{ displayGameProgress.xp }}/{{ displayGameProgress.next_min_xp }}
                 </div>
-                <div class="hm_level_xp_line" v-else>{{ gameProgress.xp }} XP</div>
+                <div class="hm_level_xp_line" v-else>{{ displayGameProgress.xp }} XP</div>
               </div>
             </div>
           </div>
@@ -29,7 +29,7 @@
           </div>
           <div class="hm_money_box hm_box">
             <AppIcon name="prognobak" :size="16" class="hm_money_icon" />
-            <span class="hm_money_value">{{ wallet.prognobaks }}</span>
+            <span class="hm_money_value">{{ displayWallet.prognobaks }}</span>
           </div>
         </div>
         <div class="hm_btn_block">
@@ -44,20 +44,23 @@
                     :img="$store.state.reg.avaLink"
       ></AvaComponent>
 
-      <AvaComponent v-else class="hm_ava_block"
-                    :img="$store.state.auth.userInfo.ava"
-      ></AvaComponent>
+      <div v-else class="hm_ava_block" :class="{'hm_ava_guest': isGuest}" @click="onGuestHeaderClick">
+        <AvaComponent
+            :img="displayAva"
+            :readonly="isGuest"
+        ></AvaComponent>
+      </div>
 
       <div class="hm_right_block">
         <div class="hm_nick_wrap">
-          <div class="hm_nick_box hm_box nickname" v-if="userInfo.NAME"
-               :class="{'rank15' : userInfo.NAME.length >14, 'rank20' : userInfo.NAME.length >19}">
-            {{ userInfo.NAME }}
+          <div class="hm_nick_box hm_box nickname"
+               :class="nickSizeClass"
+               @click="onGuestHeaderClick">
+            {{ displayNick }}
           </div>
-          <div class="hm_nick_box hm_box nickname" v-else>Гость</div>
           <div class="hm_rublius_box hm_box">
             <AppIcon name="rublius" :size="16" class="hm_money_icon" />
-            <span class="hm_money_value">{{ wallet.rublius }}</span>
+            <span class="hm_money_value">{{ displayWallet.rublius }}</span>
           </div>
         </div>
 
@@ -87,6 +90,7 @@ import {mapActions, mapState} from "vuex";
 import AvaComponent from "@/components/main/AvaComponent";
 import ImpersonationBanner from "@/components/profile/ImpersonationBanner";
 import AppIcon from '@/components/ui/AppIcon.vue';
+import {authRoute} from '@/utils/authRedirect';
 // import BtnMini from "@/components/ui/btn/BtnMini";
 
 export default {
@@ -144,6 +148,43 @@ export default {
       userInfo: state => state.auth.userInfo,
       impersonation: state => state.auth.impersonation,
     }),
+    isGuest() {
+      return !this.token;
+    },
+    displayNick() {
+      if (this.isGuest) {
+        return 'это вы';
+      }
+      return this.userInfo?.NAME || 'Гость';
+    },
+    nickSizeClass() {
+      const name = this.displayNick;
+      return {
+        rank15: name.length > 14,
+        rank20: name.length > 19,
+        hm_guest_nick: this.isGuest,
+      };
+    },
+    displayGameProgress() {
+      if (this.isGuest) {
+        return {
+          level: 0,
+          progress_percent: 0,
+          xp: 0,
+          next_min_xp: null,
+        };
+      }
+      return this.gameProgress;
+    },
+    displayWallet() {
+      if (this.isGuest) {
+        return { prognobaks: '0', rublius: '0' };
+      }
+      return this.wallet;
+    },
+    displayAva() {
+      return this.isGuest ? '' : (this.userInfo?.ava || '');
+    },
     gameProgress() {
       return this.userInfo?.game_info?.progress || null;
     },
@@ -254,6 +295,12 @@ export default {
       state.seenLevel = Math.max(Number(state.seenLevel || 0), this.currentLevel);
       state.dismissedLevel = Math.max(Number(state.dismissedLevel || 0), this.currentLevel);
       this.saveLevelBannerState(state);
+    },
+    onGuestHeaderClick() {
+      if (!this.isGuest) {
+        return;
+      }
+      this.$router.push(authRoute(this.$route.fullPath));
     },
   },
 }
@@ -411,6 +458,10 @@ export default {
       top: 0px;
       transform: translateX(-50%);
       z-index: 5;
+
+      &.hm_ava_guest {
+        cursor: pointer;
+      }
     }
 
     .hm_box {
@@ -497,6 +548,10 @@ export default {
     .nickname{
       .flex_center;
       justify-content: flex-end;
+
+      &.hm_guest_nick {
+        cursor: pointer;
+      }
     }
     .rank10{
       font-size: 15px;

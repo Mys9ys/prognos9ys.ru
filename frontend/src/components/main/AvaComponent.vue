@@ -13,7 +13,7 @@
              type="file" id="file"
              ref="file" accept="image/png, image/gif, image/jpeg"
              @change="handleFileUpload()"/>
-      <div class="plus" @click="loadFile()">+</div>
+      <div class="plus" v-if="!readonly" @click="loadFile()">+</div>
     </div>
   </div>
 </template>
@@ -38,6 +38,10 @@ export default {
     },
     pageType: {
       type: String
+    },
+    readonly: {
+      type: Boolean,
+      default: false,
     }
   },
 

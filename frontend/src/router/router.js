@@ -13,7 +13,7 @@ router.beforeEach((to) => {
     const isPublic = to.matched.some((record) => record.meta.public);
 
     if (!token && !isPublic) {
-        return '/';
+        return '/catalog';
     }
 });
 
