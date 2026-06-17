@@ -136,6 +136,10 @@ async function main() {
       label: `ratings football event ${WC_EVENT} (selector=all, limit=50)`,
       fn: () => bitrixAction('prognos9ys:main.RatingController.getFootballRatings', { event: WC_EVENT, userToken: token, selector: 'all', limit: 50 }),
     },
+    {
+      label: 'main page /main (nearest events)',
+      fn: () => postForm(`${BASE}/mob_app/ajax/main_page/`, { userToken: token }),
+    },
   ];
 
   console.log('\n=== API (Bitrix actions) ===');
@@ -177,6 +181,15 @@ async function main() {
       steps: [
         () => postForm(`${BASE}/mob_app/ajax/auth/`, { type: 'tokenLogin', token }),
         () => bitrixAction('prognos9ys:main.FootballController.getEventMatches', { events: WC_EVENT, userToken: token }),
+      ],
+    },
+    {
+      name: 'Main page /main (logged in)',
+      steps: [
+        () => postForm(`${BASE}/mob_app/ajax/auth/`, { type: 'tokenLogin', token }),
+        () => postForm(`${BASE}/mob_app/ajax/main_page/`, { userToken: token }),
+        () => postForm(`${BASE}/mob_app/ajax/humor/one/`, {}),
+        () => postForm(`${BASE}/mob_app/ajax/news/one/`, {}),
       ],
     },
     {

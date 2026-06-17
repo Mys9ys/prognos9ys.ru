@@ -13,6 +13,15 @@ class FootballNearestCome extends PrognosisGiveInfo
 
     protected $arResult;
 
+    /** @var array<int, string> */
+    protected $userPrognosisByMatch = [];
+
+    /** @var array<int, int|string> */
+    protected $userResultsByMatch = [];
+
+    /** @var array<int, array{plus:int,equal:int,minus:int,count:int}> */
+    protected $ratioStatsByMatch = [];
+
     protected $arIBs = [
         'matches' => ['code' => 'matches', 'id' => 2],
         'prognosis' => ['code' => 'prognosis', 'id' => 6],
@@ -75,7 +84,16 @@ class FootballNearestCome extends PrognosisGiveInfo
             ]
         );
 
+        $rows = [];
         while ($res = $response->GetNext()) {
+            $rows[] = $res;
+        }
+
+        $matchIds = array_map(static fn(array $row): int => (int)$row['ID'], $rows);
+        $this->prefetchUserData($matchIds);
+        $this->prefetchRatioStats($matchIds);
+
+        foreach ($rows as $res) {
 
             $el = [];
 
@@ -95,19 +113,150 @@ class FootballNearestCome extends PrognosisGiveInfo
             $el["teams"]["home"]["goals"] = $res["PROPERTY_GOAL_HOME_VALUE"] ?? 0;
             $el["teams"]["guest"]["goals"] = $res["PROPERTY_GOAL_GUEST_VALUE"] ?? 0;
 
-            $el["send_info"]["send_time"] = $this->getPrognosis($res["ID"]) ?? null;
-            $set = 0;
-            if($el["send_info"]["send_time"]) $set = 1;
+            $matchId = (int)$res['ID'];
+            $el["send_info"]["send_time"] = $this->userPrognosisByMatch[$matchId] ?? null;
+            $set = $el["send_info"]["send_time"] ? 1 : 0;
 
-            $el["send_info"]["score_result"] = $this->getUserResult($res["ID"]);
+            $el["send_info"]["score_result"] = $this->userResultsByMatch[$matchId] ?? 0;
 
-            $el["ratio"] = $this->setRatio($this->arIBs['prognosis']['id'], $res['ID']);
+            $el["ratio"] = $this->buildRatioOdds($matchId);
 
             $arDataSort = $this->fillSectionArray($res["DATE_ACTIVE_FROM"], $set);
 
             $this->arResult[$arDataSort['period']]['items']['football'][$res["ID"]] = $el;
 
         }
+    }
+
+    /**
+     * @param int[] $matchIds
+     */
+    protected function prefetchUserData(array $matchIds): void
+    {
+        $userId = (int)($this->data['userId'] ?? 0);
+        if ($userId <= 0 || !$matchIds) {
+            return;
+        }
+
+        $prognosisResponse = CIBlockElement::GetList(
+            [],
+            [
+                'IBLOCK_ID' => $this->arIBs['prognosis']['id'],
+                'PROPERTY_user_id' => $userId,
+                'PROPERTY_match_id' => $matchIds,
+            ],
+            false,
+            false,
+            [
+                'TIMESTAMP_X',
+                'PROPERTY_match_id',
+            ]
+        );
+
+        while ($res = $prognosisResponse->GetNext()) {
+            $matchId = (int)$res['PROPERTY_MATCH_ID_VALUE'];
+            if ($matchId <= 0) {
+                continue;
+            }
+
+            $convert = $this->convertData($res['TIMESTAMP_X']);
+            $this->userPrognosisByMatch[$matchId] = $convert['date'] . ' ' . $convert['time'];
+        }
+
+        $resultResponse = CIBlockElement::GetList(
+            [],
+            [
+                'IBLOCK_ID' => $this->arIBs['result']['id'],
+                'PROPERTY_user_id' => $userId,
+                'PROPERTY_match_id' => $matchIds,
+            ],
+            false,
+            false,
+            [
+                'PROPERTY_match_id',
+                'PROPERTY_all',
+            ]
+        );
+
+        while ($res = $resultResponse->GetNext()) {
+            $matchId = (int)$res['PROPERTY_MATCH_ID_VALUE'];
+            if ($matchId <= 0) {
+                continue;
+            }
+
+            $this->userResultsByMatch[$matchId] = $res['PROPERTY_ALL_VALUE'] ?? 0;
+        }
+    }
+
+    /**
+     * @param int[] $matchIds
+     */
+    protected function prefetchRatioStats(array $matchIds): void
+    {
+        if (!$matchIds) {
+            return;
+        }
+
+        $response = CIBlockElement::GetList(
+            [],
+            [
+                'IBLOCK_ID' => $this->arIBs['prognosis']['id'],
+                'PROPERTY_match_id' => $matchIds,
+            ],
+            false,
+            false,
+            [
+                'PROPERTY_match_id',
+                'PROPERTY_diff',
+            ]
+        );
+
+        while ($res = $response->GetNext()) {
+            $matchId = (int)$res['PROPERTY_MATCH_ID_VALUE'];
+            if ($matchId <= 0) {
+                continue;
+            }
+
+            if (!isset($this->ratioStatsByMatch[$matchId])) {
+                $this->ratioStatsByMatch[$matchId] = [
+                    'plus' => 0,
+                    'equal' => 0,
+                    'minus' => 0,
+                    'count' => 0,
+                ];
+            }
+
+            $diff = (int)$res['PROPERTY_DIFF_VALUE'];
+            if ($diff > 0) {
+                $this->ratioStatsByMatch[$matchId]['plus'] += 1;
+            } elseif ($diff === 0) {
+                $this->ratioStatsByMatch[$matchId]['equal'] += 1;
+            } else {
+                $this->ratioStatsByMatch[$matchId]['minus'] += 1;
+            }
+
+            $this->ratioStatsByMatch[$matchId]['count'] += 1;
+        }
+    }
+
+    /**
+     * @return array<int, array{name:string,count:string|int}>
+     */
+    protected function buildRatioOdds(int $matchId): array
+    {
+        $arRatio = $this->ratioStatsByMatch[$matchId] ?? [
+            'plus' => 0,
+            'equal' => 0,
+            'minus' => 0,
+            'count' => 0,
+        ];
+
+        return [
+            0 => ['name' => 'п1', 'count' => number_format(($arRatio['count'] + 1) / ($arRatio['plus'] + 1), 2)],
+            1 => ['name' => 'н', 'count' => number_format(($arRatio['count'] + 1) / ($arRatio['equal'] + 1), 2)],
+            2 => ['name' => 'п2', 'count' => number_format(($arRatio['count'] + 1) / ($arRatio['minus'] + 1), 2)],
+            3 => ['name' => 'Σ', 'count' => $arRatio['count']],
+        ];
     }
 
     protected function getPrognosis($id)

@@ -57,6 +57,8 @@ class Prognos9ysMainPageInfo extends PrognosisGiveInfo
     }
 
     protected function fillData($res){
+        $eventsMap = (new GetPrognosisEvents())->result()['events'] ?? [];
+
         foreach ($this->arPeriod as $period=>$array){
             if($res[$period]['items']){
                 foreach ($res[$period]['info'] as $select=>$value){
@@ -66,8 +68,9 @@ class Prognos9ysMainPageInfo extends PrognosisGiveInfo
                 foreach ($res[$period]['items'] as $event=>$items){
                     if($event === 'football'){
                         foreach ($items as $id=>$match){
-                            $this->arResult[$period][$event][$match['event']]['info'] = (new GetPrognosisEvents())->result()['events'][$match['event']];
-                            $this->arResult[$period][$event][$match['event']]['items'][] = $match;
+                            $eventId = $match['event'];
+                            $this->arResult[$period][$event][$eventId]['info'] = $eventsMap[$eventId] ?? null;
+                            $this->arResult[$period][$event][$eventId]['items'][] = $match;
                         }
                     } else {
                         $this->arResult[$period][$event]['items'] = $items;

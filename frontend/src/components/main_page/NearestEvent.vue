@@ -1,5 +1,8 @@
 <template>
   <div class="nearest_events_wrapper block_wrapper">
+    <MainPageLoader v-if="loading" />
+
+    <template v-else>
     <div class="title_wrapper nearest">
       <div class="title">Ближайшие события</div>
     </div>
@@ -68,6 +71,7 @@
       <div class="btn_all nearest" @click="$router.push('/catalog')">Все события
         <img src="@/assets/icon/pagination/right.svg" alt=""></div>
     </div>
+    </template>
 
   </div>
 </template>
@@ -77,12 +81,14 @@
 import {mapActions, mapState} from "vuex";
 import EventRace from "@/components/race/EventRace";
 import EventMatch from "@/components/football/EventMatch";
+import MainPageLoader from "@/components/main_page/MainPageLoader";
 
 export default {
   name: "NearestEvent",
   components: {
     EventRace,
-    EventMatch
+    EventMatch,
+    MainPageLoader,
   },
   data() {
     return {
@@ -132,7 +138,8 @@ export default {
     ...mapState({
       token: state => state.auth.authData.token,
       setToken: state => state.mainPage.setToken,
-      arrNearest: state => state.mainPage.arrNearest
+      arrNearest: state => state.mainPage.arrNearest,
+      loading: state => state.mainPage.loading,
     })
   },
 }
