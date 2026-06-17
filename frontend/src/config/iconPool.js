@@ -1,22 +1,22 @@
 import { getStoredIconStyle } from '@/config/iconStyles';
 
-/** UI-иконки (SVG, из mob_app PNG). */
+/** UI-иконки (PNG 256×256, из Photoshop-источников). */
 const GAME_ICONS = {
-  prognobak: require('@/assets/icons/game/prognobak.svg'),
-  rublius: require('@/assets/icons/game/rublius.svg'),
-  chest_wc2026: require('@/assets/icons/game/chest-wc2026.svg'),
-  bank: require('@/assets/icons/game/bank.svg'),
-  football: require('@/assets/icons/game/football.svg'),
-  prognosis: require('@/assets/icons/game/prognosis.svg'),
-  f1_race: require('@/assets/icons/game/f1_race.svg'),
-  achievement: require('@/assets/icons/game/achievement.svg'),
-  trophy: require('@/assets/icons/game/achievement.svg'),
-  profile_info: require('@/assets/icons/game/profile_info.svg'),
-  settings: require('@/assets/icons/game/settings.svg'),
-  exit_door: require('@/assets/icons/game/exit_door.svg'),
-  wealth: require('@/assets/icons/game/wealth.svg'),
-  poverty: require('@/assets/icons/game/poverty.svg'),
-  xp: require('@/assets/icons/game/xp.svg'),
+  prognobak: require('@/assets/icons/game/prognobak.png'),
+  rublius: require('@/assets/icons/game/rublius.png'),
+  chest_wc2026: require('@/assets/icons/game/chest-wc2026.png'),
+  bank: require('@/assets/icons/game/bank.png'),
+  football: require('@/assets/icons/game/football.png'),
+  prognosis: require('@/assets/icons/game/prognosis.png'),
+  f1_race: require('@/assets/icons/game/f1_race.png'),
+  achievement: require('@/assets/icons/game/achievement.png'),
+  trophy: require('@/assets/icons/game/achievement.png'),
+  profile_info: require('@/assets/icons/game/profile_info.png'),
+  settings: require('@/assets/icons/game/settings.png'),
+  exit_door: require('@/assets/icons/game/exit_door.png'),
+  wealth: require('@/assets/icons/game/wealth.png'),
+  poverty: require('@/assets/icons/game/poverty.png'),
+  xp: require('@/assets/icons/game/xp.png'),
 };
 
 const POOLS = {
