@@ -620,6 +620,33 @@ class GameEconomyRepository
     }
 
     /**
+     * @return array<int, int> userId => total closed chests
+     */
+    public function getClosedTreasureChestTotalsMapForAllUsers(): array
+    {
+        $dataClass = $this->getTreasureChestDataClass();
+
+        $map = [];
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_STATUS' => 'closed',
+            ],
+            'select' => ['UF_USER_ID', 'UF_COUNT'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $userId = (int)($row['UF_USER_ID'] ?? 0);
+            if ($userId <= 0) {
+                continue;
+            }
+
+            $map[$userId] = (int)($map[$userId] ?? 0) + (int)($row['UF_COUNT'] ?? 0);
+        }
+
+        return $map;
+    }
+
+    /**
      * @return array<int, array>
      */
     public function getMatchBetsByMatch(int $matchId): array

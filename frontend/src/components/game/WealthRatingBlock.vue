@@ -25,6 +25,18 @@
         <button
             type="button"
             class="filter_btn"
+            :class="{ active: mode === 'treasure_rich' }"
+            @click="setMode('treasure_rich')"
+        >🎁 Богатые по сокровищам</button>
+        <button
+            type="button"
+            class="filter_btn"
+            :class="{ active: mode === 'treasure_poor' }"
+            @click="setMode('treasure_poor')"
+        >🎁 Бедные по сокровищам</button>
+        <button
+            type="button"
+            class="filter_btn"
             :class="{ active: mode === 'pending_xp' }"
             @click="setMode('pending_xp')"
         >🎯 Есть опыт</button>
@@ -43,6 +55,7 @@
           <th v-if="mode === 'pending_xp'">Матчей</th>
           <th>💵</th>
           <th>💎</th>
+          <th v-if="isTreasureMode">🎁</th>
           <th v-if="mode !== 'pending_xp'">Σ</th>
         </tr>
         </thead>
@@ -69,6 +82,7 @@
           <td class="pending_count" v-if="mode === 'pending_xp'">{{ el.pending_count }}</td>
           <td class="money">{{ formatMoney(el.prognobaks) }}</td>
           <td class="money">{{ formatMoney(el.rublius) }}</td>
+          <td class="money" v-if="isTreasureMode">{{ el.treasure_total }}</td>
           <td class="total" v-if="mode !== 'pending_xp'">{{ formatMoney(el.total) }}</td>
         </tr>
         </tbody>
@@ -102,6 +116,9 @@ export default {
     ...mapState({
       userInfo: state => state.auth.userInfo,
     }),
+    isTreasureMode() {
+      return this.mode === 'treasure_rich' || this.mode === 'treasure_poor';
+    },
     canImpersonate() {
       const role = this.userInfo?.role;
       return !!this.userInfo?.can_impersonate
@@ -118,6 +135,12 @@ export default {
       if (this.mode === 'pending_xp') {
         return '🎯 Незабранный опыт';
       }
+      if (this.mode === 'treasure_poor') {
+        return '🎁 Самые бедные по сокровищам';
+      }
+      if (this.mode === 'treasure_rich') {
+        return '🎁 Самые богатые по сокровищам';
+      }
 
       return '💰 Самые богатые';
     },
@@ -128,6 +151,12 @@ export default {
       if (this.mode === 'poor') {
         return 'Нет участников с кошельком';
       }
+      if (this.mode === 'treasure_poor') {
+        return 'Нет участников по сокровищам';
+      }
+      if (this.mode === 'treasure_rich') {
+        return 'Пока никто не накопил сокровища';
+      }
 
       return 'Пока никто не накопил капитал';
     },
@@ -137,6 +166,12 @@ export default {
       }
       if (this.mode === 'poor') {
         return 'Σ = прогнобаксы + рублиусы × 10 · сортировка по возрастанию';
+      }
+      if (this.mode === 'treasure_poor') {
+        return '🎁 = сумма закрытых сундучков · сортировка по возрастанию';
+      }
+      if (this.mode === 'treasure_rich') {
+        return '🎁 = сумма закрытых сундучков · сортировка по убыванию';
       }
 
       return 'Σ = прогнобаксы + рублиусы × 10';

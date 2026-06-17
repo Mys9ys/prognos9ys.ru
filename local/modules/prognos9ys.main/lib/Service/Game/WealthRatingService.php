@@ -17,10 +17,20 @@ class WealthRatingService
     public function getRating(int $limit = 30, string $wealthSort = 'rich'): array
     {
         $limit = max(1, min(100, $limit));
-        $wealthSort = in_array($wealthSort, ['rich', 'poor', 'pending_xp'], true) ? $wealthSort : 'rich';
+        $wealthSort = in_array($wealthSort, [
+            'rich',
+            'poor',
+            'pending_xp',
+            'treasure_rich',
+            'treasure_poor',
+        ], true) ? $wealthSort : 'rich';
 
         if ($wealthSort === 'pending_xp') {
             return $this->getPendingXpRating($limit);
+        }
+
+        if ($wealthSort === 'treasure_rich' || $wealthSort === 'treasure_poor') {
+            return $this->getTreasureRating($limit, $wealthSort === 'treasure_poor');
         }
 
         return $this->getWealthRating($limit, $wealthSort === 'poor');
@@ -151,6 +161,86 @@ class WealthRatingService
         return [
             'status' => 'ok',
             'wealth_sort' => 'pending_xp',
+            'ratings' => $ratings,
+        ];
+    }
+
+    private function getTreasureRating(int $limit, bool $poorestFirst): array
+    {
+        $wallets = $this->repository->getAllWallets();
+        if (!$wallets) {
+            return [
+                'status' => 'ok',
+                'wealth_sort' => $poorestFirst ? 'treasure_poor' : 'treasure_rich',
+                'ratings' => [],
+            ];
+        }
+
+        $treasureMap = $this->repository->getClosedTreasureChestTotalsMapForAllUsers();
+
+        $prepared = [];
+        foreach ($wallets as $wallet) {
+            $userId = (int)($wallet['user_id'] ?? 0);
+            if ($userId <= 0) {
+                continue;
+            }
+
+            $treasureTotal = (int)($treasureMap[$userId] ?? 0);
+            if (!$poorestFirst && $treasureTotal <= 0) {
+                continue;
+            }
+
+            $totalWealth = $this->calcTotalWealth($wallet['prognobaks'], $wallet['rublius']);
+            $prepared[] = [
+                'user_id' => $userId,
+                'prognobaks' => $wallet['prognobaks'],
+                'rublius' => $wallet['rublius'],
+                'total' => $totalWealth,
+                'treasure_total' => $treasureTotal,
+            ];
+        }
+
+        usort($prepared, static function (array $a, array $b) use ($poorestFirst): int {
+            if ($a['treasure_total'] === $b['treasure_total']) {
+                // стабильная сортировка
+                return $a['user_id'] <=> $b['user_id'];
+            }
+
+            return $poorestFirst
+                ? ($a['treasure_total'] <=> $b['treasure_total'])
+                : ($b['treasure_total'] <=> $a['treasure_total']);
+        });
+
+        $prepared = array_slice($prepared, 0, $limit);
+        $users = $this->loadUsers(array_column($prepared, 'user_id'));
+
+        $ratings = [];
+        $place = 0;
+        $prevTreasure = null;
+        foreach ($prepared as $index => $row) {
+            if ($prevTreasure === null || $row['treasure_total'] !== $prevTreasure) {
+                $place = $index + 1;
+            }
+
+            $userId = (int)$row['user_id'];
+            $ratings[] = [
+                'place' => $place,
+                'user' => $this->resolveUser($users, $userId),
+                'prognobaks' => $row['prognobaks'],
+                'rublius' => $row['rublius'],
+                'total' => $row['total'],
+                'treasure_total' => $row['treasure_total'],
+                'score' => $row['treasure_total'],
+                'pending_count' => 0,
+                'pending_points' => 0.0,
+            ];
+
+            $prevTreasure = $row['treasure_total'];
+        }
+
+        return [
+            'status' => 'ok',
+            'wealth_sort' => $poorestFirst ? 'treasure_poor' : 'treasure_rich',
             'ratings' => $ratings,
         ];
     }
