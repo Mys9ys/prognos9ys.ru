@@ -396,6 +396,7 @@ class CalcFootballPrognosisResult
             $betService->resetMatchBetsForRecalc($matchId);
             $betService->backfillBetsFromPrognosis($matchId);
             $betService->settleMatch($matchId);
+            (new \Prognos9ys\Main\Service\Game\BankSettlementService())->onMatchSettled($matchId);
         } catch (\Throwable $exception) {
             // Не блокируем пересчёт результатов матча.
         }

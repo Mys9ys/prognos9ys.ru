@@ -16,6 +16,9 @@ class GameEconomyHlInstaller
     public const TABLE_GAME_BANK = 'prognos9ys_game_bank';
     public const TABLE_MATCH_BET = 'prognos9ys_match_bet';
     public const TABLE_TREASURE_CHEST = 'prognos9ys_treasure_chest';
+    public const TABLE_USER_BANK = 'prognos9ys_user_bank';
+    public const TABLE_BANK_DEPOSIT = 'prognos9ys_bank_deposit';
+    public const TABLE_BANK_LOAN = 'prognos9ys_bank_loan';
 
     public function install(): array
     {
@@ -88,6 +91,44 @@ class GameEconomyHlInstaller
             'UF_UPDATED_AT' => ['USER_TYPE_ID' => 'datetime'],
         ]);
 
+        $userBankHlId = $this->ensureHlBlock('Prognos9ysUserBank', self::TABLE_USER_BANK, [
+            'UF_OWNER_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_RESERVED' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
+            'UF_LIQUID' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
+            'UF_ACTIVE' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_CREATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+        ]);
+
+        $bankDepositHlId = $this->ensureHlBlock('Prognos9ysBankDeposit', self::TABLE_BANK_DEPOSIT, [
+            'UF_BANK_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_USER_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_PRINCIPAL' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
+            'UF_INTEREST_RATE' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
+            'UF_STATUS' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_MATCHES_SINCE_START' => ['USER_TYPE_ID' => 'integer'],
+            'UF_TERM_MATCHES' => ['USER_TYPE_ID' => 'integer'],
+            'UF_EVENT_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_LAST_TICK_MATCH_ID' => ['USER_TYPE_ID' => 'integer'],
+            'UF_CREATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+            'UF_UPDATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+            'UF_CLOSED_AT' => ['USER_TYPE_ID' => 'datetime'],
+        ]);
+
+        $bankLoanHlId = $this->ensureHlBlock('Prognos9ysBankLoan', self::TABLE_BANK_LOAN, [
+            'UF_BANK_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_USER_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_PRINCIPAL' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
+            'UF_INTEREST_RATE' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
+            'UF_STATUS' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_MATCHES_SINCE_START' => ['USER_TYPE_ID' => 'integer'],
+            'UF_TERM_MATCHES' => ['USER_TYPE_ID' => 'integer'],
+            'UF_EVENT_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_LAST_TICK_MATCH_ID' => ['USER_TYPE_ID' => 'integer'],
+            'UF_CREATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+            'UF_UPDATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+            'UF_CLOSED_AT' => ['USER_TYPE_ID' => 'datetime'],
+        ]);
+
         (new LevelService())->seedDefaultTiers();
 
         return [
@@ -99,6 +140,9 @@ class GameEconomyHlInstaller
             'game_bank_hl_id' => $bankHlId,
             'match_bet_hl_id' => $betHlId,
             'treasure_chest_hl_id' => $chestHlId,
+            'user_bank_hl_id' => $userBankHlId,
+            'bank_deposit_hl_id' => $bankDepositHlId,
+            'bank_loan_hl_id' => $bankLoanHlId,
         ];
     }
 

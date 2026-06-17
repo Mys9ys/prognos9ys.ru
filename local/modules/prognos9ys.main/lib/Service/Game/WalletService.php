@@ -197,6 +197,35 @@ class WalletService
         return $this->getWalletSummary($userId);
     }
 
+    public function tryDebitPrognobaks(
+        int $userId,
+        float $amount,
+        string $reason,
+        ?string $refType = null,
+        ?int $refId = null
+    ): float {
+        if ($amount <= 0) {
+            return 0.0;
+        }
+
+        $wallet = $this->getWalletSummary($userId);
+        $actual = round(min($amount, (float)$wallet['prognobaks']), 1);
+        if ($actual <= 0) {
+            return 0.0;
+        }
+
+        $this->debit(
+            $userId,
+            GameEconomyConfig::CURRENCY_PROGNOBAKS,
+            $actual,
+            $reason,
+            $refType,
+            $refId
+        );
+
+        return $actual;
+    }
+
     public function getWalletSummary(int $userId): array
     {
         $wallet = $this->ensureWallet($userId);

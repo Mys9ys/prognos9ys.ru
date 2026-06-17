@@ -130,6 +130,34 @@ export const apiActions = {
             'prognos9ys:main.GameController.getGameBank',
             { userToken }
         ),
+        listBanks: (userToken, limit = 30) => runBitrixAction(
+            'prognos9ys:main.GameController.listBanks',
+            { userToken, limit }
+        ),
+        getMyBank: (userToken) => runBitrixAction(
+            'prognos9ys:main.GameController.getMyBank',
+            { userToken }
+        ),
+        getMyContracts: (userToken) => runBitrixAction(
+            'prognos9ys:main.GameController.getMyContracts',
+            { userToken }
+        ),
+        openBank: (userToken) => runBitrixAction(
+            'prognos9ys:main.GameController.openBank',
+            { userToken }
+        ),
+        createDeposit: (userToken, bankId, amount) => runBitrixAction(
+            'prognos9ys:main.GameController.createDeposit',
+            { userToken, bankId, amount }
+        ),
+        takeLoan: (userToken, bankId, amount) => runBitrixAction(
+            'prognos9ys:main.GameController.takeLoan',
+            { userToken, bankId, amount }
+        ),
+        closeBank: (userToken) => runBitrixAction(
+            'prognos9ys:main.GameController.closeBank',
+            { userToken }
+        ),
     },
     impersonation: {
         searchUsers: (userToken, query) => runBitrixAction(

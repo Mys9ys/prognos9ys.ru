@@ -1,0 +1,216 @@
+<?php
+
+namespace Prognos9ys\Main\Service\Game;
+
+use Bitrix\Main\Type\DateTime;
+use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
+
+class BankDepositService
+{
+    private GameEconomyRepository $repository;
+    private WalletService $walletService;
+    private GameEventScopeService $scopeService;
+
+    public function __construct(
+        ?GameEconomyRepository $repository = null,
+        ?WalletService $walletService = null,
+        ?GameEventScopeService $scopeService = null
+    ) {
+        $this->repository = $repository ?? new GameEconomyRepository();
+        $this->walletService = $walletService ?? new WalletService($this->repository);
+        $this->scopeService = $scopeService ?? new GameEventScopeService();
+    }
+
+    public function createDeposit(int $userId, int $bankId, float $amount): array
+    {
+        if ($userId <= 0 || $bankId <= 0) {
+            throw new \InvalidArgumentException('Некорректные параметры вклада');
+        }
+
+        $amount = round($amount, 1);
+        if ($amount !== GameEconomyConfig::DEPOSIT_MIN_AMOUNT_PROGNOBAKS) {
+            throw new \RuntimeException(
+                'Сумма вклада фиксирована: ' . GameEconomyConfig::DEPOSIT_MIN_AMOUNT_PROGNOBAKS
+            );
+        }
+
+        $bank = $this->repository->getUserBankById($bankId);
+        if (!$bank || ($bank['UF_ACTIVE'] ?? '') !== GameEconomyConfig::USER_BANK_STATUS_ACTIVE) {
+            throw new \RuntimeException('Банк не найден или закрыт');
+        }
+
+        $ownerId = (int)($bank['UF_OWNER_ID'] ?? 0);
+        if ($ownerId === $userId) {
+            throw new \RuntimeException('Нельзя открыть вклад в собственном банке');
+        }
+
+        $this->walletService->debit(
+            $userId,
+            GameEconomyConfig::CURRENCY_PROGNOBAKS,
+            $amount,
+            'bank_deposit',
+            'bank',
+            $bankId
+        );
+
+        $depositId = $this->repository->addBankDeposit([
+            'UF_BANK_ID' => $bankId,
+            'UF_USER_ID' => $userId,
+            'UF_PRINCIPAL' => $amount,
+            'UF_INTEREST_RATE' => GameEconomyConfig::DEPOSIT_INTEREST_PERCENT,
+            'UF_STATUS' => GameEconomyConfig::CONTRACT_STATUS_ACTIVE,
+            'UF_MATCHES_SINCE_START' => 0,
+            'UF_TERM_MATCHES' => GameEconomyConfig::BANK_TERM_MATCHES,
+            'UF_EVENT_ID' => $this->scopeService->getAnchorEventId(),
+            'UF_LAST_TICK_MATCH_ID' => 0,
+            'UF_CREATED_AT' => new DateTime(),
+            'UF_UPDATED_AT' => new DateTime(),
+        ]);
+
+        $this->repository->updateWalletTxRefForLastReason($userId, 'bank_deposit', 'deposit', $depositId);
+        $this->repository->adjustUserBankLiquid($bankId, $amount);
+
+        return self::formatContract($this->repository->getBankDepositById($depositId));
+    }
+
+    public function getMyContracts(int $userId): array
+    {
+        $items = [];
+        foreach ($this->repository->getDepositsByUserId($userId) as $row) {
+            if (($row['UF_STATUS'] ?? '') === GameEconomyConfig::CONTRACT_STATUS_CLOSED) {
+                continue;
+            }
+            $items[] = self::formatContract($row);
+        }
+
+        return $items;
+    }
+
+    public function processMaturity(array $deposit): void
+    {
+        $depositId = (int)$deposit['ID'];
+        $bankId = (int)($deposit['UF_BANK_ID'] ?? 0);
+        $userId = (int)($deposit['UF_USER_ID'] ?? 0);
+        $principal = round((float)($deposit['UF_PRINCIPAL'] ?? 0), 1);
+        $interest = GameEconomyConfig::calculateDepositInterest($principal);
+        $total = round($principal + $interest, 1);
+
+        $bank = $this->repository->getUserBankById($bankId);
+        if (!$bank) {
+            return;
+        }
+
+        $liquid = round((float)($bank['UF_LIQUID'] ?? 0), 1);
+        $wallet = $this->walletService->getWalletSummary($userId);
+        $now = new DateTime();
+
+        if ($wallet['prognobaks'] < GameEconomyConfig::POOR_WALLET_THRESHOLD_PROGNOBAKS) {
+            $this->settlePoorWalletReturn($depositId, $bankId, $userId, $principal, $liquid, $now);
+
+            return;
+        }
+
+        if ($liquid >= $total) {
+            $this->payoutAndClose($depositId, $bankId, $userId, $total, 'bank_deposit_return', $now);
+
+            return;
+        }
+
+        $this->extendContract($depositId, $now);
+        if ($interest > 0 && $liquid >= $interest) {
+            $this->payoutInterest($depositId, $bankId, $userId, $interest, $now);
+        }
+    }
+
+    private function settlePoorWalletReturn(
+        int $depositId,
+        int $bankId,
+        int $userId,
+        float $principal,
+        float $liquid,
+        DateTime $now
+    ): void {
+        if ($liquid >= $principal) {
+            $this->payoutAndClose($depositId, $bankId, $userId, $principal, 'bank_deposit_return', $now);
+
+            return;
+        }
+
+        $half = round($principal * 0.5, 1);
+        if ($half > 0 && $liquid >= $half) {
+            $this->payoutAndClose($depositId, $bankId, $userId, $half, 'bank_deposit_return_half', $now);
+
+            return;
+        }
+
+        $this->extendContract($depositId, $now);
+    }
+
+    private function payoutInterest(int $depositId, int $bankId, int $userId, float $interest, DateTime $now): void
+    {
+        $this->repository->adjustUserBankLiquid($bankId, -$interest);
+        $this->walletService->credit(
+            $userId,
+            GameEconomyConfig::CURRENCY_PROGNOBAKS,
+            $interest,
+            'bank_deposit_interest',
+            'deposit',
+            $depositId
+        );
+        $this->repository->updateBankDeposit($depositId, ['UF_UPDATED_AT' => $now]);
+    }
+
+    private function payoutAndClose(
+        int $depositId,
+        int $bankId,
+        int $userId,
+        float $amount,
+        string $reason,
+        DateTime $now
+    ): void {
+        $this->repository->adjustUserBankLiquid($bankId, -$amount);
+        $this->walletService->credit(
+            $userId,
+            GameEconomyConfig::CURRENCY_PROGNOBAKS,
+            $amount,
+            $reason,
+            'deposit',
+            $depositId
+        );
+        $this->repository->updateBankDeposit($depositId, [
+            'UF_STATUS' => GameEconomyConfig::CONTRACT_STATUS_CLOSED,
+            'UF_UPDATED_AT' => $now,
+            'UF_CLOSED_AT' => $now,
+        ]);
+    }
+
+    private function extendContract(int $depositId, DateTime $now): void
+    {
+        $this->repository->updateBankDeposit($depositId, [
+            'UF_STATUS' => GameEconomyConfig::CONTRACT_STATUS_EXTENDED,
+            'UF_MATCHES_SINCE_START' => 0,
+            'UF_UPDATED_AT' => $now,
+        ]);
+    }
+
+    public static function formatContract(array $row): array
+    {
+        $term = (int)($row['UF_TERM_MATCHES'] ?? GameEconomyConfig::BANK_TERM_MATCHES);
+        $since = (int)($row['UF_MATCHES_SINCE_START'] ?? 0);
+        $principal = round((float)($row['UF_PRINCIPAL'] ?? 0), 1);
+
+        return [
+            'id' => (int)$row['ID'],
+            'bank_id' => (int)($row['UF_BANK_ID'] ?? 0),
+            'user_id' => (int)($row['UF_USER_ID'] ?? 0),
+            'principal' => $principal,
+            'interest_rate' => round((float)($row['UF_INTEREST_RATE'] ?? 0), 1),
+            'interest_amount' => GameEconomyConfig::calculateDepositInterest($principal),
+            'status' => (string)($row['UF_STATUS'] ?? ''),
+            'matches_since_start' => $since,
+            'term_matches' => $term,
+            'matches_left' => max(0, $term - $since),
+            'event_id' => (int)($row['UF_EVENT_ID'] ?? 0),
+        ];
+    }
+}

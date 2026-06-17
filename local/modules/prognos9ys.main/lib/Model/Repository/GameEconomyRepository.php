@@ -130,6 +130,36 @@ class GameEconomyRepository
         return (int)$result->getId();
     }
 
+    public function updateWalletTxRefForLastReason(
+        int $userId,
+        string $reason,
+        string $refType,
+        int $refId
+    ): void {
+        if ($userId <= 0 || $refId <= 0) {
+            return;
+        }
+
+        $dataClass = $this->getWalletTxDataClass();
+        $row = $dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '=UF_REASON' => $reason,
+            ],
+            'order' => ['ID' => 'DESC'],
+            'limit' => 1,
+        ])->fetch();
+
+        if (!$row) {
+            return;
+        }
+
+        $dataClass::update((int)$row['ID'], [
+            'UF_REF_TYPE' => $refType,
+            'UF_REF_ID' => $refId,
+        ]);
+    }
+
     public function hasWalletTx(int $userId, string $reason, ?string $refType = null, ?int $refId = null): bool
     {
         $filter = [
@@ -723,6 +753,336 @@ class GameEconomyRepository
     public function updateMatchBet(int $id, array $fields): void
     {
         $dataClass = $this->getMatchBetDataClass();
+        $result = $dataClass::update($id, $fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+    }
+
+    public function getUserBankDataClass(): string
+    {
+        return $this->compileDataClass(GameEconomyHlInstaller::TABLE_USER_BANK);
+    }
+
+    public function getBankDepositDataClass(): string
+    {
+        return $this->compileDataClass(GameEconomyHlInstaller::TABLE_BANK_DEPOSIT);
+    }
+
+    public function getBankLoanDataClass(): string
+    {
+        return $this->compileDataClass(GameEconomyHlInstaller::TABLE_BANK_LOAN);
+    }
+
+    public function getUserBankById(int $id): ?array
+    {
+        if ($id <= 0) {
+            return null;
+        }
+
+        $dataClass = $this->getUserBankDataClass();
+        $row = $dataClass::getList([
+            'filter' => ['=ID' => $id],
+            'limit' => 1,
+        ])->fetch();
+
+        return $row ?: null;
+    }
+
+    public function getUserBankByOwnerId(int $ownerId, bool $activeOnly = true): ?array
+    {
+        if ($ownerId <= 0) {
+            return null;
+        }
+
+        $filter = ['=UF_OWNER_ID' => $ownerId];
+        if ($activeOnly) {
+            $filter['=UF_ACTIVE'] = GameEconomyConfig::USER_BANK_STATUS_ACTIVE;
+        }
+
+        $dataClass = $this->getUserBankDataClass();
+        $row = $dataClass::getList([
+            'filter' => $filter,
+            'order' => ['ID' => 'DESC'],
+            'limit' => 1,
+        ])->fetch();
+
+        return $row ?: null;
+    }
+
+    public function getActiveUserBanks(int $limit = 50): array
+    {
+        $dataClass = $this->getUserBankDataClass();
+        $rows = [];
+        $response = $dataClass::getList([
+            'filter' => ['=UF_ACTIVE' => GameEconomyConfig::USER_BANK_STATUS_ACTIVE],
+            'order' => ['UF_LIQUID' => 'DESC', 'ID' => 'DESC'],
+            'limit' => $limit,
+        ]);
+
+        while ($row = $response->fetch()) {
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
+    public function addUserBank(array $fields): int
+    {
+        $dataClass = $this->getUserBankDataClass();
+        $result = $dataClass::add($fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+
+        return (int)$result->getId();
+    }
+
+    public function updateUserBank(int $id, array $fields): void
+    {
+        $dataClass = $this->getUserBankDataClass();
+        $result = $dataClass::update($id, $fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+    }
+
+    public function adjustUserBankLiquid(int $bankId, float $delta): void
+    {
+        $bank = $this->getUserBankById($bankId);
+        if (!$bank) {
+            throw new \RuntimeException('Банк не найден');
+        }
+
+        $liquid = round((float)($bank['UF_LIQUID'] ?? 0) + $delta, 1);
+        if ($liquid < 0) {
+            throw new \RuntimeException('Недостаточно ликвидности банка');
+        }
+
+        $this->updateUserBank($bankId, ['UF_LIQUID' => $liquid]);
+    }
+
+    public function getUserBankLoanableAmount(array $bank): float
+    {
+        return round((float)($bank['UF_RESERVED'] ?? 0) + (float)($bank['UF_LIQUID'] ?? 0), 1);
+    }
+
+    /**
+     * Списание под займ: сначала резерв владельца, затем ликвидность вкладов.
+     */
+    public function allocateUserBankFundsForLoan(int $bankId, float $amount): void
+    {
+        $bank = $this->getUserBankById($bankId);
+        if (!$bank) {
+            throw new \RuntimeException('Банк не найден');
+        }
+
+        $amount = round($amount, 1);
+        $reserved = round((float)($bank['UF_RESERVED'] ?? 0), 1);
+        $liquid = round((float)($bank['UF_LIQUID'] ?? 0), 1);
+
+        if ($this->getUserBankLoanableAmount($bank) < $amount) {
+            throw new \RuntimeException('В банке недостаточно средств для займа');
+        }
+
+        $fromReserve = round(min($amount, $reserved), 1);
+        $fromLiquid = round($amount - $fromReserve, 1);
+
+        $this->updateUserBank($bankId, [
+            'UF_RESERVED' => round($reserved - $fromReserve, 1),
+            'UF_LIQUID' => round($liquid - $fromLiquid, 1),
+        ]);
+    }
+
+    /**
+     * Возврат по займу: сначала восстанавливаем резерв владельца до лимита, остаток — в ликвидность.
+     */
+    public function creditUserBankLoanRepayment(int $bankId, float $amount): void
+    {
+        $bank = $this->getUserBankById($bankId);
+        if (!$bank) {
+            throw new \RuntimeException('Банк не найден');
+        }
+
+        $amount = round($amount, 1);
+        if ($amount <= 0) {
+            return;
+        }
+
+        $reserved = round((float)($bank['UF_RESERVED'] ?? 0), 1);
+        $liquid = round((float)($bank['UF_LIQUID'] ?? 0), 1);
+        $reserveCap = GameEconomyConfig::BANK_RESERVED_CAPITAL_PROGNOBAKS;
+        $toReserve = round(min($amount, max(0.0, $reserveCap - $reserved)), 1);
+        $toLiquid = round($amount - $toReserve, 1);
+
+        $this->updateUserBank($bankId, [
+            'UF_RESERVED' => round($reserved + $toReserve, 1),
+            'UF_LIQUID' => round($liquid + $toLiquid, 1),
+        ]);
+    }
+
+    public function getBankDepositById(int $id): ?array
+    {
+        if ($id <= 0) {
+            return null;
+        }
+
+        $dataClass = $this->getBankDepositDataClass();
+        $row = $dataClass::getList([
+            'filter' => ['=ID' => $id],
+            'limit' => 1,
+        ])->fetch();
+
+        return $row ?: null;
+    }
+
+    public function getActiveDepositsByEvent(int $eventId): array
+    {
+        return $this->getDepositsByFilter([
+            '=UF_EVENT_ID' => $eventId,
+            '@UF_STATUS' => [
+                GameEconomyConfig::CONTRACT_STATUS_ACTIVE,
+                GameEconomyConfig::CONTRACT_STATUS_EXTENDED,
+            ],
+        ]);
+    }
+
+    public function getActiveDepositsByBankId(int $bankId): array
+    {
+        return $this->getDepositsByFilter([
+            '=UF_BANK_ID' => $bankId,
+            '@UF_STATUS' => [
+                GameEconomyConfig::CONTRACT_STATUS_ACTIVE,
+                GameEconomyConfig::CONTRACT_STATUS_EXTENDED,
+            ],
+        ]);
+    }
+
+    public function getDepositsByUserId(int $userId): array
+    {
+        return $this->getDepositsByFilter(['=UF_USER_ID' => $userId], ['ID' => 'DESC']);
+    }
+
+    public function countActiveContractsByBankId(int $bankId): int
+    {
+        return count($this->getActiveDepositsByBankId($bankId))
+            + count($this->getActiveLoansByBankId($bankId));
+    }
+
+    private function getDepositsByFilter(array $filter, array $order = ['ID' => 'ASC']): array
+    {
+        $dataClass = $this->getBankDepositDataClass();
+        $rows = [];
+        $response = $dataClass::getList([
+            'filter' => $filter,
+            'order' => $order,
+        ]);
+
+        while ($row = $response->fetch()) {
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
+    public function addBankDeposit(array $fields): int
+    {
+        $dataClass = $this->getBankDepositDataClass();
+        $result = $dataClass::add($fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+
+        return (int)$result->getId();
+    }
+
+    public function updateBankDeposit(int $id, array $fields): void
+    {
+        $dataClass = $this->getBankDepositDataClass();
+        $result = $dataClass::update($id, $fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+    }
+
+    public function getBankLoanById(int $id): ?array
+    {
+        if ($id <= 0) {
+            return null;
+        }
+
+        $dataClass = $this->getBankLoanDataClass();
+        $row = $dataClass::getList([
+            'filter' => ['=ID' => $id],
+            'limit' => 1,
+        ])->fetch();
+
+        return $row ?: null;
+    }
+
+    public function getActiveLoansByEvent(int $eventId): array
+    {
+        return $this->getLoansByFilter([
+            '=UF_EVENT_ID' => $eventId,
+            '@UF_STATUS' => [
+                GameEconomyConfig::CONTRACT_STATUS_ACTIVE,
+                GameEconomyConfig::CONTRACT_STATUS_EXTENDED,
+            ],
+        ]);
+    }
+
+    public function getActiveLoansByBankId(int $bankId): array
+    {
+        return $this->getLoansByFilter([
+            '=UF_BANK_ID' => $bankId,
+            '@UF_STATUS' => [
+                GameEconomyConfig::CONTRACT_STATUS_ACTIVE,
+                GameEconomyConfig::CONTRACT_STATUS_EXTENDED,
+            ],
+        ]);
+    }
+
+    public function getLoansByUserId(int $userId): array
+    {
+        return $this->getLoansByFilter(['=UF_USER_ID' => $userId], ['ID' => 'DESC']);
+    }
+
+    private function getLoansByFilter(array $filter, array $order = ['ID' => 'ASC']): array
+    {
+        $dataClass = $this->getBankLoanDataClass();
+        $rows = [];
+        $response = $dataClass::getList([
+            'filter' => $filter,
+            'order' => $order,
+        ]);
+
+        while ($row = $response->fetch()) {
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
+    public function addBankLoan(array $fields): int
+    {
+        $dataClass = $this->getBankLoanDataClass();
+        $result = $dataClass::add($fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+
+        return (int)$result->getId();
+    }
+
+    public function updateBankLoan(int $id, array $fields): void
+    {
+        $dataClass = $this->getBankLoanDataClass();
         $result = $dataClass::update($id, $fields);
 
         if (!$result->isSuccess()) {

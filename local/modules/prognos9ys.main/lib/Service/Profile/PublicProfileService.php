@@ -29,7 +29,7 @@ class PublicProfileService
                 'registered_at' => (string)($profile['info']['reg'] ?? ''),
             ],
             'rank' => $profile['rank_info'] ?? [],
-            'game' => (new \Prognos9ys\Main\Service\Game\GameProfileService())->getSummary($userId),
+            'game' => (new \Prognos9ys\Main\Service\Game\GameProfileService())->getSummary($userId, false),
             'football' => $profile['football'] ?? [],
             'race' => $profile['race'] ?? [],
             'racers' => $profile['racers'] ?? [],

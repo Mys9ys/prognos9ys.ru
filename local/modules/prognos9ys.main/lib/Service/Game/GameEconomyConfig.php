@@ -21,11 +21,24 @@ class GameEconomyConfig
     public const GAME_BANK_CODE_FOOTBALL_PARIMUTUEL = 'football_parimutuel';
 
     /** Фаза C+ — частные банки и кредиты (см. ROADMAP). */
+    public const BANK_OPEN_MIN_WALLET_PROGNOBAKS = 250.0;
+    public const BANK_RESERVED_CAPITAL_PROGNOBAKS = 200.0;
+    /** @deprecated use BANK_RESERVED_CAPITAL_PROGNOBAKS */
     public const BANK_MIN_CAPITAL_PROGNOBAKS = 200.0;
+    public const DEPOSIT_MIN_AMOUNT_PROGNOBAKS = 100.0;
     public const LOAN_MIN_AMOUNT_PROGNOBAKS = 50.0;
-    public const LOAN_TERM_MATCHES = 7;
+    public const BANK_TERM_MATCHES = 5;
+    /** @deprecated use BANK_TERM_MATCHES */
+    public const LOAN_TERM_MATCHES = 5;
     public const LOAN_INTEREST_PERCENT = 15.0;
     public const DEPOSIT_INTEREST_PERCENT = 7.0;
+    public const POOR_WALLET_THRESHOLD_PROGNOBAKS = 50.0;
+
+    public const USER_BANK_STATUS_ACTIVE = 'active';
+    public const USER_BANK_STATUS_CLOSED = 'closed';
+    public const CONTRACT_STATUS_ACTIVE = 'active';
+    public const CONTRACT_STATUS_EXTENDED = 'extended';
+    public const CONTRACT_STATUS_CLOSED = 'closed';
 
     /** ID события-якоря (ЧМ-2026). 0 — автоопределение по названию. */
     public const ANCHOR_EVENT_ID = 63849;
@@ -133,5 +146,15 @@ class GameEconomyConfig
             'prognobaks' => $baseP,
             'rublius' => $baseR,
         ];
+    }
+
+    public static function calculateDepositInterest(float $principal): float
+    {
+        return round($principal * self::DEPOSIT_INTEREST_PERCENT / 100, 1);
+    }
+
+    public static function calculateLoanInterest(float $principal): float
+    {
+        return round($principal * self::LOAN_INTEREST_PERCENT / 100, 1);
     }
 }

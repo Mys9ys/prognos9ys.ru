@@ -22,6 +22,12 @@
     <div class="wallet_row">
       <div class="coin chest">Сокровища: {{ treasure.closed_chests }} 🎁</div>
     </div>
+    <div class="bank_hint" v-if="bank.has_bank || bank.active_deposits || bank.active_loans">
+      <span v-if="bank.has_bank">🏦 Мой банк</span>
+      <span v-else-if="bank.can_open">🏦 Можно открыть банк</span>
+      <span v-if="bank.active_deposits"> · вкладов: {{ bank.active_deposits }}</span>
+      <span v-if="bank.active_loans"> · займов: {{ bank.active_loans }}</span>
+    </div>
   </div>
 </template>
 
@@ -50,6 +56,14 @@ export default {
     },
     treasure() {
       return this.game?.treasure || { closed_chests: 0 };
+    },
+    bank() {
+      return this.game?.bank || {
+        has_bank: false,
+        can_open: false,
+        active_deposits: 0,
+        active_loans: 0,
+      };
     },
   },
 };
@@ -112,5 +126,12 @@ export default {
     text-align: center;
     font-size: 14px;
   }
+}
+
+.bank_hint {
+  font-size: 12px;
+  color: @colorBlur;
+  text-align: center;
+  padding: 4px;
 }
 </style>
