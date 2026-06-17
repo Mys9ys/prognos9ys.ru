@@ -75,6 +75,10 @@
         </div>
       </div>
     </div>
+    <div class="hm_level_banner" v-if="levelBannerVisible">
+      <span class="hm_level_banner_text">{{ levelBannerText }}</span>
+      <button class="hm_level_banner_close" @click="closeLevelBanner">×</button>
+    </div>
     <ImpersonationBanner v-if="impersonation.active" class="hm_impersonation"></ImpersonationBanner>
   </div>
 </template>
@@ -104,14 +108,22 @@ export default {
         {link:'profile', img: require('@/assets/icon/header/profile.svg'), name: 'Профиль'},
         // {link:'logout', img: require('@/assets/icon/header/exit.svg'), name: 'Выход'},
       ],
-      menu: false
+      menu: false,
+      levelBannerVisible: false,
+      levelBannerLevel: 0,
     }
   },
 
   watch: {
     token(){
       this.checkAuth()
-    }
+    },
+    userId() {
+      this.evaluateLevelBanner();
+    },
+    currentLevel() {
+      this.evaluateLevelBanner();
+    },
   },
 
 
@@ -121,6 +133,7 @@ export default {
         // проверка токена на актуальность
         this.checkAuth()
       }
+      this.evaluateLevelBanner()
     })
   },
   computed: {
@@ -131,6 +144,15 @@ export default {
     }),
     gameProgress() {
       return this.userInfo?.game_info?.progress || null;
+    },
+    userId() {
+      return Number(this.userInfo?.ID || 0);
+    },
+    currentLevel() {
+      return Number(this.gameProgress?.level || 0);
+    },
+    levelBannerText() {
+      return `Поздравляем! Получен новый уровень: ${this.levelBannerLevel}`;
     },
     wallet() {
       const wallet = this.userInfo?.game_info?.wallet || {};
@@ -159,7 +181,78 @@ export default {
     async checkAuth() {
       await this.loginRequest()
       if (location.pathname === '/mob_app/') this.$router.push('/main')
-    }
+    },
+    getLevelBannerStorageKey() {
+      if (!this.userId) {
+        return '';
+      }
+      return `lk_level_banner_state_${this.userId}`;
+    },
+    readLevelBannerState() {
+      const key = this.getLevelBannerStorageKey();
+      if (!key) {
+        return null;
+      }
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) {
+          return null;
+        }
+        const parsed = JSON.parse(raw);
+        return {
+          seenLevel: Number(parsed.seenLevel || 0),
+          dismissedLevel: Number(parsed.dismissedLevel || 0),
+        };
+      } catch (e) {
+        return null;
+      }
+    },
+    saveLevelBannerState(state) {
+      const key = this.getLevelBannerStorageKey();
+      if (!key) {
+        return;
+      }
+      localStorage.setItem(key, JSON.stringify({
+        seenLevel: Number(state.seenLevel || 0),
+        dismissedLevel: Number(state.dismissedLevel || 0),
+      }));
+    },
+    evaluateLevelBanner() {
+      if (!this.userId || this.currentLevel <= 0) {
+        this.levelBannerVisible = false;
+        return;
+      }
+
+      const currentLevel = this.currentLevel;
+      const state = this.readLevelBannerState();
+
+      if (!state) {
+        this.saveLevelBannerState({
+          seenLevel: currentLevel,
+          dismissedLevel: currentLevel,
+        });
+        this.levelBannerVisible = false;
+        return;
+      }
+
+      let seenLevel = state.seenLevel;
+      let dismissedLevel = state.dismissedLevel;
+
+      if (currentLevel > seenLevel) {
+        seenLevel = currentLevel;
+      }
+
+      this.levelBannerLevel = currentLevel;
+      this.levelBannerVisible = currentLevel > dismissedLevel;
+      this.saveLevelBannerState({ seenLevel, dismissedLevel });
+    },
+    closeLevelBanner() {
+      this.levelBannerVisible = false;
+      const state = this.readLevelBannerState() || { seenLevel: this.currentLevel, dismissedLevel: 0 };
+      state.seenLevel = Math.max(Number(state.seenLevel || 0), this.currentLevel);
+      state.dismissedLevel = Math.max(Number(state.dismissedLevel || 0), this.currentLevel);
+      this.saveLevelBannerState(state);
+    },
   },
 }
 </script>
@@ -181,13 +274,42 @@ export default {
   flex-direction: column;
   flex-wrap: wrap;
   justify-content: space-between;
-  height: 88px;
+  min-height: 88px;
+  height: auto;
 
   margin-bottom: 44px;
 
   border-radius: 0 0 5px 5px;
 
   z-index: 15;
+
+  .hm_level_banner {
+    margin-top: 8px;
+    padding: 6px 8px;
+    border-radius: 5px;
+    background: rgba(247, 196, 23, 0.2);
+    border: 1px solid rgba(247, 196, 23, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .hm_level_banner_text {
+    color: #ffe99b;
+    font-size: 12px;
+    line-height: 1.2;
+  }
+
+  .hm_level_banner_close {
+    border: 0;
+    background: transparent;
+    color: #ffe99b;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 2px;
+  }
 
   .hm_impersonation {
     position: absolute;
