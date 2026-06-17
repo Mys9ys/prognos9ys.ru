@@ -1,8 +1,8 @@
 <template>
   <PageHeader class="header">Ваш профиль</PageHeader>
 
-  <ProfileGameBlock :game="profileData.game_info" v-if="profileData.game_info"></ProfileGameBlock>
-  <ProfileBankBlock :game="profileData.game_info" v-if="profileData.game_info"></ProfileBankBlock>
+  <ProfileGameBlock :game="gameInfo" v-if="gameInfo"></ProfileGameBlock>
+  <ProfileBankBlock :game="gameInfo" v-if="gameInfo"></ProfileBankBlock>
 
   <div class="title_block">
     <div class="title_wrapper" v-for="(el, index) in profileMenu" :key="index" @click="active = index" :class="{'active':active === index}">
@@ -121,6 +121,7 @@ export default {
     this.profileLoader = true
 
     this.fillProfile()
+    this.$store.dispatch('auth/refreshGameInfo')
   },
 
   methods: {
@@ -151,9 +152,12 @@ export default {
     ...mapState({
       profileData: state => state.profile.profileData,
       profileRequest: state => state.profile.profileRequest,
-
+      userInfo: state => state.auth.userInfo,
       token: state => state.auth.authData.token,
-    })
+    }),
+    gameInfo() {
+      return this.userInfo?.game_info || this.profileData?.game_info || null;
+    },
   },
 
 }

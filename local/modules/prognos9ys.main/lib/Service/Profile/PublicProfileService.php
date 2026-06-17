@@ -6,7 +6,7 @@ use Prognos9ys\Main\Controller\ApiException;
 
 class PublicProfileService
 {
-    public function getByUserId(int $userId): array
+    public function getByUserId(int $userId, bool $includePrivateGameDetails = false): array
     {
         if ($userId <= 0) {
             throw new ApiException('Некорректный ID пользователя', 400);
@@ -29,7 +29,10 @@ class PublicProfileService
                 'registered_at' => (string)($profile['info']['reg'] ?? ''),
             ],
             'rank' => $profile['rank_info'] ?? [],
-            'game' => (new \Prognos9ys\Main\Service\Game\GameProfileService())->getSummary($userId, false),
+            'game' => (new \Prognos9ys\Main\Service\Game\GameProfileService())->getSummary(
+                $userId,
+                $includePrivateGameDetails
+            ),
             'football' => $profile['football'] ?? [],
             'race' => $profile['race'] ?? [],
             'racers' => $profile['racers'] ?? [],
