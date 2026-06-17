@@ -22,15 +22,14 @@ class WealthRatingService
             'poor',
             'pending_xp',
             'treasure_rich',
-            'treasure_poor',
         ], true) ? $wealthSort : 'rich';
 
         if ($wealthSort === 'pending_xp') {
             return $this->getPendingXpRating($limit);
         }
 
-        if ($wealthSort === 'treasure_rich' || $wealthSort === 'treasure_poor') {
-            return $this->getTreasureRating($limit, $wealthSort === 'treasure_poor');
+        if ($wealthSort === 'treasure_rich') {
+            return $this->getTreasureRating($limit);
         }
 
         return $this->getWealthRating($limit, $wealthSort === 'poor');
@@ -165,13 +164,13 @@ class WealthRatingService
         ];
     }
 
-    private function getTreasureRating(int $limit, bool $poorestFirst): array
+    private function getTreasureRating(int $limit): array
     {
         $wallets = $this->repository->getAllWallets();
         if (!$wallets) {
             return [
                 'status' => 'ok',
-                'wealth_sort' => $poorestFirst ? 'treasure_poor' : 'treasure_rich',
+                'wealth_sort' => 'treasure_rich',
                 'ratings' => [],
             ];
         }
@@ -186,7 +185,7 @@ class WealthRatingService
             }
 
             $treasureTotal = (int)($treasureMap[$userId] ?? 0);
-            if (!$poorestFirst && $treasureTotal <= 0) {
+            if ($treasureTotal <= 0) {
                 continue;
             }
 
@@ -200,15 +199,13 @@ class WealthRatingService
             ];
         }
 
-        usort($prepared, static function (array $a, array $b) use ($poorestFirst): int {
+        usort($prepared, static function (array $a, array $b): int {
             if ($a['treasure_total'] === $b['treasure_total']) {
                 // стабильная сортировка
                 return $a['user_id'] <=> $b['user_id'];
             }
 
-            return $poorestFirst
-                ? ($a['treasure_total'] <=> $b['treasure_total'])
-                : ($b['treasure_total'] <=> $a['treasure_total']);
+            return $b['treasure_total'] <=> $a['treasure_total'];
         });
 
         $prepared = array_slice($prepared, 0, $limit);
@@ -240,17 +237,14 @@ class WealthRatingService
 
         return [
             'status' => 'ok',
-            'wealth_sort' => $poorestFirst ? 'treasure_poor' : 'treasure_rich',
+            'wealth_sort' => 'treasure_rich',
             'ratings' => $ratings,
         ];
     }
 
     private function calcTotalWealth(float $prognobaks, float $rublius): float
     {
-        return round(
-            $prognobaks + $rublius * GameEconomyConfig::RUBLIUS_TO_PROGNOBAKS,
-            1
-        );
+        return round($prognobaks, 1);
     }
 
     /**

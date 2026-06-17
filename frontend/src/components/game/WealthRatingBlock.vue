@@ -27,13 +27,7 @@
             class="filter_btn"
             :class="{ active: mode === 'treasure_rich' }"
             @click="setMode('treasure_rich')"
-        >🎁 Богатые по сокровищам</button>
-        <button
-            type="button"
-            class="filter_btn"
-            :class="{ active: mode === 'treasure_poor' }"
-            @click="setMode('treasure_poor')"
-        >🎁 Бедные по сокровищам</button>
+        >🎁</button>
         <button
             type="button"
             class="filter_btn"
@@ -117,7 +111,7 @@ export default {
       userInfo: state => state.auth.userInfo,
     }),
     isTreasureMode() {
-      return this.mode === 'treasure_rich' || this.mode === 'treasure_poor';
+      return this.mode === 'treasure_rich';
     },
     canImpersonate() {
       const role = this.userInfo?.role;
@@ -135,11 +129,8 @@ export default {
       if (this.mode === 'pending_xp') {
         return '🎯 Незабранный опыт';
       }
-      if (this.mode === 'treasure_poor') {
-        return '🎁 Самые бедные по сокровищам';
-      }
       if (this.mode === 'treasure_rich') {
-        return '🎁 Самые богатые по сокровищам';
+        return '🎁 Сокровищницы';
       }
 
       return '💰 Самые богатые';
@@ -150,9 +141,6 @@ export default {
       }
       if (this.mode === 'poor') {
         return 'Нет участников с кошельком';
-      }
-      if (this.mode === 'treasure_poor') {
-        return 'Нет участников по сокровищам';
       }
       if (this.mode === 'treasure_rich') {
         return 'Пока никто не накопил сокровища';
@@ -165,16 +153,13 @@ export default {
         return '🚪 — войти и нажать «Получить опыт» на матчах';
       }
       if (this.mode === 'poor') {
-        return 'Σ = прогнобаксы + рублиусы × 10 · сортировка по возрастанию';
-      }
-      if (this.mode === 'treasure_poor') {
-        return '🎁 = сумма закрытых сундучков · сортировка по возрастанию';
+        return 'Σ = прогнобаксы · сортировка по возрастанию';
       }
       if (this.mode === 'treasure_rich') {
         return '🎁 = сумма закрытых сундучков · сортировка по убыванию';
       }
 
-      return 'Σ = прогнобаксы + рублиусы × 10';
+      return 'Σ = прогнобаксы';
     },
   },
   created() {
