@@ -1,10 +1,7 @@
 <template>
   <div class="select_wrapper">
-    <select class="select" v-if="arRating" v-model="selected">
-      <option v-for="(id) in matchNumbers" :value="id" :key="id">№: {{id}}</option>
-    </select>
     <div v-for="(data, index) in arRating" :key="index">
-      <div v-if="selected==index">
+      <div v-if="String(selected) === String(index)">
         <table class="table table-dark table-hover rating_table_box">
           <thead>
           <tr>
@@ -71,11 +68,13 @@ export default {
     arRating: {
       type: Object
     },
+    selected: {
+      type: [String, Number],
+      default: '',
+    },
   },
   data(){
     return{
-      matchNumbers: [],
-      selected: '',
       url:  'https://prognos9ys.ru',
       impersonateError: '',
     }
@@ -99,7 +98,7 @@ export default {
 
   watch:{
     arRating(){
-      this.selectMatch(this.arRating)
+      // nothing: selection is controlled by parent
     }
   },
 
@@ -133,7 +132,7 @@ export default {
 
     buildDisplayRows(rows) {
       const list = Array.isArray(rows) ? rows : [];
-      const viewerId = this.viewerUserId;
+      const viewerId = this.viewerUserId();
       const result = [];
 
       list.forEach((row, index) => {
@@ -165,13 +164,6 @@ export default {
       return result;
     },
 
-    selectMatch(arRating){
-      this.matchNumbers = Object.keys(arRating || {})
-
-      this.selected = this.matchNumbers.length
-
-      return this.matchNumbers.reverse()
-    },
   }
 }
 </script>
@@ -305,30 +297,6 @@ export default {
 
 .select_wrapper{
   text-align: right;
-  .select{
-    font-weight: 500;
-    font-size: 14px;
-    line-height: 22px;
-    /* identical to box height, or 157% */
-
-    display: flex;
-    flex-direction: row;
-    gap: 12px;
-
-    text-align: right;
-    font-family: 'Roboto', sans-serif;
-
-    /* Серый */
-    color: #8A8A8E;
-    border: none;
-    outline: none;
-    margin-bottom: 4px;
-    padding: 0 4px;
-    border-radius: 5px;
-    option{
-      text-align: left;
-    }
-  }
 }
 
 </style>

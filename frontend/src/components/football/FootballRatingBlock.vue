@@ -19,6 +19,7 @@
                         :glyph="icon"
                         :loading="isTabLoading(index)"
                         :has-data="hasTabData(index)"
+                        :match-titles="footballRatingMeta?.match_titles || {}"
     >{{ icon }}
     </FootballRatingBody>
 
@@ -181,6 +182,7 @@ export default {
     ...mapState({
       ratingData: state => state.rating.ratingData,
       footballRating: state => state.rating.footballRating,
+      footballRatingMeta: state => state.rating.footballRatingMeta,
 
     })
   },

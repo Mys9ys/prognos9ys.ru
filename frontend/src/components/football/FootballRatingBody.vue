@@ -1,19 +1,25 @@
 <template>
   <div class="body_wrapper">
-    <div class="body_title">
-      <div class="title_icon" :class="{'yellow': icon == 21, 'red': icon == 22}"><slot></slot></div>
-      <div class="title_text">{{title[icon]}}</div>
-    </div>
+    <RatingTableHeader
+        :icon-key="icon"
+        :glyph="glyph"
+        :title="title[icon]"
+        :match-numbers="matchNumbers"
+        v-model="selectedMatch"
+        :match-titles="matchTitles"
+    />
     <SelectBlockRating
-        v-if="!loading && hasData"
+        v-if="hasRenderableData"
         :arRating="arRating"
+        :selected="selectedMatch"
     ></SelectBlockRating>
     <RatingTabLoader
-        v-else
+        v-else-if="loading || !hasData"
         :icon-key="icon"
         :glyph="glyph"
         :title="title[icon]"
     />
+    <div v-else class="empty_state">Данных пока нет</div>
 
   </div>
 </template>
@@ -21,10 +27,11 @@
 <script>
 import SelectBlockRating from "@/components/football/SelectBlockRating";
 import RatingTabLoader from "@/components/football/RatingTabLoader";
+import RatingTableHeader from "@/components/football/RatingTableHeader";
 
 export default {
   name: "FootballRatingBody",
-  components: { SelectBlockRating, RatingTabLoader },
+  components: { SelectBlockRating, RatingTabLoader, RatingTableHeader },
 
   props: {
     arRating: {
@@ -45,9 +52,14 @@ export default {
       type: Boolean,
       default: false,
     },
+    matchTitles: {
+      type: Object,
+      default: () => ({}),
+    },
   },
   data(){
     return{
+      selectedMatch: '',
       title: {
         1: 'Сводный рейтинг (сумма остальных)',
         2: 'Счет матча',
@@ -64,7 +76,32 @@ export default {
         100: 'Лучшие прогнозы (>30 баллов)',
       }
     }
-  }
+  },
+  computed: {
+    hasRenderableData() {
+      return !!this.arRating && Object.keys(this.arRating).length > 0;
+    },
+    matchNumbers() {
+      return Object.keys(this.arRating || {}).map(Number).filter((n) => n > 0);
+    },
+  },
+  watch: {
+    arRating: {
+      immediate: true,
+      handler() {
+        const keys = this.matchNumbers;
+        if (!keys.length) {
+          this.selectedMatch = '';
+          return;
+        }
+        const max = Math.max(...keys);
+        // default to latest tour if nothing selected
+        if (!this.selectedMatch) {
+          this.selectedMatch = String(max);
+        }
+      },
+    },
+  },
 }
 </script>
 
@@ -77,34 +114,15 @@ export default {
   padding: 4px;
   border-radius: 5px;
   margin-top: 4px;
+}
 
-  .body_title{
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 4px;
-    margin-bottom: 4px;
-    .title_icon{
-      .shadow_inset;
-      min-width: 30px;
-      height: 30px;
-      color: @colorText;
-      font-size: 20px;
-
-      &.yellow {
-        color: @maxYellow;
-      }
-
-      &.red {
-        color: @maxred;
-      }
-    }
-
-    .title_text{
-      .shadow_inset;
-      .flex_center;
-      height: 30px;
-    }
-  }
+.empty_state {
+  .shadow_inset;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: @pearl;
+  font-size: 12px;
 }
 </style>

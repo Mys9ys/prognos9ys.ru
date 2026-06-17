@@ -7,6 +7,7 @@ import {apiActions} from "@/api/bitrixClient";
 export const ratingModule = {
     state: () => ({
         footballRating: {},
+        footballRatingMeta: {},
 
         raceRating: [],
 
@@ -26,6 +27,12 @@ export const ratingModule = {
                     ...(state.footballRating || {}),
                     ...data.ratings,
                 };
+                if (data.meta && typeof data.meta === 'object') {
+                    state.footballRatingMeta = {
+                        ...(state.footballRatingMeta || {}),
+                        ...data.meta,
+                    };
+                }
                 return;
             }
 
@@ -34,6 +41,7 @@ export const ratingModule = {
 
         clearFootballRatings(state) {
             state.footballRating = {};
+            state.footballRatingMeta = {};
         },
 
         setRaceRatings(state, data){
@@ -72,6 +80,7 @@ export const ratingModule = {
                     commit('setFootballRatings', {
                         selector: state.ratingData.selector || 'all',
                         ratings: responseData.ratings,
+                        meta: responseData.meta || {},
                     })
                 } else {
                     if (responseData.status == 'error') {

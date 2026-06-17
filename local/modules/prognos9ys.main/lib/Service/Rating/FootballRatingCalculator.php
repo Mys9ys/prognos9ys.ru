@@ -43,6 +43,9 @@ class FootballRatingCalculator
     /** @var array<int|string, int|string> */
     private array $matchIdToNumber = [];
 
+    /** @var array<int, string> */
+    private array $matchTitleByNumber = [];
+
     private MatchNumberMapService $matchNumberMapService;
 
     private FootballResultsRepository $resultsRepository;
@@ -72,6 +75,7 @@ class FootballRatingCalculator
         $this->userScore = [];
 
         $this->matchIdToNumber = $this->matchNumberMapService->getMapForEvent($eventId);
+        $this->matchTitleByNumber = $this->loadMatchTitlesByNumber($eventId);
 
         $this->loadResults();
         $this->loadUsers(array_keys($this->userScore));
@@ -81,7 +85,59 @@ class FootballRatingCalculator
         return [
             'status' => 'ok',
             'ratings' => $this->results,
+            'meta' => [
+                'match_titles' => $this->matchTitleByNumber,
+            ],
         ];
+    }
+
+    /**
+     * @return array<int, string> number => "Team — Team"
+     */
+    private function loadMatchTitlesByNumber(int $eventId): array
+    {
+        if ($eventId <= 0 || !Loader::includeModule('iblock')) {
+            return [];
+        }
+
+        // Use existing teams dictionary.
+        $teams = (new \GetFootballTeams())->result();
+
+        $rs = \CIBlockElement::GetList(
+            ['DATE_ACTIVE_FROM' => 'ASC', 'ID' => 'ASC'],
+            [
+                'IBLOCK_ID' => 2, // matches
+                'PROPERTY_EVENTS' => $eventId,
+            ],
+            false,
+            false,
+            [
+                'ID',
+                'PROPERTY_number',
+                'PROPERTY_home',
+                'PROPERTY_guest',
+            ]
+        );
+
+        $map = [];
+        while ($row = $rs->GetNext()) {
+            $number = (int)($row['PROPERTY_NUMBER_VALUE'] ?? 0);
+            if ($number <= 0) {
+                continue;
+            }
+
+            $homeId = (int)($row['PROPERTY_HOME_VALUE'] ?? 0);
+            $guestId = (int)($row['PROPERTY_GUEST_VALUE'] ?? 0);
+
+            $homeName = (string)($teams[$homeId]['NAME'] ?? '');
+            $guestName = (string)($teams[$guestId]['NAME'] ?? '');
+
+            if ($homeName !== '' && $guestName !== '') {
+                $map[$number] = $homeName . ' — ' . $guestName;
+            }
+        }
+
+        return $map;
     }
 
     /**

@@ -31,6 +31,8 @@ class RatingResponseShaper
             return $payload;
         }
 
+        $existingMeta = $payload['meta'] ?? [];
+
         $selectors = $this->resolveSelectors($selector);
         $shaped = [];
 
@@ -43,11 +45,14 @@ class RatingResponseShaper
         }
 
         $payload['ratings'] = $shaped;
-        $payload['meta'] = [
-            'selector' => $selector ?: 'all',
-            'limit' => $limit,
-            'selectors' => array_keys($shaped),
-        ];
+        $payload['meta'] = array_merge(
+            is_array($existingMeta) ? $existingMeta : [],
+            [
+                'selector' => $selector ?: 'all',
+                'limit' => $limit,
+                'selectors' => array_keys($shaped),
+            ]
+        );
 
         return $payload;
     }
