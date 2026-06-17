@@ -40,12 +40,14 @@
     </tr>
     </tbody>
   </table>
-  <div class="desc_block">
-    <div class="cell match_res">Результат</div>
-    <div class="cell prognosis">Прогноз</div>
-    <div class="cell "><span class="empty">Мимо/</span><span class="ball">Баллы</span></div>
+  <div class="desc_footer">
+    <div class="desc_block">
+      <div class="cell match_res">Результат</div>
+      <div class="cell prognosis">Прогноз</div>
+      <div class="cell "><span class="empty">Мимо/</span><span class="ball">Баллы</span></div>
+    </div>
     <div class="bet_reward" v-if="showMoneyReward">
-      Выигрыш +{{ moneyPayout }} 💵
+      <span class="bet_reward_text">Выигрыш +{{ moneyPayout }} 💵</span>
     </div>
   </div>
 
@@ -181,11 +183,16 @@ export default {
   flex-direction: row;
   gap: 4px;
 }
-.desc_block{
+.desc_footer {
   position: relative;
   background: @DarkColorBG;
-  padding: 4px 4px 22px;
-  border-radius:  0 0 5px 5px;
+  border-radius: 0 0 5px 5px;
+  min-height: 34px;
+  padding-bottom: 4px;
+}
+
+.desc_block{
+  padding: 4px;
   font-size: 14px;
   display: flex;
   flex-direction: row;
@@ -205,18 +212,27 @@ export default {
   .ball{
     color: @YesWrite;
   }
-  .bet_reward {
-    position: absolute;
-    right: 6px;
-    bottom: 4px;
+}
+
+.bet_reward {
+  position: absolute;
+  right: 6px;
+  bottom: 4px;
+  display: inline-flex;
+  align-items: center;
+  width: max-content;
+  max-width: calc(100% - 12px);
+  .shadow_inset;
+  padding: 3px 6px;
+  border-radius: 3px;
+
+  .bet_reward_text {
+    display: inline-block;
     font-size: 11px;
-    line-height: 1.2;
+    line-height: 1;
     font-weight: 700;
     color: @YesWrite2;
     white-space: nowrap;
-    .shadow_inset;
-    padding: 3px 6px;
-    border-radius: 3px;
   }
 }
 </style>
