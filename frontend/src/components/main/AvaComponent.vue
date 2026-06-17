@@ -7,7 +7,7 @@
     <div class="ava_block">
       <div class="background" :class="{'error': error}">
         <img v-if="img" class="icon_temp icon" :src="url+img">
-        <img v-else class="icon" src="@/assets/img/ava_no_img.jpg">
+        <img v-else class="icon ava_fallback" src="@/assets/img/no_logo.png">
       </div>
       <input class="file_container"
              type="file" id="file"
@@ -164,6 +164,14 @@ export default {
       width: 120px;
       height: 120px;
       overflow: hidden;
+      object-fit: cover;
+      object-position: center;
+    }
+
+    .ava_fallback {
+      object-fit: contain;
+      padding: 10px;
+      box-sizing: border-box;
     }
   }
 

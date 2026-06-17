@@ -16,15 +16,28 @@
       <div class="value">{{ progress.xp_to_next }} XP</div>
     </div>
     <div class="wallet_row">
-      <div class="coin prognobaks">{{ wallet.prognobaks }} 🪙</div>
-      <div class="coin rublius">{{ wallet.rublius }} 💎</div>
+      <div class="coin prognobaks">
+        <AppIcon name="prognobak" :size="20" />
+        <span>{{ wallet.prognobaks }}</span>
+      </div>
+      <div class="coin rublius">
+        <AppIcon name="rublius" :size="20" />
+        <span>{{ wallet.rublius }}</span>
+      </div>
     </div>
     <div class="wallet_row">
-      <div class="coin chest">Сокровища: {{ treasure.closed_chests }} 🎁</div>
+      <div class="coin chest">
+        <span>Сокровища: {{ treasure.closed_chests }}</span>
+        <AppIcon name="chest_wc2026" :size="20" />
+      </div>
     </div>
     <div class="bank_hint" v-if="bank.has_bank || bank.active_deposits || bank.active_loans">
-      <span v-if="bank.has_bank">🏦 Мой банк</span>
-      <span v-else-if="bank.can_open">🏦 Можно открыть банк</span>
+      <span v-if="bank.has_bank" class="bank_hint_line">
+        <AppIcon name="bank" :size="16" /> Мой банк
+      </span>
+      <span v-else-if="bank.can_open" class="bank_hint_line">
+        <AppIcon name="bank" :size="16" /> Можно открыть банк
+      </span>
       <span v-if="bank.active_deposits"> · вкладов: {{ bank.active_deposits }}</span>
       <span v-if="bank.active_loans"> · займов: {{ bank.active_loans }}</span>
     </div>
@@ -32,8 +45,11 @@
 </template>
 
 <script>
+import AppIcon from '@/components/ui/AppIcon.vue';
+
 export default {
   name: 'ProfileGameBlock',
+  components: { AppIcon },
   props: {
     game: {
       type: Object,
@@ -125,6 +141,10 @@ export default {
     padding: 6px;
     text-align: center;
     font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
   }
 }
 
@@ -133,5 +153,11 @@ export default {
   color: @colorBlur;
   text-align: center;
   padding: 4px;
+}
+
+.bank_hint_line {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 </style>

@@ -162,6 +162,10 @@ export const apiActions = {
             'prognos9ys:main.GameController.getAchievements',
             { userToken }
         ),
+        claimAchievement: (userToken, code) => runBitrixAction(
+            'prognos9ys:main.GameController.claimAchievement',
+            { userToken, code }
+        ),
     },
     impersonation: {
         searchUsers: (userToken, query) => runBitrixAction(

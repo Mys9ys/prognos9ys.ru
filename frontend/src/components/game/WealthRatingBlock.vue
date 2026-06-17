@@ -2,11 +2,16 @@
   <div class="wealth_block">
     <div class="wealth_header">
       <div class="wealth_title_row">
-        <div class="wealth_title" @click="expanded = !expanded">{{ blockTitle }}</div>
+        <div class="wealth_title" @click="expanded = !expanded">
+          <span class="wealth_title_icon" v-if="titleIcon">
+            <AppIcon :name="titleIcon" :size="16" />
+          </span>
+          {{ blockTitle }}
+        </div>
         <div class="wealth_toggle" @click="expanded = !expanded">{{ expanded ? '−' : '+' }}</div>
       </div>
       <div class="game_bank_row" v-if="isModerator && gameBank" @click.stop>
-        🏛 Госбанк: <strong>{{ formatMoney(gameBank.prognobaks) }} 💵</strong>
+        <AppIcon name="bank" :size="14" /> Госбанк: <strong>{{ formatMoney(gameBank.prognobaks) }} <AppIcon name="prognobak" :size="14" /></strong>
         <span class="bank_hint">остатки паримутуеля</span>
       </div>
       <div class="wealth_filters" v-if="expanded" @click.stop>
@@ -15,25 +20,25 @@
             class="filter_btn"
             :class="{ active: mode === 'rich' }"
             @click="setMode('rich')"
-        >💰 Богатые</button>
+        ><span class="filter_icon_back"><AppIcon name="wealth" :size="14" /></span> Богатые</button>
         <button
             type="button"
             class="filter_btn"
             :class="{ active: mode === 'poor' }"
             @click="setMode('poor')"
-        >🪫 Бедные</button>
+        ><span class="filter_icon_back"><AppIcon name="poverty" :size="14" /></span> Бедные</button>
         <button
             type="button"
             class="filter_btn"
             :class="{ active: mode === 'treasure_rich' }"
             @click="setMode('treasure_rich')"
-        >🎁</button>
+        ><span class="filter_icon_back"><AppIcon name="chest_wc2026" :size="18" /></span></button>
         <button
             type="button"
             class="filter_btn"
             :class="{ active: mode === 'pending_xp' }"
             @click="setMode('pending_xp')"
-        >🎯 Есть опыт</button>
+        ><span class="filter_icon_back"><AppIcon name="xp" :size="14" /></span> Есть опыт</button>
       </div>
     </div>
 
@@ -46,9 +51,9 @@
           <th>#</th>
           <th>Ник</th>
           <th v-if="mode === 'pending_xp'">Матчей</th>
-          <th v-if="mode === 'pending_xp'">XP</th>
-          <th v-if="isTreasureMode">🎁</th>
-          <th v-if="!isTreasureMode && mode !== 'pending_xp'">💵</th>
+          <th v-if="mode === 'pending_xp'"><AppIcon name="xp" :size="14" /></th>
+          <th v-if="isTreasureMode"><AppIcon name="chest_wc2026" :size="16" /></th>
+          <th v-if="!isTreasureMode && mode !== 'pending_xp'"><AppIcon name="prognobak" :size="16" /></th>
         </tr>
         </thead>
         <tbody>
@@ -57,7 +62,7 @@
           <td class="user_cell">
             <span class="user_ava">
               <img :src="url + el.user.img" alt="" v-if="el.user?.img">
-              <img src="@/assets/img/ava_no_img.jpg" alt="" v-else>
+              <img src="@/assets/img/no_logo.png" alt="" v-else>
             </span>
             <div class="user_nick">{{ el.user?.name || '—' }}</div>
             <div class="user_actions" v-if="el.user?.id">
@@ -66,7 +71,9 @@
                   class="user_enter"
                   title="Войти как пользователь"
                   @click.stop="loginAsUser(el.user.id)"
-              >🚪</span>
+              >
+                <AppIcon name="exit_door" :size="14" />
+              </span>
               <span class="user_info" @click.stop="$router.push('/profile/' + el.user.id)">i</span>
             </div>
           </td>
@@ -86,11 +93,12 @@
 <script>
 import { mapActions, mapState } from 'vuex';
 import PreLoader from '@/components/main/PreLoader';
+import AppIcon from '@/components/ui/AppIcon.vue';
 import { apiActions } from '@/api/bitrixClient';
 
 export default {
   name: 'WealthRatingBlock',
-  components: { PreLoader },
+  components: { PreLoader, AppIcon },
   data() {
     return {
       expanded: false,
@@ -118,18 +126,31 @@ export default {
     isModerator() {
       return this.canImpersonate;
     },
-    blockTitle() {
+    titleIcon() {
       if (this.mode === 'poor') {
-        return '🪫 Самые бедные';
+        return 'poverty';
       }
       if (this.mode === 'pending_xp') {
-        return '🎯 Незабранный опыт';
+        return 'xp';
       }
       if (this.mode === 'treasure_rich') {
-        return '🎁 Сокровищницы';
+        return 'chest_wc2026';
       }
 
-      return '💰 Самые богатые';
+      return 'wealth';
+    },
+    blockTitle() {
+      if (this.mode === 'poor') {
+        return 'Самые бедные';
+      }
+      if (this.mode === 'pending_xp') {
+        return 'Незабранный опыт';
+      }
+      if (this.mode === 'treasure_rich') {
+        return 'Сокровищницы';
+      }
+
+      return 'Самые богатые';
     },
     emptyText() {
       if (this.mode === 'pending_xp') {
@@ -146,7 +167,7 @@ export default {
     },
     hintText() {
       if (this.mode === 'pending_xp') {
-        return '🚪 — войти и нажать «Получить опыт» на матчах';
+        return 'Дверь — войти и нажать «Получить опыт» на матчах';
       }
       if (this.mode === 'poor') {
         return 'Σ = прогнобаксы · сортировка по возрастанию';
@@ -266,6 +287,10 @@ export default {
   background: rgba(0, 0, 0, 0.2);
   font-size: 12px;
   text-align: left;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
 
   strong {
     color: @yellow;
@@ -273,6 +298,7 @@ export default {
 
   .bank_hint {
     display: block;
+    width: 100%;
     margin-top: 2px;
     font-size: 10px;
     color: @colorBlur;
@@ -291,6 +317,26 @@ export default {
   font-size: 14px;
   cursor: pointer;
   user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: @orange;
+}
+
+.wealth_title_icon,
+.filter_icon_back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: @colorBlur;
+  border-radius: 3px;
+  padding: 2px;
+  flex-shrink: 0;
+}
+
+.wealth_title_icon {
+  width: 22px;
+  height: 22px;
 }
 
 .wealth_toggle {
@@ -317,6 +363,9 @@ export default {
   font-size: 11px;
   background: @darkbg;
   color: @colorBlur;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 
   &.active {
     background: @orange;
@@ -391,6 +440,8 @@ export default {
 
     .user_enter {
       border: 2px solid @yellow;
+      background: rgba(0, 0, 0, 0.15);
+      padding: 2px;
     }
 
     .user_info {

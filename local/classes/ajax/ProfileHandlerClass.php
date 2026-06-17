@@ -247,6 +247,7 @@ class ProfileHandlerClass
 
         $arSelect = [
             "ID",
+            "ACTIVE",
             "TIMESTAMP_X",
             "PROPERTY_goal_home",
             "PROPERTY_goal_guest",
@@ -301,6 +302,10 @@ class ProfileHandlerClass
             $arr["spenalty"] = $res["PROPERTY_SPENALTY_VALUE"];
             $arr["number"] = $res["PROPERTY_NUMBER_VALUE"];
 
+            if (isset($res["ACTIVE"])) {
+                $arr["active"] = $res["ACTIVE"];
+            }
+
             if($res["PROPERTY_HOME_VALUE"]){
                 $arr['home'] = $this->arTeams[$res["PROPERTY_HOME_VALUE"]];
                 $arr['guest'] = $this->arTeams[$res["PROPERTY_GUEST_VALUE"]];
@@ -325,7 +330,11 @@ class ProfileHandlerClass
         foreach ($this->arRes[$selector] as $e_id=>$event){
             $arSort = [];
             foreach ($event['items'] as $m_id=>$arr){
-                if(count($arr) ===3){ // проверка на наличие всех 3х массивов протокола, результата и ставки
+                if ($selector === 'football' && isset($arr['prognosis'], $arr['matches'])) {
+                    $arSort[$m_id] = $arr;
+                    continue;
+                }
+                if ($selector === 'race' && isset($arr['f1races'], $arr['prognosf1'])) {
                     $arSort[$m_id] = $arr;
                 }
             }

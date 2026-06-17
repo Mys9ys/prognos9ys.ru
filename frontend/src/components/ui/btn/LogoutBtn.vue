@@ -1,7 +1,7 @@
 <template>
   <li>
     <div class="dropdown-item" @click="logout()">
-      <img src="@/assets/icon/profile/exit.svg" alt="">
+      <AppIcon name="exit_door" :size="16" />
       <slot></slot>
     </div>
   </li>
@@ -9,9 +9,11 @@
 
 <script>
 import {mapActions} from "vuex";
+import AppIcon from '@/components/ui/AppIcon.vue';
 
 export default {
   name: "LogoutBtn",
+  components: { AppIcon },
   methods: {
     ...mapActions({
       logoutVue: 'auth/logoutVue',

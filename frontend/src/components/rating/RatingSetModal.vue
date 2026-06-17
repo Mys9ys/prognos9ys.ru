@@ -47,7 +47,7 @@
           <input type="checkbox" :value="user.id" v-model="form.userIds">
           <span class="user_ava">
             <img :src="avatarUrl(user)" alt="" v-if="user.img">
-            <img src="@/assets/img/ava_no_img.jpg" alt="" v-else>
+            <img src="@/assets/img/no_logo.png" alt="" v-else>
           </span>
           <span class="user_name">{{ user.name }}</span>
         </label>

@@ -3,13 +3,13 @@
     <div class="match_header">
       <div class="number cell"># {{info.matches.number}}</div>
       <div class="cell teams"> <span class="tname">{{info.matches.home.NAME}} </span> <span>-</span> <span class="tname">{{info.matches.guest.NAME}}</span></div>
-      <div class="cell number score">{{info.result.all}}</div>
+      <div class="cell number score">{{ scoreText }}</div>
       <div class="more_btn" @click="visible = !visible">
         <span :class="{'close' : !visible, 'open' : visible}"> > </span>
       </div>
     </div>
 
-    <div class="match_table" v-if="visible">
+    <div class="match_table" v-if="visible && info.result">
       <MatchTable :info="info"></MatchTable>
     </div>
   </div>
@@ -28,6 +28,15 @@ export default {
     info:{
       type: Object
     }
+  },
+  computed: {
+    scoreText() {
+      const all = this.info?.result?.all;
+      if (all === undefined || all === null || all === '') {
+        return '—';
+      }
+      return all;
+    },
   },
   data() {
     return {

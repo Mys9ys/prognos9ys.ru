@@ -23,7 +23,7 @@
             <td class="pr_table_col user_cell" v-if="el.user">
               <span class="user_ava">
                 <img :src="url + el.user.img" alt="" v-if="el.user.img">
-                <img src="@/assets/img/ava_no_img.jpg" alt="" v-else>
+                <img src="@/assets/img/no_logo.png" alt="" v-else>
               </span>
               <div class="user_nick">{{ el.user.name }}</div>
               <div class="user_actions" v-if="el.user.id">
@@ -32,7 +32,9 @@
                     class="user_enter"
                     title="Войти как пользователь"
                     @click.stop="loginAsUser(el.user.id)"
-                >🚪</span>
+                >
+                  <AppIcon name="exit_door" :size="14" />
+                </span>
                 <span class="user_info" @click.stop="$router.push('/profile/' + el.user.id)">i</span>
               </div>
             </td>
@@ -50,9 +52,11 @@
 
 <script>
 import { mapActions, mapState } from 'vuex'
+import AppIcon from '@/components/ui/AppIcon.vue'
 
 export default {
   name: "SelectBlockRating",
+  components: { AppIcon },
   props: {
     arRating: {
       type: Object

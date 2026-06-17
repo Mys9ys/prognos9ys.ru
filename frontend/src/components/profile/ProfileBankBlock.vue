@@ -1,7 +1,7 @@
 <template>
   <div class="bank_block" v-if="visible">
     <div class="bank_header" @click="expanded = !expanded">
-      <span class="title">Банки и кредиты</span>
+      <span class="title"><AppIcon name="bank" :size="18" /> Банки и кредиты</span>
       <span class="toggle">{{ expanded ? '−' : '+' }}</span>
     </div>
 
@@ -11,14 +11,14 @@
 
       <div class="section" v-if="myBank">
         <div class="section_title">Мой банк</div>
-        <div class="row"><span>Резерв (свои)</span><span>{{ myBank.reserved }} 🪙</span></div>
-        <div class="row"><span>Ликвидность (вклады)</span><span>{{ myBank.liquid }} 🪙</span></div>
-        <div class="row"><span>Доступно для займов</span><span>{{ myBank.loanable }} 🪙</span></div>
+        <div class="row"><span>Резерв (свои)</span><span>{{ myBank.reserved }} <AppIcon name="prognobak" :size="14" /></span></div>
+        <div class="row"><span>Ликвидность (вклады)</span><span>{{ myBank.liquid }} <AppIcon name="prognobak" :size="14" /></span></div>
+        <div class="row"><span>Доступно для займов</span><span>{{ myBank.loanable }} <AppIcon name="prognobak" :size="14" /></span></div>
         <div class="row"><span>Контракты</span><span>{{ myBank.active_contracts }}</span></div>
         <template v-if="myBank.deposits && myBank.deposits.length">
           <div class="subsection_title">Вклады в банке</div>
           <div class="contract" v-for="d in myBank.deposits" :key="'bd' + d.id">
-            <div>Вклад #{{ d.id }} — {{ d.principal }} 🪙</div>
+            <div>Вклад #{{ d.id }} — {{ d.principal }} <AppIcon name="prognobak" :size="14" /></div>
             <div class="meta">осталось матчей: {{ d.matches_left }}
               <span v-if="d.status === 'extended'" class="badge">продлён</span>
             </div>
@@ -27,7 +27,7 @@
         <template v-if="myBank.loans && myBank.loans.length">
           <div class="subsection_title">Займы из банка</div>
           <div class="contract" v-for="l in myBank.loans" :key="'bl' + l.id">
-            <div>Займ #{{ l.id }} — {{ l.principal }} 🪙</div>
+            <div>Займ #{{ l.id }} — {{ l.principal }} <AppIcon name="prognobak" :size="14" /></div>
             <div class="meta">осталось матчей: {{ l.matches_left }}
               <span v-if="l.status === 'extended'" class="badge">продлён</span>
             </div>
@@ -43,21 +43,21 @@
 
       <div class="section" v-else-if="canOpen">
         <div class="section_title">Открыть банк</div>
-        <p class="hint">Нужно ≥250 🪙 на кошельке, 200 замораживаются в резерве.</p>
-        <button class="btn" :disabled="loading" @click="onOpenBank">Открыть банк (200 🪙)</button>
+        <p class="hint">Нужно ≥250 <AppIcon name="prognobak" :size="14" /> на кошельке, 200 замораживаются в резерве.</p>
+        <button class="btn" :disabled="loading" @click="onOpenBank">Открыть банк (200 <AppIcon name="prognobak" :size="14" />)</button>
       </div>
 
       <div class="section">
         <div class="section_title">Мои контракты</div>
         <div v-if="!contracts.deposits.length && !contracts.loans.length" class="hint">Нет активных вкладов и займов</div>
         <div class="contract" v-for="d in contracts.deposits" :key="'d' + d.id">
-          <div>Вклад #{{ d.id }} — {{ d.principal }} 🪙</div>
+          <div>Вклад #{{ d.id }} — {{ d.principal }} <AppIcon name="prognobak" :size="14" /></div>
           <div class="meta">Банк {{ d.bank_id }} · осталось матчей: {{ d.matches_left }}
             <span v-if="d.status === 'extended'" class="badge">продлён</span>
           </div>
         </div>
         <div class="contract" v-for="l in contracts.loans" :key="'l' + l.id">
-          <div>Займ #{{ l.id }} — {{ l.principal }} 🪙 (к возврату {{ l.total_due }})</div>
+          <div>Займ #{{ l.id }} — {{ l.principal }} <AppIcon name="prognobak" :size="14" /> (к возврату {{ l.total_due }})</div>
           <div class="meta">Банк {{ l.bank_id }} · осталось матчей: {{ l.matches_left }}
             <span v-if="l.status === 'extended'" class="badge">продлён</span>
           </div>
@@ -70,15 +70,15 @@
         <div class="bank_card" v-for="b in banks" :key="b.id">
           <div class="row">
             <span>{{ b.owner_name }}</span>
-            <span>займ: {{ b.loanable ?? (b.reserved + b.liquid) }} 🪙</span>
+            <span>займ: {{ b.loanable ?? (b.reserved + b.liquid) }} <AppIcon name="prognobak" :size="14" /></span>
           </div>
           <div class="meta">Резерв {{ b.reserved }} · вклады {{ b.liquid }} · +{{ b.deposit_rate_percent }}% / +{{ b.loan_rate_percent }}% за {{ b.term_matches }} матчей</div>
           <div class="actions" v-if="!myBank || myBank.id !== b.id">
             <button class="btn small" :disabled="loading" @click="onCreateDeposit(b.id)">
-              Вклад {{ depositAmount }} 🪙
+              Вклад {{ depositAmount }} <AppIcon name="prognobak" :size="14" />
             </button>
             <button class="btn small" :disabled="loading" @click="onTakeLoan(b.id)">
-              Займ {{ loanAmount }} 🪙
+              Займ {{ loanAmount }} <AppIcon name="prognobak" :size="14" />
             </button>
           </div>
         </div>
@@ -89,12 +89,14 @@
 
 <script>
 import { mapActions, mapState } from 'vuex';
+import AppIcon from '@/components/ui/AppIcon.vue';
 
 const DEFAULT_DEPOSIT_AMOUNT = 100;
 const DEFAULT_LOAN_AMOUNT = 50;
 
 export default {
   name: 'ProfileBankBlock',
+  components: { AppIcon },
   props: {
     game: {
       type: Object,
@@ -194,7 +196,7 @@ export default {
       this.message = '';
       try {
         await this.createDeposit({ bankId, amount: this.depositAmount });
-        this.message = `Вклад ${this.depositAmount} 🪙 оформлен`;
+        this.message = `Вклад ${this.depositAmount} оформлен`;
         await this.refreshGameInfo();
         await this.refresh();
       } catch (e) {
@@ -209,7 +211,7 @@ export default {
       this.message = '';
       try {
         await this.takeLoan({ bankId, amount: this.loanAmount });
-        this.message = `Займ ${this.loanAmount} 🪙 выдан`;
+        this.message = `Займ ${this.loanAmount} выдан`;
         await this.refreshGameInfo();
         await this.refresh();
       } catch (e) {
@@ -257,6 +259,9 @@ export default {
   .title {
     font-size: 14px;
     font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
   }
 }
 

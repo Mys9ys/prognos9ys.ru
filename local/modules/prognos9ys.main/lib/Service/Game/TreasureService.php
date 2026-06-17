@@ -8,6 +8,7 @@ use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
 class TreasureService
 {
     public const CHEST_STATUS_CLOSED = 'closed';
+    public const CHEST_TYPE_ACHIEVEMENT = 'achievement';
 
     private GameEconomyRepository $repository;
     private GameEventScopeService $scopeService;
@@ -102,6 +103,39 @@ class TreasureService
             'UF_EVENT_ID' => $eventId > 0 ? $eventId : GameEconomyConfig::ANCHOR_EVENT_ID,
             'UF_COUNT' => 1,
             'UF_STATUS' => self::CHEST_STATUS_CLOSED,
+            'UF_TYPE' => 'level',
+            'UF_CREATED_AT' => $now,
+            'UF_UPDATED_AT' => $now,
+        ]);
+
+        return true;
+    }
+
+    /**
+     * Закрытый сундучок за ачивку (идемпотентно, ключ: user + syntheticMatchId + UF_TYPE=achievement).
+     */
+    public function grantAchievementChests(int $userId, string $achievementCode, int $threshold, int $count): bool
+    {
+        if ($userId <= 0 || $achievementCode === '' || $threshold <= 0 || $count <= 0) {
+            return false;
+        }
+
+        $syntheticMatchId = -abs((int)crc32($achievementCode . ':' . $threshold));
+        $existing = $this->repository->getTreasureChestByType($userId, $syntheticMatchId, self::CHEST_TYPE_ACHIEVEMENT);
+        if ($existing) {
+            return false;
+        }
+
+        $now = new DateTime();
+        $eventId = (new GameEventScopeService())->getAnchorEventId();
+
+        $this->repository->addTreasureChest([
+            'UF_USER_ID' => $userId,
+            'UF_MATCH_ID' => $syntheticMatchId,
+            'UF_EVENT_ID' => $eventId > 0 ? $eventId : GameEconomyConfig::ANCHOR_EVENT_ID,
+            'UF_COUNT' => $count,
+            'UF_STATUS' => self::CHEST_STATUS_CLOSED,
+            'UF_TYPE' => self::CHEST_TYPE_ACHIEVEMENT,
             'UF_CREATED_AT' => $now,
             'UF_UPDATED_AT' => $now,
         ]);

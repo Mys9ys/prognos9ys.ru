@@ -16,6 +16,7 @@ class GameEconomyHlInstaller
     public const TABLE_GAME_BANK = 'prognos9ys_game_bank';
     public const TABLE_MATCH_BET = 'prognos9ys_match_bet';
     public const TABLE_TREASURE_CHEST = 'prognos9ys_treasure_chest';
+    public const TABLE_ACHIEVEMENT_CLAIM = 'prognos9ys_achievement_claim';
     public const TABLE_USER_BANK = 'prognos9ys_user_bank';
     public const TABLE_BANK_DEPOSIT = 'prognos9ys_bank_deposit';
     public const TABLE_BANK_LOAN = 'prognos9ys_bank_loan';
@@ -87,6 +88,15 @@ class GameEconomyHlInstaller
             'UF_EVENT_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
             'UF_COUNT' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
             'UF_STATUS' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_TYPE' => ['USER_TYPE_ID' => 'string'],
+            'UF_CREATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+            'UF_UPDATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+        ]);
+
+        $achievementClaimHlId = $this->ensureHlBlock('Prognos9ysAchievementClaim', self::TABLE_ACHIEVEMENT_CLAIM, [
+            'UF_USER_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_CODE' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_CLAIMED_THRESHOLD' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
             'UF_CREATED_AT' => ['USER_TYPE_ID' => 'datetime'],
             'UF_UPDATED_AT' => ['USER_TYPE_ID' => 'datetime'],
         ]);
@@ -140,6 +150,7 @@ class GameEconomyHlInstaller
             'game_bank_hl_id' => $bankHlId,
             'match_bet_hl_id' => $betHlId,
             'treasure_chest_hl_id' => $chestHlId,
+            'achievement_claim_hl_id' => $achievementClaimHlId,
             'user_bank_hl_id' => $userBankHlId,
             'bank_deposit_hl_id' => $bankDepositHlId,
             'bank_loan_hl_id' => $bankLoanHlId,

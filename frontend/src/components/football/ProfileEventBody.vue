@@ -1,11 +1,15 @@
 <template>
   <div class="body_wrapper">
     <div class="body_title_wrapper">
-      <div class="title">{{title}}</div>
+      <div class="title">{{ title }}</div>
     </div>
 
     <div class="matches_wrapper">
-      <MatchTableResult v-for="(index) in arr" :key="index" :info="matches[index]"></MatchTableResult>
+      <MatchTableResult
+        v-for="matchNumber in visibleMatchNumbers"
+        :key="matchNumber"
+        :info="matches[matchNumber]"
+      />
     </div>
   </div>
 </template>
@@ -15,23 +19,28 @@ import MatchTableResult from "@/components/football/MatchTableResult";
 
 export default {
   name: "ProfileEventBody",
-  components: {MatchTableResult},
+  components: { MatchTableResult },
 
-  props:{
+  props: {
     matches: {
-      type: Object
+      type: Object,
+      default: () => ({}),
     },
     title: {
-      type: String
-    }
+      type: String,
+      default: '',
+    },
   },
 
-  data(){
-    return{
-      arr: Object.keys(this.matches).reverse()
-    }
-  }
-}
+  computed: {
+    matchNumbers() {
+      return Object.keys(this.matches || {}).sort((a, b) => Number(b) - Number(a));
+    },
+    visibleMatchNumbers() {
+      return this.matchNumbers.filter((matchNumber) => this.matches[matchNumber]?.matches);
+    },
+  },
+};
 </script>
 
 <style lang="less" scoped>

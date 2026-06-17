@@ -28,7 +28,7 @@
             Ур. 0
           </div>
           <div class="hm_money_box hm_box">
-            <span class="hm_money_label">💵</span>
+            <AppIcon name="prognobak" :size="16" class="hm_money_icon" />
             <span class="hm_money_value">{{ wallet.prognobaks }}</span>
           </div>
         </div>
@@ -56,7 +56,7 @@
           </div>
           <div class="hm_nick_box hm_box nickname" v-else>Гость</div>
           <div class="hm_rublius_box hm_box">
-            <span class="hm_money_label">💎</span>
+            <AppIcon name="rublius" :size="16" class="hm_money_icon" />
             <span class="hm_money_value">{{ wallet.rublius }}</span>
           </div>
         </div>
@@ -86,6 +86,7 @@
 import {mapActions, mapState} from "vuex";
 import AvaComponent from "@/components/main/AvaComponent";
 import ImpersonationBanner from "@/components/profile/ImpersonationBanner";
+import AppIcon from '@/components/ui/AppIcon.vue';
 // import BtnMini from "@/components/ui/btn/BtnMini";
 
 export default {
@@ -93,6 +94,7 @@ export default {
   components: {
     AvaComponent,
     ImpersonationBanner,
+    AppIcon,
     // BtnMini
   },
   data() {
@@ -532,9 +534,8 @@ export default {
       text-align: right;
     }
 
-    .hm_money_label {
-      font-size: 11px;
-      line-height: 1;
+    .hm_money_icon {
+      flex-shrink: 0;
     }
 
     .hm_money_value {

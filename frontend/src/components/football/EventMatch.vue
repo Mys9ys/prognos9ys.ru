@@ -3,12 +3,13 @@
     <div class="reward_tabs" v-if="showRewardTabs">
       <div class="match_xp_tab" v-if="showTreasureReward">
         <div class="chest_claimed">
-          {{ treasureCount > 1 ? 'x' + treasureCount + ' ' : '' }}🎁
+          <span v-if="treasureCount > 1">x{{ treasureCount }} </span>
+          <AppIcon name="chest_wc2026" :size="22" />
         </div>
       </div>
       <div class="match_xp_tab" v-if="showMoneyReward">
         <div class="money_claimed">
-          Выигрыш +{{ moneyPayout }} 💵
+          Выигрыш +{{ moneyPayout }} <AppIcon name="prognobak" :size="16" />
         </div>
       </div>
       <div class="match_xp_tab" v-if="showXpReward">
@@ -89,9 +90,11 @@
 
 <script>
 import { mapActions } from 'vuex';
+import AppIcon from '@/components/ui/AppIcon.vue';
 
 export default {
   name: "EventMatch",
+  components: { AppIcon },
   props: {
     match: {
       type: Object
@@ -294,6 +297,10 @@ export default {
   }
 
   .chest_claimed {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
     width: 100%;
     box-sizing: border-box;
     font-size: 10px;

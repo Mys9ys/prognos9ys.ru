@@ -17,6 +17,7 @@ class GameEconomyRepository
     private ?string $gameBankDataClass = null;
     private ?string $matchBetDataClass = null;
     private ?string $treasureChestDataClass = null;
+    private ?string $achievementClaimDataClass = null;
 
     public function getWalletDataClass(): string
     {
@@ -56,6 +57,11 @@ class GameEconomyRepository
     public function getTreasureChestDataClass(): string
     {
         return $this->treasureChestDataClass ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_TREASURE_CHEST);
+    }
+
+    public function getAchievementClaimDataClass(): string
+    {
+        return $this->achievementClaimDataClass ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_ACHIEVEMENT_CLAIM);
     }
 
     public function getWalletByUserId(int $userId): ?array
@@ -540,6 +546,25 @@ class GameEconomyRepository
         return $row ?: null;
     }
 
+    public function getTreasureChestByType(int $userId, int $matchId, string $type): ?array
+    {
+        if ($userId <= 0 || $matchId === 0 || $type === '') {
+            return null;
+        }
+
+        $dataClass = $this->getTreasureChestDataClass();
+        $row = $dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '=UF_MATCH_ID' => $matchId,
+                '=UF_TYPE' => $type,
+            ],
+            'limit' => 1,
+        ])->fetch();
+
+        return $row ?: null;
+    }
+
     public function addTreasureChest(array $fields): int
     {
         $dataClass = $this->getTreasureChestDataClass();
@@ -550,6 +575,72 @@ class GameEconomyRepository
         }
 
         return (int)$result->getId();
+    }
+
+    /**
+     * @return array<string, array{claimed_threshold:int,id:int}>
+     */
+    public function getAchievementClaimMapForUser(int $userId): array
+    {
+        if ($userId <= 0) {
+            return [];
+        }
+
+        $dataClass = $this->getAchievementClaimDataClass();
+        $map = [];
+        $response = $dataClass::getList([
+            'filter' => ['=UF_USER_ID' => $userId],
+            'select' => ['ID', 'UF_CODE', 'UF_CLAIMED_THRESHOLD'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $code = (string)($row['UF_CODE'] ?? '');
+            if ($code === '') {
+                continue;
+            }
+            $map[$code] = [
+                'id' => (int)($row['ID'] ?? 0),
+                'claimed_threshold' => (int)($row['UF_CLAIMED_THRESHOLD'] ?? 0),
+            ];
+        }
+
+        return $map;
+    }
+
+    public function upsertAchievementClaim(int $userId, string $code, int $claimedThreshold, array $fields = []): void
+    {
+        if ($userId <= 0 || $code === '' || $claimedThreshold < 0) {
+            throw new \InvalidArgumentException('Invalid achievement claim upsert params');
+        }
+
+        $dataClass = $this->getAchievementClaimDataClass();
+        $existing = $dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '=UF_CODE' => $code,
+            ],
+            'select' => ['ID'],
+            'limit' => 1,
+        ])->fetch();
+
+        $payload = array_merge($fields, [
+            'UF_USER_ID' => $userId,
+            'UF_CODE' => $code,
+            'UF_CLAIMED_THRESHOLD' => $claimedThreshold,
+        ]);
+
+        if ($existing) {
+            $result = $dataClass::update((int)$existing['ID'], $payload);
+            if (!$result->isSuccess()) {
+                throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+            }
+            return;
+        }
+
+        $result = $dataClass::add($payload);
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
     }
 
     public function updateTreasureChest(int $id, array $fields): void

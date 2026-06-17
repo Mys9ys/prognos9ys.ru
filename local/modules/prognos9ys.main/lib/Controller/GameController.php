@@ -208,4 +208,22 @@ class GameController extends BaseController
 
         return array_merge(['status' => 'ok'], (new AchievementService())->getForUser($userId));
     }
+
+    public function claimAchievementAction(string $code): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        $service = new AchievementService();
+        $claimed = $service->claimNext($userId, $code);
+
+        return [
+            'status' => 'ok',
+            'claimed' => $claimed,
+            'achievements' => $service->getForUser($userId),
+            'game' => (new GameProfileService())->getSummary($userId),
+        ];
+    }
 }

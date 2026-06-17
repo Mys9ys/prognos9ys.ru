@@ -1,23 +1,23 @@
 <template>
   <div class="title_box">
-    <ProfileTitle v-for="(arr, index) in events"
-                  @click="setActiveEvent(index)"
+    <ProfileTitle v-for="(arr, eventId) in events"
+                  @click="setActiveEvent(eventId)"
                   :info="arr.info"
-                  :active="index === activeEvent"
+                  :active="String(eventId) === String(activeEvent)"
                   :count="Object.keys(arr.items).length"
-                  :class="{'active': index === activeEvent}"
-                  :key="index"></ProfileTitle>
+                  :class="{'active': String(eventId) === String(activeEvent)}"
+                  :key="eventId"></ProfileTitle>
   </div>
-  <div class="body_block" v-for="(arr, index) in events"
-       :key="index">
-    <div class="body_item" v-if="index == activeEvent">
+  <div class="body_block" v-for="(arr, eventId) in events"
+       :key="eventId">
+    <div class="body_item" v-if="String(eventId) === String(activeEvent)">
       <div class="title_wrapper">
         <div class="title">{{ arr.info.NAME }}</div>
       </div>
-      <ProfileRaceBody v-for="(item, index) in arr.items"
-                       :key="index"
+      <ProfileRaceBody v-for="(raceItem, raceNumber) in arr.items"
+                       :key="raceNumber"
                        :racers="racers"
-                       :item="item"
+                       :item="raceItem"
       ></ProfileRaceBody>
     </div>
   </div>
@@ -36,25 +36,47 @@ export default {
   },
   props: {
     events: {
-      type: Object
+      type: Object,
+      default: () => ({}),
     },
     racers: {
-      type: Object
+      type: Object,
+      default: () => ({}),
     },
   },
   data() {
     return {
-      activeEvent: ''
-    }
+      activeEvent: '',
+    };
+  },
+
+  watch: {
+    events: {
+      deep: true,
+      immediate: true,
+      handler() {
+        this.ensureActiveEvent();
+      },
+    },
   },
 
   methods: {
-
     setActiveEvent(id) {
-      this.activeEvent = id
+      this.activeEvent = String(id);
     },
-  }
-}
+
+    ensureActiveEvent() {
+      const keys = Object.keys(this.events || {});
+      if (!keys.length) {
+        this.activeEvent = '';
+        return;
+      }
+      if (!keys.includes(String(this.activeEvent))) {
+        this.activeEvent = String(keys[0]);
+      }
+    },
+  },
+};
 </script>
 
 <style lang="less" scoped>
