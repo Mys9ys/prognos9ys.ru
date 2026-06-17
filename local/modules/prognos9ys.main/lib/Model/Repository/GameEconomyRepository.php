@@ -763,14 +763,30 @@ class GameEconomyRepository
      */
     public function getPendingMatchBetsByMatch(int $matchId): array
     {
+        return $this->getBetsByMatchIds([$matchId], \Prognos9ys\Main\Service\Game\GameEconomyConfig::BET_STATUS_PENDING);
+    }
+
+    /**
+     * @param int[] $matchIds
+     * @return array<int, array>
+     */
+    public function getBetsByMatchIds(array $matchIds, ?string $status = null): array
+    {
+        $matchIds = array_values(array_unique(array_filter(array_map('intval', $matchIds))));
+        if (!$matchIds) {
+            return [];
+        }
+
+        $filter = ['@UF_MATCH_ID' => $matchIds];
+        if ($status !== null && $status !== '') {
+            $filter['=UF_STATUS'] = $status;
+        }
+
         $dataClass = $this->getMatchBetDataClass();
         $rows = [];
         $response = $dataClass::getList([
-            'filter' => [
-                '=UF_MATCH_ID' => $matchId,
-                '=UF_STATUS' => \Prognos9ys\Main\Service\Game\GameEconomyConfig::BET_STATUS_PENDING,
-            ],
-            'select' => ['*'],
+            'filter' => $filter,
+            'select' => ['UF_MATCH_ID', 'UF_OUTCOME'],
         ]);
 
         while ($row = $response->fetch()) {

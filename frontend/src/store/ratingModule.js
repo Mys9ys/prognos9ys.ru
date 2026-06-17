@@ -6,20 +6,34 @@ import {apiActions} from "@/api/bitrixClient";
 
 export const ratingModule = {
     state: () => ({
-        footballRating: [],
+        footballRating: {},
 
         raceRating: [],
 
         ratingData: {
             event: '',
             setId: null,
+            selector: 'all',
+            limit: 50,
         },
 
     }),
     getters: {},
     mutations: {
         setFootballRatings(state, data) {
-            state.footballRating = data
+            if (data && typeof data === 'object' && data.selector && data.ratings) {
+                state.footballRating = {
+                    ...(state.footballRating || {}),
+                    ...data.ratings,
+                };
+                return;
+            }
+
+            state.footballRating = data;
+        },
+
+        clearFootballRatings(state) {
+            state.footballRating = {};
         },
 
         setRaceRatings(state, data){
@@ -37,7 +51,11 @@ export const ratingModule = {
                     responseData = await apiActions.rating.getFootball(
                         state.ratingData.event,
                         state.ratingData.setId || null,
-                        userToken
+                        userToken,
+                        {
+                            selector: state.ratingData.selector || 'all',
+                            limit: state.ratingData.limit || 50,
+                        }
                     );
                 } else {
                     const response = await axios.post(baseConfig.BASE_URL + 'football/ratings/', state.ratingData,
@@ -51,7 +69,10 @@ export const ratingModule = {
                 }
 
                 if (responseData.status == 'ok') {
-                    commit('setFootballRatings', responseData.ratings)
+                    commit('setFootballRatings', {
+                        selector: state.ratingData.selector || 'all',
+                        ratings: responseData.ratings,
+                    })
                 } else {
                     if (responseData.status == 'error') {
                         commit('setError', responseData.mes)

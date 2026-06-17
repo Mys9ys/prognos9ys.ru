@@ -250,7 +250,10 @@ export default {
       }
 
       try {
-        const response = await apiActions.rating.getFootball(this.eventId, null, this.token || '')
+        const response = await apiActions.rating.getFootball(this.eventId, null, this.token || '', {
+          selector: 'all',
+          limit: 100,
+        })
         if (response.status === 'ok') {
           this.ratingUsers = this.extractUsersFromRating(response.ratings)
         }

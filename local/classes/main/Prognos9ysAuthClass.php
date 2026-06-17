@@ -55,7 +55,7 @@ class Prognos9ysAuthClass
         if (!$this->data['login']) {
             $this->setResult('error', 'Токен не верный');
         } else {
-            $this->loadUserInfo();
+            $this->loadUserInfo(false);
             $this->setResult('ok', '', $this->userInfo);
         }
     }
@@ -113,7 +113,7 @@ class Prognos9ysAuthClass
         $user->Update($this->userId, $fields);
     }
 
-    protected function loadUserInfo()
+    protected function loadUserInfo(bool $includeGameInfo = true)
     {
         $dbUser = UserTable::getList([
             'select' => ['ID', 'EMAIL', 'PERSONAL_PHONE', 'UF_TOKEN', 'NAME', 'LAST_NAME', 'PERSONAL_PHOTO'],
@@ -129,7 +129,7 @@ class Prognos9ysAuthClass
         $dbUser['can_impersonate'] = $this->canUserImpersonate((int)$dbUser['ID'])
             || in_array($role, ['admin', 'super_moder'], true);
 
-        if (\Bitrix\Main\Loader::includeModule('prognos9ys.main')) {
+        if ($includeGameInfo && \Bitrix\Main\Loader::includeModule('prognos9ys.main')) {
             $dbUser['game_info'] = (new \Prognos9ys\Main\Service\Game\GameProfileService())
                 ->getSummary((int)$dbUser['ID']);
         }

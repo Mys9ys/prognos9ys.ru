@@ -21,13 +21,6 @@ class MatchXpEnricher
         }
 
         $matchIds = $this->collectMatchIds($sections);
-        $finishedWithScore = $this->collectFinishedMatchIdsWithScore($sections);
-
-        if ($finishedWithScore) {
-            foreach ($finishedWithScore as $matchId) {
-                $this->experienceService->syncPendingForMatch($matchId);
-            }
-        }
 
         if (!$matchIds) {
             return;
@@ -75,39 +68,6 @@ class MatchXpEnricher
 
                 foreach ($dates as $match) {
                     if (!empty($match['id']) && $this->isMatchInScope($match)) {
-                        $ids[] = (int)$match['id'];
-                    }
-                }
-            }
-        }
-
-        return array_values(array_unique($ids));
-    }
-
-    /**
-     * @param array<string, mixed> $sections
-     * @return int[]
-     */
-    private function collectFinishedMatchIdsWithScore(array $sections): array
-    {
-        $ids = [];
-
-        foreach ($sections as $section) {
-            if (empty($section['items']) || !is_array($section['items'])) {
-                continue;
-            }
-
-            foreach ($section['items'] as $dates) {
-                if (!is_array($dates)) {
-                    continue;
-                }
-
-                foreach ($dates as $match) {
-                    if (
-                        !empty($match['id'])
-                        && (string)($match['active'] ?? '') === 'N'
-                        && $this->isMatchInScope($match)
-                    ) {
                         $ids[] = (int)$match['id'];
                     }
                 }

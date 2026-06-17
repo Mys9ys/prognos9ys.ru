@@ -62,9 +62,15 @@ export const apiActions = {
         ),
     },
     rating: {
-        getFootball: (event, setId = null, userToken = '') => runBitrixAction(
+        getFootball: (event, setId = null, userToken = '', options = {}) => runBitrixAction(
             'prognos9ys:main.RatingController.getFootballRatings',
-            { event, setId: setId || undefined, userToken: userToken || undefined }
+            {
+                event,
+                setId: setId || undefined,
+                userToken: userToken || undefined,
+                selector: options.selector || undefined,
+                limit: options.limit || undefined,
+            }
         ),
         getRace: (events) => runBitrixAction(
             'prognos9ys:main.RatingController.getRaceRatings',

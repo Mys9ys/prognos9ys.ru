@@ -28,7 +28,7 @@ class FootballHandlerClass
     protected $arUserPrognosis = [];
     protected $arUserResults = [];
     protected $ratioStatsByMatch = [];
-    protected $userBetRewardByMatch = [];
+    protected $betStatsByMatch = [];
 
     protected $arResult = [
         'status' => 'ok'
@@ -62,6 +62,7 @@ class FootballHandlerClass
 
         $this->arTeams = (new GetFootballTeams())->result();
 
+        $this->prefetchRatioStatsForEvent();
         $this->getMatchOfData();
 
         $this->reverseArrayOldMatches();
@@ -101,7 +102,26 @@ class FootballHandlerClass
             ]
         );
 
+        $rows = [];
         while ($res = $response->GetNext()) {
+            $rows[] = $res;
+        }
+
+        $matchMeta = [];
+        foreach ($rows as $res) {
+            $matchMeta[(int)$res['ID']] = ['active' => (string)$res['ACTIVE']];
+        }
+
+        if ($matchMeta && Loader::includeModule('prognos9ys.main')) {
+            try {
+                $this->betStatsByMatch = (new \Prognos9ys\Main\Service\Game\BetService())
+                    ->getMatchBetCountsForMatches($matchMeta);
+            } catch (\Throwable $exception) {
+                $this->betStatsByMatch = [];
+            }
+        }
+
+        foreach ($rows as $res) {
             $this->arNumberToMatchId[$res["PROPERTY_NUMBER_VALUE"]] = $res['ID'];
             $el = [];
 
@@ -120,10 +140,14 @@ class FootballHandlerClass
 
             $el["send_info"]["send_time"] = $this->arUserPrognosis[$res["ID"]] ?? '';
             $el["send_info"]["score_result"] = $this->arUserResults[$res["ID"]] ?? '';
-            $el["bet_reward"] = $this->getUserBetReward((int)$res["ID"]);
+            $el["bet_reward"] = [
+                'status' => '',
+                'payout' => 0.0,
+            ];
 
-            $el["ratio"] = $this->setRatio($res['ID']);
-            $betRatio = $this->setBetRatio((int)$res['ID']);
+            $matchId = (int)$res['ID'];
+            $el["ratio"] = $this->buildRatioOdds($matchId);
+            $betRatio = $this->buildBetRatio($matchId);
             $el["bet_ratio"] = $betRatio['odds'];
             $el["bet_ratio_meta"] = $betRatio['meta'];
 
@@ -148,6 +172,137 @@ class FootballHandlerClass
 
         }
 
+    }
+
+    protected function prefetchRatioStatsForEvent(): void
+    {
+        if (empty($this->data['events'])) {
+            return;
+        }
+
+        $response = CIBlockElement::GetList(
+            [],
+            [
+                'IBLOCK_ID' => $this->arIbs['prognosis']['id'],
+                'PROPERTY_EVENTS' => $this->data['events'],
+            ],
+            false,
+            false,
+            [
+                'PROPERTY_match_id',
+                'PROPERTY_diff',
+            ]
+        );
+
+        while ($res = $response->GetNext()) {
+            $matchId = (int)$res['PROPERTY_MATCH_ID_VALUE'];
+            if ($matchId <= 0) {
+                continue;
+            }
+
+            if (!isset($this->ratioStatsByMatch[$matchId])) {
+                $this->ratioStatsByMatch[$matchId] = [
+                    'plus' => 0,
+                    'equal' => 0,
+                    'minus' => 0,
+                    'count' => 0,
+                ];
+            }
+
+            $diff = (int)$res['PROPERTY_DIFF_VALUE'];
+            if ($diff > 0) {
+                $this->ratioStatsByMatch[$matchId]['plus'] += 1;
+            } elseif ($diff === 0) {
+                $this->ratioStatsByMatch[$matchId]['equal'] += 1;
+            } else {
+                $this->ratioStatsByMatch[$matchId]['minus'] += 1;
+            }
+
+            $this->ratioStatsByMatch[$matchId]['count'] += 1;
+        }
+    }
+
+    /**
+     * @return array<int, array{name:string,count:string|int}>
+     */
+    protected function buildRatioOdds(int $matchId): array
+    {
+        $arRatio = $this->ratioStatsByMatch[$matchId] ?? [
+            'plus' => 0,
+            'equal' => 0,
+            'minus' => 0,
+            'count' => 0,
+        ];
+
+        return [
+            0 => ['name' => 'п1', 'count' => number_format(($arRatio['count'] + 1) / ($arRatio['plus'] + 1), 2)],
+            1 => ['name' => 'н', 'count' => number_format(($arRatio['count'] + 1) / ($arRatio['equal'] + 1), 2)],
+            2 => ['name' => 'п2', 'count' => number_format(($arRatio['count'] + 1) / ($arRatio['minus'] + 1), 2)],
+            3 => ['name' => 'Σ', 'count' => $arRatio['count']],
+        ];
+    }
+
+    protected function buildBetRatio(int $matchId): array
+    {
+        if ($matchId <= 0 || !Loader::includeModule('prognos9ys.main')) {
+            return [
+                'odds' => [],
+                'meta' => [
+                    'mode' => 'financial',
+                    'financial_count' => 0,
+                ],
+            ];
+        }
+
+        try {
+            $bet = $this->betStatsByMatch[$matchId] ?? [
+                'plus' => 0.0,
+                'equal' => 0.0,
+                'minus' => 0.0,
+                'count' => 0,
+            ];
+
+            $mode = 'financial';
+            $plus = (float)$bet['plus'];
+            $equal = (float)$bet['equal'];
+            $minus = (float)$bet['minus'];
+
+            $hybridMinFinancial = 10;
+            if (($bet['count'] ?? 0) < $hybridMinFinancial) {
+                $classic = $this->ratioStatsByMatch[$matchId] ?? null;
+                if ($classic && (int)$classic['count'] > 0) {
+                    $mode = 'hybrid';
+                    $fallbackWeight = 0.3;
+                    $plus += (float)$classic['plus'] * $fallbackWeight;
+                    $equal += (float)$classic['equal'] * $fallbackWeight;
+                    $minus += (float)$classic['minus'] * $fallbackWeight;
+                }
+            }
+
+            $count = $plus + $equal + $minus;
+            $odds = [
+                0 => ['name' => 'п1', 'count' => number_format(($count + 1) / ($plus + 1), 2)],
+                1 => ['name' => 'н', 'count' => number_format(($count + 1) / ($equal + 1), 2)],
+                2 => ['name' => 'п2', 'count' => number_format(($count + 1) / ($minus + 1), 2)],
+                3 => ['name' => 'Σ', 'count' => (int)round($count)],
+            ];
+
+            return [
+                'odds' => $odds,
+                'meta' => [
+                    'mode' => $mode,
+                    'financial_count' => (int)$bet['count'],
+                ],
+            ];
+        } catch (\Throwable $exception) {
+            return [
+                'odds' => [],
+                'meta' => [
+                    'mode' => 'financial',
+                    'financial_count' => 0,
+                ],
+            ];
+        }
     }
 
     protected function fillSectionArray($date)
@@ -290,157 +445,6 @@ class FootballHandlerClass
             'name' => $data['NAME'],
             'goals' => $goals ?? 0
         ];
-    }
-
-    protected function setRatio($matchId)
-    {
-
-        $arFilter = [
-            'IBLOCK_ID' => $this->arIbs['prognosis']['id'],
-            'PROPERTY_MATCH_ID' => $matchId,
-        ];
-
-        $arRatio = [
-            'plus' => 0,
-            'equal' => 0,
-            'minus' => 0,
-            'count' => 0
-        ];
-
-        $response = CIBlockElement::GetList(
-            [],
-            $arFilter,
-            false,
-            [],
-            [
-                "PROPERTY_diff",
-            ]
-        );
-
-        while ($res = $response->GetNext()) {
-
-            if ($res['PROPERTY_DIFF_VALUE'] > 0) $arRatio['plus'] += 1;
-            if ($res['PROPERTY_DIFF_VALUE'] == 0) $arRatio['equal'] += 1;
-            if ($res['PROPERTY_DIFF_VALUE'] < 0) $arRatio['minus'] += 1;
-
-            $arRatio['count'] += 1;
-
-        }
-
-        $this->ratioStatsByMatch[(int)$matchId] = $arRatio;
-
-        $arRatioScore = [
-            0 => ['name' => 'п1', 'count' => number_format(($arRatio['count'] + 1) / ($arRatio['plus'] + 1), 2)],
-            1 => ['name' => 'н', 'count' => number_format(($arRatio['count'] + 1) / ($arRatio['equal'] + 1), 2)],
-            2 => ['name' => 'п2', 'count' => number_format(($arRatio['count'] + 1) / ($arRatio['minus'] + 1), 2)],
-            3 => ['name' => 'Σ', 'count' => $arRatio['count']]
-        ];
-
-        return $arRatioScore;
-
-    }
-
-    protected function getUserBetReward(int $matchId): array
-    {
-        if ($matchId <= 0) {
-            return [
-                'status' => '',
-                'payout' => 0.0,
-            ];
-        }
-
-        if (array_key_exists($matchId, $this->userBetRewardByMatch)) {
-            return $this->userBetRewardByMatch[$matchId];
-        }
-
-        $default = [
-            'status' => '',
-            'payout' => 0.0,
-        ];
-
-        $userId = (int)($this->data['userId'] ?? 0);
-        if ($userId <= 0 || !\Bitrix\Main\Loader::includeModule('prognos9ys.main')) {
-            $this->userBetRewardByMatch[$matchId] = $default;
-            return $default;
-        }
-
-        try {
-            $repository = new \Prognos9ys\Main\Model\Repository\GameEconomyRepository();
-            $bet = $repository->getMatchBet($userId, $matchId);
-            if (!$bet) {
-                $this->userBetRewardByMatch[$matchId] = $default;
-                return $default;
-            }
-
-            $reward = [
-                'status' => (string)($bet['UF_STATUS'] ?? ''),
-                'payout' => round((float)($bet['UF_PAYOUT'] ?? 0), 1),
-            ];
-            $this->userBetRewardByMatch[$matchId] = $reward;
-            return $reward;
-        } catch (\Throwable $exception) {
-            $this->userBetRewardByMatch[$matchId] = $default;
-            return $default;
-        }
-    }
-
-    protected function setBetRatio(int $matchId): array
-    {
-        if ($matchId <= 0 || !\Bitrix\Main\Loader::includeModule('prognos9ys.main')) {
-            return [
-                'odds' => [],
-                'meta' => [
-                    'mode' => 'financial',
-                    'financial_count' => 0,
-                ],
-            ];
-        }
-
-        try {
-            $betService = new \Prognos9ys\Main\Service\Game\BetService();
-            $bet = $betService->getMatchBetCounts($matchId);
-
-            $mode = 'financial';
-            $plus = (float)$bet['plus'];
-            $equal = (float)$bet['equal'];
-            $minus = (float)$bet['minus'];
-
-            $hybridMinFinancial = 10;
-            if (($bet['count'] ?? 0) < $hybridMinFinancial) {
-                $classic = $this->ratioStatsByMatch[$matchId] ?? null;
-                if ($classic && (int)$classic['count'] > 0) {
-                    $mode = 'hybrid';
-                    $fallbackWeight = 0.3;
-                    $plus += (float)$classic['plus'] * $fallbackWeight;
-                    $equal += (float)$classic['equal'] * $fallbackWeight;
-                    $minus += (float)$classic['minus'] * $fallbackWeight;
-                }
-            }
-
-            $count = $plus + $equal + $minus;
-            $odds = [
-                0 => ['name' => 'п1', 'count' => number_format(($count + 1) / ($plus + 1), 2)],
-                1 => ['name' => 'н', 'count' => number_format(($count + 1) / ($equal + 1), 2)],
-                2 => ['name' => 'п2', 'count' => number_format(($count + 1) / ($minus + 1), 2)],
-                3 => ['name' => 'Σ', 'count' => (int)round($count)],
-            ];
-
-            return [
-                'odds' => $odds,
-                'meta' => [
-                    'mode' => $mode,
-                    'financial_count' => (int)$bet['count'],
-                ],
-            ];
-        } catch (\Throwable $exception) {
-            return [
-                'odds' => [],
-                'meta' => [
-                    'mode' => 'financial',
-                    'financial_count' => 0,
-                ],
-            ];
-        }
     }
 
     protected function setResult($status, $mes, $info = '')

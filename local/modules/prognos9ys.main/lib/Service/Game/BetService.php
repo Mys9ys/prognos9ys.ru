@@ -117,31 +117,81 @@ class BetService
 
         $matchRow = $this->loadMatchRow($matchId);
         $isFinished = $matchRow && (string)$matchRow['ACTIVE'] === 'N';
-        $bets = $isFinished
-            ? $this->repository->getMatchBetsByMatch($matchId)
-            : $this->repository->getPendingMatchBetsByMatch($matchId);
 
-        $plus = 0.0;
-        $equal = 0.0;
-        $minus = 0.0;
+        return $this->getMatchBetCountsForMatches([
+            $matchId => ['active' => $isFinished ? 'N' : 'Y'],
+        ])[$matchId] ?? ['plus' => 0.0, 'equal' => 0.0, 'minus' => 0.0, 'count' => 0];
+    }
 
-        foreach ($bets as $bet) {
-            $outcome = $this->normalizeOutcome($bet['UF_OUTCOME'] ?? null);
-            if ($outcome === 'п1') {
-                $plus++;
-            } elseif ($outcome === 'н') {
-                $equal++;
-            } elseif ($outcome === 'п2') {
-                $minus++;
+    /**
+     * @param array<int, array{active: string}> $matchMeta
+     * @return array<int, array{plus:float,equal:float,minus:float,count:int}>
+     */
+    public function getMatchBetCountsForMatches(array $matchMeta): array
+    {
+        $result = [];
+        $finishedIds = [];
+        $pendingIds = [];
+
+        foreach ($matchMeta as $matchId => $meta) {
+            $matchId = (int)$matchId;
+            if ($matchId <= 0) {
+                continue;
+            }
+
+            $result[$matchId] = ['plus' => 0.0, 'equal' => 0.0, 'minus' => 0.0, 'count' => 0];
+            if ((string)($meta['active'] ?? '') === 'N') {
+                $finishedIds[] = $matchId;
+            } else {
+                $pendingIds[] = $matchId;
             }
         }
 
-        return [
-            'plus' => $plus,
-            'equal' => $equal,
-            'minus' => $minus,
-            'count' => (int)($plus + $equal + $minus),
-        ];
+        if ($finishedIds) {
+            $this->accumulateBetCounts(
+                $result,
+                $this->repository->getBetsByMatchIds($finishedIds)
+            );
+        }
+
+        if ($pendingIds) {
+            $this->accumulateBetCounts(
+                $result,
+                $this->repository->getBetsByMatchIds(
+                    $pendingIds,
+                    GameEconomyConfig::BET_STATUS_PENDING
+                )
+            );
+        }
+
+        foreach ($result as $matchId => $counts) {
+            $result[$matchId]['count'] = (int)($counts['plus'] + $counts['equal'] + $counts['minus']);
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param array<int, array{plus:float,equal:float,minus:float,count:int}> $result
+     * @param array<int, array> $bets
+     */
+    private function accumulateBetCounts(array &$result, array $bets): void
+    {
+        foreach ($bets as $bet) {
+            $matchId = (int)($bet['UF_MATCH_ID'] ?? 0);
+            if ($matchId <= 0 || !isset($result[$matchId])) {
+                continue;
+            }
+
+            $outcome = $this->normalizeOutcome($bet['UF_OUTCOME'] ?? null);
+            if ($outcome === 'п1') {
+                $result[$matchId]['plus']++;
+            } elseif ($outcome === 'н') {
+                $result[$matchId]['equal']++;
+            } elseif ($outcome === 'п2') {
+                $result[$matchId]['minus']++;
+            }
+        }
     }
 
     public function settleMatch(int $matchId): void

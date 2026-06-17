@@ -13,6 +13,7 @@
 
     <FootballRatingBody class="rating_body" :class="{'active_body':activeCell == index}" v-for="(icon, index) in icons"
                         :key="index"
+                        v-show="activeCell == index"
                         :arRating="footballRating[relation[index]]"
                         :icon="index"
     >{{ icon }}
@@ -48,6 +49,7 @@ export default {
     return {
       thisLoader: false,
       activeCell: 1,
+      loadedSelectors: {},
       relation: {
         1: 'all',
         2: 'score',
@@ -96,17 +98,26 @@ export default {
     }
   },
   created() {
-    this.loadRating(this.eventId)
+    this.loadRating(this.eventId, this.relation[this.activeCell] || 'all')
   },
 
   watch:{
     eventId(){
       this.thisLoader = true
-      this.loadRating(this.eventId)
+      this.resetLoadedSelectors()
+      this.loadRating(this.eventId, this.relation[this.activeCell] || 'all')
     },
     setId(){
       this.thisLoader = true
-      this.loadRating(this.eventId)
+      this.resetLoadedSelectors()
+      this.loadRating(this.eventId, this.relation[this.activeCell] || 'all')
+    },
+    activeCell(newCell) {
+      const selector = this.relation[newCell];
+      if (!selector || this.loadedSelectors[selector]) {
+        return;
+      }
+      this.loadRating(this.eventId, selector, false);
     },
   },
 
@@ -115,12 +126,28 @@ export default {
       getFootballRatings: 'rating/getFootballRatings',
     }),
 
-    async loadRating(id) {
-      this.ratingData.event = id
-      this.ratingData.setId = this.setId ? Number(this.setId) : null
-      await this.getFootballRatings()
-      this.thisLoader = false
-      this.$emit('loaded')
+    resetLoadedSelectors() {
+      this.loadedSelectors = {};
+      this.$store.commit('rating/clearFootballRatings');
+    },
+
+        async loadRating(id, selector = 'all', showLoader = true) {
+      if (showLoader) {
+        this.thisLoader = true;
+      }
+      this.ratingData.event = id;
+      this.ratingData.setId = this.setId ? Number(this.setId) : null;
+      this.ratingData.selector = selector;
+      this.ratingData.limit = 50;
+      await this.getFootballRatings();
+      this.loadedSelectors = {
+        ...this.loadedSelectors,
+        [selector]: true,
+      };
+      if (showLoader) {
+        this.thisLoader = false;
+      }
+      this.$emit('loaded');
     }
   },
 

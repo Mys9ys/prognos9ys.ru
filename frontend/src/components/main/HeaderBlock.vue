@@ -213,7 +213,8 @@ export default {
   methods: {
     ...mapActions({
       loginRequest: 'auth/loginRequest',
-      logoutVue: 'auth/logoutVue'
+      logoutVue: 'auth/logoutVue',
+      refreshGameInfo: 'auth/refreshGameInfo',
     }),
 
     logoutProfile() {
@@ -223,6 +224,7 @@ export default {
 
     async checkAuth() {
       await this.loginRequest()
+      await this.refreshGameInfo()
       if (location.pathname === '/mob_app/') this.$router.push('/main')
     },
     getLevelBannerStorageKey() {

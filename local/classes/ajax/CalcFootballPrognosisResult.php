@@ -392,6 +392,21 @@ class CalcFootballPrognosisResult
             $matchId = (int)$this->data['matchId'];
             (new \Prognos9ys\Main\Service\Game\ExperienceService())->syncPendingForMatch($matchId);
 
+            $eventId = 0;
+            if (Loader::includeModule('iblock')) {
+                $matchRow = \CIBlockElement::GetList(
+                    [],
+                    ['IBLOCK_ID' => 2, 'ID' => $matchId],
+                    false,
+                    false,
+                    ['PROPERTY_events']
+                )->GetNext();
+                $eventId = (int)($matchRow['PROPERTY_EVENTS_VALUE'] ?? 0);
+            }
+            if ($eventId > 0) {
+                \Prognos9ys\Main\Service\Football\FootballRatingService::clearEventCache($eventId);
+            }
+
             $betService = new \Prognos9ys\Main\Service\Game\BetService();
             $betService->resetMatchBetsForRecalc($matchId);
             $betService->backfillBetsFromPrognosis($matchId);
