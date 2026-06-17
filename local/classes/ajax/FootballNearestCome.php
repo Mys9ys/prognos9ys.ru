@@ -1,6 +1,9 @@
 <?php
 
 use Bitrix\Main\Loader;
+use Prognos9ys\Main\Service\Game\MatchBetRewardEnricher;
+use Prognos9ys\Main\Service\Game\MatchTreasureEnricher;
+use Prognos9ys\Main\Service\Game\MatchXpEnricher;
 
 class FootballNearestCome extends PrognosisGiveInfo
 {
@@ -30,6 +33,12 @@ class FootballNearestCome extends PrognosisGiveInfo
         $this->data['userId'] = (new GetUserIdForToken($this->data['userToken']))->getID();
 
         $this->getMatch();
+
+        if ((int)$this->data['userId'] > 0 && !empty($this->arResult) && is_array($this->arResult)) {
+            (new MatchXpEnricher())->enrichEventMatches((int)$this->data['userId'], $this->arResult);
+            (new MatchBetRewardEnricher())->enrichEventMatches((int)$this->data['userId'], $this->arResult);
+            (new MatchTreasureEnricher())->enrichEventMatches((int)$this->data['userId'], $this->arResult);
+        }
 
         foreach ($this->arResult as $period=>$ar){
             $this->arResult[$period]['info'] = $this->arPeriod[$period];
@@ -74,6 +83,7 @@ class FootballNearestCome extends PrognosisGiveInfo
 
             $el["date"] = $convert['date'];
             $el["time"] = $convert['time'];
+            $el["id"] = (int)$res["ID"];
 
             $el["active"] = $res["ACTIVE"];
             $el["number"] = $res["PROPERTY_NUMBER_VALUE"];
