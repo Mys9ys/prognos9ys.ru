@@ -4,6 +4,7 @@ namespace Prognos9ys\Main\Controller;
 
 use Prognos9ys\Main\Service\Auth\ImpersonationService;
 use Prognos9ys\Main\Service\Auth\TokenAuthService;
+use Prognos9ys\Main\Service\Game\AchievementService;
 use Prognos9ys\Main\Service\Game\BankDepositService;
 use Prognos9ys\Main\Service\Game\BankLoanService;
 use Prognos9ys\Main\Service\Game\ExperienceService;
@@ -32,6 +33,7 @@ class GameController extends BaseController
             'createDeposit' => $this->getDefaultConfigureForPostToken(),
             'takeLoan' => $this->getDefaultConfigureForPostToken(),
             'closeBank' => $this->getDefaultConfigureForPostToken(),
+            'getAchievements' => $this->getDefaultConfigureForPostToken(),
         ];
     }
 
@@ -195,5 +197,15 @@ class GameController extends BaseController
         return array_merge(['status' => 'ok'], $result, [
             'game' => (new GameProfileService())->getSummary($userId),
         ]);
+    }
+
+    public function getAchievementsAction(): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        return array_merge(['status' => 'ok'], (new AchievementService())->getForUser($userId));
     }
 }

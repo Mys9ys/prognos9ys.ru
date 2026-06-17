@@ -158,6 +158,10 @@ export const apiActions = {
             'prognos9ys:main.GameController.closeBank',
             { userToken }
         ),
+        getAchievements: (userToken) => runBitrixAction(
+            'prognos9ys:main.GameController.getAchievements',
+            { userToken }
+        ),
     },
     impersonation: {
         searchUsers: (userToken, query) => runBitrixAction(
