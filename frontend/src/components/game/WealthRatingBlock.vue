@@ -45,12 +45,10 @@
         <tr>
           <th>#</th>
           <th>Ник</th>
-          <th v-if="mode === 'pending_xp'">XP</th>
           <th v-if="mode === 'pending_xp'">Матчей</th>
-          <th>💵</th>
-          <th>💎</th>
+          <th v-if="mode === 'pending_xp'">XP</th>
           <th v-if="isTreasureMode">🎁</th>
-          <th v-if="mode !== 'pending_xp'">Σ</th>
+          <th v-if="!isTreasureMode && mode !== 'pending_xp'">💵</th>
         </tr>
         </thead>
         <tbody>
@@ -72,12 +70,10 @@
               <span class="user_info" @click.stop="$router.push('/profile/' + el.user.id)">i</span>
             </div>
           </td>
-          <td class="pending_xp" v-if="mode === 'pending_xp'">+{{ formatMoney(el.pending_points) }}</td>
           <td class="pending_count" v-if="mode === 'pending_xp'">{{ el.pending_count }}</td>
-          <td class="money">{{ formatMoney(el.prognobaks) }}</td>
-          <td class="money">{{ formatMoney(el.rublius) }}</td>
+          <td class="pending_xp" v-if="mode === 'pending_xp'">+{{ formatMoney(el.pending_points) }}</td>
           <td class="money" v-if="isTreasureMode">{{ el.treasure_total }}</td>
-          <td class="total" v-if="mode !== 'pending_xp'">{{ formatMoney(el.total) }}</td>
+          <td class="money" v-if="!isTreasureMode && mode !== 'pending_xp'">{{ formatMoney(el.prognobaks) }}</td>
         </tr>
         </tbody>
       </table>
