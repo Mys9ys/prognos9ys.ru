@@ -15,34 +15,44 @@
           </tr>
           </thead>
           <tbody>
-          <tr v-for="(el, rowIndex) in data" :key="rowKey(el, rowIndex)">
-            <td class="pr_table_col">{{el.place}}</td>
-            <td class="pr_table_col" v-if="diffValue(el) === 0"><div class="zero_diff">–</div></td>
-            <td class="pr_table_col" v-else-if="diffValue(el) > 0"><div class="plus_diff">{{ diffValue(el) }}</div></td>
-            <td class="pr_table_col" v-else-if="0 > diffValue(el)"><div class="minus_diff">{{ diffValue(el) }}</div></td>
-            <td class="pr_table_col user_cell" v-if="el.user">
+          <template v-for="(item, rowIndex) in buildDisplayRows(data)" :key="item.key || rowKey(item, rowIndex)">
+            <tr v-if="item._type === 'gap'" class="rating_gap_row">
+              <td colspan="4">
+                <span class="rating_gap_label">··· {{ item.fromPlace + 1 }}–{{ item.toPlace - 1 }} ···</span>
+              </td>
+            </tr>
+            <tr v-else :class="{ rating_viewer_row: item.isViewer }">
+              <td class="pr_table_col">{{ item.place }}</td>
+              <td class="pr_table_col" v-if="diffValue(item) === 0"><div class="zero_diff">–</div></td>
+              <td class="pr_table_col" v-else-if="diffValue(item) > 0"><div class="plus_diff">{{ diffValue(item) }}</div></td>
+              <td class="pr_table_col" v-else-if="0 > diffValue(item)"><div class="minus_diff">{{ diffValue(item) }}</div></td>
+              <td class="pr_table_col user_cell" v-if="item.user">
               <span class="user_ava">
-                <img :src="url + el.user.img" alt="" v-if="el.user.img">
+                <img :src="url + item.user.img" alt="" v-if="item.user.img">
                 <img src="@/assets/img/no_logo.png" alt="" v-else>
               </span>
-              <div class="user_nick">{{ el.user.name }}</div>
-              <div class="user_actions" v-if="el.user.id">
+              <div class="user_nick">
+                {{ item.user.name }}
+                <span v-if="item.isViewer" class="viewer_badge">вы</span>
+              </div>
+              <div class="user_actions" v-if="item.user.id">
                 <span
                     v-if="canImpersonate"
                     class="user_enter"
                     title="Войти как пользователь"
-                    @click.stop="loginAsUser(el.user.id)"
+                    @click.stop="loginAsUser(item.user.id)"
                 >
                   <AppIcon name="exit_door" :size="14" />
                 </span>
-                <span class="user_info" @click.stop="$router.push('/profile/' + el.user.id)">i</span>
+                <span class="user_info" @click.stop="$router.push('/profile/' + item.user.id)">i</span>
               </div>
             </td>
             <td class="pr_table_col user_cell" v-else>
               <div class="user_nick">—</div>
             </td>
-            <td class="pr_table_col score">{{el.score}}</td>
-          </tr>
+            <td class="pr_table_col score">{{ item.score }}</td>
+            </tr>
+          </template>
           </tbody>
         </table>
       </div>
@@ -115,6 +125,42 @@ export default {
 
     diffValue(row) {
       return Number(row?.diff ?? 0);
+    },
+
+    viewerUserId() {
+      return Number(this.userInfo?.ID || 0);
+    },
+
+    buildDisplayRows(rows) {
+      const list = Array.isArray(rows) ? rows : [];
+      const viewerId = this.viewerUserId;
+      const result = [];
+
+      list.forEach((row, index) => {
+        const curPlace = Number(row?.place ?? 0);
+
+        if (index > 0) {
+          const prevPlace = Number(list[index - 1]?.place ?? 0);
+          if (curPlace - prevPlace > 1) {
+            result.push({
+              _type: 'gap',
+              fromPlace: prevPlace,
+              toPlace: curPlace,
+              key: `gap-${prevPlace}-${curPlace}`,
+            });
+          }
+        }
+
+        const userId = Number(row?.user?.id ?? 0);
+        result.push({
+          ...row,
+          _type: 'row',
+          isViewer: viewerId > 0 && userId === viewerId,
+          key: `row-${userId || index}-${curPlace}`,
+        });
+      });
+
+      return result;
     },
 
     selectMatch(arRating){
@@ -215,6 +261,46 @@ export default {
 .minus_diff{
   color: @red;
 }
+
+.rating_gap_row {
+  td {
+    padding: 6px 2px;
+    text-align: center;
+  }
+
+  .rating_gap_label {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 5px;
+    font-size: 12px;
+    color: @pearl;
+    letter-spacing: 1px;
+    .shadow_inset;
+  }
+}
+
+.rating_viewer_row {
+  td {
+    background: fade(@YesWrite, 12%);
+  }
+
+  .user_nick {
+    font-weight: 700;
+  }
+
+  .viewer_badge {
+    display: inline-block;
+    margin-left: 4px;
+    padding: 0 4px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    color: @DarkColorBG;
+    background: @YesWrite2;
+    vertical-align: middle;
+  }
+}
+
 .select_wrapper{
   text-align: right;
   .select{
