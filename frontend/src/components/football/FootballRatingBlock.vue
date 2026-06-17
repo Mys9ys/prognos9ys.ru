@@ -16,6 +16,9 @@
                         v-show="activeCell == index"
                         :arRating="footballRating[relation[index]]"
                         :icon="index"
+                        :glyph="icon"
+                        :loading="isTabLoading(index)"
+                        :has-data="hasTabData(index)"
     >{{ icon }}
     </FootballRatingBody>
 
@@ -48,6 +51,7 @@ export default {
   data() {
     return {
       thisLoader: false,
+      tabLoading: false,
       activeCell: 1,
       loadedSelectors: {},
       relation: {
@@ -117,7 +121,7 @@ export default {
       if (!selector || this.loadedSelectors[selector]) {
         return;
       }
-      this.loadRating(this.eventId, selector, false);
+      this.loadRating(this.eventId, selector, false, true);
     },
   },
 
@@ -131,24 +135,46 @@ export default {
       this.$store.commit('rating/clearFootballRatings');
     },
 
-        async loadRating(id, selector = 'all', showLoader = true) {
+        async loadRating(id, selector = 'all', showLoader = true, tabLoader = false) {
       if (showLoader) {
         this.thisLoader = true;
       }
-      this.ratingData.event = id;
-      this.ratingData.setId = this.setId ? Number(this.setId) : null;
-      this.ratingData.selector = selector;
-      this.ratingData.limit = 50;
-      await this.getFootballRatings();
-      this.loadedSelectors = {
-        ...this.loadedSelectors,
-        [selector]: true,
-      };
-      if (showLoader) {
-        this.thisLoader = false;
+      if (tabLoader) {
+        this.tabLoading = true;
       }
-      this.$emit('loaded');
-    }
+      try {
+        this.ratingData.event = id;
+        this.ratingData.setId = this.setId ? Number(this.setId) : null;
+        this.ratingData.selector = selector;
+        this.ratingData.limit = 50;
+        await this.getFootballRatings();
+        this.loadedSelectors = {
+          ...this.loadedSelectors,
+          [selector]: true,
+        };
+        this.$emit('loaded');
+      } finally {
+        if (showLoader) {
+          this.thisLoader = false;
+        }
+        if (tabLoader) {
+          this.tabLoading = false;
+        }
+      }
+    },
+
+    isTabLoading(index) {
+      if (!this.tabLoading) {
+        return false;
+      }
+      const selector = this.relation[index];
+      return selector === this.ratingData.selector;
+    },
+
+    hasTabData(index) {
+      const selector = this.relation[index];
+      return !!(selector && this.footballRating[selector]);
+    },
   },
 
   computed: {

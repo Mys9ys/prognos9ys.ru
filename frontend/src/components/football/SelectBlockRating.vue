@@ -138,24 +138,26 @@ export default {
 
       list.forEach((row, index) => {
         const curPlace = Number(row?.place ?? 0);
+        const userId = Number(row?.user?.id ?? 0);
+        const isViewer = viewerId > 0 && userId === viewerId;
 
-        if (index > 0) {
+        // Разрыв только перед строкой зрителя, если его место вне топ-N (добавлено API после обрезки).
+        if (index > 0 && isViewer) {
           const prevPlace = Number(list[index - 1]?.place ?? 0);
           if (curPlace - prevPlace > 1) {
             result.push({
               _type: 'gap',
               fromPlace: prevPlace,
               toPlace: curPlace,
-              key: `gap-${prevPlace}-${curPlace}`,
+              key: `gap-viewer-${prevPlace}-${curPlace}`,
             });
           }
         }
 
-        const userId = Number(row?.user?.id ?? 0);
         result.push({
           ...row,
           _type: 'row',
-          isViewer: viewerId > 0 && userId === viewerId,
+          isViewer,
           key: `row-${userId || index}-${curPlace}`,
         });
       });

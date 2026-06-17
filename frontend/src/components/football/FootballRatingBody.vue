@@ -5,26 +5,46 @@
       <div class="title_text">{{title[icon]}}</div>
     </div>
     <SelectBlockRating
+        v-if="!loading && hasData"
         :arRating="arRating"
     ></SelectBlockRating>
+    <RatingTabLoader
+        v-else
+        :icon-key="icon"
+        :glyph="glyph"
+        :title="title[icon]"
+    />
 
   </div>
 </template>
 
 <script>
 import SelectBlockRating from "@/components/football/SelectBlockRating";
+import RatingTabLoader from "@/components/football/RatingTabLoader";
 
 export default {
   name: "FootballRatingBody",
-  components: {SelectBlockRating},
+  components: { SelectBlockRating, RatingTabLoader },
 
   props: {
     arRating: {
       type: Object
     },
     icon: {
-      type: String
-    }
+      type: [String, Number]
+    },
+    glyph: {
+      type: String,
+      default: '♛',
+    },
+    loading: {
+      type: Boolean,
+      default: false,
+    },
+    hasData: {
+      type: Boolean,
+      default: false,
+    },
   },
   data(){
     return{
