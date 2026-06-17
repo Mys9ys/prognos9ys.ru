@@ -102,6 +102,7 @@ class FootballMatchLoadInfo extends PrognosisGiveInfo
         $el['prognosis'] = $this->getRecordData($this->arIbs['prognosis']['id'], $el["id"]);
         $el['match_result'] = $this->getRecordData($this->arIbs['matches']['id'], $el["id"]);
         $el['prog_result'] = $this->getRecordData($this->arIbs['result']['id'], $el["id"]);
+        $el['bet_reward'] = $this->getUserBetReward((int)$el['id']);
         $el['max'] = $this->getCountMatches();
 
         $this->arResult = $el;
@@ -230,5 +231,33 @@ class FootballMatchLoadInfo extends PrognosisGiveInfo
 
         return $arr;
 
+    }
+
+    protected function getUserBetReward(int $matchId): array
+    {
+        $default = [
+            'status' => '',
+            'payout' => 0.0,
+        ];
+
+        if ($matchId <= 0 || (int)$this->userId <= 0 || !Loader::includeModule('prognos9ys.main')) {
+            return $default;
+        }
+
+        try {
+            $repository = new \Prognos9ys\Main\Model\Repository\GameEconomyRepository();
+            $bet = $repository->getMatchBet((int)$this->userId, $matchId);
+
+            if (!$bet) {
+                return $default;
+            }
+
+            return [
+                'status' => (string)($bet['UF_STATUS'] ?? ''),
+                'payout' => round((float)($bet['UF_PAYOUT'] ?? 0), 1),
+            ];
+        } catch (\Throwable $exception) {
+            return $default;
+        }
     }
 }

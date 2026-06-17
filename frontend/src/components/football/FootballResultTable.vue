@@ -44,6 +44,9 @@
     <div class="cell match_res">Результат</div>
     <div class="cell prognosis">Прогноз</div>
     <div class="cell "><span class="empty">Мимо/</span><span class="ball">Баллы</span></div>
+    <div class="bet_reward" v-if="showMoneyReward">
+      Выигрыш +{{ moneyPayout }} 💵
+    </div>
   </div>
 
 </template>
@@ -100,6 +103,16 @@ export default {
     },
     showNoPrognosisHint() {
       return !this.hasPrognosis && !this.hasProgResult;
+    },
+    betReward() {
+      return this.match?.bet_reward || null;
+    },
+    moneyPayout() {
+      const payout = Number(this.betReward?.payout ?? 0);
+      return Number.isInteger(payout) ? String(payout) : payout.toFixed(1);
+    },
+    showMoneyReward() {
+      return Number(this.betReward?.payout ?? 0) > 0;
     },
   },
   methods: {
@@ -169,8 +182,9 @@ export default {
   gap: 4px;
 }
 .desc_block{
+  position: relative;
   background: @DarkColorBG;
-  padding: 4px;
+  padding: 4px 4px 22px;
   border-radius:  0 0 5px 5px;
   font-size: 14px;
   display: flex;
@@ -190,6 +204,19 @@ export default {
   }
   .ball{
     color: @YesWrite;
+  }
+  .bet_reward {
+    position: absolute;
+    right: 6px;
+    bottom: 4px;
+    font-size: 11px;
+    line-height: 1.2;
+    font-weight: 700;
+    color: @YesWrite2;
+    white-space: nowrap;
+    .shadow_inset;
+    padding: 3px 6px;
+    border-radius: 3px;
   }
 }
 </style>
