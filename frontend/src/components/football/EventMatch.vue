@@ -47,7 +47,7 @@
       </div>
 
       <div class="right_block">
-        <div class="send_info_block" v-if="!match.send_info.send_time">
+        <div class="send_info_block" v-if="!hasUserPrognosis">
           <div class="send_info">не заполнено</div>
         </div>
         <div class="send_info_block" v-else>
@@ -58,13 +58,13 @@
         <div class="btn_box">
           <div class="more_btn" @click="moreInfo = !moreInfo"><span
               :class="{'close' : !moreInfo, 'open' : moreInfo}"> > </span></div>
-          <div class="match_btn" v-if="!match.send_info.send_time && match.active === 'Y'" @click="$router.push(link)">
-            Заполнить
+          <div class="match_btn" v-if="!hasUserPrognosis && match.active === 'Y'" @click="onOpenMatch">
+            {{ isGuest ? 'Посмотреть' : 'Заполнить' }}
           </div>
-          <div class="match_btn btn_change" v-if="match.send_info.send_time && match.active === 'Y'"
-               @click="$router.push(link)">Изменить
+          <div class="match_btn btn_change" v-if="hasUserPrognosis && match.active === 'Y'"
+               @click="onOpenMatch">Изменить
           </div>
-          <div class="match_btn btn_last" v-if="match.active === 'N'" @click="$router.push(link)">Посмотреть</div>
+          <div class="match_btn btn_last" v-if="match.active === 'N'" @click="onOpenMatch">Посмотреть</div>
         </div>
       </div>
     </div>
@@ -89,7 +89,7 @@
 </template>
 
 <script>
-import { mapActions } from 'vuex';
+import { mapActions, mapState } from 'vuex';
 import AppIcon from '@/components/ui/AppIcon.vue';
 
 export default {
@@ -112,10 +112,23 @@ export default {
     }
   },
   computed: {
+    ...mapState({
+      token: state => state.auth.authData.token,
+    }),
+    isGuest() {
+      return !this.token;
+    },
+    hasUserPrognosis() {
+      return !this.isGuest && Boolean(this.match?.send_info?.send_time);
+    },
     xpReward() {
       return this.match?.xp_reward || null;
     },
     showXpReward() {
+      if (this.isGuest) {
+        return false;
+      }
+
       if (this.match?.active !== 'N' || !this.xpReward) {
         return false;
       }
@@ -141,13 +154,13 @@ export default {
       return Number(this.treasure?.count ?? 0);
     },
     showTreasureReward() {
-      return this.match?.active === 'N' && this.treasureCount > 0;
+      return !this.isGuest && this.match?.active === 'N' && this.treasureCount > 0;
     },
     moneyPayout() {
       return Number(this.betReward?.payout ?? 0).toFixed(1);
     },
     showMoneyReward() {
-      return Number(this.betReward?.payout ?? 0) > 0;
+      return !this.isGuest && Number(this.betReward?.payout ?? 0) > 0;
     },
     showRewardTabs() {
       return this.showXpReward || this.showMoneyReward || this.showTreasureReward;
@@ -170,6 +183,9 @@ export default {
     ...mapActions({
       claimXp: 'game/claimXp',
     }),
+    onOpenMatch() {
+      this.$router.push(this.link);
+    },
     async claimExperience() {
       if (!this.match?.id || this.claiming) {
         return;

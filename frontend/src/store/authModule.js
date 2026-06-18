@@ -88,7 +88,9 @@ export const authModule = {
         logoutVue({commit}) {
             commit('setAuth', false)
             commit('setToken', '')
+            commit('setUserInfo', [])
             commit('setImpersonation', { active: false, originalToken: '' })
+            commit('mainPage/setNearest', {}, { root: true })
         },
 
         applyAuthUser({ commit }, userInfo) {

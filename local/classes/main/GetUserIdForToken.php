@@ -16,7 +16,13 @@ class GetUserIdForToken
             ShowError('Модуль Информационных блоков не установлен');
             return;
         }
-        $this->token = $token;
+
+        $this->token = is_string($token) ? trim($token) : '';
+        if ($this->token === '') {
+            $this->userId = null;
+            return;
+        }
+
         $this->getUserId();
 
         if (!$this->userId) {
@@ -28,12 +34,13 @@ class GetUserIdForToken
 
     protected function getUserId()
     {
-        $dbUser = UserTable::getList(array(
-            'select' => array('ID'),
-            'filter' => array('=UF_TOKEN' => $this->token)
-        ))->fetch();
+        $dbUser = UserTable::getList([
+            'select' => ['ID'],
+            'filter' => ['=UF_TOKEN' => $this->token],
+            'limit' => 1,
+        ])->fetch();
 
-        $this->userId = $dbUser['ID'];
+        $this->userId = $dbUser ? (int)$dbUser['ID'] : null;
     }
 
     public function getId()

@@ -35,6 +35,10 @@ export const mainPageModule = {
         async getNearest({state, commit}) {
             commit('setLoading', true)
 
+            if (!state.setToken?.userToken) {
+                commit('setNearest', {})
+            }
+
             try {
                 const response = await axios.post(baseConfig.BASE_URL + 'main_page/', state.setToken,
                     {
