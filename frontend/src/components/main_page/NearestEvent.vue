@@ -122,10 +122,6 @@ export default {
 
       await this.authRequest()
 
-      if (this.token) {
-        await this.$store.dispatch('auth/refreshGameInfo')
-      }
-
       if(this.arrNearest){
         Object.keys(this.arrNearest).forEach((index)=>{
           if(this.arrNearest[index]) {

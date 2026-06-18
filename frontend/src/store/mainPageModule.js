@@ -32,7 +32,7 @@ export const mainPageModule = {
         }
     },
     actions: {
-        async getNearest({state, commit}) {
+        async getNearest({state, commit, rootState}) {
             commit('setLoading', true)
 
             if (!state.setToken?.userToken) {
@@ -50,6 +50,13 @@ export const mainPageModule = {
 
                 if (response.data.status == 'ok') {
                     commit('setNearest', response.data.result)
+
+                    if (response.data.game) {
+                        commit('auth/setUserInfo', {
+                            ...rootState.auth.userInfo,
+                            game_info: response.data.game,
+                        }, { root: true })
+                    }
                 } else {
                     commit('setErrors', response.data.mes)
                 }

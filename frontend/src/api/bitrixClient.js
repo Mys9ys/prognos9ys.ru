@@ -37,6 +37,36 @@ export async function runBitrixAction(action, data = {}) {
     throw new Error(message);
 }
 
+export async function fetchGameState(userToken) {
+    if (!userToken) {
+        throw new Error('Требуется авторизация');
+    }
+
+    try {
+        return await runBitrixAction(
+            'prognos9ys:main.GameController.getState',
+            { userToken }
+        );
+    } catch (bitrixError) {
+        const form = new FormData();
+        form.append('userToken', userToken);
+
+        const response = await axios.post(
+            `${baseConfig.BASE_URL}game/state/`,
+            form,
+            {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            }
+        );
+
+        if (response.data?.status === 'ok' && response.data?.game) {
+            return { game: response.data.game };
+        }
+
+        throw bitrixError;
+    }
+}
+
 // Bitrix Engine: vendor:module.ControllerName.actionName (PascalCase + Controller suffix)
 export const apiActions = {
     profile: {
@@ -116,10 +146,7 @@ export const apiActions = {
         ),
     },
     game: {
-        getState: (userToken) => runBitrixAction(
-            'prognos9ys:main.GameController.getState',
-            { userToken }
-        ),
+        getState: (userToken) => fetchGameState(userToken),
         claimXp: (userToken, matchId) => runBitrixAction(
             'prognos9ys:main.GameController.claimXp',
             { userToken, matchId }

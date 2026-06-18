@@ -78,6 +78,7 @@ class GameProfileService
                     'rublius_rate' => GameEconomyConfig::RUBLIUS_TO_PROGNOBAKS,
                 ],
                 'progress' => (new LevelService())->getProgressSummary(0),
+                'pending_xp' => ['count' => 0, 'points' => 0.0],
                 'treasure' => [
                     'closed_chests' => 0,
                     'match_chests' => 0,

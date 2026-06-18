@@ -80,4 +80,22 @@ class Prognos9ysMainPageInfo extends PrognosisGiveInfo
 
         }
     }
+
+    public function result()
+    {
+        $response = parent::result();
+
+        if (!$this->userToken) {
+            return $response;
+        }
+
+        $userId = (int)((new GetUserIdForToken($this->userToken))->getId() ?? 0);
+
+        if ($userId > 0 && Loader::includeModule('prognos9ys.main')) {
+            $response['game'] = (new \Prognos9ys\Main\Service\Game\GameProfileService())
+                ->getSummary($userId, false);
+        }
+
+        return $response;
+    }
 }

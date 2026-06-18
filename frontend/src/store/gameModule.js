@@ -1,6 +1,7 @@
 /* eslint-disable */
 import { apiActions } from '@/api/bitrixClient';
 import { readLevelBannerState, saveLevelBannerState } from '@/utils/levelBannerStorage';
+import { buildLevelRewardsPreview } from '@/utils/formatLevelRewards';
 
 function applyGamePayload({ rootState, commit }, res) {
     if (res?.game && rootState.auth?.userInfo) {
@@ -58,11 +59,17 @@ export const gameModule = {
                 seenLevel = currentLevel;
             }
 
+            const fromLevel = dismissedLevel + 1;
+            const showBanner = currentLevel > dismissedLevel;
+            const rewards = showBanner && fromLevel <= currentLevel
+                ? buildLevelRewardsPreview(fromLevel, currentLevel)
+                : [];
+
             commit('setLevelBanner', {
-                visible: currentLevel > dismissedLevel,
+                visible: showBanner,
                 level: currentLevel,
-                from: 0,
-                rewards: [],
+                from: fromLevel < currentLevel ? fromLevel : 0,
+                rewards,
             });
 
             saveLevelBannerState(userId, { seenLevel, dismissedLevel });

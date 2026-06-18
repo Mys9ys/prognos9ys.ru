@@ -153,7 +153,7 @@ export const authModule = {
             return data.users || []
         },
 
-        async authRequest({state, commit}) {
+        async authRequest({state, commit, dispatch}) {
             console.log('axios data', state.loginData)
 
             try {
@@ -172,6 +172,7 @@ export const authModule = {
                     commit('setToken', response.data.info.UF_TOKEN)
                     commit('setLoginError', '')
                     commit('setImpersonation', { active: false, originalToken: '' })
+                    await dispatch('refreshGameInfo')
                 } else {
                     commit('setLoginError', response.data.mes)
                     commit('setAuth', false)
@@ -195,7 +196,7 @@ export const authModule = {
                     })
 
                 if (response.data.status == 'ok') {
-                    console.log('response.data', response.data)
+                    console.log('axios response', response.data)
                     commit('setUserInfo', response.data.info)
                     commit('setAuth', true)
                     await dispatch('refreshGameInfo')
@@ -214,8 +215,8 @@ export const authModule = {
             }
 
             try {
-                if (baseConfig.USE_BITRIX_API) {
-                    const data = await apiActions.game.getState(state.authData.token);
+                const data = await apiActions.game.getState(state.authData.token);
+                if (data?.game) {
                     commit('setUserInfo', {
                         ...state.userInfo,
                         game_info: data.game,
