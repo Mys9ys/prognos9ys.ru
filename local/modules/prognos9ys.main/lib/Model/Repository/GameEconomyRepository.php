@@ -400,6 +400,36 @@ class GameEconomyRepository
         return $map;
     }
 
+    /**
+     * @return array<int, array>
+     */
+    public function getPendingXpListForUser(int $userId, ?string $status = null): array
+    {
+        if ($userId <= 0) {
+            return [];
+        }
+
+        $filter = ['=UF_USER_ID' => $userId];
+
+        if ($status !== null) {
+            $filter['=UF_STATUS'] = $status;
+        }
+
+        $dataClass = $this->getPendingXpDataClass();
+        $rows = [];
+        $response = $dataClass::getList([
+            'filter' => $filter,
+            'select' => ['*'],
+            'order' => ['UF_MATCH_ID' => 'ASC'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
     public function addPendingXp(array $fields): int
     {
         $dataClass = $this->getPendingXpDataClass();

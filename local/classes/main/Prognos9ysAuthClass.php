@@ -55,7 +55,7 @@ class Prognos9ysAuthClass
         if (!$this->data['login']) {
             $this->setResult('error', 'Токен не верный');
         } else {
-            $this->loadUserInfo(false);
+            $this->loadUserInfo();
             $this->setResult('ok', '', $this->userInfo);
         }
     }

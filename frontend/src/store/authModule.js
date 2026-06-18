@@ -120,6 +120,7 @@ export const authModule = {
                 originalToken,
             })
             dispatch('applyAuthUser', data.user)
+            await dispatch('refreshGameInfo')
         },
 
         async impersonateStop({ state, commit, dispatch }) {
@@ -135,6 +136,7 @@ export const authModule = {
                 originalToken: '',
             })
             dispatch('applyAuthUser', data.user)
+            await dispatch('refreshGameInfo')
         },
 
         async searchImpersonationUsers({ state }, query) {

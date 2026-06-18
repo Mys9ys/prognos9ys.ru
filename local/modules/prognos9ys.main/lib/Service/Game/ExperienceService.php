@@ -132,6 +132,98 @@ class ExperienceService
         return $map;
     }
 
+    /**
+     * @return array{count:int,points:float}
+     */
+    public function getPendingSummaryForUser(int $userId): array
+    {
+        if ($userId <= 0) {
+            return ['count' => 0, 'points' => 0.0];
+        }
+
+        $summary = $this->summarizePendingRows($userId);
+
+        if ($summary['count'] === 0) {
+            $this->syncPendingForUser($userId);
+            $summary = $this->summarizePendingRows($userId);
+        }
+
+        return $summary;
+    }
+
+    public function claimAll(int $userId): array
+    {
+        if ($userId <= 0) {
+            throw new ApiException('Некорректные параметры', 400);
+        }
+
+        $this->syncPendingForUser($userId);
+
+        $pendingRows = $this->repository->getPendingXpListForUser($userId, GameEconomyConfig::XP_STATUS_PENDING);
+        $oldProgress = $this->progressService->getSummary($userId);
+        $oldLevel = (int)$oldProgress['level'];
+        $totalPoints = 0.0;
+        $claimedMatches = [];
+
+        foreach ($pendingRows as $row) {
+            $matchId = (int)($row['UF_MATCH_ID'] ?? 0);
+
+            if ($matchId <= 0 || !$this->eventScope->isMatchEligible($matchId) || !$this->isMatchFinished($matchId)) {
+                continue;
+            }
+
+            if ((string)$row['UF_STATUS'] !== GameEconomyConfig::XP_STATUS_PENDING) {
+                continue;
+            }
+
+            $points = round((float)($row['UF_POINTS'] ?? 0), 1);
+
+            if ($points <= 0) {
+                continue;
+            }
+
+            $this->repository->updatePendingXp((int)$row['ID'], [
+                'UF_STATUS' => GameEconomyConfig::XP_STATUS_CLAIMED,
+                'UF_CLAIMED_AT' => new DateTime(),
+            ]);
+
+            $totalPoints += $points;
+            $claimedMatches[] = [
+                'match_id' => $matchId,
+                'points' => $points,
+            ];
+        }
+
+        if ($totalPoints <= 0) {
+            throw new ApiException('Нет доступного опыта для получения', 404);
+        }
+
+        $newProgress = $this->progressService->addXp($userId, $totalPoints);
+        $newLevel = (int)$newProgress['level'];
+        $levelRewards = (new LevelUpRewardService($this->repository))
+            ->grantForLevelRange($userId, $oldLevel, $newLevel);
+
+        $levelsGained = [];
+
+        if ($newLevel > $oldLevel) {
+            for ($level = $oldLevel + 1; $level <= $newLevel; $level++) {
+                $levelsGained[] = $level;
+            }
+        }
+
+        return [
+            'claimed_points' => round($totalPoints, 1),
+            'claimed_count' => count($claimedMatches),
+            'matches' => $claimedMatches,
+            'old_level' => $oldLevel,
+            'new_level' => $newLevel,
+            'levels_gained' => $levelsGained,
+            'level_up' => $newLevel > $oldLevel,
+            'level_rewards' => $levelRewards,
+            'progress' => $newProgress,
+        ];
+    }
+
     public function claim(int $userId, int $matchId): array
     {
         if ($userId <= 0 || $matchId <= 0) {
@@ -180,6 +272,67 @@ class ExperienceService
             'level_rewards' => $levelRewards,
             'progress' => $newProgress,
         ];
+    }
+
+    /**
+     * @return array{count:int,points:float}
+     */
+    private function summarizePendingRows(int $userId): array
+    {
+        $rows = $this->repository->getPendingXpListForUser($userId, GameEconomyConfig::XP_STATUS_PENDING);
+        $count = 0;
+        $points = 0.0;
+
+        foreach ($rows as $row) {
+            $matchId = (int)($row['UF_MATCH_ID'] ?? 0);
+
+            if ($matchId <= 0 || !$this->eventScope->isMatchEligible($matchId) || !$this->isMatchFinished($matchId)) {
+                continue;
+            }
+
+            $matchPoints = (float)($row['UF_POINTS'] ?? 0);
+
+            if ($matchPoints <= 0) {
+                continue;
+            }
+
+            $count++;
+            $points += $matchPoints;
+        }
+
+        return [
+            'count' => $count,
+            'points' => round($points, 1),
+        ];
+    }
+
+    private function syncPendingForUser(int $userId): void
+    {
+        if ($userId <= 0 || !Loader::includeModule('iblock')) {
+            return;
+        }
+
+        $response = \CIBlockElement::GetList(
+            [],
+            [
+                'IBLOCK_ID' => self::RESULT_IBLOCK_ID,
+                'PROPERTY_user_id' => $userId,
+            ],
+            false,
+            false,
+            ['PROPERTY_match_id', 'PROPERTY_all']
+        );
+
+        while ($row = $response->GetNext()) {
+            $matchId = (int)$row['PROPERTY_MATCH_ID_VALUE'];
+            $points = (float)$row['PROPERTY_ALL_VALUE'];
+
+            if ($matchId <= 0) {
+                continue;
+            }
+
+            $this->upsertPending($userId, $matchId, $points);
+        }
     }
 
     private function upsertPending(int $userId, int $matchId, float $points): void

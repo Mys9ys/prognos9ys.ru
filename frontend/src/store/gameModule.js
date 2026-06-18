@@ -25,6 +25,16 @@ export const gameModule = {
 
             return apiActions.game.claimXp(userToken, matchId);
         },
+        async claimAllXp(ctx) {
+            const userToken = ctx.rootState.auth?.authData?.token;
+
+            if (!userToken) {
+                throw new Error('Требуется авторизация');
+            }
+
+            const res = await apiActions.game.claimAllXp(userToken);
+            return applyGamePayload(ctx, res);
+        },
         async listBanks({ rootState }, limit = 30) {
             const userToken = rootState.auth?.authData?.token;
             if (!userToken) {

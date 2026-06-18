@@ -62,6 +62,17 @@
             <AppIcon name="rublius" :size="16" class="hm_money_icon" />
             <span class="hm_money_value">{{ displayWallet.rublius }}</span>
           </div>
+          <button
+              v-if="showClaimXpBtn"
+              type="button"
+              class="hm_claim_xp_btn hm_box"
+              :disabled="claimingAllXp"
+              @click="claimAllExperience"
+          >
+            <AppIcon name="xp" :size="14" class="hm_claim_xp_icon" />
+            <span class="hm_claim_xp_text">{{ claimingAllXp ? '...' : 'Собрать' }}</span>
+            <span class="hm_claim_xp_points">+{{ pendingXp.points }}</span>
+          </button>
         </div>
 
 
@@ -117,6 +128,9 @@ export default {
       menu: false,
       levelBannerVisible: false,
       levelBannerLevel: 0,
+      levelBannerFrom: 0,
+      claimingAllXp: false,
+      claimXpError: '',
     }
   },
 
@@ -129,6 +143,11 @@ export default {
     },
     currentLevel() {
       this.evaluateLevelBanner();
+    },
+    'impersonation.active'() {
+      if (this.token) {
+        this.refreshGameInfo();
+      }
     },
   },
 
@@ -195,7 +214,14 @@ export default {
       return Number(this.gameProgress?.level || 0);
     },
     levelBannerText() {
+      if (this.levelBannerFrom > 0 && this.levelBannerTo > this.levelBannerFrom) {
+        return `Поздравляем! Уровни ${this.levelBannerFrom}–${this.levelBannerTo}`;
+      }
+
       return `Поздравляем! Получен новый уровень: ${this.levelBannerLevel}`;
+    },
+    levelBannerTo() {
+      return this.levelBannerLevel;
     },
     wallet() {
       const wallet = this.userInfo?.game_info?.wallet || {};
@@ -207,6 +233,16 @@ export default {
         rublius,
       };
     },
+    pendingXp() {
+      const pending = this.userInfo?.game_info?.pending_xp || {};
+      return {
+        count: Number(pending.count ?? 0),
+        points: Number(pending.points ?? 0),
+      };
+    },
+    showClaimXpBtn() {
+      return !this.isGuest && this.pendingXp.count > 0;
+    },
   },
 
 
@@ -215,6 +251,8 @@ export default {
       loginRequest: 'auth/loginRequest',
       logoutVue: 'auth/logoutVue',
       refreshGameInfo: 'auth/refreshGameInfo',
+      claimAllXp: 'game/claimAllXp',
+      getNearest: 'mainPage/getNearest',
     }),
 
     logoutProfile() {
@@ -293,6 +331,7 @@ export default {
     },
     closeLevelBanner() {
       this.levelBannerVisible = false;
+      this.levelBannerFrom = 0;
       const state = this.readLevelBannerState() || { seenLevel: this.currentLevel, dismissedLevel: 0 };
       state.seenLevel = Math.max(Number(state.seenLevel || 0), this.currentLevel);
       state.dismissedLevel = Math.max(Number(state.dismissedLevel || 0), this.currentLevel);
@@ -303,6 +342,47 @@ export default {
         return;
       }
       this.$router.push(authRoute(this.$route.fullPath));
+    },
+    async claimAllExperience() {
+      if (this.claimingAllXp || !this.showClaimXpBtn) {
+        return;
+      }
+
+      this.claimingAllXp = true;
+      this.claimXpError = '';
+
+      try {
+        const result = await this.claimAllXp();
+        this.$store.state.mainPage.setToken.userToken = this.token;
+        await this.getNearest();
+
+        if (result?.level_up) {
+          this.showBulkLevelBanner(result.old_level, result.new_level);
+        } else {
+          this.evaluateLevelBanner();
+        }
+      } catch (error) {
+        this.claimXpError = error.message || 'Не удалось собрать опыт';
+      } finally {
+        this.claimingAllXp = false;
+      }
+    },
+    showBulkLevelBanner(oldLevel, newLevel) {
+      const previousLevel = Number(oldLevel ?? 0);
+      const nextLevel = Number(newLevel ?? 0);
+
+      if (nextLevel <= previousLevel) {
+        this.evaluateLevelBanner();
+        return;
+      }
+
+      this.levelBannerFrom = previousLevel + 1;
+      this.levelBannerLevel = nextLevel;
+      this.levelBannerVisible = true;
+
+      const state = this.readLevelBannerState() || { seenLevel: 0, dismissedLevel: 0 };
+      state.seenLevel = Math.max(Number(state.seenLevel || 0), nextLevel);
+      this.saveLevelBannerState(state);
     },
   },
 }
@@ -597,6 +677,41 @@ export default {
       justify-content: flex-end;
       color: @valleyball;
       text-align: right;
+    }
+
+    .hm_claim_xp_btn {
+      width: 100%;
+      height: 22px;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 4px;
+      padding: 0 6px;
+      border: 0;
+      cursor: pointer;
+      color: @orange;
+      font-size: 11px;
+      font-weight: 600;
+      box-sizing: border-box;
+
+      &:disabled {
+        opacity: 0.7;
+        cursor: default;
+      }
+    }
+
+    .hm_claim_xp_icon {
+      flex-shrink: 0;
+    }
+
+    .hm_claim_xp_text {
+      line-height: 1;
+    }
+
+    .hm_claim_xp_points {
+      line-height: 1;
+      color: @YesWrite2;
     }
 
     .hm_money_icon {

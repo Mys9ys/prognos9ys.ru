@@ -66,6 +66,7 @@ class GameProfileService
             return [
                 'wallet' => $this->walletService->getWalletSummary($userId),
                 'progress' => $this->progressService->getSummary($userId),
+                'pending_xp' => (new ExperienceService())->getPendingSummaryForUser($userId),
                 'treasure' => $this->treasureService->getTreasureSummary($userId),
                 'bank' => $bankBlock,
             ];

@@ -24,6 +24,7 @@ class GameController extends BaseController
         return [
             'getState' => $this->getDefaultConfigureForPostToken(),
             'claimXp' => $this->getDefaultConfigureForPostToken(),
+            'claimAllXp' => $this->getDefaultConfigureForPostToken(),
             'getLevelTiers' => $this->getDefaultConfigureForPostPublic(),
             'getWealthRating' => $this->getDefaultConfigureForPostPublic(),
             'getGameBank' => $this->getDefaultConfigureForPostToken(),
@@ -64,6 +65,21 @@ class GameController extends BaseController
         $result = (new ExperienceService())->claim($userId, $matchId);
 
         return array_merge(['status' => 'ok'], $result);
+    }
+
+    public function claimAllXpAction(): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        $result = (new ExperienceService())->claimAll($userId);
+
+        return array_merge(['status' => 'ok'], $result, [
+            'game' => (new GameProfileService())->getSummary($userId),
+        ]);
     }
 
     public function getLevelTiersAction(): array

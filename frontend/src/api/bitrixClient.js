@@ -124,6 +124,10 @@ export const apiActions = {
             'prognos9ys:main.GameController.claimXp',
             { userToken, matchId }
         ),
+        claimAllXp: (userToken) => runBitrixAction(
+            'prognos9ys:main.GameController.claimAllXp',
+            { userToken }
+        ),
         getLevelTiers: () => runBitrixAction(
             'prognos9ys:main.GameController.getLevelTiers',
             {}
