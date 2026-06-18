@@ -417,10 +417,19 @@ class CalcFootballPrognosisResult
 
         try {
             $betService = new \Prognos9ys\Main\Service\Game\BetService();
-            $betService->resetMatchBetsForRecalc($matchId);
-            $betService->backfillBetsFromPrognosis($matchId);
-            $betService->settleMatch($matchId);
+            $deleted = $betService->resetMatchBetsForRecalc($matchId);
+            $backfill = $betService->backfillBetsFromPrognosis($matchId);
+            $settle = $betService->settleMatch($matchId);
             (new \Prognos9ys\Main\Service\Game\BankSettlementService())->onMatchSettled($matchId);
+            error_log(sprintf(
+                'CalcFootballPrognosisResult [betSettlement] match=%d %s',
+                $matchId,
+                json_encode([
+                    'deleted' => $deleted,
+                    'backfill' => $backfill,
+                    'settle' => $settle,
+                ], JSON_UNESCAPED_UNICODE)
+            ));
         } catch (\Throwable $exception) {
             $this->logGameEconomyError('betSettlement', $matchId, $exception);
         }

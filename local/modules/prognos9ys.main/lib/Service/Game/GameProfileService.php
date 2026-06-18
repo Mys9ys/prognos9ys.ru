@@ -34,6 +34,12 @@ class GameProfileService
         }
 
         try {
+            (new WalletService())->grantStarterPackIfMissing($userId);
+        } catch (\Throwable $exception) {
+            // не блокируем профиль
+        }
+
+        try {
             $myBank = $includeBankDetails ? $this->bankService->getMyBank($userId) : null;
             $hasBank = $includeBankDetails
                 ? $myBank !== null

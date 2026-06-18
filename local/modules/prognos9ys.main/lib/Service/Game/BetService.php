@@ -194,32 +194,47 @@ class BetService
         }
     }
 
-    public function settleMatch(int $matchId): void
+    /**
+     * @return array{pending:int,winners:int,losers:int,total_payout:float,official_outcome:string}
+     */
+    public function settleMatch(int $matchId): array
     {
+        $report = [
+            'pending' => 0,
+            'winners' => 0,
+            'losers' => 0,
+            'total_payout' => 0.0,
+            'official_outcome' => '',
+        ];
+
         if ($matchId <= 0 || !Loader::includeModule('iblock')) {
-            return;
+            return $report;
         }
 
         $matchRow = $this->loadMatchRow($matchId);
         if (!$matchRow) {
-            return;
+            return $report;
         }
 
         $eventId = (int)$matchRow['PROPERTY_EVENTS_VALUE'];
         $matchNumber = (int)$matchRow['PROPERTY_NUMBER_VALUE'];
         if (!$this->scopeService->isMatchInScope($eventId, $matchNumber)) {
-            return;
+            return $report;
         }
 
-        $officialOutcome = $this->normalizeOutcome($matchRow['PROPERTY_RESULT_VALUE'] ?? null);
+        $officialOutcome = $this->resolveOfficialOutcome($matchRow);
         if ($officialOutcome === null) {
-            return;
+            return $report;
         }
+
+        $report['official_outcome'] = $officialOutcome;
 
         $bets = $this->repository->getPendingMatchBetsByMatch($matchId);
         if (!$bets) {
-            return;
+            return $report;
         }
+
+        $report['pending'] = count($bets);
 
         $pool = 0.0;
         $winners = [];
@@ -284,12 +299,18 @@ class BetService
                 'UF_SETTLED_AT' => $now,
                 'UF_UPDATED_AT' => $now,
             ]);
+            $report['losers']++;
         }
 
         $leftover = round($pool - $totalPayout, 1);
         if ($leftover > 0) {
             $this->addToBank(GameEconomyConfig::GAME_BANK_CODE_FOOTBALL_PARIMUTUEL, $leftover);
         }
+
+        $report['winners'] = $winnersCount;
+        $report['total_payout'] = $totalPayout;
+
+        return $report;
     }
 
     /**
@@ -310,31 +331,38 @@ class BetService
     }
 
     /**
-     * Backfill financial bets for an already finished match based on existing prognosis records.
-     * Used for old matches that existed before the betting release.
+     * @return array{created:int,skipped_afford:int,skipped_outcome:int,skipped_exists:int,errors:int}
      */
-    public function backfillBetsFromPrognosis(int $matchId): void
+    public function backfillBetsFromPrognosis(int $matchId): array
     {
+        $stats = [
+            'created' => 0,
+            'skipped_afford' => 0,
+            'skipped_outcome' => 0,
+            'skipped_exists' => 0,
+            'errors' => 0,
+        ];
+
         if ($matchId <= 0 || !Loader::includeModule('iblock')) {
-            return;
+            return $stats;
         }
 
         $matchRow = $this->loadMatchRow($matchId);
         if (!$matchRow) {
-            return;
+            return $stats;
         }
 
         $eventId = (int)$matchRow['PROPERTY_EVENTS_VALUE'];
         $matchNumber = (int)$matchRow['PROPERTY_NUMBER_VALUE'];
 
         if (!$this->scopeService->isMatchInScope($eventId, $matchNumber)) {
-            return;
+            return $stats;
         }
 
         // Prognosis iblock id by CODE to avoid hardcoding.
         $prognosisIbId = (int)(\CIBlock::GetList([], ['CODE' => 'prognosis'], false)->Fetch()['ID'] ?? 0);
         if ($prognosisIbId <= 0) {
-            return;
+            return $stats;
         }
 
         $rs = \CIBlockElement::GetList(
@@ -350,6 +378,8 @@ class BetService
                 'PROPERTY_user_id',
                 'PROPERTY_result',
                 'PROPERTY_diff',
+                'PROPERTY_goal_home',
+                'PROPERTY_goal_guest',
                 'PROPERTY_events',
                 'PROPERTY_number',
             ]
@@ -364,18 +394,22 @@ class BetService
             }
 
             try {
+                $this->walletService->grantStarterPackIfMissing($userId);
                 $this->walletService->ensureWallet($userId);
 
                 if ($this->repository->getMatchBet($userId, $matchId)) {
+                    $stats['skipped_exists']++;
                     continue;
                 }
 
                 $outcome = $this->resolvePrognosisOutcome($row);
                 if ($outcome === null) {
+                    $stats['skipped_outcome']++;
                     continue;
                 }
 
                 if (!$this->canUserAffordStake($userId)) {
+                    $stats['skipped_afford']++;
                     continue;
                 }
 
@@ -399,11 +433,14 @@ class BetService
                     'UF_CREATED_AT' => $now,
                     'UF_UPDATED_AT' => $now,
                 ]);
+                $stats['created']++;
             } catch (\Throwable $exception) {
-                // Один пользователь не должен блокировать ставки остальных.
+                $stats['errors']++;
                 continue;
             }
         }
+
+        return $stats;
     }
 
     /**
@@ -458,6 +495,48 @@ class BetService
         }
 
         $diff = (int)($prognosisRow['PROPERTY_DIFF_VALUE'] ?? 0);
+        if ($diff !== 0 || ($prognosisRow['PROPERTY_DIFF_VALUE'] ?? '') !== '') {
+            if ($diff > 0) {
+                return 'п1';
+            }
+            if ($diff === 0) {
+                return 'н';
+            }
+
+            return 'п2';
+        }
+
+        $home = (int)($prognosisRow['PROPERTY_GOAL_HOME_VALUE'] ?? 0);
+        $guest = (int)($prognosisRow['PROPERTY_GOAL_GUEST_VALUE'] ?? 0);
+        $goalDiff = $home - $guest;
+        if ($goalDiff > 0) {
+            return 'п1';
+        }
+        if ($goalDiff === 0) {
+            return 'н';
+        }
+
+        if ($goalDiff < 0) {
+            return 'п2';
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string, mixed> $matchRow
+     */
+    private function resolveOfficialOutcome(array $matchRow): ?string
+    {
+        $outcome = $this->normalizeOutcome($matchRow['PROPERTY_RESULT_VALUE'] ?? null);
+        if ($outcome !== null) {
+            return $outcome;
+        }
+
+        $home = (int)($matchRow['PROPERTY_GOAL_HOME_VALUE'] ?? 0);
+        $guest = (int)($matchRow['PROPERTY_GOAL_GUEST_VALUE'] ?? 0);
+        $diff = $home - $guest;
+
         if ($diff > 0) {
             return 'п1';
         }
@@ -482,7 +561,15 @@ class BetService
             ],
             false,
             false,
-            ['ID', 'ACTIVE', 'PROPERTY_events', 'PROPERTY_number', 'PROPERTY_result']
+            [
+                'ID',
+                'ACTIVE',
+                'PROPERTY_events',
+                'PROPERTY_number',
+                'PROPERTY_result',
+                'PROPERTY_goal_home',
+                'PROPERTY_goal_guest',
+            ]
         )->GetNext();
 
         return $row ?: null;
@@ -491,6 +578,20 @@ class BetService
     private function normalizeOutcome($value): ?string
     {
         $outcome = mb_strtolower(trim((string)$value));
+        $aliases = [
+            'p1' => 'п1',
+            'p2' => 'п2',
+            '1' => 'п1',
+            '2' => 'п2',
+            'x' => 'н',
+            'n' => 'н',
+            'draw' => 'н',
+        ];
+
+        if (isset($aliases[$outcome])) {
+            $outcome = $aliases[$outcome];
+        }
+
         if (in_array($outcome, ['п1', 'н', 'п2'], true)) {
             return $outcome;
         }

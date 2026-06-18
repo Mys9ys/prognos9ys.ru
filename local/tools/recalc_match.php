@@ -17,6 +17,8 @@ if (!\Bitrix\Main\Loader::includeModule('iblock')) {
     exit(1);
 }
 
+\Bitrix\Main\Loader::includeModule('prognos9ys.main');
+
 $matchId = (int)($_SERVER['argv'][1] ?? 0);
 if ($matchId <= 0) {
     echo "Usage: php recalc_match.php <matchId>\n";
@@ -25,4 +27,5 @@ if ($matchId <= 0) {
 
 new \CalcFootballPrognosisResult(['matchId' => $matchId]);
 echo "recalc done: {$matchId}\n";
+echo "Run: php local/tools/diagnose_match_economy.php <matchNumber>\n";
 
