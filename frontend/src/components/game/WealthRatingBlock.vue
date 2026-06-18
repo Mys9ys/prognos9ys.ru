@@ -409,8 +409,12 @@ export default {
 
       img {
         width: 100%;
+        height: 28px;
         border-radius: 50%;
         border: 1px solid @YesWrite;
+        object-fit: cover;
+        object-position: center 14%;
+        background: @DarkColorBG;
       }
     }
 

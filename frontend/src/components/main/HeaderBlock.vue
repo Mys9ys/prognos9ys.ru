@@ -1,6 +1,6 @@
 <template>
 <!--  <SubscribeBtn></SubscribeBtn>-->
-  <div class="header_wrapper">
+  <div class="header_wrapper" :class="{'header_impersonating': impersonation.active}">
     <div class="h_main_block">
       <div class="hm_left_block">
         <div class="hm_achieve_block">
@@ -330,6 +330,10 @@ export default {
 
   margin-bottom: 44px;
 
+  &.header_impersonating {
+    margin-bottom: 58px;
+  }
+
   border-radius: 0 0 5px 5px;
 
   z-index: 15;
@@ -367,8 +371,12 @@ export default {
     left: 0;
     right: 0;
     bottom: -40px;
-    z-index: 14;
+    z-index: 30;
     margin: 0;
+  }
+
+  &.header_impersonating .hm_impersonation {
+    bottom: -54px;
   }
 
   .h_header_block {
@@ -457,7 +465,7 @@ export default {
       width: 120px;
       position: absolute;
       left: 50%;
-      top: 0px;
+      top: -2px;
       transform: translateX(-50%);
       z-index: 5;
 

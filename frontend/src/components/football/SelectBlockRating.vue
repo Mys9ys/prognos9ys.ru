@@ -194,7 +194,11 @@ export default {
       img{
         border: 1px solid @YesWrite;
         width: 100%;
+        height: 36px;
         border-radius: 50%;
+        object-fit: cover;
+        object-position: center 14%;
+        background: @DarkColorBG;
       }
     }
     .user_nick{

@@ -5,9 +5,9 @@
       <div class="body">{{errorText}}</div>
     </div>
     <div class="ava_block">
-      <div class="background" :class="{'error': error}">
-        <img v-if="img" class="icon_temp icon" :src="url+img">
-        <img v-else class="icon ava_fallback" src="@/assets/img/no_logo.png">
+      <div class="background" :class="{'error': error, 'background_fallback': !img}">
+        <img v-if="img" class="icon icon_photo" :src="url+img" alt="">
+        <img v-else class="icon ava_fallback" src="@/assets/img/no_logo.png" alt="">
       </div>
       <input class="file_container"
              type="file" id="file"
@@ -150,32 +150,37 @@ export default {
   .background {
     width: 120px;
     height: 120px;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-
-    /* Согласие, кнопка прозр */
+    position: relative;
     background: @BackGreenColor;
     border-radius: 100px;
     overflow: hidden;
     border: 4px solid @DarkColorBG;
-    &.error{
+
+    &.error {
       filter: grayscale(100%);
     }
 
-    .icon{
-      width: 120px;
-      height: 120px;
-      overflow: hidden;
+    &.background_fallback {
+      background: @DarkColorBG;
+    }
+
+    .icon {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
       object-fit: cover;
-      object-position: center;
+      object-position: center center;
+    }
+
+    .icon_photo {
+      object-position: center top;
     }
 
     .ava_fallback {
-      object-fit: contain;
-      padding: 10px;
-      box-sizing: border-box;
+      object-position: center 10%;
+      transform: scale(1.38);
     }
   }
 
