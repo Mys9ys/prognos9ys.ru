@@ -181,9 +181,11 @@ export default {
     }
 
     .ava_fallback {
-      object-fit: cover;
-      object-position: center 12%;
-      transform: scale(1.12);
+      object-fit: contain;
+      object-position: center center;
+      transform: none;
+      padding: 4px;
+      box-sizing: border-box;
     }
   }
 
