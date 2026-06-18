@@ -23,6 +23,7 @@ if exist "%MOB_APP%\js" rd /s /q "%MOB_APP%\js"
 if exist "%MOB_APP%\css" rd /s /q "%MOB_APP%\css"
 
 robocopy "%FRONTEND%\dist" "%MOB_APP%" /E /XF .htaccess /XD ajax /NFL /NDL /NJH /NJS /nc /ns /np
+copy /Y "%FRONTEND%\src\assets\img\no_logo.png" "%MOB_APP%\img\no_logo.png" >nul
 robocopy "%MOB_APP_AJAX%" "%MOB_APP%\ajax" /E /NFL /NDL /NJH /NJS /nc /ns /np
 if exist "%FRONTEND%\dist\ajax" (
     robocopy "%FRONTEND%\dist\ajax" "%MOB_APP%\ajax" /E /NFL /NDL /NJH /NJS /nc /ns /np

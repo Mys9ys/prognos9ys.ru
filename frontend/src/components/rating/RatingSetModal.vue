@@ -47,7 +47,7 @@
           <input type="checkbox" :value="user.id" v-model="form.userIds">
           <span class="user_ava">
             <img :src="avatarUrl(user)" alt="" v-if="user.img">
-            <img src="@/assets/img/no_logo.png" alt="" v-else>
+            <img :src="defaultAvatar" alt="" v-else>
           </span>
           <span class="user_name">{{ user.name }}</span>
         </label>
@@ -79,6 +79,7 @@
 
 <script>
 import { mapActions } from 'vuex';
+import { DEFAULT_AVATAR_URL } from '@/utils/defaultAvatar';
 
 export default {
   name: 'RatingSetModal',
@@ -116,6 +117,7 @@ export default {
       },
       saving: false,
       error: '',
+      defaultAvatar: DEFAULT_AVATAR_URL,
     };
   },
   computed: {

@@ -26,7 +26,7 @@
               <td class="pr_table_col user_cell" v-if="item.user">
               <span class="user_ava">
                 <img :src="url + item.user.img" alt="" v-if="item.user.img">
-                <img src="@/assets/img/no_logo.png" alt="" v-else>
+                <img :src="defaultAvatar" alt="" v-else>
               </span>
               <div class="user_nick">
                 {{ item.user.name }}
@@ -60,6 +60,7 @@
 <script>
 import { mapActions, mapState } from 'vuex'
 import AppIcon from '@/components/ui/AppIcon.vue'
+import { DEFAULT_AVATAR_URL } from '@/utils/defaultAvatar'
 
 export default {
   name: "SelectBlockRating",
@@ -76,6 +77,7 @@ export default {
   data(){
     return{
       url:  'https://prognos9ys.ru',
+      defaultAvatar: DEFAULT_AVATAR_URL,
       impersonateError: '',
     }
   },
@@ -197,8 +199,8 @@ export default {
         height: 36px;
         border-radius: 50%;
         object-fit: cover;
-        object-position: center 14%;
-        background: @DarkColorBG;
+        object-position: center 12%;
+        background: #ffffff;
       }
     }
     .user_nick{

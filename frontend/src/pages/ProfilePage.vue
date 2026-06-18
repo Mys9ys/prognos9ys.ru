@@ -4,7 +4,7 @@
   <div class="user_block">
     <div class="ava_block">
       <img class="ava" :src="url+profileData.info.img" alt="" v-if="profileData.info.img">
-      <img class="ava" src="@/assets/img/no_logo.png" alt="" v-else>
+      <img class="ava" :src="defaultAvatar" alt="" v-else>
     </div>
     <div class="right_block">
       <div class="right_el"><div class="title">Ник:</div> <span> {{profileData.info.NAME}}</span></div>
@@ -48,6 +48,7 @@ import PreLoader from "@/components/main/PreLoader";
 import PageHeader from "@/components/main/PageHeader";
 import ProfileEventBody from "@/components/football/ProfileEventBody";
 import ProfileTitle from "@/components/profile/ProfileTitle";
+import { DEFAULT_AVATAR_URL } from "@/utils/defaultAvatar";
 
 export default {
   name: "ProfilePage",
@@ -60,6 +61,7 @@ export default {
   data() {
     return {
       url:  'https://prognos9ys.ru',
+      defaultAvatar: DEFAULT_AVATAR_URL,
       profileLoader: false,
       activeEvent: ''
     }

@@ -7,7 +7,7 @@
     <div class="ava_block">
       <div class="background" :class="{'error': error, 'background_fallback': !img}">
         <img v-if="img" class="icon icon_photo" :src="url+img" alt="">
-        <img v-else class="icon ava_fallback" src="@/assets/img/no_logo.png" alt="">
+        <img v-else class="icon ava_fallback" :src="defaultAvatar" alt="">
       </div>
       <input class="file_container"
              type="file" id="file"
@@ -20,11 +20,13 @@
 
 <script>
 import {mapActions, mapMutations, mapState} from "vuex";
+import {DEFAULT_AVATAR_URL} from "@/utils/defaultAvatar";
 
 export default {
   name: "AvaComponent",
   data() {
     return {
+      defaultAvatar: DEFAULT_AVATAR_URL,
       // url:  window.location.href.includes('localhost') ? 'http://prog.work' : 'https://prognos9ys.ru',
       url: 'https://prognos9ys.ru',
       // error: null
@@ -161,7 +163,7 @@ export default {
     }
 
     &.background_fallback {
-      background: @DarkColorBG;
+      background: #ffffff;
     }
 
     .icon {
@@ -179,8 +181,9 @@ export default {
     }
 
     .ava_fallback {
-      object-position: center 10%;
-      transform: scale(1.38);
+      object-fit: cover;
+      object-position: center 12%;
+      transform: scale(1.12);
     }
   }
 

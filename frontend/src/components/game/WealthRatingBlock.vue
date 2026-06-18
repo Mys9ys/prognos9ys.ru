@@ -62,7 +62,7 @@
           <td class="user_cell">
             <span class="user_ava">
               <img :src="url + el.user.img" alt="" v-if="el.user?.img">
-              <img src="@/assets/img/no_logo.png" alt="" v-else>
+              <img :src="defaultAvatar" alt="" v-else>
             </span>
             <div class="user_nick">{{ el.user?.name || '—' }}</div>
             <div class="user_actions" v-if="el.user?.id">
@@ -95,6 +95,7 @@ import { mapActions, mapState } from 'vuex';
 import PreLoader from '@/components/main/PreLoader';
 import AppIcon from '@/components/ui/AppIcon.vue';
 import { apiActions } from '@/api/bitrixClient';
+import { DEFAULT_AVATAR_URL } from '@/utils/defaultAvatar';
 
 export default {
   name: 'WealthRatingBlock',
@@ -108,6 +109,7 @@ export default {
       ratings: [],
       gameBank: null,
       url: 'https://prognos9ys.ru',
+      defaultAvatar: DEFAULT_AVATAR_URL,
     };
   },
   computed: {
@@ -413,8 +415,8 @@ export default {
         border-radius: 50%;
         border: 1px solid @YesWrite;
         object-fit: cover;
-        object-position: center 14%;
-        background: @DarkColorBG;
+        object-position: center 12%;
+        background: #ffffff;
       }
     }
 
