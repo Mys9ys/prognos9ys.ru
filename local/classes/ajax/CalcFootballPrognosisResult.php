@@ -388,32 +388,41 @@ class CalcFootballPrognosisResult
             return;
         }
 
+        $matchId = (int)$this->data['matchId'];
+
         try {
-            $matchId = (int)$this->data['matchId'];
             (new \Prognos9ys\Main\Service\Game\ExperienceService())->syncPendingForMatch($matchId);
+        } catch (\Throwable $exception) {
+            $this->logGameEconomyError('syncPendingForMatch', $matchId, $exception);
+        }
 
-            $eventId = 0;
-            if (Loader::includeModule('iblock')) {
-                $matchRow = \CIBlockElement::GetList(
-                    [],
-                    ['IBLOCK_ID' => 2, 'ID' => $matchId],
-                    false,
-                    false,
-                    ['PROPERTY_events']
-                )->GetNext();
-                $eventId = (int)($matchRow['PROPERTY_EVENTS_VALUE'] ?? 0);
-            }
-            if ($eventId > 0) {
+        $eventId = 0;
+        if (Loader::includeModule('iblock')) {
+            $matchRow = \CIBlockElement::GetList(
+                [],
+                ['IBLOCK_ID' => 2, 'ID' => $matchId],
+                false,
+                false,
+                ['PROPERTY_events']
+            )->GetNext();
+            $eventId = (int)($matchRow['PROPERTY_EVENTS_VALUE'] ?? 0);
+        }
+        if ($eventId > 0) {
+            try {
                 \Prognos9ys\Main\Service\Football\FootballRatingService::clearEventCache($eventId);
+            } catch (\Throwable $exception) {
+                $this->logGameEconomyError('clearEventCache', $matchId, $exception);
             }
+        }
 
+        try {
             $betService = new \Prognos9ys\Main\Service\Game\BetService();
             $betService->resetMatchBetsForRecalc($matchId);
             $betService->backfillBetsFromPrognosis($matchId);
             $betService->settleMatch($matchId);
             (new \Prognos9ys\Main\Service\Game\BankSettlementService())->onMatchSettled($matchId);
         } catch (\Throwable $exception) {
-            // Не блокируем пересчёт результатов матча.
+            $this->logGameEconomyError('betSettlement', $matchId, $exception);
         }
     }
 
@@ -421,6 +430,16 @@ class CalcFootballPrognosisResult
     {
         $this->arResult['status'] = $status;
         $this->arResult['mes'] = $mes;
+    }
+
+    private function logGameEconomyError(string $stage, int $matchId, \Throwable $exception): void
+    {
+        error_log(sprintf(
+            'CalcFootballPrognosisResult [%s] match=%d: %s',
+            $stage,
+            $matchId,
+            $exception->getMessage()
+        ));
     }
 
     public function result()

@@ -191,6 +191,44 @@ class GameEconomyRepository
         return (bool)$row;
     }
 
+    /**
+     * @return array<int, array>
+     */
+    public function getBankWalletTxByUserId(int $userId, int $limit = 100): array
+    {
+        if ($userId <= 0) {
+            return [];
+        }
+
+        $dataClass = $this->getWalletTxDataClass();
+        $rows = [];
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '@UF_REASON' => [
+                    'bank_reserve_lock',
+                    'bank_reserve_unlock',
+                    'bank_deposit',
+                    'bank_deposit_return',
+                    'bank_deposit_return_half',
+                    'bank_deposit_interest',
+                    'bank_loan',
+                    'bank_loan_repay',
+                    'bank_loan_interest',
+                ],
+            ],
+            'order' => ['UF_CREATED_AT' => 'DESC', 'ID' => 'DESC'],
+            'limit' => max(1, min(200, $limit)),
+            'select' => ['*'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
     public function getProgressByUserId(int $userId): ?array
     {
         $dataClass = $this->getUserProgressDataClass();
@@ -1095,6 +1133,11 @@ class GameEconomyRepository
         ]);
     }
 
+    public function getDepositsByBankId(int $bankId): array
+    {
+        return $this->getDepositsByFilter(['=UF_BANK_ID' => $bankId], ['ID' => 'DESC']);
+    }
+
     public function getDepositsByUserId(int $userId): array
     {
         return $this->getDepositsByFilter(['=UF_USER_ID' => $userId], ['ID' => 'DESC']);
@@ -1179,6 +1222,11 @@ class GameEconomyRepository
                 GameEconomyConfig::CONTRACT_STATUS_EXTENDED,
             ],
         ]);
+    }
+
+    public function getLoansByBankId(int $bankId): array
+    {
+        return $this->getLoansByFilter(['=UF_BANK_ID' => $bankId], ['ID' => 'DESC']);
     }
 
     public function getLoansByUserId(int $userId): array

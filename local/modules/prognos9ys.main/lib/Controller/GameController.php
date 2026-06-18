@@ -7,6 +7,7 @@ use Prognos9ys\Main\Service\Auth\TokenAuthService;
 use Prognos9ys\Main\Service\Game\AchievementService;
 use Prognos9ys\Main\Service\Game\BankDepositService;
 use Prognos9ys\Main\Service\Game\BankLoanService;
+use Prognos9ys\Main\Service\Game\BankOperationsService;
 use Prognos9ys\Main\Service\Game\ExperienceService;
 use Prognos9ys\Main\Service\Game\GameBankService;
 use Prognos9ys\Main\Service\Game\GameEconomyConfig;
@@ -29,6 +30,7 @@ class GameController extends BaseController
             'listBanks' => $this->getDefaultConfigureForPostToken(),
             'getMyBank' => $this->getDefaultConfigureForPostToken(),
             'getMyContracts' => $this->getDefaultConfigureForPostToken(),
+            'getBankOperations' => $this->getDefaultConfigureForPostToken(),
             'openBank' => $this->getDefaultConfigureForPostToken(),
             'createDeposit' => $this->getDefaultConfigureForPostToken(),
             'takeLoan' => $this->getDefaultConfigureForPostToken(),
@@ -132,6 +134,19 @@ class GameController extends BaseController
             'status' => 'ok',
             'deposits' => (new BankDepositService())->getMyContracts($userId),
             'loans' => (new BankLoanService())->getMyContracts($userId),
+        ];
+    }
+
+    public function getBankOperationsAction(int $limit = 100): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        return [
+            'status' => 'ok',
+            'operations' => (new BankOperationsService())->getForUser($userId, $limit),
         ];
     }
 

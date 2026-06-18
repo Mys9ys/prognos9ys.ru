@@ -48,6 +48,37 @@
       </div>
 
       <div class="section">
+        <div class="section_title">Операции</div>
+        <div class="ops_tabs">
+          <button
+            v-for="tab in operationTabs"
+            :key="tab.id"
+            class="ops_tab"
+            :class="{ active: activeOpsTab === tab.id }"
+            @click="activeOpsTab = tab.id"
+          >{{ tab.label }}</button>
+        </div>
+        <button class="btn secondary" :disabled="loading" @click="loadOperations">Обновить</button>
+        <div v-if="!filteredOperations.length" class="hint">Пока нет операций в этой категории</div>
+        <div class="operation" v-for="op in filteredOperations" :key="op.id">
+          <div class="operation_main">
+            <span class="operation_label">{{ op.label }}</span>
+            <span class="operation_amount" :class="op.direction">
+              {{ formatSignedAmount(op.amount) }}
+              <AppIcon name="prognobak" :size="14" />
+            </span>
+          </div>
+          <div class="meta">
+            {{ op.at }}
+            <span v-if="op.scope === 'bank'" class="badge">банк</span>
+            <span v-if="op.balance_after !== null && op.balance_after !== undefined">
+              · баланс {{ op.balance_after }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
         <div class="section_title">Мои контракты</div>
         <div v-if="!contracts.deposits.length && !contracts.loans.length" class="hint">Нет активных вкладов и займов</div>
         <div class="contract" v-for="d in contracts.deposits" :key="'d' + d.id">
@@ -111,10 +142,25 @@ export default {
       message: '',
       banks: [],
       contracts: { deposits: [], loans: [] },
+      operations: [],
+      activeOpsTab: 'all',
+      operationTabs: [
+        { id: 'all', label: 'Все' },
+        { id: 'deposits', label: 'Вклады' },
+        { id: 'loans', label: 'Займы' },
+        { id: 'returns', label: 'Возвраты' },
+      ],
     };
   },
   computed: {
     ...mapState('auth', ['authData']),
+    filteredOperations() {
+      if (this.activeOpsTab === 'all') {
+        return this.operations;
+      }
+
+      return this.operations.filter((op) => op.category === this.activeOpsTab);
+    },
     visible() {
       return !!this.authData?.token;
     },
@@ -150,11 +196,16 @@ export default {
     },
   },
   methods: {
-    ...mapActions('game', ['listBanks', 'getMyContracts', 'openBank', 'createDeposit', 'takeLoan', 'closeBank']),
+    ...mapActions('game', ['listBanks', 'getMyContracts', 'getBankOperations', 'openBank', 'createDeposit', 'takeLoan', 'closeBank']),
     ...mapActions('auth', ['refreshGameInfo']),
+    formatSignedAmount(amount) {
+      const value = Number(amount ?? 0);
+      const fixed = value.toFixed(1).replace(/\.0$/, '');
+      return value > 0 ? `+${fixed}` : fixed;
+    },
     async refresh() {
       this.error = '';
-      await Promise.all([this.loadBanks(), this.loadContracts()]);
+      await Promise.all([this.loadBanks(), this.loadContracts(), this.loadOperations()]);
     },
     async loadBanks() {
       try {
@@ -173,6 +224,14 @@ export default {
         };
       } catch (e) {
         this.error = e.message || 'Не удалось загрузить контракты';
+      }
+    },
+    async loadOperations() {
+      try {
+        const res = await this.getBankOperations();
+        this.operations = res.operations || [];
+      } catch (e) {
+        this.error = e.message || 'Не удалось загрузить операции';
       }
     },
     async onOpenBank() {
@@ -308,12 +367,61 @@ export default {
   color: @colorBlur;
 }
 
-.contract, .bank_card {
+.contract, .bank_card, .operation {
   margin-top: 6px;
   padding: 6px;
   background: @darkbg;
   border-radius: 4px;
   font-size: 12px;
+}
+
+.ops_tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.ops_tab {
+  background: @darkbg;
+  color: @colorText;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 5px 8px;
+  font-size: 11px;
+  cursor: pointer;
+
+  &.active {
+    background: @orange;
+    color: #fff;
+  }
+}
+
+.operation_main {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.operation_label {
+  flex: 1;
+}
+
+.operation_amount {
+  font-weight: 600;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+
+  &.in {
+    color: #8ddf8d;
+  }
+
+  &.out {
+    color: #f0a0a0;
+  }
 }
 
 .badge {

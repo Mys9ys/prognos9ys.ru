@@ -39,6 +39,13 @@ export const gameModule = {
             }
             return apiActions.game.getMyContracts(userToken);
         },
+        async getBankOperations({ rootState }, limit = 100) {
+            const userToken = rootState.auth?.authData?.token;
+            if (!userToken) {
+                throw new Error('Требуется авторизация');
+            }
+            return apiActions.game.getBankOperations(userToken, limit);
+        },
         async openBank(ctx) {
             const userToken = ctx.rootState.auth?.authData?.token;
             if (!userToken) {

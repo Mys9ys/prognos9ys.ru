@@ -294,11 +294,16 @@ class BetService
 
     /**
      * Удалить все ставки матча перед повторным пересчётом.
+     * Сначала откатывает списания/выплаты по кошельку, чтобы пересчёт был идемпотентным.
      */
     public function resetMatchBetsForRecalc(int $matchId): int
     {
         if ($matchId <= 0) {
             return 0;
+        }
+
+        foreach ($this->repository->getMatchBetsByMatch($matchId) as $bet) {
+            $this->reverseBetWalletEffects($bet, $matchId);
         }
 
         return $this->repository->deleteMatchBetsByMatch($matchId);
@@ -343,6 +348,7 @@ class BetService
             [
                 'ID',
                 'PROPERTY_user_id',
+                'PROPERTY_result',
                 'PROPERTY_diff',
                 'PROPERTY_events',
                 'PROPERTY_number',
@@ -357,49 +363,113 @@ class BetService
                 continue;
             }
 
-            $this->walletService->ensureWallet($userId);
+            try {
+                $this->walletService->ensureWallet($userId);
 
-            // Skip if bet already exists for this user+match (even if not pending).
-            if ($this->repository->getMatchBet($userId, $matchId)) {
+                if ($this->repository->getMatchBet($userId, $matchId)) {
+                    continue;
+                }
+
+                $outcome = $this->resolvePrognosisOutcome($row);
+                if ($outcome === null) {
+                    continue;
+                }
+
+                if (!$this->canUserAffordStake($userId)) {
+                    continue;
+                }
+
+                $this->walletService->debit(
+                    $userId,
+                    GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                    GameEconomyConfig::BET_STAKE_PROGNOBAKS,
+                    'bet_stake',
+                    'match',
+                    $matchId
+                );
+
+                $this->repository->addMatchBet([
+                    'UF_USER_ID' => $userId,
+                    'UF_MATCH_ID' => $matchId,
+                    'UF_EVENT_ID' => $eventId,
+                    'UF_OUTCOME' => $outcome,
+                    'UF_STAKE' => GameEconomyConfig::BET_STAKE_PROGNOBAKS,
+                    'UF_STATUS' => GameEconomyConfig::BET_STATUS_PENDING,
+                    'UF_PAYOUT' => 0,
+                    'UF_CREATED_AT' => $now,
+                    'UF_UPDATED_AT' => $now,
+                ]);
+            } catch (\Throwable $exception) {
+                // Один пользователь не должен блокировать ставки остальных.
                 continue;
             }
-
-            // Check user can afford stake right now.
-            if (!$this->canUserAffordStake($userId)) {
-                continue;
-            }
-
-            $diff = (int)($row['PROPERTY_DIFF_VALUE'] ?? 0);
-            if ($diff > 0) {
-                $outcome = 'п1';
-            } elseif ($diff === 0) {
-                $outcome = 'н';
-            } else {
-                $outcome = 'п2';
-            }
-
-            // Debit wallet and create pending bet.
-            $this->walletService->debit(
-                $userId,
-                GameEconomyConfig::CURRENCY_PROGNOBAKS,
-                GameEconomyConfig::BET_STAKE_PROGNOBAKS,
-                'bet_stake',
-                'match',
-                $matchId
-            );
-
-            $this->repository->addMatchBet([
-                'UF_USER_ID' => $userId,
-                'UF_MATCH_ID' => $matchId,
-                'UF_EVENT_ID' => $eventId,
-                'UF_OUTCOME' => $outcome,
-                'UF_STAKE' => GameEconomyConfig::BET_STAKE_PROGNOBAKS,
-                'UF_STATUS' => GameEconomyConfig::BET_STATUS_PENDING,
-                'UF_PAYOUT' => 0,
-                'UF_CREATED_AT' => $now,
-                'UF_UPDATED_AT' => $now,
-            ]);
         }
+    }
+
+    /**
+     * @param array<string, mixed> $bet
+     */
+    private function reverseBetWalletEffects(array $bet, int $matchId): void
+    {
+        $userId = (int)($bet['UF_USER_ID'] ?? 0);
+        if ($userId <= 0) {
+            return;
+        }
+
+        $status = (string)($bet['UF_STATUS'] ?? '');
+        $stake = round((float)($bet['UF_STAKE'] ?? 0), 1);
+        $payout = round((float)($bet['UF_PAYOUT'] ?? 0), 1);
+
+        try {
+            if ($status === GameEconomyConfig::BET_STATUS_WON && $payout > 0) {
+                $this->walletService->debit(
+                    $userId,
+                    GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                    $payout,
+                    'bet_payout_reversal',
+                    'match',
+                    $matchId
+                );
+            }
+
+            if ($stake > 0) {
+                $this->walletService->credit(
+                    $userId,
+                    GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                    $stake,
+                    'bet_stake_refund',
+                    'match',
+                    $matchId
+                );
+            }
+        } catch (\Throwable $exception) {
+            // Запись ставки всё равно удалим — иначе кошелёк и HL разъедутся.
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $prognosisRow
+     */
+    private function resolvePrognosisOutcome(array $prognosisRow): ?string
+    {
+        $outcome = $this->normalizeOutcome($prognosisRow['PROPERTY_RESULT_VALUE'] ?? null);
+        if ($outcome !== null) {
+            return $outcome;
+        }
+
+        $diff = (int)($prognosisRow['PROPERTY_DIFF_VALUE'] ?? 0);
+        if ($diff > 0) {
+            return 'п1';
+        }
+        if ($diff === 0) {
+            return 'н';
+        }
+
+        if ($diff < 0) {
+            return 'п2';
+        }
+
+        return null;
     }
 
     private function loadMatchRow(int $matchId): ?array
