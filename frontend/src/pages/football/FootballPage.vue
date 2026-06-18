@@ -13,17 +13,32 @@
     </div>
 
     <div class="teams_block" v-if="home">
-      <div class="team">
-        <div class="flag">
-          <img :src="urlImg + home.flag" alt="">
+      <div class="teams_names_row">
+        <div class="team team_home">
+          <div class="flag">
+            <img :src="urlImg + home.flag" alt="">
+          </div>
+          <div class="name name_home">{{ home.name }}</div>
         </div>
-        <div class="name name_home">{{ home.name }}</div>
+        <div class="dash">–</div>
+        <div class="team team_guest">
+          <div class="name name_guest">{{ guest.name }}</div>
+          <div class="flag">
+            <img :src="urlImg + guest.flag" alt="">
+          </div>
+        </div>
       </div>
-      <div class="dash">–</div>
-      <div class="team">
-        <div class="name name_guest">{{ guest.name }}</div>
-        <div class="flag">
-          <img :src="urlImg + guest.flag" alt="">
+
+      <div
+        v-if="(home.form && home.form.length) || (guest.form && guest.form.length)"
+        class="teams_form_row"
+      >
+        <div class="teams_form_cell teams_form_cell_home">
+          <TeamFormDots :items="home.form || []" align="left" />
+        </div>
+        <div class="teams_form_cell teams_form_cell_label">форма</div>
+        <div class="teams_form_cell teams_form_cell_guest">
+          <TeamFormDots :items="guest.form || []" align="right" />
         </div>
       </div>
     </div>
@@ -95,9 +110,18 @@
               <div class="item auto_title_text">Заполняется автоматически</div>
               <div class="more_btn" @click="autoBlock = !autoBlock"><span
                   :class="{'close' : !autoBlock, 'open' : autoBlock}"> > </span></div>
-              <label class="bet_checkbox">
-                <input class="bet_input" type="checkbox" v-model="withBet">
-                <span>Ставка 10 🪙</span>
+              <label class="bet_checkbox" :class="{ bet_checkbox_disabled: !canAffordBet }">
+                <input
+                  class="bet_input"
+                  type="checkbox"
+                  v-model="withBet"
+                  :disabled="!canAffordBet"
+                  @change="withBetUserTouched = true"
+                >
+                <span class="bet_checkbox_text">
+                  Ставка 10
+                  <AppIcon name="prognobak" :size="14" class="bet_coin_icon" />
+                </span>
               </label>
             </div>
           </div>
@@ -332,6 +356,8 @@ import SendSuccess from "@/components/main/SendSuccess";
 import FootballAdminSetResult from "@/components/football/FootballAdminSetResult";
 import ActionFailure from "@/components/main/ActionFailure";
 import FootballResultTable from "@/components/football/FootballResultTable";
+import TeamFormDots from "@/components/football/TeamFormDots";
+import AppIcon from "@/components/ui/AppIcon.vue";
 import {authRoute, registerRoute} from "@/utils/authRedirect";
 
 
@@ -343,7 +369,9 @@ export default {
     PageHeader,
     PreLoader,
     SendSuccess,
-    FootballResultTable
+    FootballResultTable,
+    TeamFormDots,
+    AppIcon
   },
 
   data() {
@@ -364,6 +392,7 @@ export default {
       error: '',
       annotationVis: false,
       withBet: true,
+      withBetUserTouched: false,
       data: {
         30: this.$route.params.number, //number
         17: '', //matchId
@@ -436,10 +465,17 @@ export default {
     this.setOtherLink()
   },
 
+  watch: {
+    canAffordBet(afford) {
+      this.applyDefaultWithBet(afford)
+    },
+  },
+
   methods: {
     ...mapActions({
       getMatchRequest: 'football/getMatchRequest',
       sendUserPrognosis: 'football/sendUserPrognosis',
+      refreshGameInfo: 'auth/refreshGameInfo',
     }),
 
     setOtherLink() {
@@ -597,16 +633,36 @@ export default {
       if (type === 'half') this.data[32] = 50
     },
 
+    applyDefaultWithBet(afford = this.canAffordBet) {
+      if (!this.token || this.arMatch?.active !== 'Y') {
+        return
+      }
+
+      if (!afford) {
+        this.withBet = false
+        return
+      }
+
+      if (!this.withBetUserTouched) {
+        this.withBet = true
+      }
+    },
+
     async fillMatchElem() {
       this.prognosisLoader = true
+      this.withBetUserTouched = false
 
       this.queryMatch.number = this.$route.params.number
       this.queryMatch.eventId = this.$route.params.event
       this.queryMatch.userToken = this.token
 
+      if (this.token) {
+        await this.refreshGameInfo()
+      }
+
       await this.getMatchRequest()
       this.syncFormFromPrognosis()
-      this.withBet = this.canAffordBet
+      this.applyDefaultWithBet()
 
       this.prognosisLoader = false
     }
@@ -674,8 +730,7 @@ export default {
   background: @DarkColorBG;
   color: @colorText;
   display: flex;
-  flex-direction: row;
-  justify-content: space-between;
+  flex-direction: column;
 
   padding: 4px;
   border-radius: 5px;
@@ -684,11 +739,63 @@ export default {
 
   margin-bottom: 4px;
 
+  .teams_names_row {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .teams_form_row {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 4px;
+  }
+
+  .teams_form_cell {
+    .shadow_inset;
+    border-radius: 4px;
+    padding: 4px 6px;
+    min-height: 24px;
+    display: flex;
+    align-items: center;
+
+    &.teams_form_cell_home {
+      flex: 1 1 0;
+      justify-content: flex-start;
+      min-width: 0;
+    }
+
+    &.teams_form_cell_label {
+      flex: 0 0 auto;
+      justify-content: center;
+      font-size: 11px;
+      line-height: 1;
+      text-transform: lowercase;
+      color: fade(@colorText, 72%);
+      letter-spacing: 0.02em;
+      padding: 4px 8px;
+    }
+
+    &.teams_form_cell_guest {
+      flex: 1 1 0;
+      justify-content: flex-end;
+      min-width: 0;
+    }
+  }
+
   .team {
     max-width: 46%;
     display: flex;
     flex-direction: row;
     gap: 4px;
+    align-items: center;
+
+    &.team_guest {
+      justify-content: flex-end;
+    }
 
     .flag {
       max-width: 24px;
@@ -898,12 +1005,27 @@ export default {
     gap: 5px;
     font-size: 14px;
     font-weight: 700;
-    color: @orange;
+    color: @YesWrite2;
     .shadow_inset;
     padding: 2px 6px;
     border-radius: 3px;
     line-height: 1.1;
     white-space: nowrap;
+
+    &.bet_checkbox_disabled {
+      color: fade(@colorText, 45%);
+      cursor: not-allowed;
+    }
+  }
+
+  .bet_checkbox_text {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .bet_coin_icon {
+    flex-shrink: 0;
   }
 
   .bet_input {
@@ -911,7 +1033,7 @@ export default {
     -webkit-appearance: none;
     width: 16px;
     height: 16px;
-    border: 2px solid @orange;
+    border: 2px solid @YesWrite2;
     border-radius: 3px;
     background: @darkbg;
     position: relative;
@@ -920,8 +1042,18 @@ export default {
     flex-shrink: 0;
 
     &:checked {
-      background: @orange;
-      border-color: @orange;
+      background: @YesWrite2;
+      border-color: @YesWrite2;
+    }
+
+    &:disabled {
+      border-color: fade(@colorText, 35%);
+      cursor: not-allowed;
+
+      &:checked {
+        background: fade(@colorText, 35%);
+        border-color: fade(@colorText, 35%);
+      }
     }
 
     &:checked::after {

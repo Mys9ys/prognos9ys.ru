@@ -95,8 +95,23 @@ class FootballMatchLoadInfo extends PrognosisGiveInfo
 
         $el["stage"] = $res["PROPERTY_STAGE_VALUE"];
 
-        $el["home"] = $this->getTeamData($this->arTeams[$res["PROPERTY_HOME_VALUE"]]);
-        $el["guest"] = $this->getTeamData($this->arTeams[$res["PROPERTY_GUEST_VALUE"]]);
+        $homeTeamId = (int)$res['PROPERTY_HOME_VALUE'];
+        $guestTeamId = (int)$res['PROPERTY_GUEST_VALUE'];
+        $matchNumber = (int)$res['PROPERTY_NUMBER_VALUE'];
+
+        $el['home'] = $this->getTeamData($this->arTeams[$homeTeamId]);
+        $el['guest'] = $this->getTeamData($this->arTeams[$guestTeamId]);
+
+        if (Loader::includeModule('prognos9ys.main')) {
+            $forms = (new \Prognos9ys\Main\Service\Football\TeamFormService())->getTeamForms(
+                (int)$this->eventId,
+                $homeTeamId,
+                $guestTeamId,
+                $matchNumber
+            );
+            $el['home']['form'] = $forms['home'];
+            $el['guest']['form'] = $forms['guest'];
+        }
 
 
         $el['prognosis'] = $this->getRecordData($this->arIbs['prognosis']['id'], $el["id"]);
