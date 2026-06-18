@@ -801,7 +801,25 @@ class GameEconomyRepository
      */
     public function getPendingMatchBetsByMatch(int $matchId): array
     {
-        return $this->getBetsByMatchIds([$matchId], \Prognos9ys\Main\Service\Game\GameEconomyConfig::BET_STATUS_PENDING);
+        if ($matchId <= 0) {
+            return [];
+        }
+
+        $dataClass = $this->getMatchBetDataClass();
+        $rows = [];
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_MATCH_ID' => $matchId,
+                '=UF_STATUS' => GameEconomyConfig::BET_STATUS_PENDING,
+            ],
+            'select' => ['*'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $rows[] = $row;
+        }
+
+        return $rows;
     }
 
     /**
