@@ -2,26 +2,26 @@
   <div class="match_card" v-if="match" :class="{ 'has_xp': showRewardTabs }">
     <div class="reward_tabs" v-if="showRewardTabs">
       <div class="match_xp_tab" v-if="showTreasureReward">
-        <div class="chest_claimed">
+        <div class="chest_claimed reward_chip">
           <span v-if="treasureCount > 1">x{{ treasureCount }} </span>
-          <AppIcon name="chest_wc2026" :size="22" />
+          <AppIcon name="chest_wc2026" :size="16" />
         </div>
       </div>
       <div class="match_xp_tab" v-if="showMoneyReward">
-        <div class="money_claimed">
-          Выигрыш +{{ moneyPayout }} <AppIcon name="prognobak" :size="16" />
+        <div class="money_claimed reward_chip">
+          Выигрыш +{{ moneyPayout }} <AppIcon name="prognobak" :size="14" />
         </div>
       </div>
       <div class="match_xp_tab" v-if="showXpReward">
       <button
-          class="xp_btn"
+          class="xp_btn reward_chip"
           v-if="canClaimXp"
           :disabled="claiming"
           @click.stop="claimExperience"
       >
         {{ claiming ? '...' : `Получить опыт +${xpPoints}` }}
       </button>
-      <div class="xp_claimed" v-else-if="xpStatus === 'claimed'">
+      <div class="xp_claimed reward_chip" v-else-if="xpStatus === 'claimed'">
         Опыт +{{ xpPoints }}
       </div>
       <div class="xp_level_up" v-if="levelUpMessage">{{ levelUpMessage }}</div>
@@ -237,24 +237,36 @@ export default {
   padding: 4px 4px 0;
   border-radius: 5px 5px 0 0;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+
+  .reward_chip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    width: 100%;
+    box-sizing: border-box;
+    flex: 0 0 auto;
+    height: 20px;
+    max-height: 20px;
+    font-size: 10px;
+    line-height: 1;
+    border-radius: 3px 3px 0 0;
+    .shadow_inset;
+    padding: 0 8px;
+    text-align: center;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+  }
 
   .xp_btn {
-    display: block;
-    width: 100%;
     border: none;
     cursor: pointer;
     background: @YesWrite;
     color: @orange;
-    font-size: 10px;
-    line-height: 1.2;
-    border-radius: 3px 3px 0 0;
-    .shadow_inset;
-    padding: 5px 9px;
-    box-sizing: border-box;
-    min-height: 15px;
-    text-align: center;
-    font-weight: 600;
-    white-space: nowrap;
 
     &:disabled {
       opacity: 0.65;
@@ -267,52 +279,15 @@ export default {
   }
 
   .xp_claimed {
-    width: 100%;
-    box-sizing: border-box;
-    font-size: 10px;
-    line-height: 1.2;
-    border-radius: 3px 3px 0 0;
-    .shadow_inset;
-    padding: 5px 9px;
-    min-height: 15px;
     color: @orange;
-    text-align: center;
-    font-weight: 600;
-    white-space: nowrap;
   }
 
   .money_claimed {
-    width: 100%;
-    box-sizing: border-box;
-    font-size: 10px;
-    line-height: 1.2;
-    border-radius: 3px 3px 0 0;
-    .shadow_inset;
-    padding: 5px 9px;
-    min-height: 15px;
     color: @YesWrite2;
-    text-align: center;
-    font-weight: 600;
-    white-space: nowrap;
   }
 
   .chest_claimed {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    width: 100%;
-    box-sizing: border-box;
-    font-size: 10px;
-    line-height: 1.2;
-    border-radius: 3px 3px 0 0;
-    .shadow_inset;
-    padding: 5px 9px;
-    min-height: 15px;
     color: @yellow;
-    text-align: center;
-    font-weight: 600;
-    white-space: nowrap;
   }
 
   .xp_level_up {
