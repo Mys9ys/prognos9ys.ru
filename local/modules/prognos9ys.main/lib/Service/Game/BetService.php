@@ -369,7 +369,7 @@ class BetService
             [],
             [
                 'IBLOCK_ID' => $prognosisIbId,
-                'PROPERTY_match_id' => $matchId,
+                'PROPERTY_MATCH_ID' => $matchId,
             ],
             false,
             false,

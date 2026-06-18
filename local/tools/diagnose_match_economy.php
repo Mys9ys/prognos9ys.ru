@@ -7,6 +7,7 @@ declare(strict_types=1);
  *   php local/tools/diagnose_match_economy.php 22 23
  *   php local/tools/diagnose_match_economy.php --grant-missing
  *   php local/tools/diagnose_match_economy.php 23 --recalc
+ *   php local/tools/diagnose_match_economy.php 22 --settle   # только ставки, без сброса баллов
  */
 
 $docRoot = dirname(__DIR__, 2);
@@ -30,6 +31,7 @@ use Prognos9ys\Main\Service\Game\WalletService;
 $argv = $_SERVER['argv'] ?? [];
 $grantMissing = in_array('--grant-missing', $argv, true);
 $doRecalc = in_array('--recalc', $argv, true);
+$doSettle = in_array('--settle', $argv, true);
 $numbers = [];
 foreach ($argv as $arg) {
     if (is_numeric($arg)) {
@@ -46,6 +48,31 @@ $scope = new GameEventScopeService();
 $matchSvc = new FootballMatchService();
 $betSvc = new BetService();
 $walletSvc = new WalletService($repo);
+
+function countPrognoses(int $iblockId, int $matchId): int
+{
+    if ($iblockId <= 0 || $matchId <= 0) {
+        return 0;
+    }
+
+    $count = 0;
+    $response = \CIBlockElement::GetList(
+        [],
+        [
+            'IBLOCK_ID' => $iblockId,
+            'PROPERTY_MATCH_ID' => $matchId,
+        ],
+        false,
+        false,
+        ['ID']
+    );
+
+    while ($response->GetNext()) {
+        $count++;
+    }
+
+    return $count;
+}
 
 echo "=== HL wallet / bets ===\n";
 try {
@@ -98,10 +125,11 @@ foreach ($numbers as $num) {
         . ' inScope=' . ($scope->isMatchInScope($eventId, $num) ? 'yes' : 'no') . "\n";
 
     $prognosisIbId = (int)(\CIBlock::GetList([], ['CODE' => 'prognosis'])->Fetch()['ID'] ?? 0);
-    $prognosisCount = $prognosisIbId > 0
-        ? (int)\CIBlockElement::GetList([], ['IBLOCK_ID' => $prognosisIbId, 'PROPERTY_match_id' => $matchId], [])
-        : 0;
+    $prognosisCount = countPrognoses($prognosisIbId, $matchId);
     echo "prognoses: {$prognosisCount}\n";
+
+    $pendingBets = $repo->getPendingMatchBetsByMatch($matchId);
+    echo 'pending_bets=' . count($pendingBets) . "\n";
 
     $bets = $repo->getMatchBetsByMatch($matchId);
     $byStatus = [];
@@ -124,7 +152,7 @@ foreach ($numbers as $num) {
     if ($prognosisIbId > 0) {
         $prs = \CIBlockElement::GetList(
             [],
-            ['IBLOCK_ID' => $prognosisIbId, 'PROPERTY_match_id' => $matchId],
+            ['IBLOCK_ID' => $prognosisIbId, 'PROPERTY_MATCH_ID' => $matchId],
             false,
             false,
             ['PROPERTY_user_id']
@@ -144,6 +172,30 @@ foreach ($numbers as $num) {
         }
     }
     echo "prognosis_users_without_starter_bonus={$noBonus} prognosis_users_wallet_lt_10={$poor}\n";
+
+    if ($doSettle) {
+        if (count($pendingBets) > 0) {
+            echo "settle only (existing pending bets)...\n";
+            $settle = $betSvc->settleMatch($matchId);
+            echo 'settle=' . json_encode($settle, JSON_UNESCAPED_UNICODE) . "\n";
+        } else {
+            echo "backfill + settle...\n";
+            $backfill = $betSvc->backfillBetsFromPrognosis($matchId);
+            echo 'backfill=' . json_encode($backfill, JSON_UNESCAPED_UNICODE) . "\n";
+            $settle = $betSvc->settleMatch($matchId);
+            echo 'settle=' . json_encode($settle, JSON_UNESCAPED_UNICODE) . "\n";
+        }
+        $betsAfter = $repo->getMatchBetsByMatch($matchId);
+        $wonAfter = 0;
+        $payoutAfter = 0.0;
+        foreach ($betsAfter as $bet) {
+            if (($bet['UF_STATUS'] ?? '') === 'won') {
+                $wonAfter++;
+                $payoutAfter += (float)($bet['UF_PAYOUT'] ?? 0);
+            }
+        }
+        echo "after settle: bets=" . count($betsAfter) . " won={$wonAfter} payout_total={$payoutAfter}\n";
+    }
 
     if ($doRecalc) {
         echo "recalc...\n";

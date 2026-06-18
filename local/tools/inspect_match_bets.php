@@ -69,7 +69,7 @@ foreach ($numbers as $num) {
     if ($prognosisIbId > 0) {
         $prognosisCount = (int)\CIBlockElement::GetList(
             [],
-            ['IBLOCK_ID' => $prognosisIbId, 'PROPERTY_match_id' => $matchId],
+            ['IBLOCK_ID' => $prognosisIbId, 'PROPERTY_MATCH_ID' => $matchId],
             []
         );
     }
