@@ -65,29 +65,30 @@ export default {
 @import "src/assets/css/variables.less";
 
 .level_up_banner {
+  .inset_panel_wrapper();
   margin-top: 6px;
-  padding: 6px 8px;
-  border-radius: 5px;
-  background: rgba(247, 196, 23, 0.22);
-  border: 1px solid rgba(247, 196, 23, 0.5);
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
   box-sizing: border-box;
 }
 
 .level_up_banner_body {
+  .shadow_inset;
+  padding: 6px 8px;
   display: flex;
   flex-direction: column;
   gap: 4px;
   min-width: 0;
+  flex: 1;
 }
 
 .level_up_banner_text {
-  color: #8a6d00;
+  color: @orange;
   font-size: 12px;
+  font-weight: 500;
   line-height: 1.25;
   text-align: left;
 }
@@ -103,9 +104,13 @@ export default {
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  color: #6f5700;
+  color: @colorText;
   font-size: 11px;
   line-height: 1.3;
+}
+
+.reward_level {
+  color: @colorText2;
 }
 
 .reward_bit {
@@ -117,11 +122,11 @@ export default {
 .level_up_banner_close {
   border: 0;
   background: transparent;
-  color: #8a6d00;
+  color: @colorBlur;
   font-size: 18px;
   line-height: 1;
   cursor: pointer;
-  padding: 0 2px;
+  padding: 2px 4px 0;
   flex-shrink: 0;
 }
 </style>
