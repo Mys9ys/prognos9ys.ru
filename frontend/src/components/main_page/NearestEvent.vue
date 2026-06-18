@@ -122,6 +122,10 @@ export default {
 
       await this.authRequest()
 
+      if (this.token) {
+        await this.$store.dispatch('auth/refreshGameInfo')
+      }
+
       if(this.arrNearest){
         Object.keys(this.arrNearest).forEach((index)=>{
           if(this.arrNearest[index]) {
@@ -250,7 +254,7 @@ export default {
 .football_event_box{
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 8px;
 
   margin-top: 8px;
 

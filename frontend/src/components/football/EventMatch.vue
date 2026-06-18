@@ -7,9 +7,9 @@
           <AppIcon :name="treasureIcon" :size="16" />
         </div>
       </div>
-      <div class="match_xp_tab" v-if="showMoneyReward">
+      <div class="match_xp_tab match_xp_tab_money" v-if="showMoneyReward">
         <div class="money_claimed reward_chip">
-          Выигрыш +{{ moneyPayout }} <AppIcon name="prognobak" :size="14" />
+          +{{ moneyPayout }} <AppIcon name="prognobak" :size="14" />
         </div>
       </div>
       <div class="match_xp_tab" v-if="showXpReward">
@@ -21,7 +21,7 @@
       >
         {{ claiming ? '...' : `Получить опыт +${xpPoints}` }}
       </button>
-      <div class="xp_claimed reward_chip" v-else-if="xpStatus === 'claimed'">
+      <div class="xp_claimed reward_chip" v-else-if="xpStatus === 'claimed' || xpPoints > 0">
         Опыт +{{ xpPoints }}
       </div>
       <div class="xp_error" v-if="claimError">{{ claimError }}</div>
@@ -162,7 +162,9 @@ export default {
       return Number(this.betReward?.payout ?? 0).toFixed(1);
     },
     showMoneyReward() {
-      return !this.isGuest && Number(this.betReward?.payout ?? 0) > 0;
+      return !this.isGuest
+        && this.match?.active === 'N'
+        && Number(this.betReward?.payout ?? 0) > 0;
     },
     showRewardTabs() {
       return this.showXpReward || this.showMoneyReward || this.showTreasureReward;
@@ -229,10 +231,9 @@ export default {
   align-items: stretch;
 
   &.has_xp {
-    align-items: flex-end;
+    align-items: stretch;
 
     .match_box {
-      align-self: stretch;
       width: 100%;
       border-radius: 5px 0 5px 5px;
     }
@@ -323,6 +324,14 @@ export default {
   flex-direction: row;
   gap: 4px;
   align-items: flex-end;
+  justify-content: flex-end;
+  width: 100%;
+  min-height: 24px;
+  box-sizing: border-box;
+}
+
+.match_xp_tab_money {
+  max-width: 92px;
 }
 
 .match_box {

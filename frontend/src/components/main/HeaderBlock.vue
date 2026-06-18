@@ -278,7 +278,10 @@ export default {
       try {
         const result = await this.claimAllXp();
         this.$store.state.mainPage.setToken.userToken = this.token;
-        await this.getNearest();
+        await Promise.all([
+          this.getNearest(),
+          this.refreshGameInfo(),
+        ]);
 
         if (result?.level_up) {
           this.showBulkLevelBanner({

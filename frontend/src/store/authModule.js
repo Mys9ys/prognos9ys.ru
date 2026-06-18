@@ -183,7 +183,7 @@ export const authModule = {
             }
         },
 
-        async loginRequest({state, commit}) {
+        async loginRequest({state, commit, dispatch}) {
 
             commit('setTypeRequest', 'tokenLogin')
             try {
@@ -198,6 +198,7 @@ export const authModule = {
                     console.log('response.data', response.data)
                     commit('setUserInfo', response.data.info)
                     commit('setAuth', true)
+                    await dispatch('refreshGameInfo')
                 } else {
                     commit('setAuth', false)
                 }
