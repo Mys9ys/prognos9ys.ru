@@ -102,7 +102,10 @@ class WealthRatingService
 
     private function getPendingXpRating(int $limit): array
     {
-        $aggregates = $this->repository->getPendingXpAggregatesByUser();
+        $scope = new GameEventScopeService();
+        $aggregates = $this->repository->getPendingXpAggregatesByUser(
+            static fn(int $matchId): bool => $scope->isMatchEligible($matchId)
+        );
         $walletMap = [];
 
         foreach ($this->repository->getAllWallets() as $wallet) {

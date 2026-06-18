@@ -52,9 +52,10 @@
       </div>
 
       <div class="hm_right_block">
-        <div class="hm_nick_wrap">
+        <div class="hm_user_block">
           <div class="hm_nick_box hm_box nickname"
                :class="nickSizeClass"
+               :style="nickFontStyle"
                @click="onGuestHeaderClick">
             {{ displayNick }}
           </div>
@@ -65,27 +66,13 @@
           <button
               v-if="showClaimXpBtn"
               type="button"
-              class="hm_claim_xp_btn hm_box"
+              class="hm_claim_xp_btn"
               :disabled="claimingAllXp"
               @click="claimAllExperience"
           >
             <AppIcon name="xp" :size="14" class="hm_claim_xp_icon" />
-            <span class="hm_claim_xp_text">{{ claimingAllXp ? '...' : 'Собрать' }}</span>
-            <span class="hm_claim_xp_points">+{{ pendingXp.points }}</span>
+            <span class="hm_claim_xp_points">{{ claimingAllXp ? '...' : `+${pendingXpDisplay}` }}</span>
           </button>
-        </div>
-
-
-        <div class="hm_btn_block hm_right">
-
-
-<!--          <BtnMini v-for="(btn, index) in r_btns"-->
-<!--                   :key="index"-->
-<!--                   @click="$router.push('/' + btn.link)"-->
-<!--                   :img="btn.img"></BtnMini>-->
-<!--          <BtnMini @click="logoutProfile"-->
-<!--                   :img="require('@/assets/icon/header/exit.svg')"></BtnMini>  -->
-<!--          <BtnMini :img="require('@/assets/icon/header/envelope.svg')"></BtnMini>-->
         </div>
       </div>
     </div>
@@ -149,6 +136,11 @@ export default {
         this.refreshGameInfo();
       }
     },
+    '$route.path'() {
+      if (this.token) {
+        this.refreshGameInfo();
+      }
+    },
   },
 
 
@@ -177,12 +169,27 @@ export default {
       return this.userInfo?.NAME || 'Гость';
     },
     nickSizeClass() {
-      const name = this.displayNick;
       return {
-        rank15: name.length > 14,
-        rank20: name.length > 19,
         hm_guest_nick: this.isGuest,
       };
+    },
+    nickFontStyle() {
+      const len = this.displayNick.length;
+      let fontSize = 15;
+
+      if (len > 18) {
+        fontSize = 10;
+      } else if (len > 15) {
+        fontSize = 11;
+      } else if (len > 12) {
+        fontSize = 12;
+      } else if (len > 10) {
+        fontSize = 13;
+      } else if (len > 8) {
+        fontSize = 14;
+      }
+
+      return { fontSize: `${fontSize}px` };
     },
     displayGameProgress() {
       if (this.isGuest) {
@@ -240,8 +247,12 @@ export default {
         points: Number(pending.points ?? 0),
       };
     },
+    pendingXpDisplay() {
+      const points = this.pendingXp.points;
+      return Number.isInteger(points) ? points : points.toFixed(1);
+    },
     showClaimXpBtn() {
-      return !this.isGuest && this.pendingXp.count > 0;
+      return !this.isGuest && (this.pendingXp.count > 0 || this.pendingXp.points > 0);
     },
   },
 
@@ -476,11 +487,11 @@ export default {
   .h_main_block {
     display: flex;
     flex-direction: row;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: space-between;
-    align-items: flex-end;
+    align-items: flex-start;
     position: relative;
-    //height: 60px;
+    gap: 4px;
     .hm_left_block {
       display: flex;
       flex-direction: column;
@@ -495,22 +506,27 @@ export default {
     }
 
     .hm_right_block {
+      flex: 0 0 130px;
+      width: 130px;
+      min-width: 0;
       display: flex;
       flex-direction: column;
-      justify-content: flex-end;
-      align-items: flex-end;
+      justify-content: flex-start;
+      align-items: stretch;
 
-      .hm_nick_wrap {
+      .hm_user_block {
         width: 130px;
         display: flex;
         flex-direction: column;
+        align-items: flex-end;
         gap: 4px;
       }
 
       .hm_nick_box {
-        width: 130px;
+        width: 100%;
         display: flex;
         flex-direction: row;
+        justify-content: flex-end;
         text-align: right;
       }
     }
@@ -638,19 +654,18 @@ export default {
     .nickname{
       .flex_center;
       justify-content: flex-end;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+      max-width: 100%;
+      font-size: 15px;
+      line-height: 1.1;
+      box-sizing: border-box;
 
       &.hm_guest_nick {
         cursor: pointer;
       }
-    }
-    .rank10{
-      font-size: 15px;
-    }
-    .rank15{
-      font-size: 13px;
-    }
-    .rank20{
-      font-size: 12px;
     }
     .hm_achieve_box{
       text-align: left;
@@ -658,6 +673,7 @@ export default {
 
     .hm_money_box,
     .hm_rublius_box {
+      width: 130px;
       height: 22px;
       display: flex;
       flex-direction: row;
@@ -680,20 +696,23 @@ export default {
     }
 
     .hm_claim_xp_btn {
-      width: 100%;
-      height: 22px;
-      display: flex;
+      display: inline-flex;
       flex-direction: row;
       align-items: center;
-      justify-content: flex-end;
-      gap: 4px;
+      justify-content: center;
+      gap: 3px;
+      width: auto;
+      height: 22px;
       padding: 0 6px;
-      border: 0;
+      border: 1px solid rgba(247, 196, 23, 0.55);
+      border-radius: 4px;
       cursor: pointer;
-      color: @orange;
-      font-size: 11px;
-      font-weight: 600;
+      color: @DarkColorBG;
+      background: @orange;
+      font-size: 10px;
+      font-weight: 700;
       box-sizing: border-box;
+      flex-shrink: 0;
 
       &:disabled {
         opacity: 0.7;
@@ -705,13 +724,10 @@ export default {
       flex-shrink: 0;
     }
 
-    .hm_claim_xp_text {
-      line-height: 1;
-    }
-
     .hm_claim_xp_points {
       line-height: 1;
-      color: @YesWrite2;
+      color: @DarkColorBG;
+      white-space: nowrap;
     }
 
     .hm_money_icon {

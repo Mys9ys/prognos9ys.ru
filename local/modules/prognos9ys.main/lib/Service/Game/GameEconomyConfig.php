@@ -43,8 +43,23 @@ class GameEconomyConfig
     /** ID события-якоря (ЧМ-2026). 0 — автоопределение по названию. */
     public const ANCHOR_EVENT_ID = 63849;
 
-    /** true — только якорное событие; false — якорь и все последующие турниры. */
-    public const ANCHOR_ONLY_SCOPE = true;
+    /** true — только якорное событие; false — все турниры с даты ECONOMY_ACTIVITY_SINCE. */
+    public const ANCHOR_ONLY_SCOPE = false;
+
+    /** Соревнования с ACTIVE_FROM раньше этой даты не участвуют в игровой экономике. */
+    public const ECONOMY_ACTIVITY_SINCE = '2026-06-10';
+
+    public static function getEconomyActivitySinceTimestamp(): int
+    {
+        static $timestamp = null;
+
+        if ($timestamp === null) {
+            $parsed = strtotime(self::ECONOMY_ACTIVITY_SINCE . ' 00:00:00');
+            $timestamp = $parsed !== false ? $parsed : 0;
+        }
+
+        return $timestamp;
+    }
 
     /**
      * Тестовый режим: экономика только для матчей в диапазоне номеров.

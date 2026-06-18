@@ -5,8 +5,8 @@ namespace Prognos9ys\Main\Service\Game;
 use Bitrix\Main\Loader;
 
 /**
- * Игровая экономика действует на ЧМ-2026 (якорь) и, при ANCHOR_ONLY_SCOPE=false,
- * на события, начавшиеся не раньше якоря.
+ * Игровая экономика действует на события с ACTIVE_FROM не раньше ECONOMY_ACTIVITY_SINCE
+ * (по умолчанию 10.06.2026). При ANCHOR_ONLY_SCOPE=true — только якорное ЧМ-событие.
  */
 class GameEventScopeService
 {
@@ -24,33 +24,23 @@ class GameEventScopeService
             return false;
         }
 
+        $eventTs = $this->getEventActiveFromTs($eventId);
+
+        if ($eventTs === null || $eventTs < GameEconomyConfig::getEconomyActivitySinceTimestamp()) {
+            return false;
+        }
+
         $anchorId = $this->getAnchorEventId();
 
         if ($anchorId <= 0) {
             return false;
         }
 
-        if ($eventId === $anchorId) {
-            return true;
-        }
-
         if (GameEconomyConfig::ANCHOR_ONLY_SCOPE) {
-            return false;
+            return $eventId === $anchorId;
         }
 
-        $anchorTs = $this->getAnchorActiveFromTs();
-
-        if ($anchorTs === null) {
-            return $eventId >= $anchorId;
-        }
-
-        $eventTs = $this->getEventActiveFromTs($eventId);
-
-        if ($eventTs === null) {
-            return false;
-        }
-
-        return $eventTs >= $anchorTs;
+        return true;
     }
 
     public function isMatchEligible(int $matchId): bool
@@ -112,8 +102,8 @@ class GameEventScopeService
             return [$anchorId];
         }
 
-        $anchorTs = $this->getAnchorActiveFromTs();
-        $ids = [$anchorId];
+        $minTs = GameEconomyConfig::getEconomyActivitySinceTimestamp();
+        $ids = [];
 
         $response = \CIBlockElement::GetList(
             ['ID' => 'ASC'],
@@ -125,21 +115,9 @@ class GameEventScopeService
 
         while ($row = $response->GetNext()) {
             $eventId = (int)$row['ID'];
-
-            if ($eventId === $anchorId) {
-                continue;
-            }
-
-            if ($anchorTs === null) {
-                if ($eventId > $anchorId) {
-                    $ids[] = $eventId;
-                }
-                continue;
-            }
-
             $eventTs = $this->parseActiveFrom($row['ACTIVE_FROM'] ?? null);
 
-            if ($eventTs !== null && $eventTs >= $anchorTs) {
+            if ($eventTs !== null && $eventTs >= $minTs) {
                 $ids[] = $eventId;
             }
         }

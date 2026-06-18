@@ -327,7 +327,7 @@ class ExperienceService
             $matchId = (int)$row['PROPERTY_MATCH_ID_VALUE'];
             $points = (float)$row['PROPERTY_ALL_VALUE'];
 
-            if ($matchId <= 0) {
+            if ($matchId <= 0 || !$this->eventScope->isMatchEligible($matchId)) {
                 continue;
             }
 

@@ -453,9 +453,10 @@ class GameEconomyRepository
     }
 
     /**
+     * @param callable(int):bool|null $matchFilter
      * @return array<int, array{count:int,points:float}>
      */
-    public function getPendingXpAggregatesByUser(): array
+    public function getPendingXpAggregatesByUser(?callable $matchFilter = null): array
     {
         $dataClass = $this->getPendingXpDataClass();
         $map = [];
@@ -463,10 +464,16 @@ class GameEconomyRepository
             'filter' => [
                 '=UF_STATUS' => GameEconomyConfig::XP_STATUS_PENDING,
             ],
-            'select' => ['UF_USER_ID', 'UF_POINTS'],
+            'select' => ['UF_USER_ID', 'UF_POINTS', 'UF_MATCH_ID'],
         ]);
 
         while ($row = $response->fetch()) {
+            $matchId = (int)($row['UF_MATCH_ID'] ?? 0);
+
+            if ($matchFilter !== null && ($matchId <= 0 || !$matchFilter($matchId))) {
+                continue;
+            }
+
             $userId = (int)($row['UF_USER_ID'] ?? 0);
             if ($userId <= 0) {
                 continue;
