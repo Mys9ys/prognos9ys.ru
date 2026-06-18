@@ -359,18 +359,14 @@ class BetService
             return $stats;
         }
 
-        // Prognosis iblock id by CODE to avoid hardcoding.
-        $prognosisIbId = (int)(\CIBlock::GetList([], ['CODE' => 'prognosis'], false)->Fetch()['ID'] ?? 0);
+        $prognosisIbId = $this->resolvePrognosisIblockId();
         if ($prognosisIbId <= 0) {
             return $stats;
         }
 
         $rs = \CIBlockElement::GetList(
             [],
-            [
-                'IBLOCK_ID' => $prognosisIbId,
-                'PROPERTY_MATCH_ID' => $matchId,
-            ],
+            $this->buildPrognosisFilter($prognosisIbId, $matchId, $eventId, $matchNumber),
             false,
             false,
             [
@@ -549,6 +545,37 @@ class BetService
         }
 
         return null;
+    }
+
+    private function resolvePrognosisIblockId(): int
+    {
+        return (int)(\CIBlock::GetList([], ['CODE' => 'prognosis'], false)->Fetch()['ID'] ?: 6);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildPrognosisFilter(int $iblockId, int $matchId, int $eventId, int $matchNumber): array
+    {
+        $matchKeys = [
+            ['PROPERTY_match_id' => $matchId],
+            ['PROPERTY_MATCH_ID' => $matchId],
+        ];
+
+        if ($eventId > 0 && $matchNumber > 0) {
+            $matchKeys[] = [
+                'PROPERTY_events' => $eventId,
+                'PROPERTY_number' => $matchNumber,
+            ];
+        }
+
+        return [
+            'IBLOCK_ID' => $iblockId,
+            [
+                'LOGIC' => 'OR',
+                ...$matchKeys,
+            ],
+        ];
     }
 
     private function loadMatchRow(int $matchId): ?array

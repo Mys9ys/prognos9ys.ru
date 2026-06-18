@@ -49,18 +49,69 @@ $matchSvc = new FootballMatchService();
 $betSvc = new BetService();
 $walletSvc = new WalletService($repo);
 
-function countPrognoses(int $iblockId, int $matchId): int
+function resolvePrognosisIblockId(): int
+{
+    return (int)(\CIBlock::GetList([], ['CODE' => 'prognosis'], false)->Fetch()['ID'] ?: 6);
+}
+
+function buildPrognosisFilter(int $iblockId, int $matchId, int $eventId, int $matchNumber): array
+{
+    $matchKeys = [
+        ['PROPERTY_match_id' => $matchId],
+        ['PROPERTY_MATCH_ID' => $matchId],
+    ];
+
+    if ($eventId > 0 && $matchNumber > 0) {
+        $matchKeys[] = [
+            'PROPERTY_events' => $eventId,
+            'PROPERTY_number' => $matchNumber,
+        ];
+    }
+
+    return [
+        'IBLOCK_ID' => $iblockId,
+        [
+            'LOGIC' => 'OR',
+            ...$matchKeys,
+        ],
+    ];
+}
+
+function countPrognoses(int $iblockId, int $matchId, int $eventId = 0, int $matchNumber = 0): int
 {
     if ($iblockId <= 0 || $matchId <= 0) {
         return 0;
     }
 
+    $seen = [];
+    $response = \CIBlockElement::GetList(
+        [],
+        buildPrognosisFilter($iblockId, $matchId, $eventId, $matchNumber),
+        false,
+        false,
+        ['ID']
+    );
+
+    while ($row = $response->GetNext()) {
+        $seen[(int)$row['ID']] = true;
+    }
+
+    return count($seen);
+}
+
+function countResults(int $matchId): int
+{
+    if ($matchId <= 0) {
+        return 0;
+    }
+
+    $resultIbId = (int)(\CIBlock::GetList([], ['CODE' => 'result'], false)->Fetch()['ID'] ?: 7);
     $count = 0;
     $response = \CIBlockElement::GetList(
         [],
         [
-            'IBLOCK_ID' => $iblockId,
-            'PROPERTY_MATCH_ID' => $matchId,
+            'IBLOCK_ID' => $resultIbId,
+            'PROPERTY_match_id' => $matchId,
         ],
         false,
         false,
@@ -115,7 +166,7 @@ foreach ($numbers as $num) {
         ['IBLOCK_ID' => 2, 'ID' => $matchId],
         false,
         false,
-        ['ID', 'ACTIVE', 'PROPERTY_result', 'PROPERTY_goal_home', 'PROPERTY_goal_guest']
+        ['ID', 'ACTIVE', 'PROPERTY_result', 'PROPERTY_goal_home', 'PROPERTY_goal_guest', 'PROPERTY_events', 'PROPERTY_number']
     )->GetNext();
 
     echo "=== Match #{$num} id={$matchId} {$teams} ===\n";
@@ -124,9 +175,12 @@ foreach ($numbers as $num) {
         . ' result=' . ($row['PROPERTY_RESULT_VALUE'] ?? '(empty)')
         . ' inScope=' . ($scope->isMatchInScope($eventId, $num) ? 'yes' : 'no') . "\n";
 
-    $prognosisIbId = (int)(\CIBlock::GetList([], ['CODE' => 'prognosis'])->Fetch()['ID'] ?? 0);
-    $prognosisCount = countPrognoses($prognosisIbId, $matchId);
-    echo "prognoses: {$prognosisCount}\n";
+    $prognosisIbId = resolvePrognosisIblockId();
+    $matchEventId = (int)($row['PROPERTY_EVENTS_VALUE'] ?? $eventId);
+    $matchNumber = (int)($row['PROPERTY_NUMBER_VALUE'] ?? $num);
+    $prognosisCount = countPrognoses($prognosisIbId, $matchId, $matchEventId, $matchNumber);
+    $resultCount = countResults($matchId);
+    echo "prognosis_iblock_id={$prognosisIbId} prognoses={$prognosisCount} results={$resultCount}\n";
 
     $pendingBets = $repo->getPendingMatchBetsByMatch($matchId);
     echo 'pending_bets=' . count($pendingBets) . "\n";
@@ -152,7 +206,7 @@ foreach ($numbers as $num) {
     if ($prognosisIbId > 0) {
         $prs = \CIBlockElement::GetList(
             [],
-            ['IBLOCK_ID' => $prognosisIbId, 'PROPERTY_MATCH_ID' => $matchId],
+            buildPrognosisFilter($prognosisIbId, $matchId, $matchEventId, $matchNumber),
             false,
             false,
             ['PROPERTY_user_id']
