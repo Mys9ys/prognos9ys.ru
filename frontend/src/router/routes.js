@@ -26,6 +26,7 @@ const routes = [
     {
         path: '/main',
         component: MainPage,
+        meta: { public: true },
     },
 
     {

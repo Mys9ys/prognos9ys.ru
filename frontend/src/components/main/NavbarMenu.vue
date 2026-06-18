@@ -1,13 +1,13 @@
 <template>
   <div class="menu_wrapper">
-    <div class="menu_item_wrapper" v-for="(btn, index) in menu" :key="index">
-      <div class="menu_item" @click="$router.push('/'+index)" :class="{'active': active === index}">
+    <div class="menu_item_wrapper" v-for="(btn, index) in menuItems" :key="index">
+      <div class="menu_item" @click="onMenuClick(index)" :class="{'active': active === index}">
         <div class="icon">
           <img class="icon_img" :src="btn.img_a" alt="" v-if="active === index">
           <img class="icon_img" :src="btn.img" alt="" v-else>
         </div>
         <div class="title">
-          {{btn.title}}
+          {{ btn.title }}
         </div>
       </div>
     </div>
@@ -15,6 +15,9 @@
 </template>
 
 <script>
+import { mapState } from 'vuex';
+import { authRoute } from '@/utils/authRedirect';
+
 export default {
   name: "NavbarMenu",
   data(){
@@ -29,11 +32,54 @@ export default {
       }
     }
   },
+  computed: {
+    ...mapState({
+      token: state => state.auth.authData.token,
+    }),
+    menuItems() {
+      if (this.token) {
+        return this.menu;
+      }
+
+      return {
+        ...this.menu,
+        profile: {
+          ...this.menu.profile,
+          title: 'Вход',
+        },
+      };
+    },
+  },
   watch: {
-    $route(){
-      this.active = this.$route.path.replace('/', '')
-    }
-  }
+    $route: {
+      immediate: true,
+      handler(route) {
+        this.active = this.resolveActive(route.path);
+      },
+    },
+  },
+  methods: {
+    resolveActive(path) {
+      if (path.startsWith('/football') || path.startsWith('/championship')) {
+        return 'catalog';
+      }
+
+      if (path.startsWith('/profile')) {
+        return 'profile';
+      }
+
+      const segment = path.split('/').filter(Boolean)[0] || 'catalog';
+      return segment;
+    },
+    onMenuClick(index) {
+      if (index === 'profile' && !this.token) {
+        this.$router.push(authRoute(this.$route.fullPath));
+        return;
+      }
+
+      this.$router.push('/' + index);
+    },
+  },
 }
 </script>
 
@@ -58,6 +104,7 @@ export default {
   }
   .menu_item{
     position: relative;
+    cursor: pointer;
     .icon{
       color: @YesWrite;
       .icon_img{
