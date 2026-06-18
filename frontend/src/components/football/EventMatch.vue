@@ -4,7 +4,7 @@
       <div class="match_xp_tab" v-if="showTreasureReward">
         <div class="chest_claimed reward_chip">
           <span v-if="treasureCount > 1">x{{ treasureCount }} </span>
-          <AppIcon name="chest_wc2026" :size="16" />
+          <AppIcon :name="treasureIcon" :size="16" />
         </div>
       </div>
       <div class="match_xp_tab" v-if="showMoneyReward">
@@ -24,7 +24,6 @@
       <div class="xp_claimed reward_chip" v-else-if="xpStatus === 'claimed'">
         Опыт +{{ xpPoints }}
       </div>
-      <div class="xp_level_up" v-if="levelUpMessage">{{ levelUpMessage }}</div>
       <div class="xp_error" v-if="claimError">{{ claimError }}</div>
       </div>
     </div>
@@ -91,6 +90,7 @@
 <script>
 import { mapActions, mapState } from 'vuex';
 import AppIcon from '@/components/ui/AppIcon.vue';
+import { getChestIconName } from '@/utils/formatLevelRewards';
 
 export default {
   name: "EventMatch",
@@ -107,7 +107,6 @@ export default {
       urlImg: 'https://prognos9ys.ru/',
       claiming: false,
       claimError: '',
-      levelUpMessage: '',
       localXpStatus: null,
     }
   },
@@ -153,6 +152,9 @@ export default {
     treasureCount() {
       return Number(this.treasure?.count ?? 0);
     },
+    treasureIcon() {
+      return getChestIconName(this.treasure?.type || 'match');
+    },
     showTreasureReward() {
       return !this.isGuest && this.match?.active === 'N' && this.treasureCount > 0;
     },
@@ -182,6 +184,7 @@ export default {
   methods: {
     ...mapActions({
       claimXp: 'game/claimXp',
+      showBulkLevelBanner: 'game/showBulkLevelBanner',
     }),
     onOpenMatch() {
       this.$router.push(this.link);
@@ -197,22 +200,13 @@ export default {
       try {
         const result = await this.claimXp(this.match.id);
         this.localXpStatus = 'claimed';
-        if (result?.level_rewards?.length) {
-          const parts = result.level_rewards.map((reward) => {
-            const bits = [`ур. ${reward.level}`];
-            if (reward.prognobaks > 0) {
-              bits.push(`+${reward.prognobaks} 💵`);
-            }
-            if (reward.rublius > 0) {
-              bits.push(`+${reward.rublius} 💎`);
-            }
-            if (reward.chests > 0) {
-              bits.push(`+${reward.chests} 🎁`);
-            }
-            return bits.join(' ');
+        if (result?.level_up && result?.level_rewards?.length) {
+          const levels = result.level_rewards.map((reward) => Number(reward.level));
+          this.showBulkLevelBanner({
+            oldLevel: Math.min(...levels) - 1,
+            newLevel: Math.max(...levels),
+            levelRewards: result.level_rewards,
           });
-          this.claimError = '';
-          this.levelUpMessage = `Новый уровень! ${parts.join('; ')}`;
         }
         await this.$store.dispatch('auth/refreshGameInfo');
       } catch (error) {

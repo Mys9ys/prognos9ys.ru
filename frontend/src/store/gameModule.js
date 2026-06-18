@@ -1,5 +1,6 @@
 /* eslint-disable */
 import { apiActions } from '@/api/bitrixClient';
+import { readLevelBannerState, saveLevelBannerState } from '@/utils/levelBannerStorage';
 
 function applyGamePayload({ rootState, commit }, res) {
     if (res?.game && rootState.auth?.userInfo) {
@@ -12,10 +13,95 @@ function applyGamePayload({ rootState, commit }, res) {
 }
 
 export const gameModule = {
-    state: () => ({}),
+    state: () => ({
+        levelBanner: {
+            visible: false,
+            level: 0,
+            from: 0,
+            rewards: [],
+        },
+    }),
     getters: {},
-    mutations: {},
+    mutations: {
+        setLevelBanner(state, payload) {
+            state.levelBanner = {
+                ...state.levelBanner,
+                ...payload,
+            };
+        },
+    },
     actions: {
+        evaluateLevelBanner({ rootState, commit }) {
+            const userId = Number(rootState.auth?.userInfo?.ID || 0);
+            const currentLevel = Number(rootState.auth?.userInfo?.game_info?.progress?.level || 0);
+
+            if (!userId || currentLevel <= 0) {
+                commit('setLevelBanner', { visible: false, level: 0, from: 0, rewards: [] });
+                return;
+            }
+
+            const state = readLevelBannerState(userId);
+
+            if (!state) {
+                saveLevelBannerState(userId, {
+                    seenLevel: currentLevel,
+                    dismissedLevel: currentLevel,
+                });
+                commit('setLevelBanner', { visible: false, level: currentLevel, from: 0, rewards: [] });
+                return;
+            }
+
+            let seenLevel = state.seenLevel;
+            const dismissedLevel = state.dismissedLevel;
+
+            if (currentLevel > seenLevel) {
+                seenLevel = currentLevel;
+            }
+
+            commit('setLevelBanner', {
+                visible: currentLevel > dismissedLevel,
+                level: currentLevel,
+                from: 0,
+                rewards: [],
+            });
+
+            saveLevelBannerState(userId, { seenLevel, dismissedLevel });
+        },
+
+        closeLevelBanner({ rootState, commit }) {
+            const userId = Number(rootState.auth?.userInfo?.ID || 0);
+            const currentLevel = Number(rootState.auth?.userInfo?.game_info?.progress?.level || 0);
+            const state = readLevelBannerState(userId) || { seenLevel: currentLevel, dismissedLevel: 0 };
+
+            state.seenLevel = Math.max(Number(state.seenLevel || 0), currentLevel);
+            state.dismissedLevel = Math.max(Number(state.dismissedLevel || 0), currentLevel);
+            saveLevelBannerState(userId, state);
+
+            commit('setLevelBanner', { visible: false, from: 0, rewards: [] });
+        },
+
+        showBulkLevelBanner({ dispatch, commit, rootState }, { oldLevel, newLevel, levelRewards = [] }) {
+            const previousLevel = Number(oldLevel ?? 0);
+            const nextLevel = Number(newLevel ?? 0);
+            const userId = Number(rootState.auth?.userInfo?.ID || 0);
+
+            if (nextLevel <= previousLevel) {
+                dispatch('evaluateLevelBanner');
+                return;
+            }
+
+            const state = readLevelBannerState(userId) || { seenLevel: 0, dismissedLevel: 0 };
+            state.seenLevel = Math.max(Number(state.seenLevel || 0), nextLevel);
+            saveLevelBannerState(userId, state);
+
+            commit('setLevelBanner', {
+                visible: true,
+                level: nextLevel,
+                from: previousLevel + 1,
+                rewards: Array.isArray(levelRewards) ? levelRewards : [],
+            });
+        },
+
         async claimXp({ rootState }, matchId) {
             const userToken = rootState.auth?.authData?.token;
 

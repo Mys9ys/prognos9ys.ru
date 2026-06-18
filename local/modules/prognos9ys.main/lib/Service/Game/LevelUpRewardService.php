@@ -105,6 +105,7 @@ class LevelUpRewardService
             'prognobaks' => $alreadyGranted ? 0.0 : $amounts['prognobaks'],
             'rublius' => $alreadyGranted ? 0.0 : $amounts['rublius'],
             'chests' => $chestGranted ? 1 : 0,
+            'chest_type' => $chestGranted ? TreasureService::CHEST_TYPE_LEVEL : null,
         ];
     }
 }

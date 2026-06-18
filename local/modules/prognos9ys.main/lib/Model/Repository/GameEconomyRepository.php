@@ -786,6 +786,62 @@ class GameEconomyRepository
     }
 
     /**
+     * @return array{total:int,match:int,level:int,achievement:int}
+     */
+    public function getTreasureChestBreakdownForUser(int $userId): array
+    {
+        if ($userId <= 0) {
+            return [
+                'total' => 0,
+                'match' => 0,
+                'level' => 0,
+                'achievement' => 0,
+            ];
+        }
+
+        $dataClass = $this->getTreasureChestDataClass();
+        $breakdown = [
+            'total' => 0,
+            'match' => 0,
+            'level' => 0,
+            'achievement' => 0,
+        ];
+
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '=UF_STATUS' => 'closed',
+            ],
+            'select' => ['UF_COUNT', 'UF_TYPE', 'UF_MATCH_ID'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $count = (int)($row['UF_COUNT'] ?? 0);
+            if ($count <= 0) {
+                continue;
+            }
+
+            $breakdown['total'] += $count;
+            $type = (string)($row['UF_TYPE'] ?? '');
+            $matchId = (int)($row['UF_MATCH_ID'] ?? 0);
+
+            if ($type === 'level' || $matchId < 0) {
+                $breakdown['level'] += $count;
+                continue;
+            }
+
+            if ($type === 'achievement') {
+                $breakdown['achievement'] += $count;
+                continue;
+            }
+
+            $breakdown['match'] += $count;
+        }
+
+        return $breakdown;
+    }
+
+    /**
      * @return array<int, int> userId => total closed chests
      */
     public function getClosedTreasureChestTotalsMapForAllUsers(): array

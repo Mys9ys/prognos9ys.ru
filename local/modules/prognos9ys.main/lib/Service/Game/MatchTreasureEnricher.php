@@ -97,6 +97,7 @@ class MatchTreasureEnricher
 
         $match['treasure'] = [
             'count' => (int)($countMap[$matchId] ?? 0),
+            'type' => 'match',
         ];
     }
 }

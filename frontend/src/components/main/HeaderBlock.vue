@@ -76,10 +76,6 @@
         </div>
       </div>
     </div>
-    <div class="hm_level_banner" v-if="levelBannerVisible">
-      <span class="hm_level_banner_text">{{ levelBannerText }}</span>
-      <button class="hm_level_banner_close" @click="closeLevelBanner">×</button>
-    </div>
     <ImpersonationBanner v-if="impersonation.active" class="hm_impersonation"></ImpersonationBanner>
   </div>
 </template>
@@ -113,9 +109,6 @@ export default {
         // {link:'logout', img: require('@/assets/icon/header/exit.svg'), name: 'Выход'},
       ],
       menu: false,
-      levelBannerVisible: false,
-      levelBannerLevel: 0,
-      levelBannerFrom: 0,
       claimingAllXp: false,
       claimXpError: '',
     }
@@ -220,16 +213,6 @@ export default {
     currentLevel() {
       return Number(this.gameProgress?.level || 0);
     },
-    levelBannerText() {
-      if (this.levelBannerFrom > 0 && this.levelBannerTo > this.levelBannerFrom) {
-        return `Поздравляем! Уровни ${this.levelBannerFrom}–${this.levelBannerTo}`;
-      }
-
-      return `Поздравляем! Получен новый уровень: ${this.levelBannerLevel}`;
-    },
-    levelBannerTo() {
-      return this.levelBannerLevel;
-    },
     wallet() {
       const wallet = this.userInfo?.game_info?.wallet || {};
       const prognobaks = Number(wallet.prognobaks ?? 0).toFixed(1).replace(/\.0$/, '');
@@ -264,6 +247,8 @@ export default {
       refreshGameInfo: 'auth/refreshGameInfo',
       claimAllXp: 'game/claimAllXp',
       getNearest: 'mainPage/getNearest',
+      evaluateLevelBanner: 'game/evaluateLevelBanner',
+      showBulkLevelBanner: 'game/showBulkLevelBanner',
     }),
 
     logoutProfile() {
@@ -275,78 +260,6 @@ export default {
       await this.loginRequest()
       await this.refreshGameInfo()
       if (location.pathname === '/mob_app/') this.$router.push('/main')
-    },
-    getLevelBannerStorageKey() {
-      if (!this.userId) {
-        return '';
-      }
-      return `lk_level_banner_state_${this.userId}`;
-    },
-    readLevelBannerState() {
-      const key = this.getLevelBannerStorageKey();
-      if (!key) {
-        return null;
-      }
-      try {
-        const raw = localStorage.getItem(key);
-        if (!raw) {
-          return null;
-        }
-        const parsed = JSON.parse(raw);
-        return {
-          seenLevel: Number(parsed.seenLevel || 0),
-          dismissedLevel: Number(parsed.dismissedLevel || 0),
-        };
-      } catch (e) {
-        return null;
-      }
-    },
-    saveLevelBannerState(state) {
-      const key = this.getLevelBannerStorageKey();
-      if (!key) {
-        return;
-      }
-      localStorage.setItem(key, JSON.stringify({
-        seenLevel: Number(state.seenLevel || 0),
-        dismissedLevel: Number(state.dismissedLevel || 0),
-      }));
-    },
-    evaluateLevelBanner() {
-      if (!this.userId || this.currentLevel <= 0) {
-        this.levelBannerVisible = false;
-        return;
-      }
-
-      const currentLevel = this.currentLevel;
-      const state = this.readLevelBannerState();
-
-      if (!state) {
-        this.saveLevelBannerState({
-          seenLevel: currentLevel,
-          dismissedLevel: currentLevel,
-        });
-        this.levelBannerVisible = false;
-        return;
-      }
-
-      let seenLevel = state.seenLevel;
-      let dismissedLevel = state.dismissedLevel;
-
-      if (currentLevel > seenLevel) {
-        seenLevel = currentLevel;
-      }
-
-      this.levelBannerLevel = currentLevel;
-      this.levelBannerVisible = currentLevel > dismissedLevel;
-      this.saveLevelBannerState({ seenLevel, dismissedLevel });
-    },
-    closeLevelBanner() {
-      this.levelBannerVisible = false;
-      this.levelBannerFrom = 0;
-      const state = this.readLevelBannerState() || { seenLevel: this.currentLevel, dismissedLevel: 0 };
-      state.seenLevel = Math.max(Number(state.seenLevel || 0), this.currentLevel);
-      state.dismissedLevel = Math.max(Number(state.dismissedLevel || 0), this.currentLevel);
-      this.saveLevelBannerState(state);
     },
     onGuestHeaderClick() {
       if (!this.isGuest) {
@@ -368,7 +281,11 @@ export default {
         await this.getNearest();
 
         if (result?.level_up) {
-          this.showBulkLevelBanner(result.old_level, result.new_level);
+          this.showBulkLevelBanner({
+            oldLevel: result.old_level,
+            newLevel: result.new_level,
+            levelRewards: result.level_rewards,
+          });
         } else {
           this.evaluateLevelBanner();
         }
@@ -377,23 +294,6 @@ export default {
       } finally {
         this.claimingAllXp = false;
       }
-    },
-    showBulkLevelBanner(oldLevel, newLevel) {
-      const previousLevel = Number(oldLevel ?? 0);
-      const nextLevel = Number(newLevel ?? 0);
-
-      if (nextLevel <= previousLevel) {
-        this.evaluateLevelBanner();
-        return;
-      }
-
-      this.levelBannerFrom = previousLevel + 1;
-      this.levelBannerLevel = nextLevel;
-      this.levelBannerVisible = true;
-
-      const state = this.readLevelBannerState() || { seenLevel: 0, dismissedLevel: 0 };
-      state.seenLevel = Math.max(Number(state.seenLevel || 0), nextLevel);
-      this.saveLevelBannerState(state);
     },
   },
 }
@@ -428,34 +328,6 @@ export default {
   border-radius: 0 0 5px 5px;
 
   z-index: 15;
-
-  .hm_level_banner {
-    margin-top: 8px;
-    padding: 6px 8px;
-    border-radius: 5px;
-    background: rgba(247, 196, 23, 0.2);
-    border: 1px solid rgba(247, 196, 23, 0.45);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-  }
-
-  .hm_level_banner_text {
-    color: #ffe99b;
-    font-size: 12px;
-    line-height: 1.2;
-  }
-
-  .hm_level_banner_close {
-    border: 0;
-    background: transparent;
-    color: #ffe99b;
-    font-size: 18px;
-    line-height: 1;
-    cursor: pointer;
-    padding: 0 2px;
-  }
 
   .hm_impersonation {
     position: absolute;

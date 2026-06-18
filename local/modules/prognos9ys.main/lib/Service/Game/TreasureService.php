@@ -8,6 +8,8 @@ use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
 class TreasureService
 {
     public const CHEST_STATUS_CLOSED = 'closed';
+    public const CHEST_TYPE_MATCH = 'match';
+    public const CHEST_TYPE_LEVEL = 'level';
     public const CHEST_TYPE_ACHIEVEMENT = 'achievement';
 
     private GameEconomyRepository $repository;
@@ -66,6 +68,7 @@ class TreasureService
             'UF_EVENT_ID' => $eventId,
             'UF_COUNT' => $target,
             'UF_STATUS' => self::CHEST_STATUS_CLOSED,
+            'UF_TYPE' => 'match',
             'UF_CREATED_AT' => $now,
             'UF_UPDATED_AT' => $now,
         ]);
@@ -73,8 +76,13 @@ class TreasureService
 
     public function getTreasureSummary(int $userId): array
     {
+        $breakdown = $this->repository->getTreasureChestBreakdownForUser($userId);
+
         return [
-            'closed_chests' => $this->repository->getTreasureChestTotalForUser($userId),
+            'closed_chests' => $breakdown['total'],
+            'match_chests' => $breakdown['match'],
+            'level_chests' => $breakdown['level'],
+            'achievement_chests' => $breakdown['achievement'],
         ];
     }
 
@@ -103,7 +111,7 @@ class TreasureService
             'UF_EVENT_ID' => $eventId > 0 ? $eventId : GameEconomyConfig::ANCHOR_EVENT_ID,
             'UF_COUNT' => 1,
             'UF_STATUS' => self::CHEST_STATUS_CLOSED,
-            'UF_TYPE' => 'level',
+            'UF_TYPE' => self::CHEST_TYPE_LEVEL,
             'UF_CREATED_AT' => $now,
             'UF_UPDATED_AT' => $now,
         ]);

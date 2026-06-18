@@ -6,6 +6,7 @@ const pairs = [
   { src: 'mob_app/img/bank_ps.png', dst: 'frontend/src/assets/icons/game/bank.png' },
   { src: 'mob_app/img/ball_ps.png', dst: 'frontend/src/assets/icons/game/football.png' },
   { src: 'mob_app/img/chest_ps.png', dst: 'frontend/src/assets/icons/game/chest-wc2026.png' },
+  { src: 'mob_app/img/chest_xp_ps.png', dst: 'frontend/src/assets/icons/game/chest_xp.png' },
   { src: 'mob_app/img/rublius_ps.png', dst: 'frontend/src/assets/icons/game/rublius.png' },
   { src: 'mob_app/img/trophy_ps.png', dst: 'frontend/src/assets/icons/game/achievement.png' },
   { src: 'mob_app/img/prognobak.5d78b844.png', dst: 'frontend/src/assets/icons/game/prognobak.png' },

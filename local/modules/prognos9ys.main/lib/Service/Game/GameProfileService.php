@@ -80,6 +80,9 @@ class GameProfileService
                 'progress' => (new LevelService())->getProgressSummary(0),
                 'treasure' => [
                     'closed_chests' => 0,
+                    'match_chests' => 0,
+                    'level_chests' => 0,
+                    'achievement_chests' => 0,
                 ],
                 'bank' => [
                     'has_bank' => false,
