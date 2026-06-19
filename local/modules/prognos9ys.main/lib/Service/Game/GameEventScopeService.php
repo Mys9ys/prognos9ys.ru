@@ -230,23 +230,58 @@ class GameEventScopeService
 
     public function getLastSettledMatchIdForEvent(int $eventId): int
     {
+        $match = $this->getLastSettledMatchForEvent($eventId);
+
+        return (int)($match['id'] ?? 0);
+    }
+
+    /**
+     * Последний завершённый матч события (ACTIVE=N), в рамках игровой экономики.
+     *
+     * @return array{id:int,number:int}
+     */
+    public function getLastSettledMatchForEvent(int $eventId): array
+    {
         if ($eventId <= 0 || !Loader::includeModule('iblock')) {
-            return 0;
+            return ['id' => 0, 'number' => 0];
         }
 
-        $row = \CIBlockElement::GetList(
-            ['PROPERTY_number' => 'DESC'],
-            [
-                'IBLOCK_ID' => 2,
-                'PROPERTY_events' => $eventId,
-                '!PROPERTY_all' => false,
-            ],
-            false,
-            ['nTopCount' => 1],
-            ['ID']
-        )->GetNext();
+        $filter = [
+            'IBLOCK_ID' => 2,
+            'PROPERTY_events' => $eventId,
+            'ACTIVE' => 'N',
+        ];
 
-        return $row ? (int)$row['ID'] : 0;
+        if (GameEconomyConfig::isTestMatchNumberLimitEnabled()) {
+            $filter['>=PROPERTY_number'] = GameEconomyConfig::getTestMatchNumberMin();
+            $filter['<=PROPERTY_number'] = GameEconomyConfig::getTestMatchNumberMax();
+        }
+
+        $response = \CIBlockElement::GetList(
+            ['PROPERTY_number' => 'DESC', 'ID' => 'DESC'],
+            $filter,
+            false,
+            false,
+            ['ID', 'PROPERTY_events', 'PROPERTY_number']
+        );
+
+        while ($row = $response->GetNext()) {
+            $matchId = (int)($row['ID'] ?? 0);
+            $matchNumber = $this->extractMatchNumberFromRow($row);
+            $rowEventId = (int)($row['PROPERTY_EVENTS_VALUE'] ?? $eventId);
+
+            if ($matchId <= 0 || $matchNumber <= 0) {
+                continue;
+            }
+
+            if (!$this->isMatchInScope($rowEventId, $matchNumber)) {
+                continue;
+            }
+
+            return ['id' => $matchId, 'number' => $matchNumber];
+        }
+
+        return ['id' => 0, 'number' => 0];
     }
 
     public function getMatchNumber(int $matchId): int
@@ -260,10 +295,14 @@ class GameEventScopeService
             ['IBLOCK_ID' => 2, 'ID' => $matchId],
             false,
             false,
-            ['PROPERTY_number']
+            ['ID', 'PROPERTY_number', 'PROPERTY_events']
         )->GetNext();
 
-        return (int)($row['PROPERTY_NUMBER_VALUE'] ?? 0);
+        if (!$row) {
+            return 0;
+        }
+
+        return $this->extractMatchNumberFromRow($row);
     }
 
     public function formatMatchLabel(int $matchId): string
@@ -274,6 +313,56 @@ class GameEventScopeService
 
         $number = $this->getMatchNumber($matchId);
 
-        return $number > 0 ? 'матч №' . $number : 'матч #' . $matchId;
+        return $number > 0 ? 'матч №' . $number : '';
+    }
+
+    public function formatMatchLabelByNumber(int $matchNumber): string
+    {
+        return $matchNumber > 0 ? 'матч №' . $matchNumber : '';
+    }
+
+    /**
+     * @param array<string, mixed> $row HL-строка вклада/займа
+     * @return array{
+     *   opening_match_id:int,
+     *   opening_match_number:int,
+     *   opening_match_label:string,
+     *   created_match_label:string
+     * }
+     */
+    public function resolveOpeningMatchMeta(array $row): array
+    {
+        $openingMatchId = (int)($row['UF_OPENING_MATCH_ID'] ?? 0);
+        $openingMatchNumber = (int)($row['UF_OPENING_MATCH_NUMBER'] ?? 0);
+
+        if ($openingMatchNumber <= 0 && $openingMatchId > 0) {
+            $openingMatchNumber = $this->getMatchNumber($openingMatchId);
+        }
+
+        $label = $this->formatMatchLabelByNumber($openingMatchNumber);
+
+        return [
+            'opening_match_id' => $openingMatchId,
+            'opening_match_number' => $openingMatchNumber,
+            'opening_match_label' => $label,
+            'created_match_label' => $openingMatchNumber > 0
+                ? 'создан после ' . $label
+                : 'создан до первого результата',
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
+    private function extractMatchNumberFromRow(array $row): int
+    {
+        foreach (['PROPERTY_NUMBER_VALUE', 'PROPERTY_number_VALUE'] as $key) {
+            $number = (int)($row[$key] ?? 0);
+            if ($number > 0) {
+                return $number;
+            }
+        }
+
+        return 0;
     }
 }

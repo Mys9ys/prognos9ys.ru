@@ -54,6 +54,7 @@ class BankDepositService
         );
 
         $eventId = $this->scopeService->getAnchorEventId();
+        $lastSettledMatch = $this->scopeService->getLastSettledMatchForEvent($eventId);
 
         $depositId = $this->repository->addBankDeposit([
             'UF_BANK_ID' => $bankId,
@@ -64,7 +65,8 @@ class BankDepositService
             'UF_MATCHES_SINCE_START' => 0,
             'UF_TERM_MATCHES' => GameEconomyConfig::BANK_TERM_MATCHES,
             'UF_EVENT_ID' => $eventId,
-            'UF_OPENING_MATCH_ID' => $this->scopeService->getLastSettledMatchIdForEvent($eventId),
+            'UF_OPENING_MATCH_ID' => $lastSettledMatch['id'],
+            'UF_OPENING_MATCH_NUMBER' => $lastSettledMatch['number'],
             'UF_LAST_TICK_MATCH_ID' => 0,
             'UF_CREATED_AT' => new DateTime(),
             'UF_UPDATED_AT' => new DateTime(),
@@ -345,7 +347,7 @@ class BankDepositService
         $since = (int)($row['UF_MATCHES_SINCE_START'] ?? 0);
         $principal = round((float)($row['UF_PRINCIPAL'] ?? 0), 1);
         $scope = new GameEventScopeService();
-        $openingMatchId = (int)($row['UF_OPENING_MATCH_ID'] ?? 0);
+        $opening = $scope->resolveOpeningMatchMeta($row);
         $lastTickMatchId = (int)($row['UF_LAST_TICK_MATCH_ID'] ?? 0);
 
         return [
@@ -360,11 +362,10 @@ class BankDepositService
             'term_matches' => $term,
             'matches_left' => max(0, $term - $since),
             'event_id' => (int)($row['UF_EVENT_ID'] ?? 0),
-            'opening_match_id' => $openingMatchId,
-            'opening_match_label' => $scope->formatMatchLabel($openingMatchId),
-            'created_match_label' => $openingMatchId > 0
-                ? 'создан после ' . $scope->formatMatchLabel($openingMatchId)
-                : 'создан до первого результата',
+            'opening_match_id' => $opening['opening_match_id'],
+            'opening_match_number' => $opening['opening_match_number'],
+            'opening_match_label' => $opening['opening_match_label'],
+            'created_match_label' => $opening['created_match_label'],
             'last_tick_match_id' => $lastTickMatchId,
             'last_tick_match_label' => $scope->formatMatchLabel($lastTickMatchId),
         ];
