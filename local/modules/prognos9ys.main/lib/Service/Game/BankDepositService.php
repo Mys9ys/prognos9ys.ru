@@ -149,6 +149,85 @@ class BankDepositService
         $this->extendContract($depositId, $now);
     }
 
+    /**
+     * Разовая выплата пропущенных процентов (без смены срока контракта).
+     *
+     * @return array{status:string,interest?:float,reason?:string,need?:float,have?:float}
+     */
+    public function tryPayMissedInterest(int $depositId, bool $dryRun = false): array
+    {
+        $deposit = $this->repository->getBankDepositById($depositId);
+        if (!$deposit) {
+            return ['status' => 'error', 'reason' => 'deposit_not_found'];
+        }
+
+        if (($deposit['UF_STATUS'] ?? '') === GameEconomyConfig::CONTRACT_STATUS_CLOSED) {
+            return ['status' => 'skipped', 'reason' => 'closed'];
+        }
+
+        $userId = (int)($deposit['UF_USER_ID'] ?? 0);
+        if ($this->repository->hasWalletTx($userId, 'bank_deposit_interest', 'deposit', $depositId)) {
+            return ['status' => 'skipped', 'reason' => 'already_paid'];
+        }
+
+        if ($this->repository->hasWalletTx($userId, 'bank_deposit_return', 'deposit', $depositId)) {
+            return ['status' => 'skipped', 'reason' => 'closed_via_return'];
+        }
+
+        $bankId = (int)($deposit['UF_BANK_ID'] ?? 0);
+        $principal = round((float)($deposit['UF_PRINCIPAL'] ?? 0), 1);
+        $interest = GameEconomyConfig::calculateDepositInterest($principal);
+        if ($interest <= 0) {
+            return ['status' => 'skipped', 'reason' => 'zero_interest'];
+        }
+
+        $bank = $this->repository->getUserBankById($bankId);
+        if (!$bank) {
+            return ['status' => 'error', 'reason' => 'bank_not_found'];
+        }
+
+        $liquid = round((float)($bank['UF_LIQUID'] ?? 0), 1);
+        if ($liquid < $interest) {
+            return [
+                'status' => 'skipped',
+                'reason' => 'insufficient_liquid',
+                'need' => $interest,
+                'have' => $liquid,
+            ];
+        }
+
+        if ($dryRun) {
+            return ['status' => 'would_pay', 'interest' => $interest];
+        }
+
+        $this->payoutInterest($depositId, $bankId, $userId, $interest, new DateTime());
+
+        return ['status' => 'paid', 'interest' => $interest];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function findMissedInterestDeposits(?int $bankId = null): array
+    {
+        $rows = $bankId !== null && $bankId > 0
+            ? $this->repository->getActiveDepositsByBankId($bankId)
+            : $this->repository->getAllActiveDeposits();
+
+        $missed = [];
+        foreach ($rows as $row) {
+            $depositId = (int)$row['ID'];
+            $check = $this->tryPayMissedInterest($depositId, true);
+            if (($check['status'] ?? '') === 'would_pay') {
+                $missed[] = array_merge(self::formatContract($row), [
+                    'missed_interest' => $check['interest'] ?? 0,
+                ]);
+            }
+        }
+
+        return $missed;
+    }
+
     private function payoutInterest(int $depositId, int $bankId, int $userId, float $interest, DateTime $now): void
     {
         $this->repository->adjustUserBankLiquid($bankId, -$interest);
@@ -219,6 +298,9 @@ class BankDepositService
             'event_id' => (int)($row['UF_EVENT_ID'] ?? 0),
             'opening_match_id' => $openingMatchId,
             'opening_match_label' => $scope->formatMatchLabel($openingMatchId),
+            'created_match_label' => $openingMatchId > 0
+                ? 'создан после ' . $scope->formatMatchLabel($openingMatchId)
+                : 'создан до первого результата',
             'last_tick_match_id' => $lastTickMatchId,
             'last_tick_match_label' => $scope->formatMatchLabel($lastTickMatchId),
         ];

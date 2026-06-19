@@ -42,12 +42,12 @@ class UserBankService
         $bankId = (int)$row['ID'];
         $deposits = [];
         foreach ($this->repository->getActiveDepositsByBankId($bankId) as $deposit) {
-            $deposits[] = BankDepositService::formatContract($deposit);
+            $deposits[] = $this->enrichContractWithClient(BankDepositService::formatContract($deposit));
         }
 
         $loans = [];
         foreach ($this->repository->getActiveLoansByBankId($bankId) as $loan) {
-            $loans[] = BankLoanService::formatContract($loan);
+            $loans[] = $this->enrichContractWithClient(BankLoanService::formatContract($loan));
         }
 
         return array_merge($this->formatBankPublic($row), [
@@ -157,6 +157,45 @@ class UserBankService
             'deposit_amount' => GameEconomyConfig::DEPOSIT_MIN_AMOUNT_PROGNOBAKS,
             'loan_amount' => GameEconomyConfig::LOAN_MIN_AMOUNT_PROGNOBAKS,
             'term_matches' => GameEconomyConfig::BANK_TERM_MATCHES,
+        ];
+    }
+
+    private function enrichContractWithClient(array $contract): array
+    {
+        $clientId = (int)($contract['user_id'] ?? 0);
+        $contract['client'] = $this->resolveClientBrief($clientId);
+
+        return $contract;
+    }
+
+    private function resolveClientBrief(int $userId): array
+    {
+        if ($userId <= 0) {
+            return ['id' => 0, 'name' => '', 'ava' => ''];
+        }
+
+        $row = UserTable::getList([
+            'filter' => ['=ID' => $userId],
+            'select' => ['ID', 'LOGIN', 'NAME', 'LAST_NAME', 'PERSONAL_PHOTO'],
+            'limit' => 1,
+        ])->fetch();
+
+        if (!$row) {
+            return ['id' => $userId, 'name' => 'user#' . $userId, 'ava' => ''];
+        }
+
+        $name = trim(($row['NAME'] ?? '') . ' ' . ($row['LAST_NAME'] ?? ''));
+        if ($name === '') {
+            $name = (string)($row['LOGIN'] ?? ('user#' . $userId));
+        }
+
+        $photoId = (int)($row['PERSONAL_PHOTO'] ?? 0);
+        $ava = $photoId > 0 ? (string)\CFile::GetPath($photoId) : '';
+
+        return [
+            'id' => $userId,
+            'name' => $name,
+            'ava' => $ava,
         ];
     }
 

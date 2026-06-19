@@ -166,6 +166,9 @@ class BankLoanService
             'event_id' => (int)($row['UF_EVENT_ID'] ?? 0),
             'opening_match_id' => $openingMatchId,
             'opening_match_label' => $scope->formatMatchLabel($openingMatchId),
+            'created_match_label' => $openingMatchId > 0
+                ? 'создан после ' . $scope->formatMatchLabel($openingMatchId)
+                : 'создан до первого результата',
             'last_tick_match_id' => $lastTickMatchId,
             'last_tick_match_label' => $scope->formatMatchLabel($lastTickMatchId),
         ];

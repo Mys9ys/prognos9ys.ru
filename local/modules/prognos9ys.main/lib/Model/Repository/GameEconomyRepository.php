@@ -1285,6 +1285,16 @@ class GameEconomyRepository
         return $this->getDepositsByFilter(['=UF_BANK_ID' => $bankId], ['ID' => 'DESC']);
     }
 
+    public function getAllActiveDeposits(): array
+    {
+        return $this->getDepositsByFilter([
+            '@UF_STATUS' => [
+                GameEconomyConfig::CONTRACT_STATUS_ACTIVE,
+                GameEconomyConfig::CONTRACT_STATUS_EXTENDED,
+            ],
+        ]);
+    }
+
     public function getDepositsByUserId(int $userId): array
     {
         return $this->getDepositsByFilter(['=UF_USER_ID' => $userId], ['ID' => 'DESC']);

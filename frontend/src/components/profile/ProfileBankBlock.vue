@@ -33,23 +33,23 @@
         </div>
         <template v-if="myBank.deposits && myBank.deposits.length">
           <div class="subsection_title">Вклады в банке</div>
-          <div class="contract" v-for="d in myBank.deposits" :key="'bd' + d.id">
-            <div>Вклад #{{ d.id }} — {{ d.principal }} <AppIcon name="prognobak" :size="14" /></div>
-            <div class="meta">осталось матчей: {{ d.matches_left }}
-              <span v-if="d.opening_match_label"> · {{ d.opening_match_label }}</span>
-              <span v-if="d.status === 'extended'" class="badge">продлён</span>
-            </div>
-          </div>
+          <BankContractCard
+            v-for="d in myBank.deposits"
+            :key="'bd' + d.id"
+            :contract="d"
+            kind="deposit"
+            show-client
+          />
         </template>
         <template v-if="myBank.loans && myBank.loans.length">
           <div class="subsection_title">Займы из банка</div>
-          <div class="contract" v-for="l in myBank.loans" :key="'bl' + l.id">
-            <div>Займ #{{ l.id }} — {{ l.principal }} <AppIcon name="prognobak" :size="14" /></div>
-            <div class="meta">осталось матчей: {{ l.matches_left }}
-              <span v-if="l.opening_match_label"> · {{ l.opening_match_label }}</span>
-              <span v-if="l.status === 'extended'" class="badge">продлён</span>
-            </div>
-          </div>
+          <BankContractCard
+            v-for="l in myBank.loans"
+            :key="'bl' + l.id"
+            :contract="l"
+            kind="loan"
+            show-client
+          />
         </template>
         <button
           class="btn danger"
@@ -101,22 +101,18 @@
       <div class="section">
         <div class="section_title">Мои контракты</div>
         <div v-if="!contracts.deposits.length && !contracts.loans.length" class="hint">Нет активных вкладов и займов</div>
-        <div class="contract" v-for="d in contracts.deposits" :key="'d' + d.id">
-          <div>Вклад #{{ d.id }} — {{ d.principal }} <AppIcon name="prognobak" :size="14" /></div>
-          <div class="meta">Банк {{ d.bank_id }} · осталось матчей: {{ d.matches_left }}
-            <span v-if="d.opening_match_label"> · {{ d.opening_match_label }}</span>
-            <span v-if="d.last_tick_match_label"> · тик: {{ d.last_tick_match_label }}</span>
-            <span v-if="d.status === 'extended'" class="badge">продлён</span>
-          </div>
-        </div>
-        <div class="contract" v-for="l in contracts.loans" :key="'l' + l.id">
-          <div>Займ #{{ l.id }} — {{ l.principal }} <AppIcon name="prognobak" :size="14" /> (к возврату {{ l.total_due }})</div>
-          <div class="meta">Банк {{ l.bank_id }} · осталось матчей: {{ l.matches_left }}
-            <span v-if="l.opening_match_label"> · {{ l.opening_match_label }}</span>
-            <span v-if="l.last_tick_match_label"> · тик: {{ l.last_tick_match_label }}</span>
-            <span v-if="l.status === 'extended'" class="badge">продлён</span>
-          </div>
-        </div>
+        <BankContractCard
+          v-for="d in contracts.deposits"
+          :key="'d' + d.id"
+          :contract="d"
+          kind="deposit"
+        />
+        <BankContractCard
+          v-for="l in contracts.loans"
+          :key="'l' + l.id"
+          :contract="l"
+          kind="loan"
+        />
       </div>
 
       <div class="section">
@@ -145,13 +141,14 @@
 <script>
 import { mapActions, mapState } from 'vuex';
 import AppIcon from '@/components/ui/AppIcon.vue';
+import BankContractCard from '@/components/profile/BankContractCard.vue';
 
 const DEFAULT_DEPOSIT_AMOUNT = 100;
 const DEFAULT_LOAN_AMOUNT = 50;
 
 export default {
   name: 'ProfileBankBlock',
-  components: { AppIcon },
+  components: { AppIcon, BankContractCard },
   props: {
     game: {
       type: Object,
