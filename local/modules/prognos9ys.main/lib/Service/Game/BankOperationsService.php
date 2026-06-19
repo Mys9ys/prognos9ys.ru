@@ -85,6 +85,7 @@ class BankOperationsService
             $bankId = (int)$myBank['ID'];
             $depositIds = [];
             $loanIds = [];
+            $rolledBackDepositIds = $this->getRolledBackDepositIds($bankId);
 
             foreach ($this->repository->getDepositsByBankId($bankId) as $deposit) {
                 $depositIds[] = (int)$deposit['ID'];
@@ -108,9 +109,16 @@ class BankOperationsService
 
             foreach ($this->repository->getWalletTxByRefs('deposit', $depositIds, [
                 'bank_deposit_interest',
+                'bank_deposit_interest_rollback',
                 'bank_deposit_return',
                 'bank_deposit_return_half',
             ]) as $row) {
+                $reason = (string)($row['UF_REASON'] ?? '');
+                $depositId = (int)($row['UF_REF_ID'] ?? 0);
+                if ($reason === 'bank_deposit_interest' && isset($rolledBackDepositIds[$depositId])) {
+                    continue;
+                }
+
                 $event = $this->formatContractWalletTxForBankOwner($row, 'deposit');
                 if (!isset($seenIds[$event['id']])) {
                     $seenIds[$event['id']] = true;
@@ -142,6 +150,29 @@ class BankOperationsService
     }
 
     /**
+     * @return array<int, true>
+     */
+    private function getRolledBackDepositIds(int $bankId): array
+    {
+        $depositIds = array_map(
+            static fn(array $row): int => (int)$row['ID'],
+            $this->repository->getDepositsByBankId($bankId)
+        );
+
+        $rolledBack = [];
+        foreach ($this->repository->getWalletTxByRefs('deposit', $depositIds, [
+            'bank_deposit_interest_rollback',
+        ]) as $tx) {
+            $depositId = (int)($tx['UF_REF_ID'] ?? 0);
+            if ($depositId > 0) {
+                $rolledBack[$depositId] = true;
+            }
+        }
+
+        return $rolledBack;
+    }
+
+    /**
      * Сводка по банку за всё время (для владельца).
      *
      * @return array{total_loan_interest_earned: float, total_deposit_paid: float}
@@ -169,12 +200,20 @@ class BankOperationsService
             'bank_deposit_return',
             'bank_deposit_return_half',
             'bank_deposit_interest',
+            'bank_deposit_interest_rollback',
         ]) as $tx) {
-            $totalDepositPaid = round(
-                $totalDepositPaid + max(0, (float)($tx['UF_AMOUNT'] ?? 0)),
-                1
-            );
+            $reason = (string)($tx['UF_REASON'] ?? '');
+            $amount = abs(round((float)($tx['UF_AMOUNT'] ?? 0), 1));
+
+            if ($reason === 'bank_deposit_interest_rollback') {
+                $totalDepositPaid = round($totalDepositPaid - $amount, 1);
+                continue;
+            }
+
+            $totalDepositPaid = round($totalDepositPaid + $amount, 1);
         }
+
+        $totalDepositPaid = max(0.0, $totalDepositPaid);
 
         $loanPrincipalById = [];
         foreach ($this->repository->getLoansByBankId($bankId) as $loan) {
@@ -294,10 +333,12 @@ class BankOperationsService
     private function formatContractWalletTxForBankOwner(array $row, string $contractType): array
     {
         $reason = (string)($row['UF_REASON'] ?? '');
-        $amount = round((float)($row['UF_AMOUNT'] ?? 0), 1);
+        $rawAmount = round((float)($row['UF_AMOUNT'] ?? 0), 1);
         $refId = (int)($row['UF_REF_ID'] ?? 0);
         $clientId = (int)($row['UF_USER_ID'] ?? 0);
         $clientName = $this->resolveUserName($clientId);
+        $isRollback = $reason === 'bank_deposit_interest_rollback';
+        $amount = $isRollback ? abs($rawAmount) : -abs($rawAmount);
 
         return [
             'id' => 'bank_tx_' . (int)$row['ID'],
@@ -306,8 +347,8 @@ class BankOperationsService
             'category' => self::REASON_CATEGORY[$reason] ?? 'returns',
             'reason' => $reason,
             'label' => $this->buildWalletLabel($reason, $contractType, $refId, $clientId, $clientName),
-            'amount' => -abs($amount),
-            'direction' => 'out',
+            'amount' => $amount,
+            'direction' => $isRollback ? 'in' : 'out',
             'currency' => (string)($row['UF_CURRENCY'] ?? GameEconomyConfig::CURRENCY_PROGNOBAKS),
             'balance_after' => null,
             'contract_id' => $refId,
@@ -511,6 +552,7 @@ class BankOperationsService
             'bank_deposit_return',
             'bank_deposit_return_half',
             'bank_deposit_interest',
+            'bank_deposit_interest_rollback',
             'bank_loan',
             'bank_loan_repay',
             'bank_loan_interest',
