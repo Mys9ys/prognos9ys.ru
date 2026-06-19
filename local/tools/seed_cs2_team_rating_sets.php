@@ -69,7 +69,8 @@ function seed_cs2_team_rating_sets(int $eventId = 0, bool $dryRun = false): arra
 
         $userIds = resolve_user_ids_by_emails($team['mails']);
         if (count($userIds) !== 6) {
-            $missing = array_values(array_diff($team['mails'], array_keys($userIds)));
+            $foundMails = array_values($userIds);
+            $missing = array_values(array_diff($team['mails'], $foundMails));
             throw new RuntimeException(
                 'Команда ' . $title . ': нужно 6 участников, найдено ' . count($userIds)
                 . ($missing ? ' (нет: ' . implode(', ', $missing) . ')' : '')
@@ -81,7 +82,7 @@ function seed_cs2_team_rating_sets(int $eventId = 0, bool $dryRun = false): arra
             $resultSets[] = [
                 'title' => $title,
                 'status' => 'would_create',
-                'userIds' => array_values($userIds),
+                'userIds' => array_keys($userIds),
                 'mails' => $team['mails'],
             ];
             continue;
@@ -91,7 +92,7 @@ function seed_cs2_team_rating_sets(int $eventId = 0, bool $dryRun = false): arra
             'visibility' => \Prognos9ys\Main\Service\Rating\RatingSetService::VISIBILITY_OPEN,
             'sport' => 'cs2',
             'title' => $title,
-            'userIds' => array_values($userIds),
+            'userIds' => array_keys($userIds),
             'eventIds' => [$eventId],
         ]);
 
@@ -150,7 +151,32 @@ function resolve_cs2_rating_event_id(): int
 
 function resolve_user_id_by_email(string $email): int
 {
-    $row = CUser::GetList($by = 'id', $order = 'asc', ['=EMAIL' => strtolower($email)])->Fetch();
+    $email = strtolower(trim($email));
+    if ($email === '') {
+        return 0;
+    }
+
+    if (\Bitrix\Main\Loader::includeModule('main')) {
+        $row = \Bitrix\Main\UserTable::getList([
+            'select' => ['ID'],
+            'filter' => [
+                'LOGIC' => 'OR',
+                ['=EMAIL' => $email],
+                ['=LOGIN' => $email],
+            ],
+            'limit' => 1,
+        ])->fetch();
+        if (!empty($row['ID'])) {
+            return (int)$row['ID'];
+        }
+    }
+
+    $row = CUser::GetList($by = 'id', $order = 'asc', ['EMAIL' => $email])->Fetch();
+    if (!empty($row['ID'])) {
+        return (int)$row['ID'];
+    }
+
+    $row = CUser::GetList($by = 'id', $order = 'asc', ['LOGIN' => $email])->Fetch();
 
     return (int)($row['ID'] ?? 0);
 }
