@@ -1,0 +1,36 @@
+---
+description: Деплой на бой только через git (commit, push, git pull)
+alwaysApply: true
+---
+
+# Деплой на бой — только через git
+
+На production **не заливаем файлы вручную** (FTP, scp, копирование отдельных `app.*.js`, PHP и т.д.).
+
+## Поток
+
+1. **Локально:** правки → при изменениях во `frontend/` запустить `local\mob_app_ajax\deploy_mob_app.bat`
+2. **Git:** `commit` + `push` в `main` (или ветку по договорённости)
+3. **На сервере (crown):**
+   ```bash
+   cd ~/prognos9ys.ru/public_html
+   git pull
+   ```
+4. **Редко — HL/миграции:** только CLI-скрипты после pull, например:
+   ```bash
+   php7.4 local/modules/prognos9ys.main/install_game_economy_hl.php
+   ```
+5. **Браузер:** hard refresh (Ctrl+F5)
+
+## Что писать пользователю
+
+- ✅ «Сделай `git pull` на бою»
+- ✅ «Закоммитил и запушил — на сервере pull»
+- ❌ «Залей вручную `mob_app/js/app.xxx.js`»
+- ❌ «Скопируй `BankSettlementService.php` на сервер»
+- ❌ Списки отдельных файлов для ручной заливки как основной способ деплоя
+
+## Исключения
+
+- Первичная настройка сервера / секреты (`.env`) — вне git, по отдельной договорённости
+- Одноразовые диагностические команды на сервере (`diag_user_banks.php`) — не деплой кода
