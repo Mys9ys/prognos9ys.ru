@@ -1,10 +1,14 @@
 /**
  * Регистрация игроков и тренеров команд IEM Cologne Major 2026 (плей-офф).
- * Аккаунты @prognos9ys.ru автоматически попадают в группу «тестовые» (ID=6).
+ * Как Месси/звёзды ЧМ: POST /mob_app/ajax/register/, почта nick@prognos9ys.ru
  *
+ * На БОЮ без Node — используйте PHP:
+ *   php local/tools/seed_cs2_iem_players_prod.php
+ *
+ * Локально (с Node):
  *   node local/tools/seed_cs2_iem_players_prod.mjs --event=12345
  *   node local/tools/seed_cs2_iem_players_prod.mjs --event=12345 --dry-run
- *   node local/tools/seed_cs2_iem_players_prod.mjs --event=12345 --only=cs2p_donk
+ *   node local/tools/seed_cs2_iem_players_prod.mjs --event=12345 --only=donk
  *
  * ID события: админка → IEM Cologne Major 2026 (XML_ID cs2_iem_cologne_2026).
  */
@@ -99,7 +103,7 @@ function flattenPeople() {
         team: row.team,
         tag: row.tag,
         nick,
-        login: `cs2p_${slug}`,
+        login: slug,
         role: 'ИГ',
         wiki: `${nick}_(counter-strike_player)`,
       });
@@ -109,7 +113,7 @@ function flattenPeople() {
       team: row.team,
       tag: row.tag,
       nick: row.coach,
-      login: `cs2c_${coachSlug}`,
+      login: coachSlug,
       role: 'ТР',
       wiki: `${row.coach}_(counter-strike)`,
     });
@@ -393,7 +397,6 @@ async function main() {
     writeFileSync(outFile, header + lines.join('\n') + '\n', { flag: 'a' });
     console.log(`\nCredentials: ${outFile}`);
     console.log('Сброс паролей: php local/tools/reset_cs2_seed_passwords.php --confirm  →  {login}26');
-    console.log('Бот CS2: AgentCs2BotSetPrognosis() в агентах Bitrix (как футбол)');
   }
 }
 
