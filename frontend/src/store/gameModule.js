@@ -173,6 +173,22 @@ export const gameModule = {
             const res = await apiActions.game.takeLoan(userToken, bankId, amount, eventId);
             return applyGamePayload(ctx, res);
         },
+        async cancelLoan(ctx, loanId) {
+            const userToken = ctx.rootState.auth?.authData?.token;
+            if (!userToken) {
+                throw new Error('Требуется авторизация');
+            }
+            const res = await apiActions.game.cancelLoan(userToken, loanId);
+            return applyGamePayload(ctx, res);
+        },
+        async cancelDeposit(ctx, depositId) {
+            const userToken = ctx.rootState.auth?.authData?.token;
+            if (!userToken) {
+                throw new Error('Требуется авторизация');
+            }
+            const res = await apiActions.game.cancelDeposit(userToken, depositId);
+            return applyGamePayload(ctx, res);
+        },
         async closeBank(ctx) {
             const userToken = ctx.rootState.auth?.authData?.token;
             if (!userToken) {

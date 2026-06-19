@@ -156,6 +156,7 @@ class BankLoanService
         $maturityMatchNumber = $opening['opening_match_number'] > 0
             ? $opening['opening_match_number'] + $term
             : 0;
+        $cancel = (new BankContractLifecycleService())->evaluateCancelEligibility($row, 'loan');
 
         return [
             'id' => (int)$row['ID'],
@@ -181,6 +182,7 @@ class BankLoanService
                 : '',
             'last_tick_match_id' => $lastTickMatchId,
             'last_tick_match_label' => $scope->formatMatchLabel($lastTickMatchId),
+            'can_cancel' => (bool)($cancel['can_cancel'] ?? false),
         ];
     }
 }

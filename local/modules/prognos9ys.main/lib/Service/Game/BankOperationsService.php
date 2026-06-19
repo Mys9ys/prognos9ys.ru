@@ -16,14 +16,18 @@ class BankOperationsService
         'bank_deposit_return_half' => 'Частичный возврат вклада',
         'bank_deposit_interest' => 'Проценты по вкладу',
         'bank_deposit_interest_rollback' => 'Откат процентов по вкладу',
+        'bank_deposit_cancel' => 'Отмена вклада',
         'bank_loan' => 'Займ из банка',
+        'bank_loan_cancel' => 'Отмена займа',
         'bank_loan_repay' => 'Погашение займа',
         'bank_loan_interest' => 'Проценты по займу',
         'bank_client_deposit' => 'Вклад клиента',
+        'bank_client_deposit_cancel' => 'Отмена вклада клиента',
         'bank_client_deposit_payout' => 'Выплата по вкладу',
         'bank_client_deposit_principal' => 'Возврат тела вклада',
         'bank_client_deposit_interest' => 'Проценты по вкладу клиента',
         'bank_client_loan' => 'Выдача займа',
+        'bank_client_loan_cancel' => 'Отмена займа клиента',
         'bank_client_loan_repay' => 'Погашение займа',
         'bank_client_loan_interest' => 'Проценты по займу клиента',
     ];
@@ -32,11 +36,13 @@ class BankOperationsService
         'bank_reserve_lock' => 'all',
         'bank_reserve_unlock' => 'returns',
         'bank_deposit' => 'deposits',
+        'bank_deposit_cancel' => 'returns',
         'bank_deposit_return' => 'returns',
         'bank_deposit_return_half' => 'returns',
         'bank_deposit_interest' => 'returns',
         'bank_deposit_interest_rollback' => 'returns',
         'bank_loan' => 'loans',
+        'bank_loan_cancel' => 'returns',
         'bank_loan_repay' => 'returns',
         'bank_loan_interest' => 'returns',
         'bank_client_deposit' => 'deposits',
@@ -110,6 +116,7 @@ class BankOperationsService
             foreach ($this->repository->getWalletTxByRefs('deposit', $depositIds, [
                 'bank_deposit_interest',
                 'bank_deposit_interest_rollback',
+                'bank_deposit_cancel',
                 'bank_deposit_return',
                 'bank_deposit_return_half',
             ]) as $row) {
@@ -127,6 +134,7 @@ class BankOperationsService
             }
 
             foreach ($this->repository->getWalletTxByRefs('loan', $loanIds, [
+                'bank_loan_cancel',
                 'bank_loan_repay',
                 'bank_loan_interest',
             ]) as $row) {
@@ -338,7 +346,15 @@ class BankOperationsService
         $clientId = (int)($row['UF_USER_ID'] ?? 0);
         $clientName = $this->resolveUserName($clientId);
         $isRollback = $reason === 'bank_deposit_interest_rollback';
-        $amount = $isRollback ? abs($rawAmount) : -abs($rawAmount);
+        $isLoanCancel = $reason === 'bank_loan_cancel';
+        $isDepositCancel = $reason === 'bank_deposit_cancel';
+        if ($isRollback || $isLoanCancel) {
+            $amount = abs($rawAmount);
+        } elseif ($isDepositCancel) {
+            $amount = -abs($rawAmount);
+        } else {
+            $amount = -abs($rawAmount);
+        }
 
         return [
             'id' => 'bank_tx_' . (int)$row['ID'],
@@ -348,7 +364,7 @@ class BankOperationsService
             'reason' => $reason,
             'label' => $this->buildWalletLabel($reason, $contractType, $refId, $clientId, $clientName),
             'amount' => $amount,
-            'direction' => $isRollback ? 'in' : 'out',
+            'direction' => ($isRollback || $isLoanCancel) ? 'in' : 'out',
             'currency' => (string)($row['UF_CURRENCY'] ?? GameEconomyConfig::CURRENCY_PROGNOBAKS),
             'balance_after' => null,
             'contract_id' => $refId,
@@ -396,8 +412,32 @@ class BankOperationsService
         ];
 
         if ($status === GameEconomyConfig::CONTRACT_STATUS_CLOSED) {
-            $interest = GameEconomyConfig::calculateDepositInterest($principal);
             $closedAt = $this->formatDateTime($deposit['UF_CLOSED_AT'] ?? $deposit['UF_UPDATED_AT'] ?? null);
+
+            if ($this->repository->hasWalletTx($clientId, 'bank_deposit_cancel', 'deposit', $depositId)) {
+                $events[] = [
+                    'id' => 'dep_cancel_' . $depositId,
+                    'at' => $closedAt,
+                    'scope' => 'bank',
+                    'category' => 'returns',
+                    'reason' => 'bank_client_deposit_cancel',
+                    'label' => $this->buildContractLabel('Отмена вклада', $depositId, $clientName, $matchLabel),
+                    'amount' => -$principal,
+                    'direction' => 'out',
+                    'currency' => GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                    'balance_after' => null,
+                    'contract_id' => $depositId,
+                    'bank_id' => $bankId,
+                    'counterparty_id' => $clientId,
+                    'counterparty_name' => $clientName,
+                    'match_id' => $openingMatchId,
+                    'match_label' => $matchLabel,
+                ];
+
+                return $events;
+            }
+
+            $interest = GameEconomyConfig::calculateDepositInterest($principal);
             $closedMatchId = $lastTickMatchId;
             $closedMatchLabel = $this->scopeService->formatMatchLabel($closedMatchId);
 
@@ -481,8 +521,32 @@ class BankOperationsService
         ];
 
         if ($status === GameEconomyConfig::CONTRACT_STATUS_CLOSED) {
-            $interest = GameEconomyConfig::calculateLoanInterest($principal);
             $closedAt = $this->formatDateTime($loan['UF_CLOSED_AT'] ?? $loan['UF_UPDATED_AT'] ?? null);
+
+            if ($this->repository->hasWalletTx($clientId, 'bank_loan_cancel', 'loan', $loanId)) {
+                $events[] = [
+                    'id' => 'loan_cancel_' . $loanId,
+                    'at' => $closedAt,
+                    'scope' => 'bank',
+                    'category' => 'returns',
+                    'reason' => 'bank_client_loan_cancel',
+                    'label' => $this->buildContractLabel('Отмена займа', $loanId, $clientName, $matchLabel),
+                    'amount' => $principal,
+                    'direction' => 'in',
+                    'currency' => GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                    'balance_after' => null,
+                    'contract_id' => $loanId,
+                    'bank_id' => $bankId,
+                    'counterparty_id' => $clientId,
+                    'counterparty_name' => $clientName,
+                    'match_id' => $openingMatchId,
+                    'match_label' => $matchLabel,
+                ];
+
+                return $events;
+            }
+
+            $interest = GameEconomyConfig::calculateLoanInterest($principal);
             $closedMatchId = $lastTickMatchId;
             $closedMatchLabel = $this->scopeService->formatMatchLabel($closedMatchId);
 
@@ -549,11 +613,13 @@ class BankOperationsService
         $name = $userName;
         if ($name !== '' && in_array($reason, [
             'bank_deposit',
+            'bank_deposit_cancel',
             'bank_deposit_return',
             'bank_deposit_return_half',
             'bank_deposit_interest',
             'bank_deposit_interest_rollback',
             'bank_loan',
+            'bank_loan_cancel',
             'bank_loan_repay',
             'bank_loan_interest',
         ], true)) {

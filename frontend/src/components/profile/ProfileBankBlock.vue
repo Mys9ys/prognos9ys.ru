@@ -106,12 +106,16 @@
           :key="'d' + d.id"
           :contract="d"
           kind="deposit"
+          show-cancel
+          @cancel="onCancelDeposit"
         />
         <BankContractCard
           v-for="l in contracts.loans"
           :key="'l' + l.id"
           :contract="l"
           kind="loan"
+          show-cancel
+          @cancel="onCancelLoan"
         />
       </div>
 
@@ -243,7 +247,7 @@ export default {
     },
   },
   methods: {
-    ...mapActions('game', ['listBanks', 'getMyContracts', 'getBankOperations', 'openBank', 'createDeposit', 'takeLoan', 'closeBank']),
+    ...mapActions('game', ['listBanks', 'getMyContracts', 'getBankOperations', 'openBank', 'createDeposit', 'takeLoan', 'closeBank', 'cancelLoan', 'cancelDeposit']),
     ...mapActions('auth', ['refreshGameInfo']),
     formatSignedAmount(amount) {
       const value = Number(amount ?? 0);
@@ -339,6 +343,37 @@ export default {
         await this.refresh();
       } catch (e) {
         this.error = e.message || 'Не удалось закрыть банк';
+      } finally {
+        this.loading = false;
+      }
+    },
+    async onCancelDeposit(contract) {
+      if (!contract?.id || !window.confirm('Отменить вклад и вернуть деньги на кошелёк?')) {
+        return;
+      }
+      await this.cancelContract('deposit', contract.id);
+    },
+    async onCancelLoan(contract) {
+      if (!contract?.id || !window.confirm('Отменить займ и вернуть сумму в банк?')) {
+        return;
+      }
+      await this.cancelContract('loan', contract.id);
+    },
+    async cancelContract(kind, contractId) {
+      this.loading = true;
+      this.error = '';
+      this.message = '';
+      try {
+        if (kind === 'loan') {
+          await this.cancelLoan(contractId);
+        } else {
+          await this.cancelDeposit(contractId);
+        }
+        this.message = kind === 'loan' ? 'Займ отменён' : 'Вклад отменён';
+        await this.refreshGameInfo();
+        await this.refresh();
+      } catch (e) {
+        this.error = e.message || 'Не удалось отменить контракт';
       } finally {
         this.loading = false;
       }

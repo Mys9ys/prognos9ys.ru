@@ -5,6 +5,7 @@ namespace Prognos9ys\Main\Controller;
 use Prognos9ys\Main\Service\Auth\ImpersonationService;
 use Prognos9ys\Main\Service\Auth\TokenAuthService;
 use Prognos9ys\Main\Service\Game\AchievementService;
+use Prognos9ys\Main\Service\Game\BankContractLifecycleService;
 use Prognos9ys\Main\Service\Game\BankDepositService;
 use Prognos9ys\Main\Service\Game\BankLoanService;
 use Prognos9ys\Main\Service\Game\BankOperationsService;
@@ -35,6 +36,8 @@ class GameController extends BaseController
             'openBank' => $this->getDefaultConfigureForPostToken(),
             'createDeposit' => $this->getDefaultConfigureForPostToken(),
             'takeLoan' => $this->getDefaultConfigureForPostToken(),
+            'cancelLoan' => $this->getDefaultConfigureForPostToken(),
+            'cancelDeposit' => $this->getDefaultConfigureForPostToken(),
             'closeBank' => $this->getDefaultConfigureForPostToken(),
             'getAchievements' => $this->getDefaultConfigureForPostToken(),
         ];
@@ -222,6 +225,34 @@ class GameController extends BaseController
                 $amount,
                 $eventId > 0 ? $eventId : null
             ),
+            'game' => (new GameProfileService())->getSummary($userId),
+        ];
+    }
+
+    public function cancelLoanAction(int $loanId): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        return [
+            'status' => 'ok',
+            'loan' => (new BankContractLifecycleService())->cancelLoan($userId, $loanId),
+            'game' => (new GameProfileService())->getSummary($userId),
+        ];
+    }
+
+    public function cancelDepositAction(int $depositId): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        return [
+            'status' => 'ok',
+            'deposit' => (new BankContractLifecycleService())->cancelDeposit($userId, $depositId),
             'game' => (new GameProfileService())->getSummary($userId),
         ];
     }

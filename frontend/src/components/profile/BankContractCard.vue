@@ -19,6 +19,11 @@
       <span v-if="contract.maturity_match_label"> · {{ contract.maturity_match_label }}</span>
       <span v-if="contract.status === 'extended'" class="badge">продлён</span>
     </div>
+    <div class="contract_actions" v-if="contract.can_cancel && showCancel">
+      <button class="btn_cancel" type="button" @click.stop="$emit('cancel', contract)">
+        Отменить
+      </button>
+    </div>
     <div class="user_cell" v-if="showClient && clientId">
       <span class="user_ava">
         <img :src="avatarUrl" alt="">
@@ -58,6 +63,10 @@ export default {
       validator: (v) => ['deposit', 'loan'].includes(v),
     },
     showClient: {
+      type: Boolean,
+      default: false,
+    },
+    showCancel: {
       type: Boolean,
       default: false,
     },
@@ -208,5 +217,19 @@ export default {
     color: @YesWrite;
     border: 2px solid @YesWrite;
   }
+}
+
+.contract_actions {
+  margin-top: 8px;
+}
+
+.btn_cancel {
+  background: transparent;
+  color: #f0a0a0;
+  border: 1px solid #c44;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
 }
 </style>
