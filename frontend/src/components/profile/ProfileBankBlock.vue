@@ -15,6 +15,22 @@
         <div class="row"><span>Ликвидность (вклады)</span><span>{{ myBank.liquid }} <AppIcon name="prognobak" :size="14" /></span></div>
         <div class="row"><span>Доступно для займов</span><span>{{ myBank.loanable }} <AppIcon name="prognobak" :size="14" /></span></div>
         <div class="row"><span>Контракты</span><span>{{ myBank.active_contracts }}</span></div>
+        <div class="lifetime_stats" v-if="myBank.lifetime">
+          <div class="row lifetime_row">
+            <span>Заработано на займах</span>
+            <span class="lifetime_in">
+              +{{ formatAmount(myBank.lifetime.total_loan_interest_earned) }}
+              <AppIcon name="prognobak" :size="14" />
+            </span>
+          </div>
+          <div class="row lifetime_row">
+            <span>Выплачено по вкладам</span>
+            <span class="lifetime_out">
+              {{ formatAmount(myBank.lifetime.total_deposit_paid) }}
+              <AppIcon name="prognobak" :size="14" />
+            </span>
+          </div>
+        </div>
         <template v-if="myBank.deposits && myBank.deposits.length">
           <div class="subsection_title">Вклады в банке</div>
           <div class="contract" v-for="d in myBank.deposits" :key="'bd' + d.id">
@@ -211,6 +227,9 @@ export default {
       const fixed = value.toFixed(1).replace(/\.0$/, '');
       return value > 0 ? `+${fixed}` : fixed;
     },
+    formatAmount(amount) {
+      return Number(amount ?? 0).toFixed(1).replace(/\.0$/, '');
+    },
     async refresh() {
       this.error = '';
       await Promise.all([this.loadBanks(), this.loadContracts(), this.loadOperations()]);
@@ -362,6 +381,32 @@ export default {
   justify-content: space-between;
   font-size: 13px;
   margin-bottom: 4px;
+}
+
+.lifetime_stats {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid fade(@colorBlur, 35%);
+}
+
+.lifetime_row {
+  font-size: 12px;
+}
+
+.lifetime_in {
+  color: #8ddf8d;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+}
+
+.lifetime_out {
+  color: #f0a0a0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
 }
 
 .hint {

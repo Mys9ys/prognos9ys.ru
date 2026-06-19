@@ -140,6 +140,77 @@ class BankOperationsService
     }
 
     /**
+     * Сводка по банку за всё время (для владельца).
+     *
+     * @return array{total_loan_interest_earned: float, total_deposit_paid: float}
+     */
+    public function getLifetimeTotalsForBank(int $bankId): array
+    {
+        if ($bankId <= 0) {
+            return [
+                'total_loan_interest_earned' => 0.0,
+                'total_deposit_paid' => 0.0,
+            ];
+        }
+
+        $depositIds = array_map(
+            static fn(array $row): int => (int)$row['ID'],
+            $this->repository->getDepositsByBankId($bankId)
+        );
+        $loanIds = array_map(
+            static fn(array $row): int => (int)$row['ID'],
+            $this->repository->getLoansByBankId($bankId)
+        );
+
+        $totalDepositPaid = 0.0;
+        foreach ($this->repository->getWalletTxByRefs('deposit', $depositIds, [
+            'bank_deposit_return',
+            'bank_deposit_return_half',
+            'bank_deposit_interest',
+        ]) as $tx) {
+            $totalDepositPaid = round(
+                $totalDepositPaid + max(0, (float)($tx['UF_AMOUNT'] ?? 0)),
+                1
+            );
+        }
+
+        $loanPrincipalById = [];
+        foreach ($this->repository->getLoansByBankId($bankId) as $loan) {
+            $loanPrincipalById[(int)$loan['ID']] = round((float)($loan['UF_PRINCIPAL'] ?? 0), 1);
+        }
+
+        $totalLoanInterestEarned = 0.0;
+        foreach ($this->repository->getWalletTxByRefs('loan', $loanIds, [
+            'bank_loan_interest',
+            'bank_loan_repay',
+        ]) as $tx) {
+            $reason = (string)($tx['UF_REASON'] ?? '');
+
+            if ($reason === 'bank_loan_interest') {
+                $totalLoanInterestEarned = round(
+                    $totalLoanInterestEarned + abs((float)($tx['UF_AMOUNT'] ?? 0)),
+                    1
+                );
+                continue;
+            }
+
+            if ($reason === 'bank_loan_repay') {
+                $loanId = (int)($tx['UF_REF_ID'] ?? 0);
+                $principal = $loanPrincipalById[$loanId] ?? 0.0;
+                $totalLoanInterestEarned = round(
+                    $totalLoanInterestEarned + GameEconomyConfig::calculateLoanInterest($principal),
+                    1
+                );
+            }
+        }
+
+        return [
+            'total_loan_interest_earned' => $totalLoanInterestEarned,
+            'total_deposit_paid' => $totalDepositPaid,
+        ];
+    }
+
+    /**
      * @param array<string, mixed> $row
      * @return array<string, mixed>
      */

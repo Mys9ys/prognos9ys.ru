@@ -54,6 +54,7 @@ class UserBankService
             'deposits' => $deposits,
             'loans' => $loans,
             'active_contracts' => count($deposits) + count($loans),
+            'lifetime' => (new BankOperationsService($this->repository))->getLifetimeTotalsForBank($bankId),
         ]);
     }
 
