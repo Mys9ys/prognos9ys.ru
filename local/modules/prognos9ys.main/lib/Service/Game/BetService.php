@@ -359,7 +359,7 @@ class BetService
             return $stats;
         }
 
-        $prognosisIbId = $this->resolvePrognosisIblockId();
+        $prognosisIbId = $this->resolvePrognosisIblockIdForMatch($matchRow);
         if ($prognosisIbId <= 0) {
             return $stats;
         }
@@ -374,6 +374,8 @@ class BetService
                 'PROPERTY_user_id',
                 'PROPERTY_result',
                 'PROPERTY_diff',
+                'PROPERTY_maps_home',
+                'PROPERTY_maps_guest',
                 'PROPERTY_goal_home',
                 'PROPERTY_goal_guest',
                 'PROPERTY_events',
@@ -502,8 +504,8 @@ class BetService
             return 'п2';
         }
 
-        $home = (int)($prognosisRow['PROPERTY_GOAL_HOME_VALUE'] ?? 0);
-        $guest = (int)($prognosisRow['PROPERTY_GOAL_GUEST_VALUE'] ?? 0);
+        $home = (int)($prognosisRow['PROPERTY_MAPS_HOME_VALUE'] ?? $prognosisRow['PROPERTY_GOAL_HOME_VALUE'] ?? 0);
+        $guest = (int)($prognosisRow['PROPERTY_MAPS_GUEST_VALUE'] ?? $prognosisRow['PROPERTY_GOAL_GUEST_VALUE'] ?? 0);
         $goalDiff = $home - $guest;
         if ($goalDiff > 0) {
             return 'п1';
@@ -529,8 +531,8 @@ class BetService
             return $outcome;
         }
 
-        $home = (int)($matchRow['PROPERTY_GOAL_HOME_VALUE'] ?? 0);
-        $guest = (int)($matchRow['PROPERTY_GOAL_GUEST_VALUE'] ?? 0);
+        $home = (int)($matchRow['PROPERTY_MAPS_HOME_VALUE'] ?? $matchRow['PROPERTY_GOAL_HOME_VALUE'] ?? 0);
+        $guest = (int)($matchRow['PROPERTY_MAPS_GUEST_VALUE'] ?? $matchRow['PROPERTY_GOAL_GUEST_VALUE'] ?? 0);
         $diff = $home - $guest;
 
         if ($diff > 0) {
@@ -550,6 +552,41 @@ class BetService
     private function resolvePrognosisIblockId(): int
     {
         return (int)(\CIBlock::GetList([], ['CODE' => 'prognosis'], false)->Fetch()['ID'] ?: 6);
+    }
+
+    /**
+     * @param array<string, mixed> $matchRow
+     */
+    private function resolvePrognosisIblockIdForMatch(array $matchRow): int
+    {
+        $matchIblockId = (int)($matchRow['IBLOCK_ID'] ?? 0);
+        $cs2MatchesId = $this->resolveCs2MatchIblockId();
+
+        if ($cs2MatchesId > 0 && $matchIblockId === $cs2MatchesId) {
+            return $this->resolveCs2PrognosisIblockId();
+        }
+
+        return $this->resolvePrognosisIblockId();
+    }
+
+    private function resolveCs2MatchIblockId(): int
+    {
+        static $id = null;
+        if ($id === null) {
+            $id = (int)(\CIBlock::GetList([], ['CODE' => 'cs2matches'], false)->Fetch()['ID'] ?: 0);
+        }
+
+        return $id;
+    }
+
+    private function resolveCs2PrognosisIblockId(): int
+    {
+        static $id = null;
+        if ($id === null) {
+            $id = (int)(\CIBlock::GetList([], ['CODE' => 'prognoscs2'], false)->Fetch()['ID'] ?: 0);
+        }
+
+        return $id;
     }
 
     /**
@@ -580,26 +617,46 @@ class BetService
 
     private function loadMatchRow(int $matchId): ?array
     {
-        $row = \CIBlockElement::GetList(
-            [],
-            [
-                'IBLOCK_ID' => 2,
-                'ID' => $matchId,
-            ],
-            false,
-            false,
-            [
-                'ID',
-                'ACTIVE',
-                'PROPERTY_events',
-                'PROPERTY_number',
-                'PROPERTY_result',
-                'PROPERTY_goal_home',
-                'PROPERTY_goal_guest',
-            ]
-        )->GetNext();
+        $select = [
+            'ID',
+            'IBLOCK_ID',
+            'ACTIVE',
+            'PROPERTY_events',
+            'PROPERTY_number',
+            'PROPERTY_result',
+            'PROPERTY_maps_home',
+            'PROPERTY_maps_guest',
+            'PROPERTY_goal_home',
+            'PROPERTY_goal_guest',
+        ];
 
-        return $row ?: null;
+        $iblockIds = array_values(array_filter(array_unique([
+            2,
+            $this->resolveCs2MatchIblockId(),
+        ])));
+
+        foreach ($iblockIds as $iblockId) {
+            if ($iblockId <= 0) {
+                continue;
+            }
+
+            $row = \CIBlockElement::GetList(
+                [],
+                [
+                    'IBLOCK_ID' => $iblockId,
+                    'ID' => $matchId,
+                ],
+                false,
+                false,
+                $select
+            )->GetNext();
+
+            if ($row) {
+                return $row;
+            }
+        }
+
+        return null;
     }
 
     private function normalizeOutcome($value): ?string

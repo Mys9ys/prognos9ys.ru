@@ -1,0 +1,744 @@
+﻿.match_title {
+  background: @DarkColorBG;
+  color: @colorText;
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+
+  padding: 4px;
+  border-radius: 5px;
+
+  gap: 4px;
+
+  margin-bottom: 4px;
+
+  .title_cell {
+    .shadow_inset;
+  }
+
+}
+
+.teams_block {
+  background: @DarkColorBG;
+  color: @colorText;
+  display: flex;
+  flex-direction: column;
+
+  padding: 4px;
+  border-radius: 5px;
+
+  gap: 4px;
+
+  margin-bottom: 4px;
+
+  .teams_names_row {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .teams_form_row {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 4px;
+  }
+
+  .teams_form_cell {
+    .shadow_inset;
+    border-radius: 4px;
+    padding: 4px 6px;
+    min-height: 24px;
+    display: flex;
+    align-items: center;
+
+    &.teams_form_cell_home {
+      flex: 1 1 0;
+      justify-content: flex-start;
+      min-width: 0;
+    }
+
+    &.teams_form_cell_label {
+      flex: 0 0 auto;
+      justify-content: center;
+      font-size: 11px;
+      line-height: 1;
+      text-transform: lowercase;
+      color: fade(@colorText, 72%);
+      letter-spacing: 0.02em;
+      padding: 4px 8px;
+    }
+
+    &.teams_form_cell_guest {
+      flex: 1 1 0;
+      justify-content: flex-end;
+      min-width: 0;
+    }
+  }
+
+  .team {
+    max-width: 46%;
+    display: flex;
+    flex-direction: row;
+    gap: 4px;
+    align-items: center;
+
+    &.team_guest {
+      justify-content: flex-end;
+    }
+
+    .flag {
+      max-width: 24px;
+      .shadow_inset;
+      padding: 3px;
+      .flex_center;
+
+      img {
+        width: 98%;
+        max-width: 20px;
+        border-radius: 3px;
+      }
+    }
+
+    .name {
+      max-width: 85%;
+      width: 180px;
+      .shadow_inset;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+
+      &.name_home {
+        text-align: left;
+      }
+
+      &.name_guest {
+        text-align: right;
+      }
+    }
+  }
+
+}
+
+.dash {
+  .shadow_inset;
+}
+
+.guest_prognosis_block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 16px 12px;
+  background: @DarkColorBG;
+  border-radius: 5px;
+  text-align: center;
+
+  .guest_prognosis_text {
+    color: @colorText;
+    font-size: 14px;
+    line-height: 1.4;
+    margin: 0;
+  }
+
+  .btn_send.guest_cta {
+    .prognosis_btn;
+    width: 180px;
+    max-width: 100%;
+    padding: 8px 12px;
+    font-weight: 700;
+  }
+
+  .guest_auth_links {
+    font-size: 13px;
+
+    span {
+      color: @darkbg;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+  }
+}
+
+.prognosis_btn {
+  background: @YesWrite;
+  .shadow_template;
+  .flex_center;
+  background: @colorText2;
+  color: @colorText;
+  cursor: pointer;
+
+  padding: 2px 2px;
+  font-size: 14px;
+  border-radius: 3px;
+  text-align: center;
+  border: 1px solid transparent;
+  text-decoration: none;
+}
+
+.value {
+  .flex_center;
+  .shadow_inset;
+  width: 26px;
+  height: 26px;
+  border: 2px solid @YesWrite;
+  padding: 2px 2px;
+  font-size: 14px;
+  border-radius: 3px;
+}
+
+.prognosis_block {
+  position: relative;
+  background: @DarkColorBG;
+  color: @colorText;
+  padding: 4px;
+  border-radius: 5px;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 4px;
+
+  .part_block {
+    position: relative;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    .title_block {
+      display: flex;
+      flex-direction: row;
+      gap: 4px;
+      .item{
+        .shadow_inset;
+        text-align: left;
+        color: @maxdarkgrey;
+        font-size: 14px;
+        font-weight: 700;
+      }
+      .icon{
+        min-width: 24px;
+        .flex_center;
+      }
+    }
+
+    .value_block {
+      width: 100%;
+      display: flex;
+      flex-direction: row;
+      justify-content: flex-end;
+      gap: 4px;
+
+      .value_box {
+        display: flex;
+        flex-direction: row;
+        gap: 4px;
+      }
+    }
+
+    &.yellow {
+      .item {
+        color: @maxYellow;
+      }
+
+      .value {
+        border-color: @maxYellow;
+      }
+
+      .btn {
+        background: @maxYellow;
+      }
+    }
+
+    &.red {
+      .item {
+        color: @maxred;
+      }
+
+      .value {
+        border-color: @maxred;
+      }
+
+      .btn {
+        background: @maxred;
+      }
+    }
+  }
+
+  .auto_block_title {
+    align-items: center;
+    gap: 4px;
+
+    .auto_title_text {
+      text-align: left;
+      justify-content: flex-start;
+      padding-left: 6px;
+      font-size: 12px;
+      width: auto;
+      flex: 0 1 auto;
+    }
+
+    .more_btn {
+      flex-shrink: 0;
+    }
+
+    .bet_checkbox {
+      margin-left: auto;
+    }
+  }
+
+  .bet_checkbox {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 14px;
+    font-weight: 700;
+    color: @YesWrite2;
+    .shadow_inset;
+    padding: 2px 6px;
+    border-radius: 3px;
+    line-height: 1.1;
+    white-space: nowrap;
+
+    &.bet_checkbox_disabled {
+      color: fade(@colorText, 45%);
+      cursor: not-allowed;
+    }
+  }
+
+  .bet_checkbox_text {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .bet_coin_icon {
+    flex-shrink: 0;
+  }
+
+  .bet_input {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border: 2px solid @YesWrite2;
+    border-radius: 3px;
+    background: @darkbg;
+    position: relative;
+    margin: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+
+    &:checked {
+      background: @YesWrite2;
+      border-color: @YesWrite2;
+    }
+
+    &:disabled {
+      border-color: fade(@colorText, 35%);
+      cursor: not-allowed;
+
+      &:checked {
+        background: fade(@colorText, 35%);
+        border-color: fade(@colorText, 35%);
+      }
+    }
+
+    &:checked::after {
+      content: '';
+      position: absolute;
+      left: 4px;
+      top: 1px;
+      width: 4px;
+      height: 8px;
+      border: solid @darkbg;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+    }
+  }
+
+  .block_absolute{
+    position: absolute;
+  }
+
+  .prognosis_dash_line {
+    width: 100%;
+    border-bottom: 1px dotted @maxdarkgrey;
+  }
+
+  .goal_block {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 3px;
+
+    .value {
+      .flex_center;
+      .shadow_inset;
+      width: 26px;
+      height: 26px;
+      border: 2px solid @YesWrite;
+      padding: 2px 2px;
+      font-size: 14px;
+      border-radius: 3px;
+    }
+
+    .goal_btn {
+      width: 26px;
+      height: 26px;
+      background: @YesWrite;
+
+      .flex_center;
+      background: @colorText2;
+      color: @colorText;
+      cursor: pointer;
+      .shadow_template;
+      padding: 2px 2px;
+      font-size: 14px;
+      border-radius: 3px;
+      text-align: center;
+      border: 1px solid transparent;
+      text-decoration: none;
+    }
+  }
+
+  .match_result_el {
+    .flex_center;
+    .shadow_inset;
+    cursor: pointer;
+    padding: 0;
+    width: 26px;
+    height: 26px;
+    font-size: 12px;
+    border: 2px solid @maxdarkgrey;
+
+    &.active {
+      border-color: @YesWrite;
+    }
+  }
+
+  .play_off_el{
+    width: 65px;
+  }
+
+  .math_btn {
+    .flex_center;
+    .shadow_template;
+    width: 26px;
+    height: 26px;
+    background: @YesWrite;
+
+    background: @colorText2;
+    color: @colorText;
+    cursor: pointer;
+    padding: 2px 2px;
+    font-size: 14px;
+    border-radius: 3px;
+    text-align: center;
+    border: 1px solid transparent;
+    text-decoration: none;
+  }
+
+  .value {
+    .flex_center;
+    .shadow_inset;
+    width: 26px;
+    height: 26px;
+    border: 2px solid @YesWrite;
+    padding: 2px 2px;
+    font-size: 14px;
+    border-radius: 3px;
+  }
+
+  .match_domination_box {
+    display: flex;
+    flex-direction: row;
+    gap: 3px;
+
+    .domination_range {
+      width: 204px;
+      max-width: 59.8%;
+    }
+
+    .value {
+      width: 26px;
+      height: 26px;
+    }
+
+    .math_btn {
+      .prognosis_btn;
+      width: 26px;
+      height: 26px;
+    }
+  }
+  .box {
+    display: flex;
+    flex-direction: row;
+    gap: 3px;
+  }
+  .btn {
+    .prognosis_btn;
+    width: 26px;
+    height: 26px;
+  }
+
+
+  &.yellow {
+    .title {
+      color: @maxYellow;
+    }
+
+    .value {
+      border-color: @maxYellow;
+    }
+
+    .btn {
+      background: @maxYellow;
+    }
+  }
+
+  &.red {
+    .title {
+      color: @maxred;
+    }
+
+    .value {
+      border-color: @maxred;
+    }
+
+    .btn {
+      background: @maxred;
+    }
+  }
+
+  .btns_block {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 4px;
+
+    margin-top: 10px;
+
+    .other_match_btn {
+      .prognosis_btn;
+      width: 26px;
+      height: 26px;
+    }
+
+    .inactive{
+      background: @colorBlur;
+      border: 2px solid crimson;
+    }
+
+    .annotation_btn {
+      position: relative;
+      .prognosis_btn;
+      width: 140px;
+      max-width: 40%;
+      background: @kerling;
+
+      .annotation_arrow {
+        position: absolute;
+        right: 5px;
+
+        &.up {
+          transform: rotate(-180deg);
+        }
+      }
+    }
+
+    .btn_send {
+      .prognosis_btn;
+      width: 140px;
+      max-width: 40%;
+
+      &.rewrite {
+        background: @NoWrite;
+      }
+    }
+  }
+}
+
+.error_message {
+  margin-top: 4px;
+  width: 100%;
+  padding: 4px 2px;
+  border: 1px solid @warning;
+  color: @warning;
+  border-radius: 6px;
+}
+
+.btn_select_other_wrapper {
+  background: @DarkColorBG;
+  color: @colorText;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+
+  padding: 4px;
+  border-radius: 5px;
+
+  gap: 4px;
+
+  margin-top: 4px;
+
+  .other_match_btn {
+    .prognosis_btn;
+    display: flex;
+    flex-direction: row;
+    gap: 4px;
+    width: 140px;
+    max-width: 40%;
+  }
+}
+
+.annotation_block {
+  background: @DarkColorBG;
+  color: @colorBlur;
+  display: flex;
+  flex-direction: column;
+
+  padding: 4px;
+  border-radius: 5px;
+
+  gap: 4px;
+
+  margin-top: 4px;
+
+  .header {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 4px;
+
+    .title {
+      width: 95%;
+      .shadow_inset;
+      text-align: left;
+
+    }
+
+    .close {
+      width: 27px;
+      .prognosis_btn;
+      background: @boks;
+    }
+  }
+
+
+  .annotation_elem {
+    display: flex;
+    flex-direction: row;
+    gap: 4px;
+    font-size: 13px;
+    text-align: left;
+
+    .annotation_title {
+      max-width: 35px;
+      width: 9%;
+      .shadow_inset;
+      .flex_center;
+      font-size: 16px;
+    }
+
+    .annotation_description {
+      max-width: 355px;
+      width: 90%;
+      .shadow_inset;
+    }
+
+  }
+}
+
+.yellow_t {
+  color: @maxYellow;
+}
+
+.red_t {
+  color: @maxred;
+}
+.inactive{
+  background: @colorBlur!important;
+}
+
+.btn_admin_block {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  gap: 4px;
+  background: @red;
+  color: @colorText;
+  padding: 4px;
+  border-radius: 5px;
+
+  .title {
+    .shadow_inset;
+    .flex_center;
+  }
+
+  .btn_block {
+    display: flex;
+    flex-direction: row;
+    gap: 4px;
+    justify-content: flex-end;
+
+    .btn {
+      .shadow_inset;
+    }
+  }
+}
+
+.play_off_block{
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.time_send{
+  position: absolute;
+  width: 100%;
+  text-align: right;
+  font-size: 11px;
+  color: @NoWrite;
+  top: 5px;
+  right: 5px;
+}
+
+.auto_block{
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.more_btn {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  max-width: 24px;
+  height: 24px;
+  width: 24%;
+  background: @valleyball;
+  padding: 2px 2px;
+  border-radius: 3px;
+  cursor: pointer;
+  .shadow_template;
+
+  .close {
+    transform: rotate(90deg);
+  }
+
+  .open {
+    transform: rotate(-90deg);
+  }
+
+  &:hover {
+    background: @colorText;
+    color: @valleyball;
+    border: 1px solid @valleyball;
+  }
+}

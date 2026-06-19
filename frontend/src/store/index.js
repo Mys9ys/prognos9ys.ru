@@ -3,6 +3,7 @@ import {kvnModule} from "@/store/kvnModule";
 import {authModule} from "@/store/authModule";
 import {regModule} from "@/store/regModule";
 import {footballModule} from "@/store/footballModule";
+import {cs2Module} from "@/store/cs2Module";
 import {catalogModule} from "@/store/catalogModule";
 import {ratingModule} from "@/store/ratingModule";
 import {recoverModule} from "@/store/recoverModule";
@@ -37,6 +38,7 @@ export default createStore({
         profile: profileModule,
 
         football: footballModule,
+        cs2: cs2Module,
         race: raceModule,
         kvn: kvnModule,
         humor: humorModule,

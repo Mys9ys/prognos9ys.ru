@@ -159,6 +159,10 @@ export default {
     .race {
       background: @cubersport;
     }
+
+    .cs2 {
+      background: #f59e0b;
+    }
     .inactive{
       background: @DarkColorBG;
     }

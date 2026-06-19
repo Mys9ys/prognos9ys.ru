@@ -91,6 +91,25 @@ export const apiActions = {
             { userToken, fields, withBet: withBet === null ? undefined : withBet }
         ),
     },
+    cs2: {
+        getEventMatches: (events, userToken = '') => runBitrixAction(
+            'prognos9ys:main.Cs2Controller.getEventMatches',
+            { events, userToken }
+        ),
+        getMatch: (eventId, number, userToken = '') => runBitrixAction(
+            'prognos9ys:main.Cs2Controller.getMatch',
+            { eventId, number, userToken }
+        ),
+        sendPrognosis: (userToken, fields, mapScoresJson = '', withBet = null) => runBitrixAction(
+            'prognos9ys:main.Cs2Controller.sendPrognosis',
+            {
+                userToken,
+                fields,
+                map_scores_json: mapScoresJson || undefined,
+                withBet: withBet === null ? undefined : withBet,
+            }
+        ),
+    },
     rating: {
         getFootball: (event, setId = null, userToken = '', options = {}) => runBitrixAction(
             'prognos9ys:main.RatingController.getFootballRatings',

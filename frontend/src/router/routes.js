@@ -14,6 +14,8 @@ import RaceEvent from "@/pages/race/RaceEvent";
 import RacePage from "@/pages/race/RacePage";
 import FootballPage from "@/pages/football/FootballPage";
 import FootballEvent from "@/pages/football/FootballEvent";
+import Cs2Page from "@/pages/cs2/Cs2Page";
+import Cs2Event from "@/pages/cs2/Cs2Event";
 import ChampionshipPage from "@/pages/ChampionshipPage";
 import FaqPage from "@/pages/FaqPage";
 
@@ -112,6 +114,20 @@ const routes = [
     {
         path: '/football/:event/:number',
         component: FootballPage,
+        props: true,
+        meta: { public: true },
+    },
+
+    {
+        path: '/cs2/:event',
+        component: Cs2Event,
+        props: true,
+        meta: { public: true },
+    },
+
+    {
+        path: '/cs2/:event/:number',
+        component: Cs2Page,
         props: true,
         meta: { public: true },
     },

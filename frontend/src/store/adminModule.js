@@ -128,6 +128,38 @@ export const adminModule = {
             }
         },
 
+        async setCs2Result({ state, commit }) {
+            try {
+                const response = await axios.post(baseConfig.BASE_URL + 'admin/cs2/result/', state.queryEvent, {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                });
+
+                if (response.data.status === 'ok') {
+                    commit('setElementsData', response.data.info);
+                } else {
+                    commit('setError', response.data.mes || 'что то пошло не так');
+                }
+            } catch (e) {
+                commit('setError', e.message || 'Ошибка сохранения');
+            }
+        },
+
+        async calcCs2Result({ state, commit }) {
+            try {
+                const response = await axios.post(baseConfig.BASE_URL + 'admin/cs2/calc/', state.queryEvent, {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                });
+
+                if (response.data.status === 'ok') {
+                    commit('setElementsData', response.data.info);
+                } else {
+                    commit('setError', response.data.mes || 'что то пошло не так');
+                }
+            } catch (e) {
+                commit('setError', e.message || 'Ошибка пересчёта');
+            }
+        },
+
     },
 
     namespaced: true

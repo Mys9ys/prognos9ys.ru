@@ -103,7 +103,7 @@ export default {
   data() {
     return {
       moreInfo: false,
-      link: '/football/' + this.match.event + '/' + this.match.number,
+      link: '/' + (this.match.link_prefix || this.match.sport || 'football') + '/' + this.match.event + '/' + this.match.number,
       urlImg: 'https://prognos9ys.ru/',
       claiming: false,
       claimError: '',
