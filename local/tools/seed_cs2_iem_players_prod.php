@@ -47,9 +47,15 @@ $matchNumber = parseCliArg($argv, '--match=') ?? '';
 if ($eventId === '') {
     $eventId = (string)resolveCs2EventId();
 }
-if ($eventId === '' || (int)$eventId <= 0) {
-    echo "Укажите --event=ID (элемент events, XML_ID " . CS2_SEED_EVENT_XML_ID . ")\n";
+
+$needEvent = !$dryRun && !$skipProg;
+if ($needEvent && ($eventId === '' || (int)$eventId <= 0)) {
+    echo "Не найдено событие " . CS2_SEED_EVENT_XML_ID . " — укажите --event=ID или --skip-prognosis\n";
     exit(1);
+}
+
+if ($eventId === '' || (int)$eventId <= 0) {
+    echo "Событие не найдено — только регистрация (без прогнозов)\n";
 }
 
 $people = cs2_iem_roster_people();
@@ -181,21 +187,32 @@ function resolveCs2EventId(): int
         return 0;
     }
 
-    $iblock = CIBlock::GetList([], ['CODE' => 'events', 'TYPE' => 'content'])->Fetch();
-    $iblockId = (int)($iblock['ID'] ?? 0);
-    if ($iblockId <= 0) {
-        return 0;
+    foreach (['content', ''] as $type) {
+        $filter = ['CODE' => 'events', 'CHECK_PERMISSIONS' => 'N'];
+        if ($type !== '') {
+            $filter['TYPE'] = $type;
+        }
+        $iblock = CIBlock::GetList([], $filter)->Fetch();
+        $iblockId = (int)($iblock['ID'] ?? 0);
+        if ($iblockId <= 0) {
+            continue;
+        }
+
+        $el = CIBlockElement::GetList(
+            [],
+            ['IBLOCK_ID' => $iblockId, '=XML_ID' => CS2_SEED_EVENT_XML_ID],
+            false,
+            ['nTopCount' => 1],
+            ['ID']
+        )->Fetch();
+
+        $id = (int)($el['ID'] ?? 0);
+        if ($id > 0) {
+            return $id;
+        }
     }
 
-    $el = CIBlockElement::GetList(
-        [],
-        ['IBLOCK_ID' => $iblockId, '=XML_ID' => CS2_SEED_EVENT_XML_ID],
-        false,
-        ['nTopCount' => 1],
-        ['ID']
-    )->Fetch();
-
-    return (int)($el['ID'] ?? 0);
+    return 0;
 }
 
 /**
