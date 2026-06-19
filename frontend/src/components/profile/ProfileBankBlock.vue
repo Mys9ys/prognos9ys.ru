@@ -20,6 +20,7 @@
           <div class="contract" v-for="d in myBank.deposits" :key="'bd' + d.id">
             <div>Вклад #{{ d.id }} — {{ d.principal }} <AppIcon name="prognobak" :size="14" /></div>
             <div class="meta">осталось матчей: {{ d.matches_left }}
+              <span v-if="d.opening_match_label"> · {{ d.opening_match_label }}</span>
               <span v-if="d.status === 'extended'" class="badge">продлён</span>
             </div>
           </div>
@@ -29,6 +30,7 @@
           <div class="contract" v-for="l in myBank.loans" :key="'bl' + l.id">
             <div>Займ #{{ l.id }} — {{ l.principal }} <AppIcon name="prognobak" :size="14" /></div>
             <div class="meta">осталось матчей: {{ l.matches_left }}
+              <span v-if="l.opening_match_label"> · {{ l.opening_match_label }}</span>
               <span v-if="l.status === 'extended'" class="badge">продлён</span>
             </div>
           </div>
@@ -70,6 +72,8 @@
           </div>
           <div class="meta">
             {{ op.at }}
+            <span v-if="op.counterparty_name"> · {{ op.counterparty_name }}</span>
+            <span v-if="op.match_label"> · {{ op.match_label }}</span>
             <span v-if="op.scope === 'bank'" class="badge">банк</span>
             <span v-if="op.balance_after !== null && op.balance_after !== undefined">
               · баланс {{ op.balance_after }}
@@ -84,12 +88,16 @@
         <div class="contract" v-for="d in contracts.deposits" :key="'d' + d.id">
           <div>Вклад #{{ d.id }} — {{ d.principal }} <AppIcon name="prognobak" :size="14" /></div>
           <div class="meta">Банк {{ d.bank_id }} · осталось матчей: {{ d.matches_left }}
+            <span v-if="d.opening_match_label"> · {{ d.opening_match_label }}</span>
+            <span v-if="d.last_tick_match_label"> · тик: {{ d.last_tick_match_label }}</span>
             <span v-if="d.status === 'extended'" class="badge">продлён</span>
           </div>
         </div>
         <div class="contract" v-for="l in contracts.loans" :key="'l' + l.id">
           <div>Займ #{{ l.id }} — {{ l.principal }} <AppIcon name="prognobak" :size="14" /> (к возврату {{ l.total_due }})</div>
           <div class="meta">Банк {{ l.bank_id }} · осталось матчей: {{ l.matches_left }}
+            <span v-if="l.opening_match_label"> · {{ l.opening_match_label }}</span>
+            <span v-if="l.last_tick_match_label"> · тик: {{ l.last_tick_match_label }}</span>
             <span v-if="l.status === 'extended'" class="badge">продлён</span>
           </div>
         </div>

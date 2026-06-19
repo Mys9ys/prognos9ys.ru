@@ -229,6 +229,42 @@ class GameEconomyRepository
         return $rows;
     }
 
+    /**
+     * @param int[] $refIds
+     * @param string[]|null $reasons
+     * @return array<int, array>
+     */
+    public function getWalletTxByRefs(string $refType, array $refIds, ?array $reasons = null): array
+    {
+        $refIds = array_values(array_filter(array_map('intval', $refIds)));
+        if (!$refIds) {
+            return [];
+        }
+
+        $filter = [
+            '=UF_REF_TYPE' => $refType,
+            '@UF_REF_ID' => $refIds,
+        ];
+
+        if ($reasons) {
+            $filter['@UF_REASON'] = $reasons;
+        }
+
+        $dataClass = $this->getWalletTxDataClass();
+        $rows = [];
+        $response = $dataClass::getList([
+            'filter' => $filter,
+            'order' => ['UF_CREATED_AT' => 'ASC', 'ID' => 'ASC'],
+            'select' => ['*'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
     public function getProgressByUserId(int $userId): ?array
     {
         $dataClass = $this->getUserProgressDataClass();

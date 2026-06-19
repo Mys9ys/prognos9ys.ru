@@ -53,6 +53,8 @@ class BankDepositService
             $bankId
         );
 
+        $eventId = $this->scopeService->getAnchorEventId();
+
         $depositId = $this->repository->addBankDeposit([
             'UF_BANK_ID' => $bankId,
             'UF_USER_ID' => $userId,
@@ -61,7 +63,8 @@ class BankDepositService
             'UF_STATUS' => GameEconomyConfig::CONTRACT_STATUS_ACTIVE,
             'UF_MATCHES_SINCE_START' => 0,
             'UF_TERM_MATCHES' => GameEconomyConfig::BANK_TERM_MATCHES,
-            'UF_EVENT_ID' => $this->scopeService->getAnchorEventId(),
+            'UF_EVENT_ID' => $eventId,
+            'UF_OPENING_MATCH_ID' => $this->scopeService->getLastSettledMatchIdForEvent($eventId),
             'UF_LAST_TICK_MATCH_ID' => 0,
             'UF_CREATED_AT' => new DateTime(),
             'UF_UPDATED_AT' => new DateTime(),
@@ -198,6 +201,9 @@ class BankDepositService
         $term = (int)($row['UF_TERM_MATCHES'] ?? GameEconomyConfig::BANK_TERM_MATCHES);
         $since = (int)($row['UF_MATCHES_SINCE_START'] ?? 0);
         $principal = round((float)($row['UF_PRINCIPAL'] ?? 0), 1);
+        $scope = new GameEventScopeService();
+        $openingMatchId = (int)($row['UF_OPENING_MATCH_ID'] ?? 0);
+        $lastTickMatchId = (int)($row['UF_LAST_TICK_MATCH_ID'] ?? 0);
 
         return [
             'id' => (int)$row['ID'],
@@ -211,6 +217,10 @@ class BankDepositService
             'term_matches' => $term,
             'matches_left' => max(0, $term - $since),
             'event_id' => (int)($row['UF_EVENT_ID'] ?? 0),
+            'opening_match_id' => $openingMatchId,
+            'opening_match_label' => $scope->formatMatchLabel($openingMatchId),
+            'last_tick_match_id' => $lastTickMatchId,
+            'last_tick_match_label' => $scope->formatMatchLabel($lastTickMatchId),
         ];
     }
 }

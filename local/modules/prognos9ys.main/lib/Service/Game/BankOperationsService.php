@@ -3,6 +3,7 @@
 namespace Prognos9ys\Main\Service\Game;
 
 use Bitrix\Main\Type\DateTime;
+use Bitrix\Main\UserTable;
 use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
 
 class BankOperationsService
@@ -17,6 +18,13 @@ class BankOperationsService
         'bank_loan' => 'Займ из банка',
         'bank_loan_repay' => 'Погашение займа',
         'bank_loan_interest' => 'Проценты по займу',
+        'bank_client_deposit' => 'Вклад клиента',
+        'bank_client_deposit_payout' => 'Выплата по вкладу',
+        'bank_client_deposit_principal' => 'Возврат тела вклада',
+        'bank_client_deposit_interest' => 'Проценты по вкладу клиента',
+        'bank_client_loan' => 'Выдача займа',
+        'bank_client_loan_repay' => 'Погашение займа',
+        'bank_client_loan_interest' => 'Проценты по займу клиента',
     ];
 
     private const REASON_CATEGORY = [
@@ -29,13 +37,27 @@ class BankOperationsService
         'bank_loan' => 'loans',
         'bank_loan_repay' => 'returns',
         'bank_loan_interest' => 'returns',
+        'bank_client_deposit' => 'deposits',
+        'bank_client_deposit_payout' => 'returns',
+        'bank_client_deposit_principal' => 'returns',
+        'bank_client_deposit_interest' => 'returns',
+        'bank_client_loan' => 'loans',
+        'bank_client_loan_repay' => 'returns',
+        'bank_client_loan_interest' => 'returns',
     ];
 
     private GameEconomyRepository $repository;
+    private GameEventScopeService $scopeService;
 
-    public function __construct(?GameEconomyRepository $repository = null)
-    {
+    /** @var array<int, string> */
+    private array $userNameCache = [];
+
+    public function __construct(
+        ?GameEconomyRepository $repository = null,
+        ?GameEventScopeService $scopeService = null
+    ) {
         $this->repository = $repository ?? new GameEconomyRepository();
+        $this->scopeService = $scopeService ?? new GameEventScopeService();
     }
 
     /**
@@ -48,19 +70,61 @@ class BankOperationsService
         }
 
         $operations = [];
+        $seenIds = [];
 
         foreach ($this->repository->getBankWalletTxByUserId($userId, $limit) as $row) {
-            $operations[] = $this->formatWalletTx($row);
+            $event = $this->formatWalletTx($row);
+            $seenIds[$event['id']] = true;
+            $operations[] = $event;
         }
 
         $myBank = $this->repository->getUserBankByOwnerId($userId);
         if ($myBank) {
             $bankId = (int)$myBank['ID'];
+            $depositIds = [];
+            $loanIds = [];
+
             foreach ($this->repository->getDepositsByBankId($bankId) as $deposit) {
-                $operations = array_merge($operations, $this->formatBankDepositEvents($deposit, $bankId));
+                $depositIds[] = (int)$deposit['ID'];
+                foreach ($this->formatBankDepositEvents($deposit, $bankId) as $event) {
+                    if (!isset($seenIds[$event['id']])) {
+                        $seenIds[$event['id']] = true;
+                        $operations[] = $event;
+                    }
+                }
             }
+
             foreach ($this->repository->getLoansByBankId($bankId) as $loan) {
-                $operations = array_merge($operations, $this->formatBankLoanEvents($loan, $bankId));
+                $loanIds[] = (int)$loan['ID'];
+                foreach ($this->formatBankLoanEvents($loan, $bankId) as $event) {
+                    if (!isset($seenIds[$event['id']])) {
+                        $seenIds[$event['id']] = true;
+                        $operations[] = $event;
+                    }
+                }
+            }
+
+            foreach ($this->repository->getWalletTxByRefs('deposit', $depositIds, [
+                'bank_deposit_interest',
+                'bank_deposit_return',
+                'bank_deposit_return_half',
+            ]) as $row) {
+                $event = $this->formatContractWalletTxForBankOwner($row, 'deposit');
+                if (!isset($seenIds[$event['id']])) {
+                    $seenIds[$event['id']] = true;
+                    $operations[] = $event;
+                }
+            }
+
+            foreach ($this->repository->getWalletTxByRefs('loan', $loanIds, [
+                'bank_loan_repay',
+                'bank_loan_interest',
+            ]) as $row) {
+                $event = $this->formatContractWalletTxForBankOwner($row, 'loan');
+                if (!isset($seenIds[$event['id']])) {
+                    $seenIds[$event['id']] = true;
+                    $operations[] = $event;
+                }
             }
         }
 
@@ -85,6 +149,8 @@ class BankOperationsService
         $amount = round((float)($row['UF_AMOUNT'] ?? 0), 1);
         $refType = (string)($row['UF_REF_TYPE'] ?? '');
         $refId = (int)($row['UF_REF_ID'] ?? 0);
+        $userId = (int)($row['UF_USER_ID'] ?? 0);
+        [$counterpartyId, $counterpartyName] = $this->resolveCounterpartyForWalletTx($refType, $refId);
 
         return [
             'id' => 'tx_' . (int)$row['ID'],
@@ -92,13 +158,91 @@ class BankOperationsService
             'scope' => 'wallet',
             'category' => self::REASON_CATEGORY[$reason] ?? 'all',
             'reason' => $reason,
-            'label' => $this->buildWalletLabel($reason, $refType, $refId),
+            'label' => $this->buildWalletLabel($reason, $refType, $refId, $counterpartyId, $counterpartyName),
             'amount' => $amount,
             'direction' => $amount >= 0 ? 'in' : 'out',
             'currency' => (string)($row['UF_CURRENCY'] ?? GameEconomyConfig::CURRENCY_PROGNOBAKS),
             'balance_after' => round((float)($row['UF_BALANCE_AFTER'] ?? 0), 1),
             'contract_id' => $refType === 'deposit' || $refType === 'loan' ? $refId : 0,
             'bank_id' => $refType === 'bank' ? $refId : 0,
+            'counterparty_id' => $counterpartyId,
+            'counterparty_name' => $counterpartyName,
+            'match_id' => 0,
+            'match_label' => '',
+        ];
+    }
+
+    /**
+     * @return array{0:int,1:string}
+     */
+    private function resolveCounterpartyForWalletTx(string $refType, int $refId): array
+    {
+        if ($refId <= 0) {
+            return [0, ''];
+        }
+
+        if ($refType === 'bank') {
+            $bank = $this->repository->getUserBankById($refId);
+            $ownerId = (int)($bank['UF_OWNER_ID'] ?? 0);
+
+            return [$ownerId, $this->resolveUserName($ownerId)];
+        }
+
+        if ($refType === 'deposit') {
+            $deposit = $this->repository->getBankDepositById($refId);
+            if (!$deposit) {
+                return [0, ''];
+            }
+
+            $bank = $this->repository->getUserBankById((int)($deposit['UF_BANK_ID'] ?? 0));
+            $ownerId = (int)($bank['UF_OWNER_ID'] ?? 0);
+
+            return [$ownerId, $this->resolveUserName($ownerId)];
+        }
+
+        if ($refType === 'loan') {
+            $loan = $this->repository->getBankLoanById($refId);
+            if (!$loan) {
+                return [0, ''];
+            }
+
+            $bank = $this->repository->getUserBankById((int)($loan['UF_BANK_ID'] ?? 0));
+            $ownerId = (int)($bank['UF_OWNER_ID'] ?? 0);
+
+            return [$ownerId, $this->resolveUserName($ownerId)];
+        }
+
+        return [0, ''];
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
+    private function formatContractWalletTxForBankOwner(array $row, string $contractType): array
+    {
+        $reason = (string)($row['UF_REASON'] ?? '');
+        $amount = round((float)($row['UF_AMOUNT'] ?? 0), 1);
+        $refId = (int)($row['UF_REF_ID'] ?? 0);
+        $clientId = (int)($row['UF_USER_ID'] ?? 0);
+        $clientName = $this->resolveUserName($clientId);
+
+        return [
+            'id' => 'bank_tx_' . (int)$row['ID'],
+            'at' => $this->formatDateTime($row['UF_CREATED_AT'] ?? null),
+            'scope' => 'bank',
+            'category' => self::REASON_CATEGORY[$reason] ?? 'returns',
+            'reason' => $reason,
+            'label' => $this->buildWalletLabel($reason, $contractType, $refId, $clientId, $clientName),
+            'amount' => -abs($amount),
+            'direction' => 'out',
+            'currency' => (string)($row['UF_CURRENCY'] ?? GameEconomyConfig::CURRENCY_PROGNOBAKS),
+            'balance_after' => null,
+            'contract_id' => $refId,
+            'bank_id' => 0,
+            'counterparty_id' => $clientId,
+            'counterparty_name' => $clientName,
+            'match_id' => 0,
+            'match_label' => '',
         ];
     }
 
@@ -111,7 +255,11 @@ class BankOperationsService
         $depositId = (int)$deposit['ID'];
         $principal = round((float)($deposit['UF_PRINCIPAL'] ?? 0), 1);
         $clientId = (int)($deposit['UF_USER_ID'] ?? 0);
+        $clientName = $this->resolveUserName($clientId);
         $status = (string)($deposit['UF_STATUS'] ?? '');
+        $openingMatchId = (int)($deposit['UF_OPENING_MATCH_ID'] ?? 0);
+        $lastTickMatchId = (int)($deposit['UF_LAST_TICK_MATCH_ID'] ?? 0);
+        $matchLabel = $this->buildContractMatchLabel($openingMatchId, $lastTickMatchId);
         $events = [];
 
         $events[] = [
@@ -120,7 +268,7 @@ class BankOperationsService
             'scope' => 'bank',
             'category' => 'deposits',
             'reason' => 'bank_client_deposit',
-            'label' => 'Вклад клиента #' . $depositId,
+            'label' => $this->buildContractLabel('Вклад клиента', $depositId, $clientName, $matchLabel),
             'amount' => $principal,
             'direction' => 'in',
             'currency' => GameEconomyConfig::CURRENCY_PROGNOBAKS,
@@ -128,26 +276,56 @@ class BankOperationsService
             'contract_id' => $depositId,
             'bank_id' => $bankId,
             'counterparty_id' => $clientId,
+            'counterparty_name' => $clientName,
+            'match_id' => $openingMatchId,
+            'match_label' => $matchLabel,
         ];
 
         if ($status === GameEconomyConfig::CONTRACT_STATUS_CLOSED) {
             $interest = GameEconomyConfig::calculateDepositInterest($principal);
-            $payout = round($principal + $interest, 1);
+            $closedAt = $this->formatDateTime($deposit['UF_CLOSED_AT'] ?? $deposit['UF_UPDATED_AT'] ?? null);
+            $closedMatchId = $lastTickMatchId;
+            $closedMatchLabel = $this->scopeService->formatMatchLabel($closedMatchId);
+
             $events[] = [
-                'id' => 'dep_out_' . $depositId,
-                'at' => $this->formatDateTime($deposit['UF_CLOSED_AT'] ?? $deposit['UF_UPDATED_AT'] ?? null),
+                'id' => 'dep_principal_' . $depositId,
+                'at' => $closedAt,
                 'scope' => 'bank',
                 'category' => 'returns',
-                'reason' => 'bank_client_deposit_payout',
-                'label' => 'Выплата по вкладу #' . $depositId,
-                'amount' => -$payout,
+                'reason' => 'bank_client_deposit_principal',
+                'label' => $this->buildContractLabel('Возврат тела вклада', $depositId, $clientName, $closedMatchLabel),
+                'amount' => -$principal,
                 'direction' => 'out',
                 'currency' => GameEconomyConfig::CURRENCY_PROGNOBAKS,
                 'balance_after' => null,
                 'contract_id' => $depositId,
                 'bank_id' => $bankId,
                 'counterparty_id' => $clientId,
+                'counterparty_name' => $clientName,
+                'match_id' => $closedMatchId,
+                'match_label' => $closedMatchLabel,
             ];
+
+            if ($interest > 0) {
+                $events[] = [
+                    'id' => 'dep_interest_' . $depositId,
+                    'at' => $closedAt,
+                    'scope' => 'bank',
+                    'category' => 'returns',
+                    'reason' => 'bank_client_deposit_interest',
+                    'label' => $this->buildContractLabel('Проценты по вкладу', $depositId, $clientName, $closedMatchLabel),
+                    'amount' => -$interest,
+                    'direction' => 'out',
+                    'currency' => GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                    'balance_after' => null,
+                    'contract_id' => $depositId,
+                    'bank_id' => $bankId,
+                    'counterparty_id' => $clientId,
+                    'counterparty_name' => $clientName,
+                    'match_id' => $closedMatchId,
+                    'match_label' => $closedMatchLabel,
+                ];
+            }
         }
 
         return $events;
@@ -162,7 +340,11 @@ class BankOperationsService
         $loanId = (int)$loan['ID'];
         $principal = round((float)($loan['UF_PRINCIPAL'] ?? 0), 1);
         $clientId = (int)($loan['UF_USER_ID'] ?? 0);
+        $clientName = $this->resolveUserName($clientId);
         $status = (string)($loan['UF_STATUS'] ?? '');
+        $openingMatchId = (int)($loan['UF_OPENING_MATCH_ID'] ?? 0);
+        $lastTickMatchId = (int)($loan['UF_LAST_TICK_MATCH_ID'] ?? 0);
+        $matchLabel = $this->buildContractMatchLabel($openingMatchId, $lastTickMatchId);
         $events = [];
 
         $events[] = [
@@ -171,7 +353,7 @@ class BankOperationsService
             'scope' => 'bank',
             'category' => 'loans',
             'reason' => 'bank_client_loan',
-            'label' => 'Выдача займа #' . $loanId,
+            'label' => $this->buildContractLabel('Выдача займа', $loanId, $clientName, $matchLabel),
             'amount' => -$principal,
             'direction' => 'out',
             'currency' => GameEconomyConfig::CURRENCY_PROGNOBAKS,
@@ -179,46 +361,149 @@ class BankOperationsService
             'contract_id' => $loanId,
             'bank_id' => $bankId,
             'counterparty_id' => $clientId,
+            'counterparty_name' => $clientName,
+            'match_id' => $openingMatchId,
+            'match_label' => $matchLabel,
         ];
 
         if ($status === GameEconomyConfig::CONTRACT_STATUS_CLOSED) {
-            $total = round($principal + GameEconomyConfig::calculateLoanInterest($principal), 1);
+            $interest = GameEconomyConfig::calculateLoanInterest($principal);
+            $closedAt = $this->formatDateTime($loan['UF_CLOSED_AT'] ?? $loan['UF_UPDATED_AT'] ?? null);
+            $closedMatchId = $lastTickMatchId;
+            $closedMatchLabel = $this->scopeService->formatMatchLabel($closedMatchId);
+
             $events[] = [
-                'id' => 'loan_in_' . $loanId,
-                'at' => $this->formatDateTime($loan['UF_CLOSED_AT'] ?? $loan['UF_UPDATED_AT'] ?? null),
+                'id' => 'loan_principal_' . $loanId,
+                'at' => $closedAt,
                 'scope' => 'bank',
                 'category' => 'returns',
                 'reason' => 'bank_client_loan_repay',
-                'label' => 'Погашение займа #' . $loanId,
-                'amount' => $total,
+                'label' => $this->buildContractLabel('Погашение тела займа', $loanId, $clientName, $closedMatchLabel),
+                'amount' => $principal,
                 'direction' => 'in',
                 'currency' => GameEconomyConfig::CURRENCY_PROGNOBAKS,
                 'balance_after' => null,
                 'contract_id' => $loanId,
                 'bank_id' => $bankId,
                 'counterparty_id' => $clientId,
+                'counterparty_name' => $clientName,
+                'match_id' => $closedMatchId,
+                'match_label' => $closedMatchLabel,
             ];
+
+            if ($interest > 0) {
+                $events[] = [
+                    'id' => 'loan_interest_' . $loanId,
+                    'at' => $closedAt,
+                    'scope' => 'bank',
+                    'category' => 'returns',
+                    'reason' => 'bank_client_loan_interest',
+                    'label' => $this->buildContractLabel('Проценты по займу', $loanId, $clientName, $closedMatchLabel),
+                    'amount' => $interest,
+                    'direction' => 'in',
+                    'currency' => GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                    'balance_after' => null,
+                    'contract_id' => $loanId,
+                    'bank_id' => $bankId,
+                    'counterparty_id' => $clientId,
+                    'counterparty_name' => $clientName,
+                    'match_id' => $closedMatchId,
+                    'match_label' => $closedMatchLabel,
+                ];
+            }
         }
 
         return $events;
     }
 
-    private function buildWalletLabel(string $reason, string $refType, int $refId): string
-    {
+    private function buildWalletLabel(
+        string $reason,
+        string $refType,
+        int $refId,
+        int $userId = 0,
+        string $userName = ''
+    ): string {
         $base = self::REASON_LABELS[$reason] ?? $reason;
-        if ($refId <= 0) {
-            return $base;
+        $parts = [$base];
+
+        if ($refId > 0 && ($refType === 'deposit' || $refType === 'loan')) {
+            $parts[0] .= ' #' . $refId;
+        } elseif ($refId > 0 && $refType === 'bank') {
+            $parts[0] .= ' (банк #' . $refId . ')';
         }
 
-        if ($refType === 'deposit' || $refType === 'loan') {
-            return $base . ' #' . $refId;
+        $name = $userName;
+        if ($name !== '' && in_array($reason, [
+            'bank_deposit',
+            'bank_deposit_return',
+            'bank_deposit_return_half',
+            'bank_deposit_interest',
+            'bank_loan',
+            'bank_loan_repay',
+            'bank_loan_interest',
+        ], true)) {
+            $parts[] = $name;
         }
 
-        if ($refType === 'bank') {
-            return $base . ' (банк #' . $refId . ')';
+        return implode(' — ', array_filter($parts));
+    }
+
+    private function buildContractLabel(string $base, int $contractId, string $clientName, string $matchLabel): string
+    {
+        $parts = [$base . ' #' . $contractId];
+
+        if ($clientName !== '') {
+            $parts[] = $clientName;
         }
 
-        return $base;
+        if ($matchLabel !== '') {
+            $parts[] = $matchLabel;
+        }
+
+        return implode(' — ', $parts);
+    }
+
+    private function buildContractMatchLabel(int $openingMatchId, int $lastTickMatchId): string
+    {
+        if ($openingMatchId > 0) {
+            return 'от ' . $this->scopeService->formatMatchLabel($openingMatchId);
+        }
+
+        if ($lastTickMatchId > 0) {
+            return 'тик: ' . $this->scopeService->formatMatchLabel($lastTickMatchId);
+        }
+
+        return '';
+    }
+
+    private function resolveUserName(int $userId): string
+    {
+        if ($userId <= 0) {
+            return '';
+        }
+
+        if (isset($this->userNameCache[$userId])) {
+            return $this->userNameCache[$userId];
+        }
+
+        $row = UserTable::getList([
+            'filter' => ['=ID' => $userId],
+            'select' => ['ID', 'LOGIN', 'NAME', 'LAST_NAME'],
+            'limit' => 1,
+        ])->fetch();
+
+        if (!$row) {
+            $this->userNameCache[$userId] = 'user#' . $userId;
+
+            return $this->userNameCache[$userId];
+        }
+
+        $name = trim(($row['NAME'] ?? '') . ' ' . ($row['LAST_NAME'] ?? ''));
+        $this->userNameCache[$userId] = $name !== ''
+            ? $name
+            : (string)($row['LOGIN'] ?? ('user#' . $userId));
+
+        return $this->userNameCache[$userId];
     }
 
     /**

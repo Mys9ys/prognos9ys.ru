@@ -227,4 +227,53 @@ class GameEventScopeService
 
         return null;
     }
+
+    public function getLastSettledMatchIdForEvent(int $eventId): int
+    {
+        if ($eventId <= 0 || !Loader::includeModule('iblock')) {
+            return 0;
+        }
+
+        $row = \CIBlockElement::GetList(
+            ['PROPERTY_number' => 'DESC'],
+            [
+                'IBLOCK_ID' => 2,
+                'PROPERTY_events' => $eventId,
+                '!PROPERTY_all' => false,
+            ],
+            false,
+            ['nTopCount' => 1],
+            ['ID']
+        )->GetNext();
+
+        return $row ? (int)$row['ID'] : 0;
+    }
+
+    public function getMatchNumber(int $matchId): int
+    {
+        if ($matchId <= 0 || !Loader::includeModule('iblock')) {
+            return 0;
+        }
+
+        $row = \CIBlockElement::GetList(
+            [],
+            ['IBLOCK_ID' => 2, 'ID' => $matchId],
+            false,
+            false,
+            ['PROPERTY_number']
+        )->GetNext();
+
+        return (int)($row['PROPERTY_NUMBER_VALUE'] ?? 0);
+    }
+
+    public function formatMatchLabel(int $matchId): string
+    {
+        if ($matchId <= 0) {
+            return '';
+        }
+
+        $number = $this->getMatchNumber($matchId);
+
+        return $number > 0 ? 'матч №' . $number : 'матч #' . $matchId;
+    }
 }
