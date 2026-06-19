@@ -2,6 +2,8 @@
 
 namespace Sprint\Migration;
 
+require_once __DIR__ . '/Cs2MigrationIblock.php';
+
 class Version20260620120000 extends Version
 {
     protected $description = 'CS2: инфоблоки cs2matches, prognoscs2, resultcs2';
@@ -32,7 +34,7 @@ class Version20260620120000 extends Version
     {
         $helper = $this->getHelperManager();
         foreach (['resultcs2', 'prognoscs2', 'cs2matches'] as $code) {
-            $id = $helper->Iblock()->getIblockIdIfExists($code, 'content');
+            $id = Cs2MigrationIblock::findId($code);
             if ($id) {
                 $helper->Iblock()->deleteIblockIfExists($id);
             }
@@ -43,9 +45,9 @@ class Version20260620120000 extends Version
 
     private function createIblock($helper, string $code, string $name): int
     {
-        $existing = $helper->Iblock()->getIblockIdIfExists($code, 'content');
-        if ($existing) {
-            return (int)$existing;
+        $existing = Cs2MigrationIblock::findId($code);
+        if ($existing > 0) {
+            return $existing;
         }
 
         return (int)$helper->Iblock()->saveIblock([
@@ -63,12 +65,20 @@ class Version20260620120000 extends Version
 
     private function saveMatchProperties($helper, int $iblockId): void
     {
-        $this->saveElementLink($helper, $iblockId, 'events', 'Соревнование', 'content:events');
-        $teamsId = (int)$helper->Iblock()->getIblockIdIfExists('cs2teams', 'content');
-        $teamLink = $teamsId > 0 ? $teamsId : 'content:countries';
-        $this->saveElementLink($helper, $iblockId, 'home', 'Команда 1', is_int($teamLink) ? 'content:cs2teams' : $teamLink, is_int($teamLink) ? $teamLink : null);
-        $this->saveElementLink($helper, $iblockId, 'guest', 'Команда 2', is_int($teamLink) ? 'content:cs2teams' : $teamLink, is_int($teamLink) ? $teamLink : null);
-        $this->saveElementLink($helper, $iblockId, 'group', 'Группа', 'content:group');
+        $eventsId = Cs2MigrationIblock::findId('events');
+        $countriesId = Cs2MigrationIblock::findId('countries');
+        $groupId = Cs2MigrationIblock::findId('group') ?: Cs2MigrationIblock::findId('groups');
+
+        if ($eventsId > 0) {
+            $this->saveElementLink($helper, $iblockId, 'events', 'Соревнование', $eventsId);
+        }
+        if ($countriesId > 0) {
+            $this->saveElementLink($helper, $iblockId, 'home', 'Команда 1', $countriesId);
+            $this->saveElementLink($helper, $iblockId, 'guest', 'Команда 2', $countriesId);
+        }
+        if ($groupId > 0) {
+            $this->saveElementLink($helper, $iblockId, 'group', 'Группа', $groupId);
+        }
 
         $this->saveNumber($helper, $iblockId, 'number', 'Номер матча');
         $this->saveNumber($helper, $iblockId, 'round', 'Тур');
@@ -101,8 +111,11 @@ class Version20260620120000 extends Version
 
     private function savePrognosisProperties($helper, int $iblockId, int $matchesId): void
     {
-        $this->saveElementLink($helper, $iblockId, 'events', 'Соревнование', 'content:events');
-        $this->saveElementLink($helper, $iblockId, 'match_id', 'Матч', 'content:cs2matches', $matchesId);
+        $eventsId = Cs2MigrationIblock::findId('events');
+        if ($eventsId > 0) {
+            $this->saveElementLink($helper, $iblockId, 'events', 'Соревнование', $eventsId);
+        }
+        $this->saveElementLink($helper, $iblockId, 'match_id', 'Матч', $matchesId);
         $this->saveNumber($helper, $iblockId, 'user_id', 'Пользователь');
         $this->saveNumber($helper, $iblockId, 'number', 'Номер матча');
 
@@ -120,8 +133,11 @@ class Version20260620120000 extends Version
 
     private function saveResultProperties($helper, int $iblockId, int $matchesId): void
     {
-        $this->saveElementLink($helper, $iblockId, 'events', 'Соревнование', 'content:events');
-        $this->saveElementLink($helper, $iblockId, 'match_id', 'Матч', 'content:cs2matches', $matchesId);
+        $eventsId = Cs2MigrationIblock::findId('events');
+        if ($eventsId > 0) {
+            $this->saveElementLink($helper, $iblockId, 'events', 'Соревнование', $eventsId);
+        }
+        $this->saveElementLink($helper, $iblockId, 'match_id', 'Матч', $matchesId);
         $this->saveNumber($helper, $iblockId, 'user_id', 'Пользователь');
         $this->saveNumber($helper, $iblockId, 'number', 'Номер матча');
 
@@ -137,20 +153,14 @@ class Version20260620120000 extends Version
         $this->saveNumber($helper, $iblockId, 'all', 'Сумма баллов');
     }
 
-    private function saveElementLink($helper, int $iblockId, string $code, string $name, string $link, ?int $linkId = null): void
+    private function saveElementLink($helper, int $iblockId, string $code, string $name, int $linkIblockId): void
     {
-        $property = [
+        $helper->Iblock()->saveProperty($iblockId, [
             'NAME' => $name,
             'CODE' => $code,
             'PROPERTY_TYPE' => 'E',
-            'LINK_IBLOCK_ID' => $link,
-        ];
-
-        if ($linkId) {
-            $property['LINK_IBLOCK_ID'] = $linkId;
-        }
-
-        $helper->Iblock()->saveProperty($iblockId, $property);
+            'LINK_IBLOCK_ID' => $linkIblockId,
+        ]);
     }
 
     private function saveNumber($helper, int $iblockId, string $code, string $name): void

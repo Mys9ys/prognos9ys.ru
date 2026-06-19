@@ -2,6 +2,8 @@
 
 namespace Sprint\Migration;
 
+require_once __DIR__ . '/Cs2MigrationIblock.php';
+
 /**
  * IEM Cologne Major 2026 — плей-офф (сетка HLTV / cybersport.ru).
  * Зависимости: cs2teams, cs2matches, eventtype cs2.
@@ -19,10 +21,10 @@ class Version20260621120000 extends Version
     {
         $helper = $this->getHelperManager();
 
-        $teamsIb = (int)$helper->Iblock()->getIblockIdIfExists('cs2teams', 'content');
-        $matchesIb = (int)$helper->Iblock()->getIblockIdIfExists('cs2matches', 'content');
-        $eventsIb = (int)$helper->Iblock()->getIblockIdIfExists('events', 'content');
-        $typeIb = (int)($helper->Iblock()->getIblockIdIfExists('eventtype', 'content') ?: 19);
+        $teamsIb = Cs2MigrationIblock::findId('cs2teams');
+        $matchesIb = Cs2MigrationIblock::findId('cs2matches');
+        $eventsIb = Cs2MigrationIblock::findId('events');
+        $typeIb = Cs2MigrationIblock::findId('eventtype') ?: 19;
 
         if ($teamsIb <= 0 || $matchesIb <= 0 || $eventsIb <= 0) {
             $this->outError('Нужны инфоблоки cs2teams, cs2matches, events');
@@ -53,9 +55,9 @@ class Version20260621120000 extends Version
     public function down()
     {
         $helper = $this->getHelperManager();
-        $eventsIb = (int)$helper->Iblock()->getIblockIdIfExists('events', 'content');
-        $matchesIb = (int)$helper->Iblock()->getIblockIdIfExists('cs2matches', 'content');
-        $teamsIb = (int)$helper->Iblock()->getIblockIdIfExists('cs2teams', 'content');
+        $eventsIb = Cs2MigrationIblock::findId('events');
+        $matchesIb = Cs2MigrationIblock::findId('cs2matches');
+        $teamsIb = Cs2MigrationIblock::findId('cs2teams');
 
         $eventId = (int)$helper->Iblock()->getElementId($eventsIb, ['=XML_ID' => 'cs2_iem_cologne_2026']);
         if ($eventId > 0 && $matchesIb > 0) {

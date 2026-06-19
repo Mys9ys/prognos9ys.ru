@@ -2,6 +2,8 @@
 
 namespace Sprint\Migration;
 
+require_once __DIR__ . '/Cs2MigrationIblock.php';
+
 class Version20260621101000 extends Version
 {
     protected $description = 'CS2: привязка home/guest в cs2matches к cs2teams';
@@ -12,8 +14,8 @@ class Version20260621101000 extends Version
     {
         $helper = $this->getHelperManager();
 
-        $matchesId = (int)$helper->Iblock()->getIblockIdIfExists('cs2matches', 'content');
-        $teamsId = (int)$helper->Iblock()->getIblockIdIfExists('cs2teams', 'content');
+        $matchesId = Cs2MigrationIblock::findId('cs2matches');
+        $teamsId = Cs2MigrationIblock::findId('cs2teams');
 
         if ($matchesId <= 0) {
             $this->out('cs2matches ещё не создан — пропуск (запустите Version20260620120000)');

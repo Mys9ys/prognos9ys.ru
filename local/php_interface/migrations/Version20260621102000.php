@@ -2,6 +2,8 @@
 
 namespace Sprint\Migration;
 
+require_once __DIR__ . '/Cs2MigrationIblock.php';
+
 class Version20260621102000 extends Version
 {
     protected $description = 'CS2: тип события cs2 в каталоге (eventtype)';
@@ -11,7 +13,7 @@ class Version20260621102000 extends Version
     public function up()
     {
         $helper = $this->getHelperManager();
-        $typeIblockId = (int)($helper->Iblock()->getIblockIdIfExists('eventtype', 'content') ?: 19);
+        $typeIblockId = Cs2MigrationIblock::findId('eventtype') ?: 19;
 
         if ($typeIblockId <= 0) {
             $this->outError('Инфоблок eventtype не найден');
@@ -48,7 +50,7 @@ class Version20260621102000 extends Version
     public function down()
     {
         $helper = $this->getHelperManager();
-        $typeIblockId = (int)($helper->Iblock()->getIblockIdIfExists('eventtype', 'content') ?: 19);
+        $typeIblockId = Cs2MigrationIblock::findId('eventtype') ?: 19;
         $id = $helper->Iblock()->getElementId($typeIblockId, ['=CODE' => 'cs2']);
         if ($id) {
             \CIBlockElement::Delete($id);

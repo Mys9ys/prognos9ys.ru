@@ -2,6 +2,8 @@
 
 namespace Sprint\Migration;
 
+require_once __DIR__ . '/Cs2MigrationIblock.php';
+
 class Version20260621100000 extends Version
 {
     protected $description = 'CS2: инфоблок cs2teams (команды)';
@@ -12,8 +14,8 @@ class Version20260621100000 extends Version
     {
         $helper = $this->getHelperManager();
 
-        $iblockId = $helper->Iblock()->getIblockIdIfExists('cs2teams', 'content');
-        if (!$iblockId) {
+        $iblockId = Cs2MigrationIblock::findId('cs2teams');
+        if ($iblockId <= 0) {
             $iblockId = (int)$helper->Iblock()->saveIblock([
                 'IBLOCK_TYPE_ID' => 'content',
                 'LID' => ['s1'],
@@ -57,7 +59,7 @@ class Version20260621100000 extends Version
     public function down()
     {
         $helper = $this->getHelperManager();
-        $id = $helper->Iblock()->getIblockIdIfExists('cs2teams', 'content');
+        $id = Cs2MigrationIblock::findId('cs2teams');
         if ($id) {
             $helper->Iblock()->deleteIblockIfExists($id);
         }
