@@ -7,7 +7,7 @@ declare(strict_types=1);
  *
  *   php grant_missed_deposit_interest.php [bankId] [--dry-run]
  *
- * Без bankId — проверить все активные вклады во всех банках.
+ * Без bankId — проверить все активные продлённые вклады во всех банках.
  */
 
 $docRoot = dirname(__DIR__, 2);

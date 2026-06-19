@@ -165,6 +165,10 @@ class BankDepositService
             return ['status' => 'skipped', 'reason' => 'closed'];
         }
 
+        if (($deposit['UF_STATUS'] ?? '') !== GameEconomyConfig::CONTRACT_STATUS_EXTENDED) {
+            return ['status' => 'skipped', 'reason' => 'not_due'];
+        }
+
         $userId = (int)($deposit['UF_USER_ID'] ?? 0);
         if ($this->repository->hasWalletTx($userId, 'bank_deposit_interest', 'deposit', $depositId)) {
             return ['status' => 'skipped', 'reason' => 'already_paid'];
@@ -226,6 +230,66 @@ class BankDepositService
         }
 
         return $missed;
+    }
+
+    /**
+     * Откат ошибочной выплаты процентов (например, по ещё не созревшему вкладу).
+     *
+     * @return array{status:string,interest?:float,reason?:string}
+     */
+    public function rollbackInterestPayment(int $depositId, bool $dryRun = false): array
+    {
+        $deposit = $this->repository->getBankDepositById($depositId);
+        if (!$deposit) {
+            return ['status' => 'error', 'reason' => 'deposit_not_found'];
+        }
+
+        $userId = (int)($deposit['UF_USER_ID'] ?? 0);
+        $bankId = (int)($deposit['UF_BANK_ID'] ?? 0);
+
+        if (!$this->repository->hasWalletTx($userId, 'bank_deposit_interest', 'deposit', $depositId)) {
+            return ['status' => 'skipped', 'reason' => 'no_interest_payment'];
+        }
+
+        if ($this->repository->hasWalletTx($userId, 'bank_deposit_interest_rollback', 'deposit', $depositId)) {
+            return ['status' => 'skipped', 'reason' => 'already_rolled_back'];
+        }
+
+        $txRows = $this->repository->getWalletTxByRefs('deposit', [$depositId], ['bank_deposit_interest']);
+        $interest = 0.0;
+        foreach ($txRows as $tx) {
+            if ((int)($tx['UF_USER_ID'] ?? 0) !== $userId) {
+                continue;
+            }
+            $interest = round((float)($tx['UF_AMOUNT'] ?? 0), 1);
+            break;
+        }
+
+        if ($interest <= 0) {
+            $interest = GameEconomyConfig::calculateDepositInterest(
+                round((float)($deposit['UF_PRINCIPAL'] ?? 0), 1)
+            );
+        }
+
+        if ($interest <= 0) {
+            return ['status' => 'skipped', 'reason' => 'zero_interest'];
+        }
+
+        if ($dryRun) {
+            return ['status' => 'would_rollback', 'interest' => $interest];
+        }
+
+        $this->walletService->debit(
+            $userId,
+            GameEconomyConfig::CURRENCY_PROGNOBAKS,
+            $interest,
+            'bank_deposit_interest_rollback',
+            'deposit',
+            $depositId
+        );
+        $this->repository->adjustUserBankLiquid($bankId, $interest);
+
+        return ['status' => 'rolled_back', 'interest' => $interest];
     }
 
     private function payoutInterest(int $depositId, int $bankId, int $userId, float $interest, DateTime $now): void
