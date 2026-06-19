@@ -3,10 +3,13 @@
 \Bitrix\Main\Loader::includeModule('prognos9ys.main');
 
 use Prognos9ys\Main\Service\Game\RegistrationBonusService;
+use Prognos9ys\Main\Service\Game\SeedUserGroupService;
 
 AddEventHandler('main', 'OnAfterUserAdd', static function (array &$arFields): void {
     if (!empty($arFields['ID'])) {
-        RegistrationBonusService::onUserRegistered((int)$arFields['ID']);
+        $userId = (int)$arFields['ID'];
+        RegistrationBonusService::onUserRegistered($userId);
+        SeedUserGroupService::onUserRegistered($userId);
     }
 });
 
@@ -57,7 +60,9 @@ $arClassMain = [
     'SetBotRacePrognosis',
     'GetFootballTeamStatistic',
     'GenValuesBotFootball',
+    'GenValuesBotCs2',
     'SetBotPrognosis',
+    'SetBotCs2Prognosis',
     'SetMatchReminder',
     'GetUserRank',
     'GetPrognosisEvents',
@@ -265,6 +270,15 @@ function AgentFootballBotSetPrognosis()
     $res = new SetBotPrognosis();
 
     return "AgentFootballBotSetPrognosis();";
+}
+
+function AgentCs2BotSetPrognosis()
+{
+    CModule::IncludeModule("iblock");
+
+    new SetBotCs2Prognosis();
+
+    return "AgentCs2BotSetPrognosis();";
 }
 
 function AgentRaceBotSetPrognosis()
