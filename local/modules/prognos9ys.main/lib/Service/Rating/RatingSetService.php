@@ -302,7 +302,7 @@ class RatingSetService
     {
         $sport = strtolower(trim($sport));
 
-        if (!in_array($sport, ['football', 'race'], true)) {
+        if (!in_array($sport, ['football', 'race', 'cs2'], true)) {
             throw new ApiException('Некорректный вид спорта', 422);
         }
 
