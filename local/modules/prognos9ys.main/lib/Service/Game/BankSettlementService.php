@@ -35,12 +35,30 @@ class BankSettlementService
             return;
         }
 
-        foreach ($this->repository->getActiveDepositsByEvent($eventId) as $deposit) {
-            $this->tickDeposit($deposit, $matchId);
+        $loans = $this->repository->getActiveLoansByEvent($eventId);
+        $deposits = $this->repository->getActiveDepositsByEvent($eventId);
+
+        $bankIds = [];
+        foreach (array_merge($loans, $deposits) as $row) {
+            $bankId = (int)($row['UF_BANK_ID'] ?? 0);
+            if ($bankId > 0) {
+                $bankIds[$bankId] = true;
+            }
         }
 
-        foreach ($this->repository->getActiveLoansByEvent($eventId) as $loan) {
-            $this->tickLoan($loan, $matchId);
+        // Сначала займы (пополнение ликвидности банка), затем вклады (выплаты).
+        foreach (array_keys($bankIds) as $bankId) {
+            foreach ($loans as $loan) {
+                if ((int)($loan['UF_BANK_ID'] ?? 0) === $bankId) {
+                    $this->tickLoan($loan, $matchId);
+                }
+            }
+
+            foreach ($deposits as $deposit) {
+                if ((int)($deposit['UF_BANK_ID'] ?? 0) === $bankId) {
+                    $this->tickDeposit($deposit, $matchId);
+                }
+            }
         }
     }
 
