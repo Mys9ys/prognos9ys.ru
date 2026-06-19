@@ -70,6 +70,81 @@ class GameEventScopeService
         );
     }
 
+    public function getEventIdForMatch(int $matchId): int
+    {
+        if ($matchId <= 0 || !Loader::includeModule('iblock')) {
+            return 0;
+        }
+
+        $row = \CIBlockElement::GetList(
+            [],
+            [
+                'IBLOCK_ID' => 2,
+                'ID' => $matchId,
+            ],
+            false,
+            false,
+            ['ID', 'PROPERTY_events']
+        )->GetNext();
+
+        return (int)($row['PROPERTY_EVENTS_VALUE'] ?? 0);
+    }
+
+    public function getEventName(int $eventId): string
+    {
+        if ($eventId <= 0 || !Loader::includeModule('iblock')) {
+            return '';
+        }
+
+        $row = \CIBlockElement::GetList(
+            [],
+            [
+                'IBLOCK_ID' => self::EVENTS_IBLOCK_ID,
+                'ID' => $eventId,
+            ],
+            false,
+            false,
+            ['ID', 'NAME']
+        )->GetNext();
+
+        return trim((string)($row['NAME'] ?? ''));
+    }
+
+    /**
+     * @return array<int, array{id:int,name:string}>
+     */
+    public function listEligibleEventsForBank(): array
+    {
+        $events = [];
+
+        foreach ($this->getEligibleEventIds() as $eventId) {
+            $events[] = [
+                'id' => $eventId,
+                'name' => $this->getEventName($eventId) ?: ('событие #' . $eventId),
+            ];
+        }
+
+        return $events;
+    }
+
+    public function resolveContractEventId(?int $eventId): int
+    {
+        if ($eventId !== null && $eventId > 0) {
+            if (!$this->isEventEligible($eventId)) {
+                throw new \InvalidArgumentException('Соревнование недоступно для банковского контракта');
+            }
+
+            return $eventId;
+        }
+
+        $anchorId = $this->getAnchorEventId();
+        if ($anchorId <= 0 || !$this->isEventEligible($anchorId)) {
+            throw new \RuntimeException('Нет доступного соревнования для контракта');
+        }
+
+        return $anchorId;
+    }
+
     public function isMatchInScope(int $eventId, int $matchNumber): bool
     {
         if (!$this->isEventEligible($eventId)) {

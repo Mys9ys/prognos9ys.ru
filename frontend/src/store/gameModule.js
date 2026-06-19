@@ -157,20 +157,20 @@ export const gameModule = {
             const res = await apiActions.game.openBank(userToken);
             return applyGamePayload(ctx, res);
         },
-        async createDeposit(ctx, { bankId, amount }) {
+        async createDeposit(ctx, { bankId, amount, eventId = 0 }) {
             const userToken = ctx.rootState.auth?.authData?.token;
             if (!userToken) {
                 throw new Error('Требуется авторизация');
             }
-            const res = await apiActions.game.createDeposit(userToken, bankId, amount);
+            const res = await apiActions.game.createDeposit(userToken, bankId, amount, eventId);
             return applyGamePayload(ctx, res);
         },
-        async takeLoan(ctx, { bankId, amount }) {
+        async takeLoan(ctx, { bankId, amount, eventId = 0 }) {
             const userToken = ctx.rootState.auth?.authData?.token;
             if (!userToken) {
                 throw new Error('Требуется авторизация');
             }
-            const res = await apiActions.game.takeLoan(userToken, bankId, amount);
+            const res = await apiActions.game.takeLoan(userToken, bankId, amount, eventId);
             return applyGamePayload(ctx, res);
         },
         async closeBank(ctx) {

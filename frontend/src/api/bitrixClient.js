@@ -187,13 +187,13 @@ export const apiActions = {
             'prognos9ys:main.GameController.openBank',
             { userToken }
         ),
-        createDeposit: (userToken, bankId, amount) => runBitrixAction(
+        createDeposit: (userToken, bankId, amount, eventId = 0) => runBitrixAction(
             'prognos9ys:main.GameController.createDeposit',
-            { userToken, bankId, amount }
+            { userToken, bankId, amount, eventId: eventId || undefined }
         ),
-        takeLoan: (userToken, bankId, amount) => runBitrixAction(
+        takeLoan: (userToken, bankId, amount, eventId = 0) => runBitrixAction(
             'prognos9ys:main.GameController.takeLoan',
-            { userToken, bankId, amount }
+            { userToken, bankId, amount, eventId: eventId || undefined }
         ),
         closeBank: (userToken) => runBitrixAction(
             'prognos9ys:main.GameController.closeBank',

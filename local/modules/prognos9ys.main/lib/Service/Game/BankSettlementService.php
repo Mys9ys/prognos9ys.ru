@@ -30,8 +30,8 @@ class BankSettlementService
             return;
         }
 
-        $eventId = $this->scopeService->getAnchorEventId();
-        if ($eventId <= 0) {
+        $eventId = $this->scopeService->getEventIdForMatch($matchId);
+        if ($eventId <= 0 || !$this->scopeService->isEventEligible($eventId)) {
             return;
         }
 
@@ -65,6 +65,11 @@ class BankSettlementService
     private function tickDeposit(array $deposit, int $matchId): void
     {
         $depositId = (int)$deposit['ID'];
+        $contractEventId = (int)($deposit['UF_EVENT_ID'] ?? 0);
+        if ($contractEventId > 0 && $this->scopeService->getEventIdForMatch($matchId) !== $contractEventId) {
+            return;
+        }
+
         $lastTick = (int)($deposit['UF_LAST_TICK_MATCH_ID'] ?? 0);
         if ($lastTick === $matchId) {
             return;
@@ -93,6 +98,11 @@ class BankSettlementService
     private function tickLoan(array $loan, int $matchId): void
     {
         $loanId = (int)$loan['ID'];
+        $contractEventId = (int)($loan['UF_EVENT_ID'] ?? 0);
+        if ($contractEventId > 0 && $this->scopeService->getEventIdForMatch($matchId) !== $contractEventId) {
+            return;
+        }
+
         $lastTick = (int)($loan['UF_LAST_TICK_MATCH_ID'] ?? 0);
         if ($lastTick === $matchId) {
             return;

@@ -117,6 +117,16 @@
 
       <div class="section">
         <div class="section_title">Каталог банков</div>
+        <div class="event_pick" v-if="contractEvents.length > 1">
+          <div class="event_pick_label">Соревнование для контракта</div>
+          <select v-model.number="selectedEventId" class="event_select">
+            <option v-for="ev in contractEvents" :key="ev.id" :value="ev.id">{{ ev.name }}</option>
+          </select>
+          <div class="hint">Срок 5 матчей считается только по турам выбранного турнира.</div>
+        </div>
+        <div class="meta event_single" v-else-if="contractEvents.length === 1">
+          Соревнование: {{ contractEvents[0].name }}
+        </div>
         <button class="btn secondary" :disabled="loading" @click="loadBanks">Обновить список</button>
         <div class="bank_card" v-for="b in banks" :key="b.id">
           <div class="row">
@@ -171,6 +181,7 @@ export default {
         { id: 'loans', label: 'Займы' },
         { id: 'returns', label: 'Возвраты' },
       ],
+      selectedEventId: 0,
     };
   },
   computed: {
@@ -200,8 +211,23 @@ export default {
     loanAmount() {
       return this.bankInfo.loan_amount || DEFAULT_LOAN_AMOUNT;
     },
+    contractEvents() {
+      return this.bankInfo.contract_events || [];
+    },
   },
   watch: {
+    contractEvents: {
+      immediate: true,
+      handler(events) {
+        if (!events.length) {
+          this.selectedEventId = 0;
+          return;
+        }
+        if (!events.some((ev) => ev.id === this.selectedEventId)) {
+          this.selectedEventId = events[0].id;
+        }
+      },
+    },
     expanded(val) {
       if (val) {
         this.refresh();
@@ -278,7 +304,7 @@ export default {
       this.error = '';
       this.message = '';
       try {
-        await this.createDeposit({ bankId, amount: this.depositAmount });
+        await this.createDeposit({ bankId, amount: this.depositAmount, eventId: this.selectedEventId });
         this.message = `Вклад ${this.depositAmount} оформлен`;
         await this.refreshGameInfo();
         await this.refresh();
@@ -293,7 +319,7 @@ export default {
       this.error = '';
       this.message = '';
       try {
-        await this.takeLoan({ bankId, amount: this.loanAmount });
+        await this.takeLoan({ bankId, amount: this.loanAmount, eventId: this.selectedEventId });
         this.message = `Займ ${this.loanAmount} выдан`;
         await this.refreshGameInfo();
         await this.refresh();
@@ -415,6 +441,30 @@ export default {
 .meta {
   font-size: 11px;
   color: @colorBlur;
+}
+
+.event_pick {
+  margin-bottom: 8px;
+}
+
+.event_pick_label {
+  font-size: 12px;
+  color: @colorText;
+  margin-bottom: 4px;
+}
+
+.event_select {
+  width: 100%;
+  background: @darkbg;
+  color: @colorText;
+  border: 1px solid fade(@colorBlur, 40%);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+.event_single {
+  margin-bottom: 8px;
 }
 
 .contract, .bank_card, .operation {

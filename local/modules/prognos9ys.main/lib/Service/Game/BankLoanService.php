@@ -21,7 +21,7 @@ class BankLoanService
         $this->scopeService = $scopeService ?? new GameEventScopeService();
     }
 
-    public function takeLoan(int $userId, int $bankId, float $amount): array
+    public function takeLoan(int $userId, int $bankId, float $amount, ?int $eventId = null): array
     {
         if ($userId <= 0 || $bankId <= 0) {
             throw new \InvalidArgumentException('Некорректные параметры займа');
@@ -50,7 +50,7 @@ class BankLoanService
 
         $this->repository->allocateUserBankFundsForLoan($bankId, $amount);
 
-        $eventId = $this->scopeService->getAnchorEventId();
+        $eventId = $this->scopeService->resolveContractEventId($eventId);
         $lastSettledMatch = $this->scopeService->getLastSettledMatchForEvent($eventId);
 
         $loanId = $this->repository->addBankLoan([
@@ -152,6 +152,10 @@ class BankLoanService
         $scope = new GameEventScopeService();
         $opening = $scope->resolveOpeningMatchMeta($row);
         $lastTickMatchId = (int)($row['UF_LAST_TICK_MATCH_ID'] ?? 0);
+        $eventId = (int)($row['UF_EVENT_ID'] ?? 0);
+        $maturityMatchNumber = $opening['opening_match_number'] > 0
+            ? $opening['opening_match_number'] + $term
+            : 0;
 
         return [
             'id' => (int)$row['ID'],
@@ -165,11 +169,16 @@ class BankLoanService
             'matches_since_start' => $since,
             'term_matches' => $term,
             'matches_left' => max(0, $term - $since),
-            'event_id' => (int)($row['UF_EVENT_ID'] ?? 0),
+            'event_id' => $eventId,
+            'event_name' => $scope->getEventName($eventId),
             'opening_match_id' => $opening['opening_match_id'],
             'opening_match_number' => $opening['opening_match_number'],
             'opening_match_label' => $opening['opening_match_label'],
             'created_match_label' => $opening['created_match_label'],
+            'maturity_match_number' => $maturityMatchNumber,
+            'maturity_match_label' => $maturityMatchNumber > 0
+                ? 'расчёт после ' . $scope->formatMatchLabelByNumber($maturityMatchNumber)
+                : '',
             'last_tick_match_id' => $lastTickMatchId,
             'last_tick_match_label' => $scope->formatMatchLabel($lastTickMatchId),
         ];

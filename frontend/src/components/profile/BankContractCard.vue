@@ -11,10 +11,12 @@
       </span>
     </div>
     <div class="meta">
+      <span v-if="contract.event_name">{{ contract.event_name }} · </span>
       <span v-if="!showClient && contract.bank_id">Банк {{ contract.bank_id }} · </span>
       осталось матчей: {{ contract.matches_left }}
       <span v-if="contract.created_match_label"> · {{ contract.created_match_label }}</span>
       <span v-else-if="contract.opening_match_label"> · {{ contract.opening_match_label }}</span>
+      <span v-if="contract.maturity_match_label"> · {{ contract.maturity_match_label }}</span>
       <span v-if="contract.status === 'extended'" class="badge">продлён</span>
     </div>
     <div class="user_cell" v-if="showClient && clientId">

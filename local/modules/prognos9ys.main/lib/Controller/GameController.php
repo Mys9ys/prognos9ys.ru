@@ -180,7 +180,7 @@ class GameController extends BaseController
         ];
     }
 
-    public function createDepositAction(int $bankId, float $amount = 0): array
+    public function createDepositAction(int $bankId, float $amount = 0, int $eventId = 0): array
     {
         $userId = TokenAuthService::getCurrentUserId();
         if (!$userId) {
@@ -193,12 +193,17 @@ class GameController extends BaseController
 
         return [
             'status' => 'ok',
-            'deposit' => (new BankDepositService())->createDeposit($userId, $bankId, $amount),
+            'deposit' => (new BankDepositService())->createDeposit(
+                $userId,
+                $bankId,
+                $amount,
+                $eventId > 0 ? $eventId : null
+            ),
             'game' => (new GameProfileService())->getSummary($userId),
         ];
     }
 
-    public function takeLoanAction(int $bankId, float $amount = 0): array
+    public function takeLoanAction(int $bankId, float $amount = 0, int $eventId = 0): array
     {
         $userId = TokenAuthService::getCurrentUserId();
         if (!$userId) {
@@ -211,7 +216,12 @@ class GameController extends BaseController
 
         return [
             'status' => 'ok',
-            'loan' => (new BankLoanService())->takeLoan($userId, $bankId, $amount),
+            'loan' => (new BankLoanService())->takeLoan(
+                $userId,
+                $bankId,
+                $amount,
+                $eventId > 0 ? $eventId : null
+            ),
             'game' => (new GameProfileService())->getSummary($userId),
         ];
     }

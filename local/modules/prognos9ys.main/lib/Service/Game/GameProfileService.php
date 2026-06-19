@@ -52,6 +52,7 @@ class GameProfileService
                 'has_bank' => $hasBank,
                 'deposit_amount' => GameEconomyConfig::DEPOSIT_MIN_AMOUNT_PROGNOBAKS,
                 'loan_amount' => GameEconomyConfig::LOAN_MIN_AMOUNT_PROGNOBAKS,
+                'contract_events' => (new GameEventScopeService())->listEligibleEventsForBank(),
             ];
 
             if ($includeBankDetails) {
