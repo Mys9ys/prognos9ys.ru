@@ -49,26 +49,43 @@
             </span>
           </div>
         </div>
-        <template v-if="myBank.deposits && myBank.deposits.length">
-          <div class="subsection_title">Вклады в банке</div>
-          <BankContractCard
-            v-for="d in myBank.deposits"
-            :key="'bd' + d.id"
-            :contract="d"
-            kind="deposit"
-            show-client
-          />
-        </template>
-        <template v-if="myBank.loans && myBank.loans.length">
-          <div class="subsection_title">Займы из банка</div>
-          <BankContractCard
-            v-for="l in myBank.loans"
-            :key="'bl' + l.id"
-            :contract="l"
-            kind="loan"
-            show-client
-          />
-        </template>
+        <div class="bank_contracts_block" v-if="myBank.active_contracts > 0">
+          <div class="subsection_title">Контракты в банке</div>
+          <div class="ops_tabs">
+            <button
+              type="button"
+              class="ops_tab"
+              :class="{ active: activeBankContractTab === 'deposits' }"
+              @click="activeBankContractTab = 'deposits'"
+            >Вклады ({{ bankDepositsCount }})</button>
+            <button
+              type="button"
+              class="ops_tab"
+              :class="{ active: activeBankContractTab === 'loans' }"
+              @click="activeBankContractTab = 'loans'"
+            >Займы ({{ bankLoansCount }})</button>
+          </div>
+          <template v-if="activeBankContractTab === 'deposits'">
+            <div v-if="!bankDepositsCount" class="hint">Нет активных вкладов</div>
+            <BankContractCard
+              v-for="d in myBank.deposits"
+              :key="'bd' + d.id"
+              :contract="d"
+              kind="deposit"
+              show-client
+            />
+          </template>
+          <template v-else>
+            <div v-if="!bankLoansCount" class="hint">Нет активных займов</div>
+            <BankContractCard
+              v-for="l in myBank.loans"
+              :key="'bl' + l.id"
+              :contract="l"
+              kind="loan"
+              show-client
+            />
+          </template>
+        </div>
         <button
           class="btn danger"
           v-if="myBank.active_contracts === 0"
@@ -89,58 +106,86 @@
         <button class="btn" :disabled="loading" @click="onOpenBank">Открыть банк (200 <AppIcon name="prognobak" :size="14" />)</button>
       </div>
 
-      <div class="section">
-        <div class="section_title">Операции</div>
-        <div class="ops_tabs">
-          <button
-            v-for="tab in operationTabs"
-            :key="tab.id"
-            class="ops_tab"
-            :class="{ active: activeOpsTab === tab.id }"
-            @click="activeOpsTab = tab.id"
-          >{{ tab.label }}</button>
+      <div class="section section_collapsible">
+        <div class="section_title section_title_toggle" @click="toggleOperations">
+          <span>Операции</span>
+          <span class="toggle">{{ operationsExpanded ? '−' : '+' }}</span>
         </div>
-        <button class="btn secondary" :disabled="loading" @click="loadOperations">Обновить</button>
-        <div v-if="!filteredOperations.length" class="hint">Пока нет операций в этой категории</div>
-        <div class="operation" v-for="op in filteredOperations" :key="op.id">
-          <div class="operation_main">
-            <span class="operation_label">{{ op.label }}</span>
-            <span class="operation_amount" :class="op.direction">
-              {{ formatSignedAmount(op.amount) }}
-              <AppIcon name="prognobak" :size="14" />
-            </span>
+        <template v-if="operationsExpanded">
+          <div class="ops_tabs">
+            <button
+              v-for="tab in operationTabs"
+              :key="tab.id"
+              type="button"
+              class="ops_tab"
+              :class="{ active: activeOpsTab === tab.id }"
+              @click="activeOpsTab = tab.id"
+            >{{ tab.label }}</button>
           </div>
-          <div class="meta">
-            {{ op.at }}
-            <span v-if="op.counterparty_name"> · {{ op.counterparty_name }}</span>
-            <span v-if="op.match_label"> · {{ op.match_label }}</span>
-            <span v-if="op.scope === 'bank'" class="badge">банк</span>
-            <span v-if="op.balance_after !== null && op.balance_after !== undefined">
-              · баланс {{ op.balance_after }}
-            </span>
+          <button class="btn secondary" :disabled="loading" @click="loadOperations">Обновить</button>
+          <div v-if="!filteredOperations.length" class="hint">Пока нет операций в этой категории</div>
+          <div class="operation" v-for="op in filteredOperations" :key="op.id">
+            <div class="operation_main">
+              <span class="operation_label">{{ op.label }}</span>
+              <span class="operation_amount" :class="op.direction">
+                {{ formatSignedAmount(op.amount) }}
+                <AppIcon name="prognobak" :size="14" />
+              </span>
+            </div>
+            <div class="meta">
+              {{ op.at }}
+              <span v-if="op.counterparty_name"> · {{ op.counterparty_name }}</span>
+              <span v-if="op.match_label"> · {{ op.match_label }}</span>
+              <span v-if="op.scope === 'bank'" class="badge">банк</span>
+              <span v-if="op.balance_after !== null && op.balance_after !== undefined">
+                · баланс {{ op.balance_after }}
+              </span>
+            </div>
           </div>
-        </div>
+        </template>
       </div>
 
       <div class="section">
         <div class="section_title">Мои контракты</div>
-        <div v-if="!contracts.deposits.length && !contracts.loans.length" class="hint">Нет активных вкладов и займов</div>
-        <BankContractCard
-          v-for="d in contracts.deposits"
-          :key="'d' + d.id"
-          :contract="d"
-          kind="deposit"
-          show-cancel
-          @cancel="onCancelDeposit"
-        />
-        <BankContractCard
-          v-for="l in contracts.loans"
-          :key="'l' + l.id"
-          :contract="l"
-          kind="loan"
-          show-cancel
-          @cancel="onCancelLoan"
-        />
+        <div v-if="!myContractsCount" class="hint">Нет активных вкладов и займов</div>
+        <template v-else>
+          <div class="ops_tabs">
+            <button
+              type="button"
+              class="ops_tab"
+              :class="{ active: activeMyContractTab === 'deposits' }"
+              @click="activeMyContractTab = 'deposits'"
+            >Вклады ({{ myDepositsCount }})</button>
+            <button
+              type="button"
+              class="ops_tab"
+              :class="{ active: activeMyContractTab === 'loans' }"
+              @click="activeMyContractTab = 'loans'"
+            >Займы ({{ myLoansCount }})</button>
+          </div>
+          <template v-if="activeMyContractTab === 'deposits'">
+            <div v-if="!myDepositsCount" class="hint">Нет активных вкладов</div>
+            <BankContractCard
+              v-for="d in contracts.deposits"
+              :key="'d' + d.id"
+              :contract="d"
+              kind="deposit"
+              show-cancel
+              @cancel="onCancelDeposit"
+            />
+          </template>
+          <template v-else>
+            <div v-if="!myLoansCount" class="hint">Нет активных займов</div>
+            <BankContractCard
+              v-for="l in contracts.loans"
+              :key="'l' + l.id"
+              :contract="l"
+              kind="loan"
+              show-cancel
+              @cancel="onCancelLoan"
+            />
+          </template>
+        </template>
       </div>
 
       <div class="section">
@@ -191,6 +236,8 @@ export default {
   data() {
     return {
       expanded: false,
+      operationsExpanded: false,
+      operationsLoaded: false,
       loading: false,
       error: '',
       message: '',
@@ -198,6 +245,8 @@ export default {
       contracts: { deposits: [], loans: [] },
       operations: [],
       activeOpsTab: 'all',
+      activeBankContractTab: 'deposits',
+      activeMyContractTab: 'deposits',
       operationTabs: [
         { id: 'all', label: 'Все' },
         { id: 'deposits', label: 'Вклады' },
@@ -237,6 +286,21 @@ export default {
     contractEvents() {
       return this.bankInfo.contract_events || [];
     },
+    bankDepositsCount() {
+      return (this.myBank?.deposits || []).length;
+    },
+    bankLoansCount() {
+      return (this.myBank?.loans || []).length;
+    },
+    myDepositsCount() {
+      return (this.contracts.deposits || []).length;
+    },
+    myLoansCount() {
+      return (this.contracts.loans || []).length;
+    },
+    myContractsCount() {
+      return this.myDepositsCount + this.myLoansCount;
+    },
   },
   watch: {
     contractEvents: {
@@ -261,7 +325,20 @@ export default {
       handler() {
         if (this.expanded) {
           this.loadContracts();
+          this.syncBankContractTab();
         }
+      },
+    },
+    myBank: {
+      deep: true,
+      handler() {
+        this.syncBankContractTab();
+      },
+    },
+    contracts: {
+      deep: true,
+      handler() {
+        this.syncMyContractTab();
       },
     },
   },
@@ -278,7 +355,33 @@ export default {
     },
     async refresh() {
       this.error = '';
-      await Promise.all([this.loadBanks(), this.loadContracts(), this.loadOperations()]);
+      const tasks = [this.loadBanks(), this.loadContracts()];
+      if (this.operationsExpanded) {
+        tasks.push(this.loadOperations());
+      }
+      await Promise.all(tasks);
+      this.syncBankContractTab();
+      this.syncMyContractTab();
+    },
+    syncBankContractTab() {
+      if (this.activeBankContractTab === 'deposits' && !this.bankDepositsCount && this.bankLoansCount) {
+        this.activeBankContractTab = 'loans';
+      } else if (this.activeBankContractTab === 'loans' && !this.bankLoansCount && this.bankDepositsCount) {
+        this.activeBankContractTab = 'deposits';
+      }
+    },
+    syncMyContractTab() {
+      if (this.activeMyContractTab === 'deposits' && !this.myDepositsCount && this.myLoansCount) {
+        this.activeMyContractTab = 'loans';
+      } else if (this.activeMyContractTab === 'loans' && !this.myLoansCount && this.myDepositsCount) {
+        this.activeMyContractTab = 'deposits';
+      }
+    },
+    async toggleOperations() {
+      this.operationsExpanded = !this.operationsExpanded;
+      if (this.operationsExpanded && !this.operationsLoaded) {
+        await this.loadOperations();
+      }
     },
     async loadBanks() {
       try {
@@ -303,6 +406,7 @@ export default {
       try {
         const res = await this.getBankOperations();
         this.operations = res.operations || [];
+        this.operationsLoaded = true;
       } catch (e) {
         this.error = e.message || 'Не удалось загрузить операции';
       }
@@ -445,6 +549,36 @@ export default {
   font-size: 13px;
   color: @orange;
   margin-bottom: 6px;
+}
+
+.section_title_toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0;
+  cursor: pointer;
+  user-select: none;
+
+  .toggle {
+    color: @colorBlur;
+    font-size: 16px;
+    line-height: 1;
+  }
+}
+
+.section_collapsible {
+  .ops_tabs,
+  .btn.secondary,
+  .hint,
+  .operation {
+    margin-top: 8px;
+  }
+}
+
+.bank_contracts_block {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid fade(@colorBlur, 25%);
 }
 
 .subsection_title {
