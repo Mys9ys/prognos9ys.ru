@@ -9,6 +9,17 @@
       <div class="msg error" v-if="error">{{ error }}</div>
       <div class="msg ok" v-if="message">{{ message }}</div>
 
+      <div class="event_pick" v-if="contractEvents.length > 1">
+        <div class="event_pick_label">Соревнование для контракта</div>
+        <select v-model.number="selectedEventId" class="event_select">
+          <option v-for="ev in contractEvents" :key="ev.id" :value="ev.id">{{ ev.name }}</option>
+        </select>
+        <div class="hint">Срок 5 матчей считается только по турам выбранного турнира.</div>
+      </div>
+      <div class="meta event_single" v-else-if="contractEvents.length === 1">
+        Соревнование: {{ contractEvents[0].name }}
+      </div>
+
       <div class="section" v-if="myBank">
         <div class="section_title">Мой банк</div>
         <div class="row"><span>Резерв (свои)</span><span>{{ myBank.reserved }} <AppIcon name="prognobak" :size="14" /></span></div>
@@ -24,9 +35,16 @@
             </span>
           </div>
           <div class="row lifetime_row">
-            <span>Выплачено по вкладам</span>
+            <span>Возврат тела вкладов</span>
+            <span class="lifetime_neutral">
+              {{ formatAmount(myBank.lifetime.total_deposit_principal_returned) }}
+              <AppIcon name="prognobak" :size="14" />
+            </span>
+          </div>
+          <div class="row lifetime_row">
+            <span>Проценты по вкладам</span>
             <span class="lifetime_out">
-              {{ formatAmount(myBank.lifetime.total_deposit_paid) }}
+              {{ formatAmount(myBank.lifetime.total_deposit_interest_paid) }}
               <AppIcon name="prognobak" :size="14" />
             </span>
           </div>
@@ -57,6 +75,12 @@
           :disabled="loading"
           @click="onCloseBank"
         >Закрыть банк</button>
+        <div class="owner_deposit_block" v-if="contractEvents.length">
+          <div class="hint">Вклад в свой банк пополняет ликвидность для выдачи займов (сумма как у всех — {{ depositAmount }} <AppIcon name="prognobak" :size="14" />).</div>
+          <button class="btn small" :disabled="loading" @click="onCreateDeposit(myBank.id)">
+            Вклад в свой банк {{ depositAmount }} <AppIcon name="prognobak" :size="14" />
+          </button>
+        </div>
       </div>
 
       <div class="section" v-else-if="canOpen">
@@ -121,16 +145,6 @@
 
       <div class="section">
         <div class="section_title">Каталог банков</div>
-        <div class="event_pick" v-if="contractEvents.length > 1">
-          <div class="event_pick_label">Соревнование для контракта</div>
-          <select v-model.number="selectedEventId" class="event_select">
-            <option v-for="ev in contractEvents" :key="ev.id" :value="ev.id">{{ ev.name }}</option>
-          </select>
-          <div class="hint">Срок 5 матчей считается только по турам выбранного турнира.</div>
-        </div>
-        <div class="meta event_single" v-else-if="contractEvents.length === 1">
-          Соревнование: {{ contractEvents[0].name }}
-        </div>
         <button class="btn secondary" :disabled="loading" @click="loadBanks">Обновить список</button>
         <div class="bank_card" v-for="b in banks" :key="b.id">
           <div class="row">
@@ -138,11 +152,16 @@
             <span>займ: {{ b.loanable ?? (b.reserved + b.liquid) }} <AppIcon name="prognobak" :size="14" /></span>
           </div>
           <div class="meta">Резерв {{ b.reserved }} · вклады {{ b.liquid }} · +{{ b.deposit_rate_percent }}% / +{{ b.loan_rate_percent }}% за {{ b.term_matches }} матчей</div>
-          <div class="actions" v-if="!myBank || myBank.id !== b.id">
+          <div class="actions">
             <button class="btn small" :disabled="loading" @click="onCreateDeposit(b.id)">
               Вклад {{ depositAmount }} <AppIcon name="prognobak" :size="14" />
             </button>
-            <button class="btn small" :disabled="loading" @click="onTakeLoan(b.id)">
+            <button
+              v-if="!myBank || myBank.id !== b.id"
+              class="btn small"
+              :disabled="loading"
+              @click="onTakeLoan(b.id)"
+            >
               Займ {{ loanAmount }} <AppIcon name="prognobak" :size="14" />
             </button>
           </div>
@@ -434,6 +453,16 @@ export default {
   margin: 8px 0 4px;
 }
 
+.owner_deposit_block {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid fade(@colorBlur, 25%);
+
+  .btn {
+    margin-top: 6px;
+  }
+}
+
 .row {
   display: flex;
   justify-content: space-between;
@@ -465,6 +494,15 @@ export default {
   align-items: center;
   gap: 4px;
   font-weight: 600;
+}
+
+.lifetime_neutral {
+  color: @colorText;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  opacity: 0.85;
 }
 
 .hint {

@@ -12,7 +12,7 @@ class BankOperationsService
         'bank_reserve_lock' => 'Резерв при открытии банка',
         'bank_reserve_unlock' => 'Возврат резерва банка',
         'bank_deposit' => 'Вклад в банк',
-        'bank_deposit_return' => 'Возврат вклада',
+        'bank_deposit_return' => 'Возврат тела вклада',
         'bank_deposit_return_half' => 'Частичный возврат вклада',
         'bank_deposit_interest' => 'Проценты по вкладу',
         'bank_deposit_interest_rollback' => 'Откат процентов по вкладу',
@@ -126,6 +126,25 @@ class BankOperationsService
                     continue;
                 }
 
+                if (
+                    ($reason === 'bank_deposit_return' || $reason === 'bank_deposit_return_half')
+                    && $depositId > 0
+                ) {
+                    $depositRow = $this->repository->getBankDepositById($depositId);
+                    if (
+                        $depositRow
+                        && ($depositRow['UF_STATUS'] ?? '') === GameEconomyConfig::CONTRACT_STATUS_CLOSED
+                        && !$this->repository->hasWalletTx(
+                            (int)($depositRow['UF_USER_ID'] ?? 0),
+                            'bank_deposit_cancel',
+                            'deposit',
+                            $depositId
+                        )
+                    ) {
+                        continue;
+                    }
+                }
+
                 $event = $this->formatContractWalletTxForBankOwner($row, 'deposit');
                 if (!isset($seenIds[$event['id']])) {
                     $seenIds[$event['id']] = true;
@@ -138,6 +157,24 @@ class BankOperationsService
                 'bank_loan_repay',
                 'bank_loan_interest',
             ]) as $row) {
+                $reason = (string)($row['UF_REASON'] ?? '');
+                $loanId = (int)($row['UF_REF_ID'] ?? 0);
+                if ($reason === 'bank_loan_repay' && $loanId > 0) {
+                    $loanRow = $this->repository->getBankLoanById($loanId);
+                    if (
+                        $loanRow
+                        && ($loanRow['UF_STATUS'] ?? '') === GameEconomyConfig::CONTRACT_STATUS_CLOSED
+                        && !$this->repository->hasWalletTx(
+                            (int)($loanRow['UF_USER_ID'] ?? 0),
+                            'bank_loan_cancel',
+                            'loan',
+                            $loanId
+                        )
+                    ) {
+                        continue;
+                    }
+                }
+
                 $event = $this->formatContractWalletTxForBankOwner($row, 'loan');
                 if (!isset($seenIds[$event['id']])) {
                     $seenIds[$event['id']] = true;
@@ -183,7 +220,12 @@ class BankOperationsService
     /**
      * Сводка по банку за всё время (для владельца).
      *
-     * @return array{total_loan_interest_earned: float, total_deposit_paid: float}
+     * @return array{
+     *     total_loan_interest_earned: float,
+     *     total_deposit_paid: float,
+     *     total_deposit_principal_returned: float,
+     *     total_deposit_interest_paid: float
+     * }
      */
     public function getLifetimeTotalsForBank(int $bankId): array
     {
@@ -191,37 +233,17 @@ class BankOperationsService
             return [
                 'total_loan_interest_earned' => 0.0,
                 'total_deposit_paid' => 0.0,
+                'total_deposit_principal_returned' => 0.0,
+                'total_deposit_interest_paid' => 0.0,
             ];
         }
 
-        $depositIds = array_map(
-            static fn(array $row): int => (int)$row['ID'],
-            $this->repository->getDepositsByBankId($bankId)
-        );
+        $depositTotals = $this->calculateDepositLifetimeTotals($bankId);
+
         $loanIds = array_map(
             static fn(array $row): int => (int)$row['ID'],
             $this->repository->getLoansByBankId($bankId)
         );
-
-        $totalDepositPaid = 0.0;
-        foreach ($this->repository->getWalletTxByRefs('deposit', $depositIds, [
-            'bank_deposit_return',
-            'bank_deposit_return_half',
-            'bank_deposit_interest',
-            'bank_deposit_interest_rollback',
-        ]) as $tx) {
-            $reason = (string)($tx['UF_REASON'] ?? '');
-            $amount = abs(round((float)($tx['UF_AMOUNT'] ?? 0), 1));
-
-            if ($reason === 'bank_deposit_interest_rollback') {
-                $totalDepositPaid = round($totalDepositPaid - $amount, 1);
-                continue;
-            }
-
-            $totalDepositPaid = round($totalDepositPaid + $amount, 1);
-        }
-
-        $totalDepositPaid = max(0.0, $totalDepositPaid);
 
         $loanPrincipalById = [];
         foreach ($this->repository->getLoansByBankId($bankId) as $loan) {
@@ -255,7 +277,89 @@ class BankOperationsService
 
         return [
             'total_loan_interest_earned' => $totalLoanInterestEarned,
-            'total_deposit_paid' => $totalDepositPaid,
+            'total_deposit_paid' => round(
+                $depositTotals['total_deposit_principal_returned'] + $depositTotals['total_deposit_interest_paid'],
+                1
+            ),
+            'total_deposit_principal_returned' => $depositTotals['total_deposit_principal_returned'],
+            'total_deposit_interest_paid' => $depositTotals['total_deposit_interest_paid'],
+        ];
+    }
+
+    /**
+     * @return array{total_deposit_principal_returned: float, total_deposit_interest_paid: float}
+     */
+    private function calculateDepositLifetimeTotals(int $bankId): array
+    {
+        $principalReturned = 0.0;
+        $interestPaid = 0.0;
+
+        foreach ($this->repository->getDepositsByBankId($bankId) as $deposit) {
+            $depositId = (int)$deposit['ID'];
+            $clientId = (int)($deposit['UF_USER_ID'] ?? 0);
+            $principal = round((float)($deposit['UF_PRINCIPAL'] ?? 0), 1);
+            if ($depositId <= 0 || $clientId <= 0) {
+                continue;
+            }
+
+            $interestFromTx = 0.0;
+            $returnFromTx = 0.0;
+
+            foreach ($this->repository->getWalletTxByRefs('deposit', [$depositId], [
+                'bank_deposit_return',
+                'bank_deposit_return_half',
+                'bank_deposit_interest',
+                'bank_deposit_interest_rollback',
+            ]) as $tx) {
+                if ((int)($tx['UF_USER_ID'] ?? 0) !== $clientId) {
+                    continue;
+                }
+
+                $reason = (string)($tx['UF_REASON'] ?? '');
+                $amount = abs(round((float)($tx['UF_AMOUNT'] ?? 0), 1));
+
+                if ($reason === 'bank_deposit_interest') {
+                    $interestFromTx = round($interestFromTx + $amount, 1);
+                    continue;
+                }
+
+                if ($reason === 'bank_deposit_interest_rollback') {
+                    $interestFromTx = round($interestFromTx - $amount, 1);
+                    continue;
+                }
+
+                if ($reason === 'bank_deposit_return' || $reason === 'bank_deposit_return_half') {
+                    $returnFromTx = round($returnFromTx + $amount, 1);
+                }
+            }
+
+            $interestFromTx = max(0.0, $interestFromTx);
+            $interestPaid = round($interestPaid + $interestFromTx, 1);
+
+            if ($returnFromTx <= 0) {
+                continue;
+            }
+
+            if ($interestFromTx > 0) {
+                $principalReturned = round($principalReturned + $returnFromTx, 1);
+                continue;
+            }
+
+            $calcInterest = GameEconomyConfig::calculateDepositInterest($principal);
+            $fullReturn = round($principal + $calcInterest, 1);
+
+            if ($calcInterest > 0 && $returnFromTx >= $fullReturn - 0.05) {
+                $principalReturned = round($principalReturned + $principal, 1);
+                $interestPaid = round($interestPaid + $calcInterest, 1);
+                continue;
+            }
+
+            $principalReturned = round($principalReturned + min($returnFromTx, $principal), 1);
+        }
+
+        return [
+            'total_deposit_principal_returned' => max(0.0, round($principalReturned, 1)),
+            'total_deposit_interest_paid' => max(0.0, round($interestPaid, 1)),
         ];
     }
 
@@ -438,6 +542,12 @@ class BankOperationsService
             }
 
             $interest = GameEconomyConfig::calculateDepositInterest($principal);
+            $interestAlreadyPaid = $this->repository->hasWalletTx(
+                $clientId,
+                'bank_deposit_interest',
+                'deposit',
+                $depositId
+            );
             $closedMatchId = $lastTickMatchId;
             $closedMatchLabel = $this->scopeService->formatMatchLabel($closedMatchId);
 
@@ -460,7 +570,7 @@ class BankOperationsService
                 'match_label' => $closedMatchLabel,
             ];
 
-            if ($interest > 0) {
+            if ($interest > 0 && !$interestAlreadyPaid) {
                 $events[] = [
                     'id' => 'dep_interest_' . $depositId,
                     'at' => $closedAt,

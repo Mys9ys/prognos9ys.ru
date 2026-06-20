@@ -39,11 +39,6 @@ class BankDepositService
             throw new \RuntimeException('Банк не найден или закрыт');
         }
 
-        $ownerId = (int)($bank['UF_OWNER_ID'] ?? 0);
-        if ($ownerId === $userId) {
-            throw new \RuntimeException('Нельзя открыть вклад в собственном банке');
-        }
-
         $this->walletService->debit(
             $userId,
             GameEconomyConfig::CURRENCY_PROGNOBAKS,
@@ -116,7 +111,7 @@ class BankDepositService
         }
 
         if ($liquid >= $total) {
-            $this->payoutAndClose($depositId, $bankId, $userId, $total, 'bank_deposit_return', $now);
+            $this->payoutFullReturn($depositId, $bankId, $userId, $principal, $interest, $now);
 
             return;
         }
@@ -306,6 +301,44 @@ class BankDepositService
             $depositId
         );
         $this->repository->updateBankDeposit($depositId, ['UF_UPDATED_AT' => $now]);
+    }
+
+    private function payoutFullReturn(
+        int $depositId,
+        int $bankId,
+        int $userId,
+        float $principal,
+        float $interest,
+        DateTime $now
+    ): void {
+        $total = round($principal + $interest, 1);
+        $this->repository->adjustUserBankLiquid($bankId, -$total);
+
+        if ($interest > 0) {
+            $this->walletService->credit(
+                $userId,
+                GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                $interest,
+                'bank_deposit_interest',
+                'deposit',
+                $depositId
+            );
+        }
+
+        $this->walletService->credit(
+            $userId,
+            GameEconomyConfig::CURRENCY_PROGNOBAKS,
+            $principal,
+            'bank_deposit_return',
+            'deposit',
+            $depositId
+        );
+
+        $this->repository->updateBankDeposit($depositId, [
+            'UF_STATUS' => GameEconomyConfig::CONTRACT_STATUS_CLOSED,
+            'UF_UPDATED_AT' => $now,
+            'UF_CLOSED_AT' => $now,
+        ]);
     }
 
     private function payoutAndClose(
