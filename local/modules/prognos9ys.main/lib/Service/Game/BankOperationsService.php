@@ -341,7 +341,12 @@ class BankOperationsService
             }
 
             if ($interestFromTx > 0) {
-                $principalReturned = round($principalReturned + $returnFromTx, 1);
+                $principalPart = min($returnFromTx, $principal);
+                $principalReturned = round($principalReturned + $principalPart, 1);
+                // Старые выплаты: проценты уже в bank_deposit_interest, но return всё ещё 114.
+                if ($returnFromTx > $principal + 0.05) {
+                    $interestPaid = round($interestPaid + ($returnFromTx - $principal), 1);
+                }
                 continue;
             }
 
