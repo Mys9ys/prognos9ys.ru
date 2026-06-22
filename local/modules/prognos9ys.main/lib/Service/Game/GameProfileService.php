@@ -92,6 +92,7 @@ class GameProfileService
                     'level_chests' => 0,
                     'achievement_chests' => 0,
                     'shop_chests' => 0,
+                    'premium_scrolls' => 0,
                 ],
                 'bank' => [
                     'has_bank' => false,

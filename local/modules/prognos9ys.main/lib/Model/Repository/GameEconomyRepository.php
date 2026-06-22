@@ -892,6 +892,30 @@ class GameEconomyRepository
         return $breakdown;
     }
 
+    public function getPremiumScrollCountForUser(int $userId): int
+    {
+        if ($userId <= 0) {
+            return 0;
+        }
+
+        $dataClass = $this->getTreasureChestDataClass();
+        $total = 0;
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '=UF_TYPE' => 'premium_scroll',
+                '=UF_STATUS' => 'inventory',
+            ],
+            'select' => ['UF_COUNT'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $total += (int)($row['UF_COUNT'] ?? 0);
+        }
+
+        return $total;
+    }
+
     /**
      * @return array<int, int> userId => total closed chests
      */

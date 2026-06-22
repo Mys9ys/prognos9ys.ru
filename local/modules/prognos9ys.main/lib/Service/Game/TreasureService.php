@@ -8,10 +8,12 @@ use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
 class TreasureService
 {
     public const CHEST_STATUS_CLOSED = 'closed';
+    public const CHEST_STATUS_INVENTORY = 'inventory';
     public const CHEST_TYPE_MATCH = 'match';
     public const CHEST_TYPE_LEVEL = 'level';
     public const CHEST_TYPE_ACHIEVEMENT = 'achievement';
     public const CHEST_TYPE_SHOP_WC26 = 'shop_wc26';
+    public const CHEST_TYPE_PREMIUM_SCROLL = 'premium_scroll';
 
     private GameEconomyRepository $repository;
     private GameEventScopeService $scopeService;
@@ -85,6 +87,7 @@ class TreasureService
             'level_chests' => $breakdown['level'],
             'achievement_chests' => $breakdown['achievement'],
             'shop_chests' => $breakdown['shop'],
+            'premium_scrolls' => $this->repository->getPremiumScrollCountForUser($userId),
         ];
     }
 
@@ -180,6 +183,43 @@ class TreasureService
             'UF_COUNT' => 1,
             'UF_STATUS' => self::CHEST_STATUS_CLOSED,
             'UF_TYPE' => self::CHEST_TYPE_SHOP_WC26,
+            'UF_CREATED_AT' => $now,
+            'UF_UPDATED_AT' => $now,
+        ]);
+
+        return true;
+    }
+
+    /**
+     * Неактивированный свиток премиума (1 сутки) из лавки казны (идемпотентно по волне).
+     */
+    public function grantPremiumScroll(int $userId, int $milestone): bool
+    {
+        if ($userId <= 0 || $milestone <= 0) {
+            return false;
+        }
+
+        $syntheticMatchId = -2000000 - $milestone;
+        $existing = $this->repository->getTreasureChestByType(
+            $userId,
+            $syntheticMatchId,
+            self::CHEST_TYPE_PREMIUM_SCROLL
+        );
+
+        if ($existing) {
+            return false;
+        }
+
+        $now = new DateTime();
+        $eventId = $this->scopeService->getAnchorEventId();
+
+        $this->repository->addTreasureChest([
+            'UF_USER_ID' => $userId,
+            'UF_MATCH_ID' => $syntheticMatchId,
+            'UF_EVENT_ID' => $eventId > 0 ? $eventId : GameEconomyConfig::ANCHOR_EVENT_ID,
+            'UF_COUNT' => 1,
+            'UF_STATUS' => self::CHEST_STATUS_INVENTORY,
+            'UF_TYPE' => self::CHEST_TYPE_PREMIUM_SCROLL,
             'UF_CREATED_AT' => $now,
             'UF_UPDATED_AT' => $now,
         ]);

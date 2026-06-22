@@ -110,6 +110,57 @@ class TreasuryShopService
         ];
     }
 
+    public function buyPremium(int $userId): array
+    {
+        $state = $this->getShopState($userId);
+        $milestone = (int)($state['active_milestone'] ?? 0);
+
+        if ($milestone <= 0) {
+            throw new \RuntimeException('Лавка пока недоступна');
+        }
+
+        $offer = ($state['offers'] ?? [])['premium'] ?? null;
+        if (!$offer || !($offer['available'] ?? false)) {
+            throw new \RuntimeException('Предложение недоступно');
+        }
+
+        if ($offer['bought'] ?? false) {
+            throw new \RuntimeException('Свиток уже куплен');
+        }
+
+        $currency = GameEconomyConfig::CURRENCY_RUBLIUS;
+        $price = (float)($offer['price'] ?? 0);
+        $wave = $this->ensureWaveRow($userId, $milestone);
+
+        $this->walletService->debit(
+            $userId,
+            $currency,
+            $price,
+            'treasury_shop_premium',
+            'treasury_shop_wave',
+            (int)$wave['ID']
+        );
+
+        $this->treasuryService->credit($currency, $price, 'treasury_shop_wave', (int)$wave['ID']);
+
+        $this->repository->updateTreasuryShopWave((int)$wave['ID'], [
+            'UF_PREMIUM_BOUGHT' => true,
+            'UF_UPDATED_AT' => new DateTime(),
+        ]);
+
+        $this->treasureService->grantPremiumScroll($userId, $milestone);
+
+        return [
+            'purchase' => [
+                'milestone' => $milestone,
+                'offer' => 'premium',
+                'currency' => $currency,
+                'price' => $price,
+            ],
+            'shop' => $this->getShopState($userId),
+        ];
+    }
+
     /**
      * Компактный статус лавки для строки рейтинга.
      *
@@ -183,8 +234,6 @@ class TreasuryShopService
         $pBought = $this->isTruthy($wave['UF_PROGNOBAKS_BOUGHT'] ?? false);
         $rBought = $this->isTruthy($wave['UF_RUBLIUS_BOUGHT'] ?? false);
         $premiumBought = $this->isTruthy($wave['UF_PREMIUM_BOUGHT'] ?? false);
-        $showPremium = $milestone >= GameEconomyConfig::TREASURY_SHOP_FIRST_MILESTONE
-            + GameEconomyConfig::TREASURY_SHOP_MILESTONE_STEP;
 
         return [
             'prognobaks_chest' => [
@@ -206,11 +255,11 @@ class TreasuryShopService
             'premium' => [
                 'key' => 'premium',
                 'label' => 'Премиум 1 сутки',
+                'emoji' => '📜',
                 'price' => GameEconomyConfig::TREASURY_SHOP_PREMIUM_RUBLIUS_PRICE,
                 'currency' => GameEconomyConfig::CURRENCY_RUBLIUS,
                 'bought' => $premiumBought,
-                'available' => $showPremium && !$premiumBought,
-                'coming_soon' => !$showPremium,
+                'available' => !$premiumBought,
             ],
         ];
     }

@@ -37,7 +37,8 @@
               :disabled="buying || offer.bought || !offer.available"
               @click="onBuy(offer)"
           >
-            <AppIcon name="chest_wc2026" :size="20" />
+            <span v-if="offer.emoji" class="offer_emoji">{{ offer.emoji }}</span>
+            <AppIcon v-else name="chest_wc2026" :size="20" />
             <span class="offer_price">
               {{ offer.price }}
               <AppIcon :name="offer.currency === 'rublius' ? 'rublius' : 'prognobak'" :size="14" />
@@ -84,7 +85,7 @@ export default {
     },
     offers() {
       const raw = this.shop?.offers || {};
-      return ['prognobaks_chest', 'rublius_chest'].map((key) => raw[key]).filter(Boolean);
+      return ['prognobaks_chest', 'rublius_chest', 'premium'].map((key) => raw[key]).filter(Boolean);
     },
   },
   watch: {
@@ -142,10 +143,15 @@ export default {
       this.error = '';
       this.message = '';
       try {
-        const data = await apiActions.game.buyTreasuryChest(this.authData.token, offer.currency);
+        const data = offer.key === 'premium'
+          ? await apiActions.game.buyTreasuryPremium(this.authData.token)
+          : await apiActions.game.buyTreasuryChest(this.authData.token, offer.currency);
+
         if (data?.status === 'ok') {
           this.shop = data.shop || this.shop;
-          this.message = 'Сундук ЧМ-26 добавлен в сокровищницу';
+          this.message = offer.key === 'premium'
+            ? 'Свиток премиума добавлен в инвентарь'
+            : 'Сундук ЧМ-26 добавлен в сокровищницу';
           await this.refreshGameInfo();
           if (data?.level_up) {
             this.showBulkLevelBanner({
@@ -156,7 +162,7 @@ export default {
           }
         }
       } catch (e) {
-        this.error = e.message || 'Не удалось купить сундук';
+        this.error = e.message || 'Не удалось совершить покупку';
       } finally {
         this.buying = false;
       }
@@ -252,6 +258,11 @@ export default {
   &.disabled:not(.bought) {
     opacity: 0.45;
     cursor: not-allowed;
+  }
+
+  .offer_emoji {
+    font-size: 22px;
+    line-height: 1;
   }
 
   .offer_price {

@@ -1,34 +1,27 @@
 <template>
   <div class="inventory_block" v-if="game">
-    <div class="inventory_summary" v-if="totalChests">
-      <span class="summary_label">Сундуков</span>
-      <span class="summary_value">{{ totalChests }}</span>
+    <div class="inventory_summary" v-if="hasAnyItems">
+      <span class="summary_label">В инвентаре</span>
+      <span class="summary_value">{{ totalItems }}</span>
     </div>
 
-    <div class="inventory_grid" v-if="chestItems.length">
+    <div class="inventory_grid" v-if="inventoryItems.length">
       <div
-        v-for="item in chestItems"
+        v-for="item in inventoryItems"
         :key="item.id"
-        class="inventory_slot filled"
+        class="inventory_slot"
         :title="item.label"
       >
         <div class="slot_icon">
-          <AppIcon :name="item.icon" :size="slotIconSize" />
+          <span v-if="item.emoji" class="slot_emoji">{{ item.emoji }}</span>
+          <AppIcon v-else :name="item.icon" :size="slotIconSize" />
         </div>
         <span class="slot_count">{{ item.count }}</span>
-      </div>
-      <div
-        v-for="n in paddingSlots"
-        :key="'empty-' + n"
-        class="inventory_slot empty"
-        aria-hidden="true"
-      >
-        <span class="slot_placeholder">🎒</span>
       </div>
     </div>
 
     <div class="inventory_empty" v-else>
-      Пока нет сундуков — зарабатывайте баллы в матчах, повышайте уровень или покупайте в лавке казны.
+      Пока пусто — зарабатывайте сундуки в матчах, повышайте уровень или покупайте в лавке казны.
     </div>
   </div>
 </template>
@@ -36,15 +29,13 @@
 <script>
 import AppIcon from '@/components/ui/AppIcon.vue';
 
-const CHEST_SLOTS = [
-  { id: 'match', field: 'match_chests', icon: 'chest_wc2026', label: 'За баллы в матчах' },
-  { id: 'achievement', field: 'achievement_chests', icon: 'chest_wc2026', label: 'За ачивки' },
-  { id: 'level', field: 'level_chests', icon: 'chest_xp', label: 'За уровень' },
-  { id: 'shop', field: 'shop_chests', icon: 'chest_wc2026', label: 'Лавка казны' },
+const INVENTORY_SLOTS = [
+  { id: 'match', field: 'match_chests', icon: 'chest_wc2026', label: 'Сундуки за баллы в матчах' },
+  { id: 'achievement', field: 'achievement_chests', icon: 'chest_wc2026', label: 'Сундуки за ачивки' },
+  { id: 'level', field: 'level_chests', icon: 'chest_xp', label: 'Сундуки за уровень' },
+  { id: 'shop', field: 'shop_chests', icon: 'chest_wc2026', label: 'Сундуки из лавки казны' },
+  { id: 'premium', field: 'premium_scrolls', emoji: '📜', label: 'Свиток премиума (1 сутки)' },
 ];
-
-const GRID_COLUMNS = 5;
-const MIN_ROWS = 2;
 
 export default {
   name: 'ProfileInventoryBlock',
@@ -59,28 +50,22 @@ export default {
     treasure() {
       return this.game?.treasure || {};
     },
-    totalChests() {
-      return Number(this.treasure.closed_chests ?? 0);
-    },
-    chestItems() {
-      return CHEST_SLOTS
+    inventoryItems() {
+      return INVENTORY_SLOTS
         .map((slot) => ({
           ...slot,
           count: Number(this.treasure[slot.field] ?? 0),
         }))
         .filter((slot) => slot.count > 0);
     },
+    totalItems() {
+      return this.inventoryItems.reduce((sum, item) => sum + item.count, 0);
+    },
+    hasAnyItems() {
+      return this.totalItems > 0;
+    },
     slotIconSize() {
       return 34;
-    },
-    paddingSlots() {
-      const filled = this.chestItems.length;
-      const minSlots = GRID_COLUMNS * MIN_ROWS;
-      if (filled >= minSlots) {
-        const remainder = filled % GRID_COLUMNS;
-        return remainder === 0 ? 0 : GRID_COLUMNS - remainder;
-      }
-      return minSlots - filled;
     },
   },
 };
@@ -133,27 +118,9 @@ export default {
   min-height: 52px;
   border: 1px solid fade(@colorBlur, 35%);
   border-radius: 2px;
-  background: fade(@darkbg, 80%);
+  background: linear-gradient(180deg, fade(@DarkColorBG, 90%) 0%, fade(@darkbg, 95%) 100%);
   box-sizing: border-box;
-
-  &.filled {
-    cursor: default;
-    background: linear-gradient(180deg, fade(@DarkColorBG, 90%) 0%, fade(@darkbg, 95%) 100%);
-  }
-
-  &.empty {
-    opacity: 0.35;
-
-    .slot_placeholder {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-      filter: grayscale(1);
-    }
-  }
+  cursor: default;
 }
 
 .slot_icon {
@@ -163,6 +130,11 @@ export default {
   align-items: center;
   justify-content: center;
   pointer-events: none;
+}
+
+.slot_emoji {
+  font-size: 28px;
+  line-height: 1;
 }
 
 .slot_count {

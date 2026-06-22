@@ -35,6 +35,7 @@ class GameController extends BaseController
             'getTreasury' => $this->getDefaultConfigureForPostToken(),
             'getTreasuryShop' => $this->getDefaultConfigureForPostToken(),
             'buyTreasuryChest' => $this->getDefaultConfigureForPostToken(),
+            'buyTreasuryPremium' => $this->getDefaultConfigureForPostToken(),
             'createGovSupportDeposit' => $this->getDefaultConfigureForPostToken(),
             'closeGovSupportDeposit' => $this->getDefaultConfigureForPostToken(),
             'getGovSupportDeposits' => $this->getDefaultConfigureForPostToken(),
@@ -170,6 +171,26 @@ class GameController extends BaseController
 
         $userId = $this->resolveTargetUserId($actorId, $targetUserId);
         $result = (new TreasuryShopService())->buyChest($userId, $currency);
+
+        $response = array_merge(['status' => 'ok', 'target_user_id' => $userId], $result);
+
+        if ($userId === $actorId) {
+            $response['game'] = (new GameProfileService())->getSummary($userId);
+        }
+
+        return $response;
+    }
+
+    public function buyTreasuryPremiumAction(int $targetUserId = 0): array
+    {
+        $actorId = TokenAuthService::getCurrentUserId();
+
+        if (!$actorId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        $userId = $this->resolveTargetUserId($actorId, $targetUserId);
+        $result = (new TreasuryShopService())->buyPremium($userId);
 
         $response = array_merge(['status' => 'ok', 'target_user_id' => $userId], $result);
 

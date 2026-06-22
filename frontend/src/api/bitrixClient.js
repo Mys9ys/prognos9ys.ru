@@ -199,6 +199,10 @@ export const apiActions = {
             'prognos9ys:main.GameController.buyTreasuryChest',
             { userToken, currency, targetUserId: targetUserId || undefined }
         ),
+        buyTreasuryPremium: (userToken, targetUserId = 0) => runBitrixAction(
+            'prognos9ys:main.GameController.buyTreasuryPremium',
+            { userToken, targetUserId: targetUserId || undefined }
+        ),
         createGovSupportDeposit: (userToken, bankId, eventId = 0) => runBitrixAction(
             'prognos9ys:main.GameController.createGovSupportDeposit',
             { userToken, bankId, eventId: eventId || undefined }
