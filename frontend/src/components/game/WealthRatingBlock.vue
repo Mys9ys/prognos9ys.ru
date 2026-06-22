@@ -55,6 +55,7 @@
           <th v-if="mode === 'pending_xp'"><AppIcon name="xp" :size="14" /></th>
           <th v-if="isTreasureMode"><AppIcon name="chest_wc2026" :size="16" /></th>
           <th v-if="!isTreasureMode && mode !== 'pending_xp'"><AppIcon name="prognobak" :size="16" /></th>
+          <th v-if="!isTreasureMode && mode !== 'pending_xp'"><AppIcon name="rublius" :size="16" /></th>
         </tr>
         </thead>
         <tbody>
@@ -101,6 +102,17 @@
                   <AppIcon name="chest_wc2026" :size="14" />
                   <AppIcon name="rublius" :size="11" />
                 </button>
+                <button
+                    type="button"
+                    class="row_btn premium_btn"
+                    :class="{ bought: el.shop_offers?.premium_bought }"
+                    :disabled="rowBusy(el.user.id, 'premium') || !canBuyPremium(el)"
+                    title="Премиум 1 сутки за 3 рублиуса"
+                    @click.stop="buyPremiumForUser(el)"
+                >
+                  <span class="premium_icon">📜</span>
+                  <AppIcon name="rublius" :size="11" />
+                </button>
               </template>
               <span
                   v-if="canImpersonate"
@@ -118,6 +130,7 @@
           <td class="pending_xp" v-if="mode === 'pending_xp'">+{{ formatMoney(el.pending_points) }}</td>
           <td class="money" v-if="isTreasureMode">{{ el.treasure_total }}</td>
           <td class="money" v-if="!isTreasureMode && mode !== 'pending_xp'">{{ formatMoney(el.prognobaks) }}</td>
+          <td class="money" v-if="!isTreasureMode && mode !== 'pending_xp'">{{ formatMoney(el.rublius) }}</td>
         </tr>
         </tbody>
       </table>
@@ -239,17 +252,17 @@ export default {
         return 'Дверь — войти и нажать «Получить опыт» на матчах';
       }
       if (this.mode === 'poor') {
-        return 'Σ = прогнобаксы · сортировка по возрастанию';
+        return 'Σ = прогнобаксы · 💎 отдельно · сортировка по возрастанию';
       }
       if (this.mode === 'treasure_rich') {
         return '🎁 = сумма закрытых сундучков · сортировка по убыванию';
       }
 
       if (this.canImpersonate) {
-        return 'Кнопки в строке: опыт и сундуки лавки (для ботов без входа)';
+        return 'Кнопки в строке: опыт, сундуки и премиум лавки (для ботов без входа)';
       }
 
-      return 'Σ = прогнобаксы';
+      return 'Σ = прогнобаксы · 💎 отдельно';
     },
     page() {
       const raw = Number(this.$route?.query?.wr_page ?? 1);
@@ -448,6 +461,38 @@ export default {
       return !!(row?.shop_offers?.rublius_available && !row?.shop_offers?.rublius_bought);
     },
 
+    canBuyPremium(row) {
+      return !!(row?.shop_offers?.premium_available && !row?.shop_offers?.premium_bought);
+    },
+
+    async buyPremiumForUser(row) {
+      const userId = row?.user?.id;
+      if (!userId || !this.authData?.token || this.rowBusy(userId, 'premium')) {
+        return;
+      }
+
+      this.rowAction = { userId, action: 'premium' };
+      try {
+        const data = await apiActions.game.buyTreasuryPremium(
+          this.authData.token,
+          'premium_1d',
+          userId,
+        );
+        if (data?.status === 'ok') {
+          const isSelf = Number(userId) === Number(this.userInfo?.ID);
+          if (isSelf) {
+            await this.refreshGameInfo();
+          }
+          await this.loadRating();
+          await this.loadGameBank();
+        }
+      } catch (e) {
+        console.log('buyPremiumForUser error', e);
+      } finally {
+        this.rowAction = null;
+      }
+    },
+
     rowBusy(userId, action) {
       return this.rowAction?.userId === userId && this.rowAction?.action === action;
     },
@@ -628,9 +673,13 @@ export default {
     }
 
     .user_nick {
-      flex: 1;
+      flex: 0 1 35%;
+      max-width: 35%;
       min-width: 0;
       text-align: left;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .user_actions {
@@ -639,7 +688,7 @@ export default {
       gap: 3px;
       flex-shrink: 0;
       justify-content: flex-end;
-      max-width: 118px;
+      max-width: 148px;
     }
 
     .row_btn {
@@ -675,6 +724,13 @@ export default {
       &.xp_btn {
         color: @yellow;
         font-weight: 700;
+      }
+
+      &.premium_btn {
+        .premium_icon {
+          font-size: 11px;
+          line-height: 1;
+        }
       }
     }
 

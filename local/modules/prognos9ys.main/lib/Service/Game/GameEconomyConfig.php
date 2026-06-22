@@ -26,12 +26,11 @@ class GameEconomyConfig
     public const TREASURY_SHOP_MILESTONE_STEP = 10;
     public const TREASURY_SHOP_CHEST_PROGNOBAKS_PRICE = 50.0;
     public const TREASURY_SHOP_CHEST_RUBLIUS_PRICE = 5.0;
-    /** Премиум-свитки в лавке казны (💎). */
+    /** Премиум 3д/5д — на бирже (в разработке), не в лавке. */
     public const TREASURY_SHOP_PREMIUM_1D_RUBLIUS_PRICE = 3.0;
-    public const TREASURY_SHOP_PREMIUM_3D_RUBLIUS_PRICE = 7.0;
-    public const TREASURY_SHOP_PREMIUM_5D_RUBLIUS_PRICE = 10.0;
-    /** 3 и 5 суток — с волны 50 (тур 50+). */
-    public const TREASURY_SHOP_PREMIUM_EXTENDED_MILESTONE = 50;
+    /** Для будущей биржи. */
+    public const EXCHANGE_PREMIUM_3D_RUBLIUS_PRICE = 7.0;
+    public const EXCHANGE_PREMIUM_5D_RUBLIUS_PRICE = 10.0;
 
     public const CONTRACT_TYPE_REGULAR = 'regular';
     public const CONTRACT_TYPE_GOV_SUPPORT = 'gov_support';

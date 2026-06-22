@@ -172,7 +172,9 @@ class TreasuryShopService
      *   prognobaks_bought:bool,
      *   rublius_bought:bool,
      *   prognobaks_available:bool,
-     *   rublius_available:bool
+     *   rublius_available:bool,
+     *   premium_bought:bool,
+     *   premium_available:bool
      * }
      */
     public function getCompactRowOffers(int $userId): array
@@ -181,6 +183,7 @@ class TreasuryShopService
         $offers = $state['offers'] ?? [];
         $prognobaks = $offers['prognobaks_chest'] ?? [];
         $rublius = $offers['rublius_chest'] ?? [];
+        $premium = $offers['premium_1d'] ?? [];
         $milestone = (int)($state['active_milestone'] ?? 0);
         $shopOpen = (bool)($state['shop_open'] ?? false) && $milestone > 0;
 
@@ -188,8 +191,10 @@ class TreasuryShopService
             'active_milestone' => $milestone,
             'prognobaks_bought' => (bool)($prognobaks['bought'] ?? false),
             'rublius_bought' => (bool)($rublius['bought'] ?? false),
+            'premium_bought' => (bool)($premium['bought'] ?? false),
             'prognobaks_available' => $shopOpen && (bool)($prognobaks['available'] ?? false),
             'rublius_available' => $shopOpen && (bool)($rublius['available'] ?? false),
+            'premium_available' => $shopOpen && (bool)($premium['available'] ?? false),
         ];
     }
 
@@ -237,9 +242,6 @@ class TreasuryShopService
         $pBought = $this->isTruthy($wave['UF_PROGNOBAKS_BOUGHT'] ?? false);
         $rBought = $this->isTruthy($wave['UF_RUBLIUS_BOUGHT'] ?? false);
         $premium1dBought = $this->isTruthy($wave['UF_PREMIUM_BOUGHT'] ?? false);
-        $premium3dBought = $this->isTruthy($wave['UF_PREMIUM_3D_BOUGHT'] ?? false);
-        $premium5dBought = $this->isTruthy($wave['UF_PREMIUM_5D_BOUGHT'] ?? false);
-        $extendedPremium = $milestone >= GameEconomyConfig::TREASURY_SHOP_PREMIUM_EXTENDED_MILESTONE;
 
         return [
             'prognobaks_chest' => [
@@ -268,45 +270,16 @@ class TreasuryShopService
                 'bought' => $premium1dBought,
                 'available' => !$premium1dBought,
             ],
-            'premium_3d' => [
-                'key' => 'premium_3d',
-                'label' => 'Премиум 3 суток',
-                'days' => 3,
-                'emoji' => '📜',
-                'price' => GameEconomyConfig::TREASURY_SHOP_PREMIUM_3D_RUBLIUS_PRICE,
-                'currency' => GameEconomyConfig::CURRENCY_RUBLIUS,
-                'bought' => $premium3dBought,
-                'available' => $extendedPremium && !$premium3dBought,
-                'coming_soon' => !$extendedPremium,
-            ],
-            'premium_5d' => [
-                'key' => 'premium_5d',
-                'label' => 'Премиум 5 суток',
-                'days' => 5,
-                'emoji' => '📜',
-                'price' => GameEconomyConfig::TREASURY_SHOP_PREMIUM_5D_RUBLIUS_PRICE,
-                'currency' => GameEconomyConfig::CURRENCY_RUBLIUS,
-                'bought' => $premium5dBought,
-                'available' => $extendedPremium && !$premium5dBought,
-                'coming_soon' => !$extendedPremium,
-            ],
         ];
     }
 
     private function getPremiumBoughtField(string $offerKey): string
     {
-        $map = [
-            'premium_1d' => 'UF_PREMIUM_BOUGHT',
-            'premium' => 'UF_PREMIUM_BOUGHT',
-            'premium_3d' => 'UF_PREMIUM_3D_BOUGHT',
-            'premium_5d' => 'UF_PREMIUM_5D_BOUGHT',
-        ];
-
-        if (!isset($map[$offerKey])) {
+        if (!in_array($offerKey, ['premium_1d', 'premium'], true)) {
             throw new \InvalidArgumentException('Некорректное предложение премиума');
         }
 
-        return $map[$offerKey];
+        return 'UF_PREMIUM_BOUGHT';
     }
 
     private function nextMilestoneAfter(int $activeMilestone, int $currentTour): int

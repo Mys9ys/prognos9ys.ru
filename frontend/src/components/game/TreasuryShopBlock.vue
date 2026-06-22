@@ -90,8 +90,6 @@ export default {
         'prognobaks_chest',
         'rublius_chest',
         'premium_1d',
-        'premium_3d',
-        'premium_5d',
       ];
 
       return keys.map((key) => raw[key]).filter(Boolean);
@@ -136,9 +134,6 @@ export default {
     offerLabel(offer) {
       if (offer.bought) {
         return 'куплено';
-      }
-      if (offer.coming_soon) {
-        return 'с 50 этапа';
       }
       if (!offer.available) {
         return 'недоступно';
