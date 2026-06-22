@@ -130,6 +130,13 @@
       <ProfileTreasuryBlock :game="gameInfo" />
     </div>
 
+    <div class="body_item" v-if="active === 'inventory'">
+      <div class="title_wrapper">
+        <div class="title">Инвентарь</div>
+      </div>
+      <ProfileInventoryBlock :game="gameInfo" v-if="gameInfo" />
+    </div>
+
     <div class="body_item" v-if="active === 'achievement'">
       <div class="title_wrapper">
         <div class="title">
@@ -170,6 +177,7 @@ import ProfileTitle from "@/components/profile/ProfileTitle";
 import ProfileGameBlock from "@/components/profile/ProfileGameBlock";
 import ProfileBankBlock from "@/components/profile/ProfileBankBlock";
 import ProfileTreasuryBlock from "@/components/profile/ProfileTreasuryBlock";
+import ProfileInventoryBlock from "@/components/profile/ProfileInventoryBlock";
 import ImpersonationPanel from "@/components/profile/ImpersonationPanel";
 import AppIcon from '@/components/ui/AppIcon.vue';
 
@@ -184,6 +192,7 @@ export default {
     ProfileGameBlock,
     ProfileBankBlock,
     ProfileTreasuryBlock,
+    ProfileInventoryBlock,
     ImpersonationPanel,
     AppIcon,
   },
@@ -201,6 +210,7 @@ export default {
         prognosis: {title: 'Прогнозы', icon: 'prognosis'},
         finance: {title: 'Финансы', icon: 'bank'},
         treasury: {title: 'Казна', emoji: '🏛️'},
+        inventory: {title: 'Инвентарь', emoji: '🎒'},
         achievement: {title: 'Награды', icon: 'achievement'},
         settings: {title: 'Настройки', icon: 'settings'},
       }

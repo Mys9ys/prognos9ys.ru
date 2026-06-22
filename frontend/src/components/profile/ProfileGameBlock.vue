@@ -25,22 +25,6 @@
         <span>{{ wallet.rublius }}</span>
       </div>
     </div>
-    <div class="treasure_block" v-if="hasAnyChests">
-      <div class="treasure_row" v-if="treasure.match_chests">
-        <span class="treasure_label">За баллы</span>
-        <span class="treasure_value">
-          {{ treasure.match_chests }}
-          <AppIcon name="chest_wc2026" :size="20" />
-        </span>
-      </div>
-      <div class="treasure_row" v-if="treasure.level_chests">
-        <span class="treasure_label">За уровень</span>
-        <span class="treasure_value">
-          {{ treasure.level_chests }}
-          <AppIcon name="chest_xp" :size="20" />
-        </span>
-      </div>
-    </div>
     <div class="bank_hint" v-if="bank.has_bank || bank.active_deposits || bank.active_loans">
       <span v-if="bank.has_bank" class="bank_hint_line">
         <AppIcon name="bank" :size="16" /> Мой банк
@@ -79,23 +63,6 @@ export default {
         xp_to_next: 100,
         next_level: 1,
       };
-    },
-    treasure() {
-      const treasure = this.game?.treasure || {};
-      const closed = Number(treasure.closed_chests ?? 0);
-      const matchChests = Number(treasure.match_chests ?? 0);
-      const levelChests = Number(treasure.level_chests ?? 0);
-      const achievementChests = Number(treasure.achievement_chests ?? 0);
-      const scoreChests = matchChests + achievementChests;
-
-      return {
-        closed_chests: closed,
-        match_chests: scoreChests || (closed && !levelChests ? closed : scoreChests),
-        level_chests: levelChests,
-      };
-    },
-    hasAnyChests() {
-      return this.treasure.match_chests > 0 || this.treasure.level_chests > 0;
     },
     bank() {
       return this.game?.bank || {
@@ -170,32 +137,6 @@ export default {
     justify-content: center;
     gap: 6px;
   }
-}
-
-.treasure_block {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.treasure_row {
-  .shadow_inset;
-  padding: 6px 8px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 13px;
-}
-
-.treasure_label {
-  color: @colorBlur;
-}
-
-.treasure_value {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 14px;
 }
 
 .bank_hint {
