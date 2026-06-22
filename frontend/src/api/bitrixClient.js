@@ -171,9 +171,9 @@ export const apiActions = {
             'prognos9ys:main.GameController.claimXp',
             { userToken, matchId }
         ),
-        claimAllXp: (userToken) => runBitrixAction(
+        claimAllXp: (userToken, targetUserId = 0) => runBitrixAction(
             'prognos9ys:main.GameController.claimAllXp',
-            { userToken }
+            { userToken, targetUserId: targetUserId || undefined }
         ),
         getLevelTiers: () => runBitrixAction(
             'prognos9ys:main.GameController.getLevelTiers',
@@ -195,9 +195,9 @@ export const apiActions = {
             'prognos9ys:main.GameController.getTreasuryShop',
             { userToken }
         ),
-        buyTreasuryChest: (userToken, currency) => runBitrixAction(
+        buyTreasuryChest: (userToken, currency, targetUserId = 0) => runBitrixAction(
             'prognos9ys:main.GameController.buyTreasuryChest',
-            { userToken, currency }
+            { userToken, currency, targetUserId: targetUserId || undefined }
         ),
         createGovSupportDeposit: (userToken, bankId, eventId = 0) => runBitrixAction(
             'prognos9ys:main.GameController.createGovSupportDeposit',

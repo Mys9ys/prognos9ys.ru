@@ -118,15 +118,18 @@ export const gameModule = {
 
             return apiActions.game.claimXp(userToken, matchId);
         },
-        async claimAllXp(ctx) {
+        async claimAllXp(ctx, targetUserId = 0) {
             const userToken = ctx.rootState.auth?.authData?.token;
 
             if (!userToken) {
                 throw new Error('Требуется авторизация');
             }
 
-            const res = await apiActions.game.claimAllXp(userToken);
-            return applyGamePayload(ctx, res);
+            const res = await apiActions.game.claimAllXp(userToken, targetUserId);
+            if (!targetUserId || Number(targetUserId) === Number(ctx.rootState.auth?.userInfo?.ID)) {
+                return applyGamePayload(ctx, res);
+            }
+            return res;
         },
         async listBanks({ rootState }, limit = 30) {
             const userToken = rootState.auth?.authData?.token;

@@ -9,11 +9,19 @@ class WealthRatingService
 {
     private GameEconomyRepository $repository;
     private LevelService $levelService;
+    private TreasuryShopService $shopService;
+    private GameEventScopeService $scopeService;
 
-    public function __construct(?GameEconomyRepository $repository = null, ?LevelService $levelService = null)
-    {
+    public function __construct(
+        ?GameEconomyRepository $repository = null,
+        ?LevelService $levelService = null,
+        ?TreasuryShopService $shopService = null,
+        ?GameEventScopeService $scopeService = null
+    ) {
         $this->repository = $repository ?? new GameEconomyRepository();
         $this->levelService = $levelService ?? new LevelService($this->repository);
+        $this->shopService = $shopService ?? new TreasuryShopService($this->repository);
+        $this->scopeService = $scopeService ?? new GameEventScopeService();
     }
 
     public function getRating(int $limit = 30, string $wealthSort = 'rich'): array
@@ -41,6 +49,7 @@ class WealthRatingService
     {
         $wallets = $this->repository->getAllWallets();
         $levelMap = $this->buildLevelMap();
+        $pendingMap = $this->buildPendingMap();
         $prepared = [];
 
         foreach ($wallets as $wallet) {
@@ -82,7 +91,8 @@ class WealthRatingService
             }
 
             $userId = $row['user_id'];
-            $ratings[] = [
+            $extras = $this->buildRowExtras($userId, $pendingMap);
+            $ratings[] = array_merge([
                 'place' => $place,
                 'user' => $this->resolveUser($users, $userId),
                 'prognobaks' => $row['prognobaks'],
@@ -90,9 +100,7 @@ class WealthRatingService
                 'level' => $levelMap[$userId] ?? 0,
                 'total' => $row['total'],
                 'score' => $row['total'],
-                'pending_count' => 0,
-                'pending_points' => 0.0,
-            ];
+            ], $extras);
 
             $prevTotal = $row['total'];
         }
@@ -151,7 +159,8 @@ class WealthRatingService
             }
 
             $userId = $row['user_id'];
-            $ratings[] = [
+            $extras = $this->buildRowExtras($userId, $pendingMap);
+            $ratings[] = array_merge([
                 'place' => $place,
                 'user' => $this->resolveUser($users, $userId),
                 'prognobaks' => $row['prognobaks'],
@@ -161,7 +170,9 @@ class WealthRatingService
                 'score' => $row['pending_points'],
                 'pending_count' => $row['pending_count'],
                 'pending_points' => $row['pending_points'],
-            ];
+            ], [
+                'shop_offers' => $extras['shop_offers'],
+            ]);
 
             $prevPoints = $row['pending_points'];
         }
@@ -256,6 +267,31 @@ class WealthRatingService
     private function calcTotalWealth(float $prognobaks, float $rublius): float
     {
         return round($prognobaks, 1);
+    }
+
+    /**
+     * @return array<int, array{count:int,points:float}>
+     */
+    private function buildPendingMap(): array
+    {
+        return $this->repository->getPendingXpAggregatesByUser(
+            fn(int $matchId): bool => $this->scopeService->isMatchEligible($matchId)
+        );
+    }
+
+    /**
+     * @param array<int, array{count:int,points:float}> $pendingMap
+     * @return array{pending_count:int,pending_points:float,shop_offers:array<string,mixed>}
+     */
+    private function buildRowExtras(int $userId, array $pendingMap): array
+    {
+        $pending = $pendingMap[$userId] ?? ['count' => 0, 'points' => 0.0];
+
+        return [
+            'pending_count' => (int)($pending['count'] ?? 0),
+            'pending_points' => round((float)($pending['points'] ?? 0), 1),
+            'shop_offers' => $this->shopService->getCompactRowOffers($userId),
+        ];
     }
 
     /**

@@ -15,39 +15,6 @@
         <span class="bank_hint">остатки паримутуеля</span>
       </div>
       <TreasuryAdminBlock v-if="isModerator && treasury" :treasury="treasury" />
-      <div class="player_toolbar" v-if="isLoggedIn && expanded" @click.stop>
-        <div class="toolbar_level">Ур. <strong>{{ playerLevel }}</strong></div>
-        <button
-            v-if="showClaimXpBtn"
-            type="button"
-            class="toolbar_btn xp_btn"
-            :disabled="claimingXp"
-            @click="claimAllExperience"
-        >
-          <AppIcon name="xp" :size="14" />
-          <span>{{ claimingXp ? '...' : `+${pendingXpDisplay}` }}</span>
-        </button>
-        <button
-            type="button"
-            class="toolbar_btn chest_btn"
-            :class="{ bought: shopOffers.prognobaks?.bought }"
-            :disabled="buyingChest || !shopOffers.prognobaks?.available"
-            @click="buyChest('prognobaks')"
-        >
-          <AppIcon name="chest_wc2026" :size="16" />
-          <span>50 <AppIcon name="prognobak" :size="12" /></span>
-        </button>
-        <button
-            type="button"
-            class="toolbar_btn chest_btn"
-            :class="{ bought: shopOffers.rublius?.bought }"
-            :disabled="buyingChest || !shopOffers.rublius?.available"
-            @click="buyChest('rublius')"
-        >
-          <AppIcon name="chest_wc2026" :size="16" />
-          <span>5 <AppIcon name="rublius" :size="12" /></span>
-        </button>
-      </div>
       <div class="wealth_filters" v-if="expanded" @click.stop>
         <button
             type="button"
@@ -101,6 +68,41 @@
             </span>
             <div class="user_nick">{{ el.user?.name || '—' }}</div>
             <div class="user_actions" v-if="el.user?.id">
+              <template v-if="showRowAdminActions">
+                <button
+                    type="button"
+                    class="row_btn xp_btn"
+                    :class="{ dim: !hasPendingXp(el) }"
+                    :disabled="rowBusy(el.user.id, 'xp') || !hasPendingXp(el)"
+                    :title="hasPendingXp(el) ? `Собрать +${formatMoney(el.pending_points)} XP` : 'Нет опыта'"
+                    @click.stop="claimXpForUser(el)"
+                >
+                  <AppIcon name="xp" :size="12" />
+                  <span v-if="hasPendingXp(el)">+{{ formatMoney(el.pending_points) }}</span>
+                </button>
+                <button
+                    type="button"
+                    class="row_btn chest_btn"
+                    :class="{ bought: el.shop_offers?.prognobaks_bought }"
+                    :disabled="rowBusy(el.user.id, 'prognobaks') || !canBuyPrognobaks(el)"
+                    title="Сундук за 50 прогнобаксов"
+                    @click.stop="buyChestForUser(el, 'prognobaks')"
+                >
+                  <AppIcon name="chest_wc2026" :size="14" />
+                  <AppIcon name="prognobak" :size="11" />
+                </button>
+                <button
+                    type="button"
+                    class="row_btn chest_btn"
+                    :class="{ bought: el.shop_offers?.rublius_bought }"
+                    :disabled="rowBusy(el.user.id, 'rublius') || !canBuyRublius(el)"
+                    title="Сундук за 5 рублиусов"
+                    @click.stop="buyChestForUser(el, 'rublius')"
+                >
+                  <AppIcon name="chest_wc2026" :size="14" />
+                  <AppIcon name="rublius" :size="11" />
+                </button>
+              </template>
               <span
                   v-if="canImpersonate"
                   class="user_enter"
@@ -146,10 +148,7 @@ export default {
       ratings: [],
       gameBank: null,
       treasury: null,
-      shop: null,
-      claimingXp: false,
-      buyingChest: false,
-      toolbarError: '',
+      rowAction: null,
       url: 'https://prognos9ys.ru',
       defaultAvatar: DEFAULT_AVATAR_URL,
     };
@@ -162,29 +161,8 @@ export default {
     isLoggedIn() {
       return !!this.authData?.token;
     },
-    playerLevel() {
-      return Number(this.userInfo?.game_info?.progress?.level ?? 0);
-    },
-    pendingXp() {
-      const pending = this.userInfo?.game_info?.pending_xp || {};
-      return {
-        count: Number(pending.count ?? 0),
-        points: Number(pending.points ?? 0),
-      };
-    },
-    pendingXpDisplay() {
-      const points = this.pendingXp.points;
-      return Number.isInteger(points) ? points : points.toFixed(1);
-    },
-    showClaimXpBtn() {
-      return this.pendingXp.count > 0 || this.pendingXp.points > 0;
-    },
-    shopOffers() {
-      const offers = this.shop?.offers || {};
-      return {
-        prognobaks: offers.prognobaks_chest || null,
-        rublius: offers.rublius_chest || null,
-      };
+    showRowAdminActions() {
+      return this.canImpersonate && (this.showLevelColumn || this.mode === 'pending_xp');
     },
     showLevelColumn() {
       return this.mode === 'rich' || this.mode === 'poor';
@@ -251,12 +229,15 @@ export default {
         return '🎁 = сумма закрытых сундучков · сортировка по убыванию';
       }
 
+      if (this.canImpersonate) {
+        return 'Кнопки в строке: опыт и сундуки лавки (для ботов без входа)';
+      }
+
       return 'Σ = прогнобаксы';
     },
   },
   created() {
     this.loadGameBank();
-    this.loadShop();
   },
   watch: {
     expanded(isExpanded) {
@@ -264,19 +245,10 @@ export default {
         this.ratingLoaded = true;
         this.loadRating();
       }
-      if (isExpanded && this.isLoggedIn) {
-        this.loadShop();
-      }
     },
     'userInfo.token'(token) {
       if (token) {
         this.loadGameBank();
-        this.loadShop();
-      }
-    },
-    'authData.token'(token) {
-      if (token) {
-        this.loadShop();
       }
     },
   },
@@ -285,7 +257,6 @@ export default {
       impersonateStart: 'auth/impersonateStart',
       claimAllXp: 'game/claimAllXp',
       refreshGameInfo: 'auth/refreshGameInfo',
-      showBulkLevelBanner: 'game/showBulkLevelBanner',
     }),
 
     setMode(mode) {
@@ -332,71 +303,66 @@ export default {
       }
     },
 
-    async loadShop() {
-      if (!this.isLoggedIn) {
+    async claimXpForUser(row) {
+      const userId = row?.user?.id;
+      if (!userId || this.rowBusy(userId, 'xp')) {
         return;
       }
 
+      this.rowAction = { userId, action: 'xp' };
       try {
-        const data = await apiActions.game.getTreasuryShop(this.authData.token);
-        if (data?.status === 'ok') {
-          this.shop = data.shop || null;
-        }
-      } catch (e) {
-        console.log('treasury shop error', e);
-      }
-    },
-
-    async claimAllExperience() {
-      if (this.claimingXp) {
-        return;
-      }
-
-      this.claimingXp = true;
-      try {
-        const result = await this.claimAllXp();
-        await this.refreshGameInfo();
-        if (result?.level_up) {
-          this.showBulkLevelBanner({
-            oldLevel: result.old_level,
-            newLevel: result.new_level,
-            levelRewards: result.level_rewards || [],
-          });
-        }
-        if (this.ratingLoaded) {
-          this.loadRating();
-        }
-      } catch (e) {
-        console.log('claimAllXp error', e);
-      } finally {
-        this.claimingXp = false;
-      }
-    },
-
-    async buyChest(currency) {
-      if (this.buyingChest || !this.authData?.token) {
-        return;
-      }
-
-      this.buyingChest = true;
-      try {
-        const data = await apiActions.game.buyTreasuryChest(this.authData.token, currency);
-        if (data?.status === 'ok') {
-          this.shop = data.shop || this.shop;
+        await this.claimAllXp(userId);
+        const isSelf = Number(userId) === Number(this.userInfo?.ID);
+        if (isSelf) {
           await this.refreshGameInfo();
-          if (data?.level_up) {
-            this.showBulkLevelBanner({
-              oldLevel: data.old_level,
-              newLevel: data.new_level,
-              levelRewards: data.level_rewards || [],
-            });
+        }
+        await this.loadRating();
+        await this.loadGameBank();
+      } catch (e) {
+        console.log('claimXpForUser error', e);
+      } finally {
+        this.rowAction = null;
+      }
+    },
+
+    async buyChestForUser(row, currency) {
+      const userId = row?.user?.id;
+      if (!userId || !this.authData?.token || this.rowBusy(userId, currency)) {
+        return;
+      }
+
+      this.rowAction = { userId, action: currency };
+      try {
+        const data = await apiActions.game.buyTreasuryChest(this.authData.token, currency, userId);
+        if (data?.status === 'ok') {
+          const isSelf = Number(userId) === Number(this.userInfo?.ID);
+          if (isSelf) {
+            await this.refreshGameInfo();
           }
+          await this.loadRating();
+          await this.loadGameBank();
         }
       } catch (e) {
-        console.log('buyTreasuryChest error', e);
+        console.log('buyChestForUser error', e);
       } finally {
-        this.buyingChest = false;
+        this.rowAction = null;
       }
+    },
+
+    hasPendingXp(row) {
+      return Number(row?.pending_points ?? 0) > 0 || Number(row?.pending_count ?? 0) > 0;
+    },
+
+    canBuyPrognobaks(row) {
+      return !!(row?.shop_offers?.prognobaks_available && !row?.shop_offers?.prognobaks_bought);
+    },
+
+    canBuyRublius(row) {
+      return !!(row?.shop_offers?.rublius_available && !row?.shop_offers?.rublius_bought);
+    },
+
+    rowBusy(userId, action) {
+      return this.rowAction?.userId === userId && this.rowAction?.action === action;
     },
 
     formatMoney(value) {
@@ -582,8 +548,47 @@ export default {
 
     .user_actions {
       display: flex;
+      flex-wrap: wrap;
       gap: 3px;
       flex-shrink: 0;
+      justify-content: flex-end;
+      max-width: 118px;
+    }
+
+    .row_btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      min-width: 22px;
+      height: 22px;
+      padding: 2px 4px;
+      border-radius: 4px;
+      border: 1px solid @orange;
+      background: rgba(0, 0, 0, 0.2);
+      color: @colorText;
+      cursor: pointer;
+      font-size: 9px;
+      line-height: 1;
+
+      &:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+      }
+
+      &.dim:not(:disabled) {
+        opacity: 0.55;
+      }
+
+      &.bought {
+        border-color: @YesWrite;
+        opacity: 0.5;
+      }
+
+      &.xp_btn {
+        color: @yellow;
+        font-weight: 700;
+      }
     }
 
     .user_enter,
@@ -625,55 +630,6 @@ export default {
   color: @colorBlur;
   text-align: right;
   padding-right: 4px;
-}
-
-.player_toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  margin-top: 8px;
-  padding: 6px;
-  border-radius: 4px;
-  background: rgba(0, 0, 0, 0.2);
-}
-
-.toolbar_level {
-  font-size: 12px;
-  color: @colorBlur;
-  margin-right: 4px;
-
-  strong {
-    color: @orange;
-    font-size: 14px;
-  }
-}
-
-.toolbar_btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  border: 1px solid @orange;
-  border-radius: 4px;
-  background: @darkbg;
-  color: @colorText;
-  font-size: 11px;
-  padding: 4px 8px;
-  cursor: pointer;
-
-  &:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
-
-  &.bought {
-    border-color: @YesWrite;
-  }
-}
-
-.xp_btn {
-  color: @yellow;
-  font-weight: 700;
 }
 
 .level_cell {

@@ -110,6 +110,35 @@ class TreasuryShopService
         ];
     }
 
+    /**
+     * Компактный статус лавки для строки рейтинга.
+     *
+     * @return array{
+     *   active_milestone:int,
+     *   prognobaks_bought:bool,
+     *   rublius_bought:bool,
+     *   prognobaks_available:bool,
+     *   rublius_available:bool
+     * }
+     */
+    public function getCompactRowOffers(int $userId): array
+    {
+        $state = $this->getShopState($userId);
+        $offers = $state['offers'] ?? [];
+        $prognobaks = $offers['prognobaks_chest'] ?? [];
+        $rublius = $offers['rublius_chest'] ?? [];
+        $milestone = (int)($state['active_milestone'] ?? 0);
+        $shopOpen = (bool)($state['shop_open'] ?? false) && $milestone > 0;
+
+        return [
+            'active_milestone' => $milestone,
+            'prognobaks_bought' => (bool)($prognobaks['bought'] ?? false),
+            'rublius_bought' => (bool)($rublius['bought'] ?? false),
+            'prognobaks_available' => $shopOpen && (bool)($prognobaks['available'] ?? false),
+            'rublius_available' => $shopOpen && (bool)($rublius['available'] ?? false),
+        ];
+    }
+
     private function resolveActiveMilestone(int $userId, int $currentTour): int
     {
         if ($currentTour < GameEconomyConfig::TREASURY_SHOP_FIRST_MILESTONE) {

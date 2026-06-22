@@ -79,19 +79,24 @@ class GameController extends BaseController
         return array_merge(['status' => 'ok'], $result);
     }
 
-    public function claimAllXpAction(): array
+    public function claimAllXpAction(int $targetUserId = 0): array
     {
-        $userId = TokenAuthService::getCurrentUserId();
+        $actorId = TokenAuthService::getCurrentUserId();
 
-        if (!$userId) {
+        if (!$actorId) {
             throw new ApiException('Пользователь не авторизован', 401);
         }
 
+        $userId = $this->resolveTargetUserId($actorId, $targetUserId);
         $result = (new ExperienceService())->claimAll($userId);
 
-        return array_merge(['status' => 'ok'], $result, [
-            'game' => (new GameProfileService())->getSummary($userId),
-        ]);
+        $response = array_merge(['status' => 'ok', 'target_user_id' => $userId], $result);
+
+        if ($userId === $actorId) {
+            $response['game'] = (new GameProfileService())->getSummary($userId);
+        }
+
+        return $response;
     }
 
     public function getLevelTiersAction(): array
@@ -158,19 +163,24 @@ class GameController extends BaseController
         ];
     }
 
-    public function buyTreasuryChestAction(string $currency): array
+    public function buyTreasuryChestAction(string $currency, int $targetUserId = 0): array
     {
-        $userId = TokenAuthService::getCurrentUserId();
+        $actorId = TokenAuthService::getCurrentUserId();
 
-        if (!$userId) {
+        if (!$actorId) {
             throw new ApiException('Пользователь не авторизован', 401);
         }
 
+        $userId = $this->resolveTargetUserId($actorId, $targetUserId);
         $result = (new TreasuryShopService())->buyChest($userId, $currency);
 
-        return array_merge(['status' => 'ok'], $result, [
-            'game' => (new GameProfileService())->getSummary($userId),
-        ]);
+        $response = array_merge(['status' => 'ok', 'target_user_id' => $userId], $result);
+
+        if ($userId === $actorId) {
+            $response['game'] = (new GameProfileService())->getSummary($userId);
+        }
+
+        return $response;
     }
 
     public function createGovSupportDepositAction(int $bankId, int $eventId = 0): array
@@ -399,5 +409,18 @@ class GameController extends BaseController
             'achievements' => $service->getForUser($userId),
             'game' => (new GameProfileService())->getSummary($userId),
         ];
+    }
+
+    private function resolveTargetUserId(int $actorId, int $targetUserId): int
+    {
+        if ($targetUserId <= 0 || $targetUserId === $actorId) {
+            return $actorId;
+        }
+
+        if (!(new ImpersonationService())->canImpersonate($actorId)) {
+            throw new ApiException('Нет доступа', 403);
+        }
+
+        return $targetUserId;
     }
 }
