@@ -219,6 +219,14 @@ export const apiActions = {
             'prognos9ys:main.GameController.moderatorBulkAction',
             { userToken, bulkAction }
         ),
+        moderatorBulkCandidates: (userToken, bulkAction) => runBitrixAction(
+            'prognos9ys:main.GameController.moderatorBulkCandidates',
+            { userToken, bulkAction }
+        ),
+        moderatorBulkRunOne: (userToken, bulkAction, targetUserId) => runBitrixAction(
+            'prognos9ys:main.GameController.moderatorBulkRunOne',
+            { userToken, bulkAction, targetUserId }
+        ),
         listBanks: (userToken, limit = 30) => runBitrixAction(
             'prognos9ys:main.GameController.listBanks',
             { userToken, limit }

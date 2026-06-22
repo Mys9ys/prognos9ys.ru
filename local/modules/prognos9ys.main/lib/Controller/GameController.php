@@ -52,6 +52,8 @@ class GameController extends BaseController
             'closeBank' => $this->getDefaultConfigureForPostToken(),
             'getAchievements' => $this->getDefaultConfigureForPostToken(),
             'moderatorBulkAction' => $this->getDefaultConfigureForPostToken(),
+            'moderatorBulkCandidates' => $this->getDefaultConfigureForPostToken(),
+            'moderatorBulkRunOne' => $this->getDefaultConfigureForPostToken(),
         ];
     }
 
@@ -430,6 +432,52 @@ class GameController extends BaseController
 
         try {
             $result = (new ModeratorBulkActionsService())->run($bulkAction);
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok'], $result);
+    }
+
+    public function moderatorBulkCandidatesAction(string $bulkAction): array
+    {
+        $actorId = TokenAuthService::getCurrentUserId();
+
+        if (!$actorId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        if (!(new ImpersonationService())->canImpersonate($actorId)) {
+            throw new ApiException('Нет доступа', 403);
+        }
+
+        try {
+            $result = (new ModeratorBulkActionsService())->getCandidates($bulkAction);
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok'], $result);
+    }
+
+    public function moderatorBulkRunOneAction(string $bulkAction, int $targetUserId): array
+    {
+        $actorId = TokenAuthService::getCurrentUserId();
+
+        if (!$actorId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        if (!(new ImpersonationService())->canImpersonate($actorId)) {
+            throw new ApiException('Нет доступа', 403);
+        }
+
+        if ($targetUserId <= 0) {
+            throw new ApiException('Некорректный пользователь', 400);
+        }
+
+        try {
+            $result = (new ModeratorBulkActionsService())->runOne($bulkAction, $targetUserId);
         } catch (\InvalidArgumentException $e) {
             throw new ApiException($e->getMessage(), 400);
         }

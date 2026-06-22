@@ -211,6 +211,16 @@
       </div>
       <div class="wealth_hint">{{ hintText }}</div>
     </div>
+
+    <BulkActionProgress
+        :visible="bulkProgressVisible"
+        :title="bulkProgressTitle"
+        :lines="bulkProgressLines"
+        :current="bulkProgressCurrent"
+        :total="bulkProgressTotal"
+        :done="bulkProgressDone"
+        @close="closeBulkProgress"
+    />
   </div>
 </template>
 
@@ -219,14 +229,22 @@ import { mapActions, mapState } from 'vuex';
 import PreLoader from '@/components/main/PreLoader';
 import AppIcon from '@/components/ui/AppIcon.vue';
 import { apiActions } from '@/api/bitrixClient';
+import BulkActionProgress from '@/components/game/BulkActionProgress.vue';
 import { DEFAULT_AVATAR_URL } from '@/utils/defaultAvatar';
 
 const PAGE_SIZE = 50;
 const WEALTH_MODES = ['rich', 'poor', 'pending_xp', 'treasure_rich'];
+const BULK_TITLES = {
+  prognobaks_chests: 'Сундуки за 50 прогнобаксов',
+  claim_xp: 'Сбор опыта',
+  rublius_chests: 'Сундуки за 5 рублиусов',
+  premium_1d: 'Премиум 1 сутки',
+  grant_loans: 'Займы 50 прогнобаксов',
+};
 
 export default {
   name: 'WealthRatingBlock',
-  components: { PreLoader, AppIcon },
+  components: { PreLoader, AppIcon, BulkActionProgress },
   data() {
     return {
       expanded: false,
@@ -240,6 +258,13 @@ export default {
       bulkLoading: false,
       bulkMessage: '',
       bulkError: '',
+      bulkProgressVisible: false,
+      bulkProgressTitle: '',
+      bulkProgressLines: [],
+      bulkProgressCurrent: 0,
+      bulkProgressTotal: 0,
+      bulkProgressDone: false,
+      bulkSummary: null,
       url: 'https://prognos9ys.ru',
       defaultAvatar: DEFAULT_AVATAR_URL,
     };
@@ -426,7 +451,7 @@ export default {
       });
     },
 
-    async runBulk(action) {
+    async runBulk(bulkAction) {
       if (!this.authData?.token || this.bulkLoading) {
         return;
       }
@@ -439,27 +464,117 @@ export default {
         grant_loans: 'Выдать займ 50 прогнобаксов всем, у кого на кошельке меньше 50? Банк — с максимальной ликвидностью.',
       };
 
-      if (!window.confirm(prompts[action] || 'Выполнить массовое действие?')) {
+      if (!window.confirm(prompts[bulkAction] || 'Выполнить массовое действие?')) {
         return;
       }
 
       this.bulkLoading = true;
       this.bulkMessage = '';
       this.bulkError = '';
+      this.bulkProgressVisible = true;
+      this.bulkProgressDone = false;
+      this.bulkProgressTitle = BULK_TITLES[bulkAction] || 'Массовое действие';
+      this.bulkProgressLines = [{ text: 'Загрузка списка…', status: 'pending' }];
+      this.bulkProgressCurrent = 0;
+      this.bulkProgressTotal = 0;
+      this.bulkSummary = { success: 0, skipped: 0, failed: 0 };
+
       try {
-        const data = await apiActions.game.moderatorBulkAction(this.authData.token, action);
-        if (data?.status === 'ok') {
-          this.bulkMessage = `Готово: ${data.success || 0} ок, пропущено ${data.skipped || 0}, ошибок ${data.failed || 0}`;
-          await this.loadRating();
-          await this.loadGameBank();
-          await this.refreshGameInfo();
+        const preview = await apiActions.game.moderatorBulkCandidates(
+          this.authData.token,
+          bulkAction,
+        );
+        const candidates = preview?.candidates || [];
+        this.bulkProgressTotal = candidates.length;
+        this.bulkProgressLines = [];
+
+        if (!candidates.length) {
+          this.bulkProgressLines.push({ text: 'Никого для обработки', status: 'skip' });
+          this.bulkProgressDone = true;
+          this.bulkMessage = 'Нет подходящих игроков';
+          return;
         }
+
+        for (let i = 0; i < candidates.length; i++) {
+          const candidate = candidates[i];
+          const name = candidate.name || `Игрок #${candidate.user_id}`;
+          const hint = candidate.hint ? ` — ${candidate.hint}` : '';
+
+          this.bulkProgressLines.push({
+            text: `${name}${hint}…`,
+            status: 'pending',
+          });
+          const lineIndex = this.bulkProgressLines.length - 1;
+
+          try {
+            const result = await apiActions.game.moderatorBulkRunOne(
+              this.authData.token,
+              bulkAction,
+              candidate.user_id,
+            );
+            const status = result?.status || 'failed';
+            const message = result?.message || '';
+
+            if (status === 'success') {
+              this.bulkSummary.success++;
+              this.bulkProgressLines[lineIndex] = {
+                text: `✓ ${name}: ${message}`,
+                status: 'ok',
+              };
+            } else if (status === 'skipped') {
+              this.bulkSummary.skipped++;
+              this.bulkProgressLines[lineIndex] = {
+                text: `— ${name}: ${message}`,
+                status: 'skip',
+              };
+            } else {
+              this.bulkSummary.failed++;
+              this.bulkProgressLines[lineIndex] = {
+                text: `✗ ${name}: ${message}`,
+                status: 'fail',
+              };
+            }
+          } catch (e) {
+            this.bulkSummary.failed++;
+            this.bulkProgressLines[lineIndex] = {
+              text: `✗ ${name}: ${e.message || 'ошибка'}`,
+              status: 'fail',
+            };
+          }
+
+          this.bulkProgressCurrent = i + 1;
+        }
+
+        const s = this.bulkSummary;
+        this.bulkMessage = `Готово: ${s.success} ок, пропущено ${s.skipped}, ошибок ${s.failed}`;
+        this.bulkProgressLines.push({
+          text: this.bulkMessage,
+          status: 'ok',
+        });
+        this.bulkProgressDone = true;
+
+        await this.loadRating();
+        await this.loadGameBank();
+        await this.refreshGameInfo();
       } catch (e) {
         this.bulkError = e.message || 'Массовое действие не выполнено';
+        this.bulkProgressLines.push({
+          text: this.bulkError,
+          status: 'fail',
+        });
+        this.bulkProgressDone = true;
         console.log('runBulk error', e);
       } finally {
         this.bulkLoading = false;
       }
+    },
+
+    closeBulkProgress() {
+      this.bulkProgressVisible = false;
+      this.bulkProgressLines = [];
+      this.bulkProgressCurrent = 0;
+      this.bulkProgressTotal = 0;
+      this.bulkProgressDone = false;
     },
 
     async loadRating() {

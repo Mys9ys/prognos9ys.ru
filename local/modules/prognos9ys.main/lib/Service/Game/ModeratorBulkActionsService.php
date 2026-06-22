@@ -2,11 +2,12 @@
 
 namespace Prognos9ys\Main\Service\Game;
 
+use Bitrix\Main\UserTable;
 use Prognos9ys\Main\Controller\ApiException;
 use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
 
 /**
- * Массовые действия модератора (лавка, XP, займы).
+ * Массовые действия модератора (лавка, XP, займы) — по одному игроку за запрос.
  */
 class ModeratorBulkActionsService
 {
@@ -14,212 +15,261 @@ class ModeratorBulkActionsService
     private TreasuryShopService $shopService;
     private ExperienceService $experienceService;
     private BankLoanService $loanService;
+    private GameEventScopeService $scopeService;
 
     public function __construct(
         ?GameEconomyRepository $repository = null,
         ?TreasuryShopService $shopService = null,
         ?ExperienceService $experienceService = null,
-        ?BankLoanService $loanService = null
+        ?BankLoanService $loanService = null,
+        ?GameEventScopeService $scopeService = null
     ) {
         $this->repository = $repository ?? new GameEconomyRepository();
         $this->shopService = $shopService ?? new TreasuryShopService($this->repository);
         $this->experienceService = $experienceService ?? new ExperienceService($this->repository);
         $this->loanService = $loanService ?? new BankLoanService($this->repository);
+        $this->scopeService = $scopeService ?? new GameEventScopeService();
     }
 
-    public function run(string $action): array
+    /**
+     * @return array{action:string,candidates:array<int,array{user_id:int,name:string,hint:string}>,total:int}
+     */
+    public function getCandidates(string $bulkAction): array
     {
-        switch ($action) {
+        $this->assertBulkAction($bulkAction);
+
+        $names = $this->loadUserNames();
+        $pendingMap = $bulkAction === 'claim_xp'
+            ? $this->repository->getPendingXpAggregatesByUser(
+                fn(int $matchId): bool => $this->scopeService->isMatchEligible($matchId)
+            )
+            : [];
+
+        $candidates = [];
+        foreach ($this->repository->getAllWallets() as $wallet) {
+            $userId = (int)($wallet['user_id'] ?? 0);
+            if ($userId <= 0) {
+                continue;
+            }
+
+            $eligibility = $this->evaluateEligibility($bulkAction, $userId, $wallet, $pendingMap);
+            if (!($eligibility['eligible'] ?? false)) {
+                continue;
+            }
+
+            $candidates[] = [
+                'user_id' => $userId,
+                'name' => $names[$userId] ?? ('Игрок #' . $userId),
+                'hint' => (string)($eligibility['hint'] ?? ''),
+            ];
+        }
+
+        return [
+            'action' => $bulkAction,
+            'candidates' => $candidates,
+            'total' => count($candidates),
+        ];
+    }
+
+    /**
+     * @return array{
+     *   action:string,
+     *   user_id:int,
+     *   status:string,
+     *   message:string,
+     *   detail?:array<string,mixed>
+     * }
+     */
+    public function runOne(string $bulkAction, int $userId): array
+    {
+        $this->assertBulkAction($bulkAction);
+
+        if ($userId <= 0) {
+            throw new \InvalidArgumentException('Некорректный пользователь');
+        }
+
+        $wallet = $this->repository->getWalletByUserId($userId);
+        if (!$wallet) {
+            return $this->oneResult($bulkAction, $userId, 'skipped', 'Нет кошелька');
+        }
+
+        $walletRow = [
+            'user_id' => $userId,
+            'prognobaks' => round((float)($wallet['UF_PROGNOBAKS'] ?? 0), 1),
+            'rublius' => round((float)($wallet['UF_RUBLIUS'] ?? 0), 1),
+        ];
+
+        $pendingMap = $bulkAction === 'claim_xp'
+            ? $this->repository->getPendingXpAggregatesByUser(
+                fn(int $matchId): bool => $this->scopeService->isMatchEligible($matchId)
+            )
+            : [];
+
+        $eligibility = $this->evaluateEligibility($bulkAction, $userId, $walletRow, $pendingMap);
+        if (!($eligibility['eligible'] ?? false)) {
+            return $this->oneResult(
+                $bulkAction,
+                $userId,
+                'skipped',
+                (string)($eligibility['skip_reason'] ?? 'Не подходит')
+            );
+        }
+
+        try {
+            return $this->executeOne($bulkAction, $userId, $walletRow, $eligibility);
+        } catch (\Throwable $e) {
+            return $this->oneResult($bulkAction, $userId, 'failed', $e->getMessage());
+        }
+    }
+
+    /** @deprecated Один запрос на всех — риск 504; используйте getCandidates + runOne */
+    public function run(string $bulkAction): array
+    {
+        $preview = $this->getCandidates($bulkAction);
+        $result = $this->emptyResult($bulkAction);
+
+        foreach ($preview['candidates'] as $candidate) {
+            $one = $this->runOne($bulkAction, (int)$candidate['user_id']);
+            if ($one['status'] === 'success') {
+                $result['success']++;
+            } elseif ($one['status'] === 'skipped') {
+                $result['skipped']++;
+            } else {
+                $result['failed']++;
+                $this->pushError($result, (int)$candidate['user_id'], $one['message']);
+            }
+        }
+
+        return $result;
+    }
+
+    private function executeOne(string $bulkAction, int $userId, array $wallet, array $eligibility): array
+    {
+        switch ($bulkAction) {
             case 'prognobaks_chests':
-                return $this->bulkBuyPrognobaksChests();
-            case 'claim_xp':
-                return $this->bulkClaimXp();
+                $this->shopService->buyChest($userId, GameEconomyConfig::CURRENCY_PROGNOBAKS);
+
+                return $this->oneResult($bulkAction, $userId, 'success', 'Сундук ЧМ за 50 🪙');
+
             case 'rublius_chests':
-                return $this->bulkBuyRubliusChests();
+                $this->shopService->buyChest($userId, GameEconomyConfig::CURRENCY_RUBLIUS);
+
+                return $this->oneResult($bulkAction, $userId, 'success', 'Сундук ЧМ за 5 💎');
+
             case 'premium_1d':
-                return $this->bulkBuyPremium1d();
+                $this->shopService->buyPremium($userId, 'premium_1d');
+
+                return $this->oneResult($bulkAction, $userId, 'success', 'Премиум 1 сутки');
+
+            case 'claim_xp':
+                $claim = $this->experienceService->claimAll($userId);
+                $points = round((float)($claim['claimed_points'] ?? 0), 1);
+                $count = (int)($claim['claimed_count'] ?? 0);
+
+                if ($count <= 0 || $points <= 0) {
+                    return $this->oneResult($bulkAction, $userId, 'skipped', 'Нет опыта');
+                }
+
+                return $this->oneResult(
+                    $bulkAction,
+                    $userId,
+                    'success',
+                    '+' . $points . ' XP (' . $count . ' матч.)',
+                    ['claimed_points' => $points, 'claimed_count' => $count]
+                );
+
             case 'grant_loans':
-                return $this->bulkGrantLoans();
+                $amount = GameEconomyConfig::LOAN_MIN_AMOUNT_PROGNOBAKS;
+                $bank = $this->findBestBankForLoan($userId, $amount);
+                if (!$bank) {
+                    return $this->oneResult($bulkAction, $userId, 'skipped', 'Нет банка с ликвидностью');
+                }
+
+                $this->loanService->takeLoan($userId, (int)$bank['ID'], $amount);
+                $ownerId = (int)($bank['UF_OWNER_ID'] ?? 0);
+
+                return $this->oneResult(
+                    $bulkAction,
+                    $userId,
+                    'success',
+                    'Займ 50 🪙 (банк #' . (int)$bank['ID'] . ')',
+                    ['bank_id' => (int)$bank['ID'], 'bank_owner_id' => $ownerId]
+                );
+
             default:
                 throw new \InvalidArgumentException('Неизвестное массовое действие');
         }
     }
 
-    private function bulkBuyPrognobaksChests(): array
-    {
-        $price = GameEconomyConfig::TREASURY_SHOP_CHEST_PROGNOBAKS_PRICE;
-        $result = $this->emptyResult('prognobaks_chests');
-
-        foreach ($this->repository->getAllWallets() as $wallet) {
-            $userId = (int)($wallet['user_id'] ?? 0);
-            if ($userId <= 0) {
-                continue;
-            }
-
-            $offers = $this->shopService->getCompactRowOffers($userId);
-            if (!($offers['prognobaks_available'] ?? false)) {
-                $result['skipped']++;
-                continue;
-            }
-
-            if (round((float)($wallet['prognobaks'] ?? 0), 1) < $price) {
-                $result['skipped']++;
-                continue;
-            }
-
-            try {
-                $this->shopService->buyChest($userId, GameEconomyConfig::CURRENCY_PROGNOBAKS);
-                $result['success']++;
-            } catch (\Throwable $e) {
-                $result['failed']++;
-                $this->pushError($result, $userId, $e->getMessage());
-            }
-        }
-
-        return $result;
-    }
-
-    private function bulkBuyRubliusChests(): array
-    {
-        $price = GameEconomyConfig::TREASURY_SHOP_CHEST_RUBLIUS_PRICE;
-        $result = $this->emptyResult('rublius_chests');
-
-        foreach ($this->repository->getAllWallets() as $wallet) {
-            $userId = (int)($wallet['user_id'] ?? 0);
-            if ($userId <= 0) {
-                continue;
-            }
-
-            $offers = $this->shopService->getCompactRowOffers($userId);
-            if (!($offers['rublius_available'] ?? false)) {
-                $result['skipped']++;
-                continue;
-            }
-
-            if (round((float)($wallet['rublius'] ?? 0), 1) < $price) {
-                $result['skipped']++;
-                continue;
-            }
-
-            try {
-                $this->shopService->buyChest($userId, GameEconomyConfig::CURRENCY_RUBLIUS);
-                $result['success']++;
-            } catch (\Throwable $e) {
-                $result['failed']++;
-                $this->pushError($result, $userId, $e->getMessage());
-            }
-        }
-
-        return $result;
-    }
-
-    private function bulkBuyPremium1d(): array
-    {
-        $price = GameEconomyConfig::TREASURY_SHOP_PREMIUM_1D_RUBLIUS_PRICE;
-        $result = $this->emptyResult('premium_1d');
-
-        foreach ($this->repository->getAllWallets() as $wallet) {
-            $userId = (int)($wallet['user_id'] ?? 0);
-            if ($userId <= 0) {
-                continue;
-            }
-
-            $offers = $this->shopService->getCompactRowOffers($userId);
-            if (!($offers['premium_available'] ?? false)) {
-                $result['skipped']++;
-                continue;
-            }
-
-            if (round((float)($wallet['rublius'] ?? 0), 1) < $price) {
-                $result['skipped']++;
-                continue;
-            }
-
-            try {
-                $this->shopService->buyPremium($userId, 'premium_1d');
-                $result['success']++;
-            } catch (\Throwable $e) {
-                $result['failed']++;
-                $this->pushError($result, $userId, $e->getMessage());
-            }
-        }
-
-        return $result;
-    }
-
-    private function bulkClaimXp(): array
-    {
-        $result = $this->emptyResult('claim_xp');
-        $userIds = array_unique(array_map(
-            static fn(array $w): int => (int)($w['user_id'] ?? 0),
-            $this->repository->getAllWallets()
-        ));
-
-        foreach ($userIds as $userId) {
-            if ($userId <= 0) {
-                continue;
-            }
-
-            try {
-                $claim = $this->experienceService->claimAll($userId);
-                if ((int)($claim['claimed_count'] ?? 0) > 0) {
-                    $result['success']++;
-                } else {
-                    $result['skipped']++;
+    /**
+     * @param array<int, array{count:int,points:float}> $pendingMap
+     * @return array{eligible:bool,hint?:string,skip_reason?:string}
+     */
+    private function evaluateEligibility(
+        string $bulkAction,
+        int $userId,
+        array $wallet,
+        array $pendingMap = []
+    ): array {
+        switch ($bulkAction) {
+            case 'prognobaks_chests':
+                $offers = $this->shopService->getCompactRowOffers($userId);
+                if (!($offers['prognobaks_available'] ?? false)) {
+                    return ['eligible' => false, 'skip_reason' => 'Сундук недоступен'];
                 }
-            } catch (ApiException $e) {
-                if ((int)$e->getCode() === 404) {
-                    $result['skipped']++;
-                    continue;
+                if ($wallet['prognobaks'] < GameEconomyConfig::TREASURY_SHOP_CHEST_PROGNOBAKS_PRICE) {
+                    return ['eligible' => false, 'skip_reason' => 'Мало прогнобаксов'];
                 }
-                $result['failed']++;
-                $this->pushError($result, $userId, $e->getMessage());
-            } catch (\Throwable $e) {
-                $result['failed']++;
-                $this->pushError($result, $userId, $e->getMessage());
-            }
+
+                return ['eligible' => true, 'hint' => 'Сундук 50 🪙'];
+
+            case 'rublius_chests':
+                $offers = $this->shopService->getCompactRowOffers($userId);
+                if (!($offers['rublius_available'] ?? false)) {
+                    return ['eligible' => false, 'skip_reason' => 'Сундук недоступен'];
+                }
+                if ($wallet['rublius'] < GameEconomyConfig::TREASURY_SHOP_CHEST_RUBLIUS_PRICE) {
+                    return ['eligible' => false, 'skip_reason' => 'Мало рублиусов'];
+                }
+
+                return ['eligible' => true, 'hint' => 'Сундук 5 💎'];
+
+            case 'premium_1d':
+                $offers = $this->shopService->getCompactRowOffers($userId);
+                if (!($offers['premium_available'] ?? false)) {
+                    return ['eligible' => false, 'skip_reason' => 'Премиум недоступен'];
+                }
+                if ($wallet['rublius'] < GameEconomyConfig::TREASURY_SHOP_PREMIUM_1D_RUBLIUS_PRICE) {
+                    return ['eligible' => false, 'skip_reason' => 'Мало рублиусов'];
+                }
+
+                return ['eligible' => true, 'hint' => 'Премиум 1д'];
+
+            case 'claim_xp':
+                $pending = $pendingMap[$userId] ?? ['count' => 0, 'points' => 0.0];
+                $points = round((float)($pending['points'] ?? 0), 1);
+                if ($points <= 0) {
+                    return ['eligible' => false, 'skip_reason' => 'Нет опыта'];
+                }
+
+                return ['eligible' => true, 'hint' => '+' . $points . ' XP'];
+
+            case 'grant_loans':
+                if ($wallet['prognobaks'] >= GameEconomyConfig::LOAN_MIN_AMOUNT_PROGNOBAKS) {
+                    return ['eligible' => false, 'skip_reason' => 'Достаточно средств'];
+                }
+                if ($this->hasActiveLoan($userId)) {
+                    return ['eligible' => false, 'skip_reason' => 'Уже есть займ'];
+                }
+                if (!$this->findBestBankForLoan($userId, GameEconomyConfig::LOAN_MIN_AMOUNT_PROGNOBAKS)) {
+                    return ['eligible' => false, 'skip_reason' => 'Нет банка'];
+                }
+
+                return ['eligible' => true, 'hint' => 'Займ 50 🪙'];
+
+            default:
+                return ['eligible' => false, 'skip_reason' => 'Неизвестное действие'];
         }
-
-        return $result;
-    }
-
-    private function bulkGrantLoans(): array
-    {
-        $amount = GameEconomyConfig::LOAN_MIN_AMOUNT_PROGNOBAKS;
-        $result = $this->emptyResult('grant_loans');
-
-        foreach ($this->repository->getAllWallets() as $wallet) {
-            $userId = (int)($wallet['user_id'] ?? 0);
-            if ($userId <= 0) {
-                continue;
-            }
-
-            if (round((float)($wallet['prognobaks'] ?? 0), 1) >= $amount) {
-                $result['skipped']++;
-                continue;
-            }
-
-            if ($this->hasActiveLoan($userId)) {
-                $result['skipped']++;
-                continue;
-            }
-
-            $bank = $this->findBestBankForLoan($userId, $amount);
-            if (!$bank) {
-                $result['skipped']++;
-                continue;
-            }
-
-            try {
-                $this->loanService->takeLoan($userId, (int)$bank['ID'], $amount);
-                $result['success']++;
-            } catch (\Throwable $e) {
-                $result['failed']++;
-                $this->pushError($result, $userId, $e->getMessage());
-            }
-        }
-
-        return $result;
     }
 
     private function findBestBankForLoan(int $borrowerId, float $minAmount): ?array
@@ -252,6 +302,72 @@ class ModeratorBulkActionsService
         }
 
         return false;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function loadUserNames(): array
+    {
+        $userIds = array_values(array_unique(array_filter(array_map(
+            static fn(array $w): int => (int)($w['user_id'] ?? 0),
+            $this->repository->getAllWallets()
+        ))));
+
+        if (!$userIds) {
+            return [];
+        }
+
+        $names = [];
+        $response = UserTable::getList([
+            'filter' => ['@ID' => $userIds],
+            'select' => ['ID', 'NAME'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $id = (int)$row['ID'];
+            $names[$id] = $row['NAME'] ?: ('Игрок #' . $id);
+        }
+
+        return $names;
+    }
+
+    private function assertBulkAction(string $bulkAction): void
+    {
+        if (!in_array($bulkAction, [
+            'prognobaks_chests',
+            'claim_xp',
+            'rublius_chests',
+            'premium_1d',
+            'grant_loans',
+        ], true)) {
+            throw new \InvalidArgumentException('Неизвестное массовое действие');
+        }
+    }
+
+    /**
+     * @param array<string,mixed> $detail
+     * @return array{action:string,user_id:int,status:string,message:string,detail?:array<string,mixed>}
+     */
+    private function oneResult(
+        string $bulkAction,
+        int $userId,
+        string $status,
+        string $message,
+        array $detail = []
+    ): array {
+        $row = [
+            'action' => $bulkAction,
+            'user_id' => $userId,
+            'status' => $status,
+            'message' => $message,
+        ];
+
+        if ($detail) {
+            $row['detail'] = $detail;
+        }
+
+        return $row;
     }
 
     /**
