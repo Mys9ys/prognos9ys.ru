@@ -21,6 +21,7 @@ class GameEconomyHlInstaller
     public const TABLE_BANK_DEPOSIT = 'prognos9ys_bank_deposit';
     public const TABLE_BANK_LOAN = 'prognos9ys_bank_loan';
     public const TABLE_TREASURY_SHOP_WAVE = 'prognos9ys_treasury_shop_wave';
+    public const TABLE_MATCH_ECONOMY_SETTLE = 'prognos9ys_match_economy_settle';
 
     public function install(): array
     {
@@ -152,6 +153,8 @@ class GameEconomyHlInstaller
             'UF_PROGNOBAKS_BOUGHT' => ['USER_TYPE_ID' => 'boolean'],
             'UF_RUBLIUS_BOUGHT' => ['USER_TYPE_ID' => 'boolean'],
             'UF_PREMIUM_BOUGHT' => ['USER_TYPE_ID' => 'boolean'],
+            'UF_PREMIUM_3D_BOUGHT' => ['USER_TYPE_ID' => 'boolean'],
+            'UF_PREMIUM_5D_BOUGHT' => ['USER_TYPE_ID' => 'boolean'],
             'UF_CREATED_AT' => ['USER_TYPE_ID' => 'datetime'],
             'UF_UPDATED_AT' => ['USER_TYPE_ID' => 'datetime'],
         ]);
@@ -216,6 +219,8 @@ class GameEconomyHlInstaller
             'UF_PROGNOBAKS_BOUGHT' => ['USER_TYPE_ID' => 'boolean'],
             'UF_RUBLIUS_BOUGHT' => ['USER_TYPE_ID' => 'boolean'],
             'UF_PREMIUM_BOUGHT' => ['USER_TYPE_ID' => 'boolean'],
+            'UF_PREMIUM_3D_BOUGHT' => ['USER_TYPE_ID' => 'boolean'],
+            'UF_PREMIUM_5D_BOUGHT' => ['USER_TYPE_ID' => 'boolean'],
             'UF_CREATED_AT' => ['USER_TYPE_ID' => 'datetime'],
             'UF_UPDATED_AT' => ['USER_TYPE_ID' => 'datetime'],
         ]);
@@ -226,6 +231,27 @@ class GameEconomyHlInstaller
             'game_bank_hl_id' => $bankHlId,
             'bank_deposit_hl_id' => $depositHlId,
             'treasury_shop_wave_hl_id' => $treasuryShopHlId,
+        ];
+    }
+
+    /**
+     * Реестр матчей с внесённым результатом и прогнанным пересчётом (тур экономики).
+     */
+    public function upgradeMatchEconomySettlement(): array
+    {
+        if (!Loader::includeModule('highloadblock')) {
+            throw new \RuntimeException('Модуль highloadblock не установлен');
+        }
+
+        $hlId = $this->ensureHlBlock('Prognos9ysMatchEconomySettle', self::TABLE_MATCH_ECONOMY_SETTLE, [
+            'UF_MATCH_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_EVENT_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_MATCH_NUMBER' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_SETTLED_AT' => ['USER_TYPE_ID' => 'datetime'],
+        ]);
+
+        return [
+            'match_economy_settle_hl_id' => $hlId,
         ];
     }
 

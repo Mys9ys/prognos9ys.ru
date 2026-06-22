@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" fill="none">
+  <defs>
+    <radialGradient id="ballBase" cx="38%" cy="32%" r="65%">
+      <stop stop-color="#fff"/><stop offset=".55" stop-color="#f0f4f8"/><stop offset="1" stop-color="#c8d2dc"/>
+    </radialGradient>
+    <linearGradient id="pBlue" x1="350" y1="200" x2="650" y2="550" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5ba3e8"/><stop offset="1" stop-color="#1a4f9c"/>
+    </linearGradient>
+    <linearGradient id="pRed" x1="120" y1="400" x2="400" y2="700" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f06a6a"/><stop offset="1" stop-color="#b81e2e"/>
+    </linearGradient>
+    <linearGradient id="pGreen" x1="600" y1="550" x2="880" y2="780" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5cd47a"/><stop offset="1" stop-color="#1a7a36"/>
+    </linearGradient>
+    <clipPath id="ballClip"><circle cx="500" cy="500" r="420"/></clipPath>
+  </defs>
+  <circle cx="500" cy="500" r="420" fill="url(#ballBase)" stroke="#a8b4c0" stroke-width="8"/>
+  <g clip-path="url(#ballClip)">
+    <!-- central blue swoosh panel -->
+    <path d="M500 95 C620 95 700 180 720 300 C740 420 680 520 500 580 C320 520 260 420 280 300 C300 180 380 95 500 95 Z" fill="url(#pBlue)"/>
+    <!-- left red panel -->
+    <path d="M95 500 C95 350 180 220 320 170 C280 300 270 440 310 580 C200 540 95 480 95 500 Z" fill="url(#pRed)"/>
+    <path d="M170 240 C240 200 340 185 400 210 C300 280 240 380 230 490 C180 400 160 310 170 240 Z" fill="url(#pRed)" opacity=".85"/>
+    <!-- right green panel -->
+    <path d="M905 500 C905 650 820 780 680 830 C720 700 730 560 690 420 C800 460 905 520 905 500 Z" fill="url(#pGreen)"/>
+    <path d="M830 760 C760 800 660 815 600 790 C700 720 760 620 770 510 C820 600 840 690 830 760 Z" fill="url(#pGreen)" opacity=".85"/>
+    <!-- white seam curves -->
+    <path d="M500 95 C400 200 380 350 420 500 C380 650 400 800 500 905" stroke="#fff" stroke-width="14" fill="none" opacity=".7"/>
+    <path d="M280 300 C400 340 520 360 720 300" stroke="#fff" stroke-width="12" fill="none" opacity=".55"/>
+    <path d="M310 580 C450 540 550 530 690 420" stroke="#fff" stroke-width="12" fill="none" opacity=".55"/>
+    <!-- stars accent -->
+    <path d="M360 320 L368 340 L390 342 L374 356 L380 378 L360 366 L340 378 L346 356 L330 342 L352 340 Z" fill="#fff" opacity=".8"/>
+    <path d="M620 280 L626 294 L642 296 L630 306 L634 322 L620 314 L606 322 L610 306 L598 296 L614 294 Z" fill="#fff" opacity=".65"/>
+    <!-- 26 mark -->
+    <text x="500" y="390" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="72" font-weight="800" fill="#fff" opacity=".92">26</text>
+    <!-- maple hint -->
+    <path d="M200 520 C210 480 230 450 250 440 C245 470 248 500 260 530 C230 525 210 520 200 520 Z" fill="#fff" opacity=".45"/>
+  </g>
+  <!-- specular -->
+  <ellipse cx="380" cy="300" rx="120" ry="70" fill="#fff" opacity=".22" transform="rotate(-25 380 300)"/>
+</svg>

@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" fill="none">
+  <defs>
+    <linearGradient id="batBody" x1="500" y1="280" x2="500" y2="720" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6b7a8f"/><stop offset="1" stop-color="#3d4654"/>
+    </linearGradient>
+    <linearGradient id="batCap" x1="500" y1="280" x2="500" y2="360" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8a97a8"/><stop offset="1" stop-color="#5a6678"/>
+    </linearGradient>
+    <linearGradient id="batLow" x1="280" y1="500" x2="500" y2="500" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ff6b6b"/><stop offset="1" stop-color="#d42020"/>
+    </linearGradient>
+  </defs>
+  <!-- battery body -->
+  <rect x="180" y="320" width="620" height="360" rx="70" fill="url(#batBody)" stroke="#9aa8b8" stroke-width="20"/>
+  <!-- positive cap -->
+  <rect x="420" y="240" width="140" height="100" rx="28" fill="url(#batCap)" stroke="#9aa8b8" stroke-width="16"/>
+  <!-- inner tray -->
+  <rect x="230" y="370" width="520" height="260" rx="40" fill="#2a3038" stroke="#1a1e24" stroke-width="8"/>
+  <!-- low charge ~18% -->
+  <rect x="250" y="390" width="110" height="220" rx="28" fill="url(#batLow)"/>
+  <!-- warning stripe on empty area -->
+  <path d="M400 420 H720 V580 H400 Z" fill="#3a424c"/>
+  <path d="M420 450 H700 M420 500 H680 M420 550 H700" stroke="#4a5562" stroke-width="8" stroke-linecap="round" opacity=".6"/>
+  <!-- terminal nub right (emoji style) -->
+  <rect x="820" y="430" width="50" height="140" rx="16" fill="#8a97a8" stroke="#9aa8b8" stroke-width="8"/>
+  <!-- red low indicator line -->
+  <rect x="250" y="640" width="520" height="12" rx="6" fill="#ff4444" opacity=".7"/>
+  <!-- outline shine -->
+  <path d="M220 360 H760" stroke="#fff" stroke-width="6" stroke-linecap="round" opacity=".15"/>
+</svg>

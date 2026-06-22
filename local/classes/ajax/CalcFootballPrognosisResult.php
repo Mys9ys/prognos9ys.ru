@@ -421,6 +421,11 @@ class CalcFootballPrognosisResult
             $backfill = $betService->backfillBetsFromPrognosis($matchId);
             $settle = $betService->settleMatch($matchId);
             (new \Prognos9ys\Main\Service\Game\BankSettlementService())->onMatchSettled($matchId);
+            try {
+                (new \Prognos9ys\Main\Service\Game\MatchEconomySettlementService())->markFromCalc($matchId);
+            } catch (\Throwable $exception) {
+                $this->logGameEconomyError('markMatchEconomySettled', $matchId, $exception);
+            }
             error_log(sprintf(
                 'CalcFootballPrognosisResult [betSettlement] match=%d %s',
                 $matchId,

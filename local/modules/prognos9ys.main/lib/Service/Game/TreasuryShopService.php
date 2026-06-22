@@ -110,7 +110,7 @@ class TreasuryShopService
         ];
     }
 
-    public function buyPremium(int $userId): array
+    public function buyPremium(int $userId, string $offerKey = 'premium_1d'): array
     {
         $state = $this->getShopState($userId);
         $milestone = (int)($state['active_milestone'] ?? 0);
@@ -119,7 +119,7 @@ class TreasuryShopService
             throw new \RuntimeException('Лавка пока недоступна');
         }
 
-        $offer = ($state['offers'] ?? [])['premium'] ?? null;
+        $offer = ($state['offers'] ?? [])[$offerKey] ?? null;
         if (!$offer || !($offer['available'] ?? false)) {
             throw new \RuntimeException('Предложение недоступно');
         }
@@ -130,6 +130,7 @@ class TreasuryShopService
 
         $currency = GameEconomyConfig::CURRENCY_RUBLIUS;
         $price = (float)($offer['price'] ?? 0);
+        $days = (int)($offer['days'] ?? 1);
         $wave = $this->ensureWaveRow($userId, $milestone);
 
         $this->walletService->debit(
@@ -143,17 +144,19 @@ class TreasuryShopService
 
         $this->treasuryService->credit($currency, $price, 'treasury_shop_wave', (int)$wave['ID']);
 
+        $boughtField = $this->getPremiumBoughtField($offerKey);
         $this->repository->updateTreasuryShopWave((int)$wave['ID'], [
-            'UF_PREMIUM_BOUGHT' => true,
+            $boughtField => true,
             'UF_UPDATED_AT' => new DateTime(),
         ]);
 
-        $this->treasureService->grantPremiumScroll($userId, $milestone);
+        $this->treasureService->grantPremiumScroll($userId, $milestone, $days);
 
         return [
             'purchase' => [
                 'milestone' => $milestone,
-                'offer' => 'premium',
+                'offer' => $offerKey,
+                'days' => $days,
                 'currency' => $currency,
                 'price' => $price,
             ],
@@ -233,7 +236,10 @@ class TreasuryShopService
         $wave = $this->ensureWaveRow($userId, $milestone);
         $pBought = $this->isTruthy($wave['UF_PROGNOBAKS_BOUGHT'] ?? false);
         $rBought = $this->isTruthy($wave['UF_RUBLIUS_BOUGHT'] ?? false);
-        $premiumBought = $this->isTruthy($wave['UF_PREMIUM_BOUGHT'] ?? false);
+        $premium1dBought = $this->isTruthy($wave['UF_PREMIUM_BOUGHT'] ?? false);
+        $premium3dBought = $this->isTruthy($wave['UF_PREMIUM_3D_BOUGHT'] ?? false);
+        $premium5dBought = $this->isTruthy($wave['UF_PREMIUM_5D_BOUGHT'] ?? false);
+        $extendedPremium = $milestone >= GameEconomyConfig::TREASURY_SHOP_PREMIUM_EXTENDED_MILESTONE;
 
         return [
             'prognobaks_chest' => [
@@ -252,16 +258,55 @@ class TreasuryShopService
                 'bought' => $rBought,
                 'available' => !$rBought,
             ],
-            'premium' => [
-                'key' => 'premium',
+            'premium_1d' => [
+                'key' => 'premium_1d',
                 'label' => 'Премиум 1 сутки',
+                'days' => 1,
                 'emoji' => '📜',
-                'price' => GameEconomyConfig::TREASURY_SHOP_PREMIUM_RUBLIUS_PRICE,
+                'price' => GameEconomyConfig::TREASURY_SHOP_PREMIUM_1D_RUBLIUS_PRICE,
                 'currency' => GameEconomyConfig::CURRENCY_RUBLIUS,
-                'bought' => $premiumBought,
-                'available' => !$premiumBought,
+                'bought' => $premium1dBought,
+                'available' => !$premium1dBought,
+            ],
+            'premium_3d' => [
+                'key' => 'premium_3d',
+                'label' => 'Премиум 3 суток',
+                'days' => 3,
+                'emoji' => '📜',
+                'price' => GameEconomyConfig::TREASURY_SHOP_PREMIUM_3D_RUBLIUS_PRICE,
+                'currency' => GameEconomyConfig::CURRENCY_RUBLIUS,
+                'bought' => $premium3dBought,
+                'available' => $extendedPremium && !$premium3dBought,
+                'coming_soon' => !$extendedPremium,
+            ],
+            'premium_5d' => [
+                'key' => 'premium_5d',
+                'label' => 'Премиум 5 суток',
+                'days' => 5,
+                'emoji' => '📜',
+                'price' => GameEconomyConfig::TREASURY_SHOP_PREMIUM_5D_RUBLIUS_PRICE,
+                'currency' => GameEconomyConfig::CURRENCY_RUBLIUS,
+                'bought' => $premium5dBought,
+                'available' => $extendedPremium && !$premium5dBought,
+                'coming_soon' => !$extendedPremium,
             ],
         ];
+    }
+
+    private function getPremiumBoughtField(string $offerKey): string
+    {
+        $map = [
+            'premium_1d' => 'UF_PREMIUM_BOUGHT',
+            'premium' => 'UF_PREMIUM_BOUGHT',
+            'premium_3d' => 'UF_PREMIUM_3D_BOUGHT',
+            'premium_5d' => 'UF_PREMIUM_5D_BOUGHT',
+        ];
+
+        if (!isset($map[$offerKey])) {
+            throw new \InvalidArgumentException('Некорректное предложение премиума');
+        }
+
+        return $map[$offerKey];
     }
 
     private function nextMilestoneAfter(int $activeMilestone, int $currentTour): int
@@ -289,6 +334,8 @@ class TreasuryShopService
             'UF_PROGNOBAKS_BOUGHT' => false,
             'UF_RUBLIUS_BOUGHT' => false,
             'UF_PREMIUM_BOUGHT' => false,
+            'UF_PREMIUM_3D_BOUGHT' => false,
+            'UF_PREMIUM_5D_BOUGHT' => false,
             'UF_CREATED_AT' => $now,
             'UF_UPDATED_AT' => $now,
         ]);

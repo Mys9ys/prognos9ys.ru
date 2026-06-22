@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+  <defs>
+    <radialGradient id="ball-base" cx="35%" cy="30%" r="70%">
+      <stop stop-color="#fff"/>
+      <stop offset="1" stop-color="#e8edf2"/>
+    </radialGradient>
+    <linearGradient id="panel-blue" x1="8" y1="6" x2="16" y2="14" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4f8fd9"/>
+      <stop offset="1" stop-color="#1f4f93"/>
+    </linearGradient>
+    <linearGradient id="panel-red" x1="4" y1="10" x2="10" y2="18" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ef5b5b"/>
+      <stop offset="1" stop-color="#b51f2f"/>
+    </linearGradient>
+    <linearGradient id="panel-green" x1="14" y1="14" x2="20" y2="20" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#58c46d"/>
+      <stop offset="1" stop-color="#1f7a36"/>
+    </linearGradient>
+  </defs>
+  <circle cx="12" cy="12" r="9.2" fill="url(#ball-base)" stroke="#c5ced8" stroke-width=".5"/>
+  <path d="M12 4.2c2.2 2.4 3.4 4.8 3.6 7.2-.2 2.8-1.4 5.2-3.6 7.2-2.2-2-3.4-4.4-3.6-7.2.2-2.4 1.4-4.8 3.6-7.2Z" fill="url(#panel-blue)"/>
+  <path d="M5.2 10.2c2.6-.4 4.8.2 6.6 1.8-1.2 2.4-3 4.2-5.4 5.4-1.6-1.8-2.2-4-1.2-7.2Z" fill="url(#panel-red)"/>
+  <path d="M18.8 10.2c-2.6-.4-4.8.2-6.6 1.8 1.2 2.4 3 4.2 5.4 5.4 1.6-1.8 2.2-4 1.2-7.2Z" fill="url(#panel-green)"/>
+  <path d="M8.8 8.2c1.4 1.2 2.6 1.6 3.2 1.2M15.2 8.2c-1.4 1.2-2.6 1.6-3.2 1.2M7.8 15.2c2 .8 3.8.8 5.8 0M9.2 11.4h5.6" stroke="#fff" stroke-width=".55" stroke-linecap="round" opacity=".75"/>
+  <text x="12" y="12.1" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="2.8" font-weight="700" fill="#fff" opacity=".9">26</text>
+</svg>

@@ -99,6 +99,9 @@ class GameProfileService
                     'achievement_chests' => 0,
                     'shop_chests' => 0,
                     'premium_scrolls' => 0,
+                    'premium_scrolls_1d' => 0,
+                    'premium_scrolls_3d' => 0,
+                    'premium_scrolls_5d' => 0,
                 ],
                 'bank' => [
                     'has_bank' => false,

@@ -15,12 +15,12 @@
         <div class="msg ok" v-if="message">{{ message }}</div>
 
         <div class="shop_meta" v-if="shop">
-          <span>Тур ЧМ: <strong>{{ shop.current_tour || '—' }}</strong></span>
-          <span v-if="shop.active_milestone">Волна: <strong>{{ shop.active_milestone }}</strong></span>
+          <span>Матчей с результатом: <strong>{{ shop.current_tour || '—' }}</strong></span>
+          <span v-if="shop.active_milestone">Этап лавки: <strong>{{ shop.active_milestone }}</strong></span>
         </div>
 
         <div class="shop_closed" v-if="shop && !shop.shop_open">
-          Лавка откроется с {{ firstMilestone }}-го тура ЧМ.
+          Лавка откроется с {{ firstMilestone }}-го матча с результатом.
         </div>
 
         <div class="shop_closed" v-else-if="shop && !shop.active_milestone">
@@ -39,6 +39,7 @@
           >
             <span v-if="offer.emoji" class="offer_emoji">{{ offer.emoji }}</span>
             <AppIcon v-else name="chest_wc2026" :size="20" />
+            <span class="offer_title">{{ offer.label }}</span>
             <span class="offer_price">
               {{ offer.price }}
               <AppIcon :name="offer.currency === 'rublius' ? 'rublius' : 'prognobak'" :size="14" />
@@ -48,7 +49,7 @@
         </div>
 
         <div class="shop_hint" v-if="shop?.next_milestone">
-          Следующая волна — с {{ shop.next_milestone }} тура (если выкупите оба сундука).
+          Следующая волна — с {{ shop.next_milestone }} матча с результатом (если выкупите оба сундука).
         </div>
       </template>
     </div>
@@ -85,7 +86,15 @@ export default {
     },
     offers() {
       const raw = this.shop?.offers || {};
-      return ['prognobaks_chest', 'rublius_chest', 'premium'].map((key) => raw[key]).filter(Boolean);
+      const keys = [
+        'prognobaks_chest',
+        'rublius_chest',
+        'premium_1d',
+        'premium_3d',
+        'premium_5d',
+      ];
+
+      return keys.map((key) => raw[key]).filter(Boolean);
     },
   },
   watch: {
@@ -128,10 +137,17 @@ export default {
       if (offer.bought) {
         return 'куплено';
       }
+      if (offer.coming_soon) {
+        return 'с 50 этапа';
+      }
       if (!offer.available) {
         return 'недоступно';
       }
       return 'купить';
+    },
+
+    isPremiumOffer(offer) {
+      return String(offer?.key || '').startsWith('premium');
     },
 
     async onBuy(offer) {
@@ -143,14 +159,14 @@ export default {
       this.error = '';
       this.message = '';
       try {
-        const data = offer.key === 'premium'
-          ? await apiActions.game.buyTreasuryPremium(this.authData.token)
+        const data = this.isPremiumOffer(offer)
+          ? await apiActions.game.buyTreasuryPremium(this.authData.token, offer.key)
           : await apiActions.game.buyTreasuryChest(this.authData.token, offer.currency);
 
         if (data?.status === 'ok') {
           this.shop = data.shop || this.shop;
-          this.message = offer.key === 'premium'
-            ? 'Свиток премиума добавлен в инвентарь'
+          this.message = this.isPremiumOffer(offer)
+            ? `${offer.label} добавлен в инвентарь`
             : 'Сундук ЧМ-26 добавлен в сокровищницу';
           await this.refreshGameInfo();
           if (data?.level_up) {
@@ -263,6 +279,14 @@ export default {
   .offer_emoji {
     font-size: 22px;
     line-height: 1;
+  }
+
+  .offer_title {
+    font-size: 10px;
+    color: @colorBlur;
+    text-align: center;
+    line-height: 1.2;
+    max-width: 88px;
   }
 
   .offer_price {

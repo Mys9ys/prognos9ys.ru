@@ -19,6 +19,7 @@ class GameEconomyRepository
     private ?string $treasureChestDataClass = null;
     private ?string $achievementClaimDataClass = null;
     private ?string $treasuryShopWaveDataClass = null;
+    private ?string $matchEconomySettleDataClass = null;
 
     public function getWalletDataClass(): string
     {
@@ -68,6 +69,65 @@ class GameEconomyRepository
     public function getTreasuryShopWaveDataClass(): string
     {
         return $this->treasuryShopWaveDataClass ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_TREASURY_SHOP_WAVE);
+    }
+
+    public function getMatchEconomySettleDataClass(): string
+    {
+        return $this->matchEconomySettleDataClass ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_MATCH_ECONOMY_SETTLE);
+    }
+
+    public function hasMatchEconomySettlement(int $matchId): bool
+    {
+        if ($matchId <= 0) {
+            return false;
+        }
+
+        $dataClass = $this->getMatchEconomySettleDataClass();
+
+        return (bool)$dataClass::getList([
+            'filter' => ['=UF_MATCH_ID' => $matchId],
+            'limit' => 1,
+            'select' => ['ID'],
+        ])->fetch();
+    }
+
+    public function addMatchEconomySettlement(array $fields): int
+    {
+        $dataClass = $this->getMatchEconomySettleDataClass();
+        $result = $dataClass::add($fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+
+        return (int)$result->getId();
+    }
+
+    /**
+     * @return array{id:int,number:int}
+     */
+    public function getLastMatchEconomySettlementForEvent(int $eventId): array
+    {
+        if ($eventId <= 0) {
+            return ['id' => 0, 'number' => 0];
+        }
+
+        $dataClass = $this->getMatchEconomySettleDataClass();
+        $row = $dataClass::getList([
+            'filter' => ['=UF_EVENT_ID' => $eventId],
+            'order' => ['UF_MATCH_NUMBER' => 'DESC', 'ID' => 'DESC'],
+            'limit' => 1,
+            'select' => ['UF_MATCH_ID', 'UF_MATCH_NUMBER'],
+        ])->fetch();
+
+        if (!$row) {
+            return ['id' => 0, 'number' => 0];
+        }
+
+        return [
+            'id' => (int)($row['UF_MATCH_ID'] ?? 0),
+            'number' => (int)($row['UF_MATCH_NUMBER'] ?? 0),
+        ];
     }
 
     public function getWalletByUserId(int $userId): ?array
@@ -895,26 +955,60 @@ class GameEconomyRepository
 
     public function getPremiumScrollCountForUser(int $userId): int
     {
+        $breakdown = $this->getPremiumScrollBreakdownForUser($userId);
+
+        return (int)($breakdown[1] ?? 0) + (int)($breakdown[3] ?? 0) + (int)($breakdown[5] ?? 0);
+    }
+
+    /**
+     * @return array{1:int,3:int,5:int}
+     */
+    public function getPremiumScrollBreakdownForUser(int $userId): array
+    {
+        $breakdown = [1 => 0, 3 => 0, 5 => 0];
+
         if ($userId <= 0) {
-            return 0;
+            return $breakdown;
         }
 
         $dataClass = $this->getTreasureChestDataClass();
-        $total = 0;
         $response = $dataClass::getList([
             'filter' => [
                 '=UF_USER_ID' => $userId,
                 '=UF_TYPE' => 'premium_scroll',
                 '=UF_STATUS' => 'inventory',
             ],
-            'select' => ['UF_COUNT'],
+            'select' => ['UF_COUNT', 'UF_MATCH_ID'],
         ]);
 
         while ($row = $response->fetch()) {
-            $total += (int)($row['UF_COUNT'] ?? 0);
+            $count = (int)($row['UF_COUNT'] ?? 0);
+            if ($count <= 0) {
+                continue;
+            }
+
+            $days = $this->resolvePremiumScrollDays((int)($row['UF_MATCH_ID'] ?? 0));
+            $breakdown[$days] = (int)($breakdown[$days] ?? 0) + $count;
         }
 
-        return $total;
+        return $breakdown;
+    }
+
+    private function resolvePremiumScrollDays(int $matchId): int
+    {
+        if ($matchId >= -2000000) {
+            return 1;
+        }
+
+        $offset = -$matchId - 2000000;
+
+        if ($offset < 100) {
+            return 1;
+        }
+
+        $days = $offset % 100;
+
+        return in_array($days, [1, 3, 5], true) ? $days : 1;
     }
 
     /**

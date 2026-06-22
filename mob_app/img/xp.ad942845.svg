@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" fill="none">
+  <defs>
+    <linearGradient id="xpMain" x1="500" y1="80" x2="500" y2="920" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6fe0f0"/><stop offset=".45" stop-color="#38b8d0"/><stop offset="1" stop-color="#1a7088"/>
+    </linearGradient>
+    <linearGradient id="xpInner" x1="420" y1="200" x2="580" y2="700" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff" stop-opacity=".45"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="xpEdge" x1="500" y1="100" x2="500" y2="900" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff8e0"/><stop offset="1" stop-color="#e8c878"/>
+    </linearGradient>
+  </defs>
+  <!-- outer star -->
+  <path d="M500 90 L610 360 H900 L670 540 L760 830 L500 660 L240 830 L330 540 L100 360 H390 Z" fill="url(#xpMain)" stroke="url(#xpEdge)" stroke-width="28" stroke-linejoin="round"/>
+  <!-- inner facet -->
+  <path d="M500 200 L575 400 H775 L620 520 L680 720 L500 600 L320 720 L380 520 L225 400 H425 Z" fill="url(#xpInner)"/>
+  <!-- center shade -->
+  <path d="M500 280 L540 420 H680 L560 510 L600 660 L500 580 L400 660 L440 510 L320 420 H460 Z" fill="#1a7088" opacity=".35"/>
+  <!-- text lowered -->
+  <text x="500" y="545" text-anchor="middle" dominant-baseline="middle" font-family="Arial Black, Arial, Helvetica, sans-serif" font-size="148" font-weight="900" fill="#0e2830" letter-spacing="-4">XP!</text>
+  <!-- specular -->
+  <path d="M350 280 L420 250 L400 340 Z" fill="#fff" opacity=".4"/>
+</svg>

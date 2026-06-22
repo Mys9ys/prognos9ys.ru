@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+  <defs>
+    <linearGradient id="bag" x1="12" y1="5" x2="12" y2="20" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f7d56f"/>
+      <stop offset="1" stop-color="#d4a12f"/>
+    </linearGradient>
+    <linearGradient id="bag-shade" x1="8" y1="12" x2="16" y2="20" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#c98d1f"/>
+      <stop offset="1" stop-color="#9a6710"/>
+    </linearGradient>
+  </defs>
+  <path d="M8.2 9.2c0-2.1 1.7-3.8 3.8-3.8s3.8 1.7 3.8 3.8" stroke="#9a6710" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M6.5 9.8h11c1.4 0 2.5 1.1 2.5 2.5v7.2c0 1.4-1.1 2.5-2.5 2.5h-11c-1.4 0-2.5-1.1-2.5-2.5v-7.2c0-1.4 1.1-2.5 2.5-2.5Z" fill="url(#bag)" stroke="#9a6710" stroke-width=".7"/>
+  <path d="M6.5 14h11v6.5c0 1.4-1.1 2.5-2.5 2.5h-6c-1.4 0-2.5-1.1-2.5-2.5V14Z" fill="url(#bag-shade)"/>
+  <text x="12" y="16.2" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="6.5" font-weight="700" fill="#7a4f08">$</text>
+</svg>

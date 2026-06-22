@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+  <defs>
+    <linearGradient id="xp-star" x1="12" y1="2" x2="12" y2="22" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5fd4e8"/>
+      <stop offset="1" stop-color="#1f7f9b"/>
+    </linearGradient>
+    <linearGradient id="xp-shine" x1="8" y1="4" x2="14" y2="12" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff" stop-opacity=".45"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <path d="M12 2.8 14.6 9h6.9l-5.6 4.1 2.1 6.7L12 17.8l-5.9 2 2.1-6.7L2.5 9h6.9L12 2.8Z" fill="url(#xp-star)" stroke="#fdf5d1" stroke-width="1.1" stroke-linejoin="round"/>
+  <path d="M12 5.2 13.8 9.6h4.7l-3.8 2.8 1.5 4.6L12 14.8l-4.2 2.2 1.5-4.6-3.8-2.8h4.7L12 5.2Z" fill="url(#xp-shine)"/>
+  <text x="12" y="12.3" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="4.2" font-weight="800" fill="#102028">XP!</text>
+</svg>

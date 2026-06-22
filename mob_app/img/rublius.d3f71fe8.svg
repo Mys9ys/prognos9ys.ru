@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" fill="none">
+  <defs>
+    <linearGradient id="rCrown" x1="500" y1="120" x2="500" y2="420" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ff8fa3"/><stop offset="1" stop-color="#e0254a"/>
+    </linearGradient>
+    <linearGradient id="rLeft" x1="180" y1="380" x2="500" y2="620" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ff5c78"/><stop offset="1" stop-color="#9b1230"/>
+    </linearGradient>
+    <linearGradient id="rRight" x1="820" y1="380" x2="500" y2="620" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ff4d6d"/><stop offset="1" stop-color="#7a0e28"/>
+    </linearGradient>
+    <linearGradient id="rTable" x1="500" y1="420" x2="500" y2="880" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#c41a3d"/><stop offset="1" stop-color="#5c0818"/>
+    </linearGradient>
+    <linearGradient id="rGirdleL" x1="260" y1="400" x2="420" y2="520" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ff7a92"/><stop offset="1" stop-color="#b81835"/>
+    </linearGradient>
+    <linearGradient id="rGirdleR" x1="740" y1="400" x2="580" y2="520" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ff6b85"/><stop offset="1" stop-color="#a01530"/>
+    </linearGradient>
+    <linearGradient id="rShine" x1="360" y1="200" x2="560" y2="420" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff" stop-opacity=".7"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <!-- pavilion -->
+  <path d="M500 860 L170 400 L330 400 Z" fill="url(#rLeft)"/>
+  <path d="M500 860 L830 400 L670 400 Z" fill="url(#rRight)"/>
+  <path d="M330 400 L500 860 L670 400 Z" fill="url(#rTable)"/>
+  <!-- girdle facets -->
+  <path d="M330 400 L500 460 L670 400 L500 400 Z" fill="#d42042"/>
+  <path d="M170 400 L330 400 L500 460 Z" fill="url(#rGirdleL)"/>
+  <path d="M830 400 L670 400 L500 460 Z" fill="url(#rGirdleR)"/>
+  <!-- crown -->
+  <path d="M500 140 L700 400 L500 400 L300 400 Z" fill="url(#rCrown)"/>
+  <path d="M300 400 L500 400 L500 460 L170 400 Z" fill="url(#rLeft)" opacity=".85"/>
+  <path d="M700 400 L500 400 L500 460 L830 400 Z" fill="url(#rRight)" opacity=".85"/>
+  <!-- table -->
+  <path d="M380 320 L500 280 L620 320 L500 400 Z" fill="#ff9db0"/>
+  <path d="M420 300 L500 270 L580 300 L500 360 Z" fill="url(#rShine)"/>
+  <path d="M390 250 L500 200 L610 250 L500 300 Z" fill="#ff6b85"/>
+  <!-- highlights -->
+  <path d="M430 230 L470 215 L455 260 Z" fill="#fff" opacity=".55"/>
+  <path d="M350 360 L390 345 L370 390 Z" fill="#fff" opacity=".25"/>
+</svg>

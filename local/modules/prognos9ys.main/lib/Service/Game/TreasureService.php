@@ -80,6 +80,7 @@ class TreasureService
     public function getTreasureSummary(int $userId): array
     {
         $breakdown = $this->repository->getTreasureChestBreakdownForUser($userId);
+        $premiumScrolls = $this->repository->getPremiumScrollBreakdownForUser($userId);
 
         return [
             'closed_chests' => $breakdown['total'],
@@ -88,6 +89,9 @@ class TreasureService
             'achievement_chests' => $breakdown['achievement'],
             'shop_chests' => $breakdown['shop'],
             'premium_scrolls' => $this->repository->getPremiumScrollCountForUser($userId),
+            'premium_scrolls_1d' => $premiumScrolls[1] ?? 0,
+            'premium_scrolls_3d' => $premiumScrolls[3] ?? 0,
+            'premium_scrolls_5d' => $premiumScrolls[5] ?? 0,
         ];
     }
 
@@ -211,15 +215,19 @@ class TreasureService
     }
 
     /**
-     * Неактивированный свиток премиума (1 сутки) из лавки казны (идемпотентно по волне).
+     * Неактивированный свиток премиума из лавки казны (идемпотентно по волне + длительности).
      */
-    public function grantPremiumScroll(int $userId, int $milestone): bool
+    public function grantPremiumScroll(int $userId, int $milestone, int $days = 1): bool
     {
         if ($userId <= 0 || $milestone <= 0) {
             return false;
         }
 
-        $syntheticMatchId = -2000000 - $milestone;
+        if (!in_array($days, [1, 3, 5], true)) {
+            $days = 1;
+        }
+
+        $syntheticMatchId = -2000000 - ($milestone * 100) - $days;
         $existing = $this->repository->getTreasureChestByType(
             $userId,
             $syntheticMatchId,

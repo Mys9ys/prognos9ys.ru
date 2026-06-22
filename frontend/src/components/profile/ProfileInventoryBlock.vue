@@ -35,7 +35,9 @@ const INVENTORY_SLOTS = [
   { id: 'achievement', field: 'achievement_chests', icon: 'chest_wc2026', caption: 'Ачивка', label: 'Сундуки за ачивки' },
   { id: 'level', field: 'level_chests', icon: 'chest_xp', caption: 'Уровень', label: 'Сундуки за уровень' },
   { id: 'shop', field: 'shop_chests', icon: 'chest_wc2026', caption: 'Лавка', label: 'Сундуки из лавки казны' },
-  { id: 'premium', field: 'premium_scrolls', emoji: '📜', caption: 'Прем', label: 'Свиток премиума (1 сутки)' },
+  { id: 'premium_1d', field: 'premium_scrolls_1d', emoji: '📜', caption: '1д', label: 'Свиток премиума (1 сутки)' },
+  { id: 'premium_3d', field: 'premium_scrolls_3d', emoji: '📜', caption: '3д', label: 'Свиток премиума (3 суток)' },
+  { id: 'premium_5d', field: 'premium_scrolls_5d', emoji: '📜', caption: '5д', label: 'Свиток премиума (5 суток)' },
 ];
 
 export default {
@@ -53,10 +55,14 @@ export default {
     },
     inventoryItems() {
       return INVENTORY_SLOTS
-        .map((slot) => ({
-          ...slot,
-          count: Number(this.treasure[slot.field] ?? 0),
-        }))
+        .map((slot) => {
+          let count = Number(this.treasure[slot.field] ?? 0);
+          if (slot.id === 'premium_1d' && !count) {
+            count = Number(this.treasure.premium_scrolls ?? 0);
+          }
+
+          return { ...slot, count };
+        })
         .filter((slot) => slot.count > 0);
     },
     totalItems() {

@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" fill="none">
+  <defs>
+    <linearGradient id="pbFront" x1="220" y1="260" x2="780" y2="560" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#9aef82"/>
+      <stop offset=".55" stop-color="#5fd456"/>
+      <stop offset="1" stop-color="#2f9e3f"/>
+    </linearGradient>
+    <linearGradient id="pbFold" x1="500" y1="460" x2="500" y2="700" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2a8f38"/>
+      <stop offset="1" stop-color="#1a5f28"/>
+    </linearGradient>
+    <linearGradient id="pbUnder" x1="680" y1="500" x2="880" y2="720" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3cb84f"/>
+      <stop offset="1" stop-color="#1f7030"/>
+    </linearGradient>
+    <radialGradient id="pbOval" cx="50%" cy="45%" r="50%">
+      <stop stop-color="#e8ffd8"/>
+      <stop offset="1" stop-color="#b0e890"/>
+    </radialGradient>
+  </defs>
+
+  <!-- нижний слой купюры (загиб справа) -->
+  <path d="M640 500
+    C720 520 820 580 860 660
+    C880 700 870 740 830 760
+    C760 790 660 770 590 720
+    C560 660 580 560 640 500 Z"
+    fill="url(#pbUnder)" stroke="#1a5f28" stroke-width="10" stroke-linejoin="round"/>
+
+  <!-- основная лицевая сторона — горизонтальный прямоугольник -->
+  <path d="M210 310
+    Q188 330 192 358
+    Q186 386 192 414
+    Q186 442 192 470
+    Q186 498 200 520
+    L230 548
+    C360 575 560 570 700 535
+    C780 515 830 470 845 420
+    C855 380 840 330 800 300
+    C720 255 560 245 400 258
+    C310 268 245 285 210 310 Z"
+    fill="url(#pbFront)" stroke="#1a5f28" stroke-width="14" stroke-linejoin="round"/>
+
+  <!-- тень сгиба на нижней части -->
+  <path d="M210 430
+    L845 430
+    C830 470 780 515 700 535
+    C560 570 360 575 230 548
+    L210 520 Z"
+    fill="url(#pbFold)"/>
+
+  <!-- декоративная рамка -->
+  <path d="M255 325
+    Q238 345 242 370
+    Q236 395 242 420
+    Q236 445 242 470
+    Q236 495 252 510
+    L275 530
+    C380 552 540 548 665 520
+    C735 505 775 475 785 440
+    C792 410 780 375 745 355
+    C680 320 540 312 400 322
+    C330 328 280 318 255 325 Z"
+    fill="none" stroke="#1a5f28" stroke-width="8" opacity=".3"/>
+
+  <!-- внутренняя панель -->
+  <path d="M285 350
+    Q272 365 275 385
+    Q270 405 275 425
+    Q270 445 275 465
+    Q270 485 282 498
+    L300 512
+    C390 530 520 528 630 508
+    C690 497 720 475 728 450
+    C733 430 725 405 700 390
+    C650 365 520 360 400 368
+    C345 372 305 362 285 350 Z"
+    fill="none" stroke="#1a5f28" stroke-width="5" opacity=".22"/>
+
+  <!-- портретный овал -->
+  <ellipse cx="500" cy="420" rx="150" ry="118" fill="url(#pbOval)" stroke="#1a5f28" stroke-width="11"/>
+  <ellipse cx="500" cy="420" rx="125" ry="98" fill="none" stroke="#2d8a3a" stroke-width="4" opacity=".35"/>
+
+  <text x="500" y="460" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="148" font-weight="700" fill="#1a5f28">п</text>
+
+  <!-- угловые орнаменты -->
+  <circle cx="310" cy="370" r="18" fill="#1a5f28" opacity=".18"/>
+  <circle cx="690" cy="370" r="18" fill="#1a5f28" opacity=".18"/>
+  <circle cx="310" cy="490" r="18" fill="#1a5f28" opacity=".18"/>
+  <circle cx="690" cy="490" r="18" fill="#1a5f28" opacity=".18"/>
+
+  <!-- блик по верхнему краю -->
+  <path d="M250 295 Q500 255 790 295" stroke="#c8f8b0" stroke-width="9" stroke-linecap="round" opacity=".55"/>
+</svg>

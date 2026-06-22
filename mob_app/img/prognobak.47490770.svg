@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" fill="none">
+  <defs>
+    <linearGradient id="bFront" x1="200" y1="200" x2="800" y2="800" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#8ee67a"/><stop offset="1" stop-color="#2d9a3e"/>
+    </linearGradient>
+    <linearGradient id="bFold" x1="500" y1="500" x2="500" y2="900" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2a8f38"/><stop offset="1" stop-color="#1a5f28"/>
+    </linearGradient>
+    <linearGradient id="bBack" x1="750" y1="250" x2="900" y2="750" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3cb84f"/><stop offset="1" stop-color="#1f7030"/>
+    </linearGradient>
+    <radialGradient id="bOval" cx="50%" cy="45%" r="50%">
+      <stop stop-color="#e8ffd8"/><stop offset="1" stop-color="#b8e8a0"/>
+    </radialGradient>
+  </defs>
+  <!-- back bill -->
+  <path d="M720 220 C860 240 900 380 880 520 C860 660 760 760 620 780 C580 500 640 320 720 220 Z" fill="url(#bBack)" stroke="#1a5f28" stroke-width="12"/>
+  <!-- main bill body -->
+  <path d="M140 280 C140 220 190 180 260 180 H740 C810 180 860 220 860 280 V620 C860 700 800 760 720 760 H280 C200 760 140 700 140 620 Z" fill="url(#bFront)" stroke="#1a5f28" stroke-width="16" stroke-linejoin="round"/>
+  <!-- fold shadow bottom -->
+  <path d="M140 560 H860 C860 680 800 760 720 760 H280 C200 760 140 680 140 560 Z" fill="url(#bFold)"/>
+  <!-- inner frame -->
+  <rect x="200" y="250" width="600" height="420" rx="24" fill="none" stroke="#1a5f28" stroke-width="10" opacity=".35"/>
+  <rect x="230" y="280" width="540" height="360" rx="18" fill="none" stroke="#1a5f28" stroke-width="6" opacity=".25"/>
+  <!-- portrait oval -->
+  <ellipse cx="500" cy="430" rx="155" ry="130" fill="url(#bOval)" stroke="#1a5f28" stroke-width="12"/>
+  <ellipse cx="500" cy="430" rx="130" ry="108" fill="none" stroke="#2d8a3a" stroke-width="5" opacity=".4"/>
+  <text x="500" y="470" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="148" font-weight="700" fill="#1a5f28">п</text>
+  <!-- corner ornaments -->
+  <circle cx="280" cy="340" r="22" fill="#1a5f28" opacity=".2"/>
+  <circle cx="720" cy="340" r="22" fill="#1a5f28" opacity=".2"/>
+  <circle cx="280" cy="560" r="22" fill="#1a5f28" opacity=".2"/>
+  <circle cx="720" cy="560" r="22" fill="#1a5f28" opacity=".2"/>
+  <!-- edge highlights -->
+  <path d="M180 220 Q500 160 820 220" stroke="#b8f0a8" stroke-width="8" stroke-linecap="round" opacity=".5"/>
+</svg>

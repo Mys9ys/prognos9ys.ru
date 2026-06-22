@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+  <defs>
+    <linearGradient id="stone" x1="12" y1="4" x2="12" y2="20" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#b8c4d4"/>
+      <stop offset="1" stop-color="#7f8fa6"/>
+    </linearGradient>
+    <linearGradient id="door" x1="12" y1="12" x2="12" y2="17" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f0b35c"/>
+      <stop offset="1" stop-color="#c9782a"/>
+    </linearGradient>
+  </defs>
+  <path d="M3.5 9.5 12 5l8.5 4.5v1H3.5v-1Z" fill="url(#stone)" stroke="#5f6f82" stroke-width=".6" stroke-linejoin="round"/>
+  <rect x="4.5" y="10.5" width="2.2" height="7.5" rx=".4" fill="#eef2f7" stroke="#5f6f82" stroke-width=".5"/>
+  <rect x="8.2" y="10.5" width="2.2" height="7.5" rx=".4" fill="#eef2f7" stroke="#5f6f82" stroke-width=".5"/>
+  <rect x="13.6" y="10.5" width="2.2" height="7.5" rx=".4" fill="#eef2f7" stroke="#5f6f82" stroke-width=".5"/>
+  <rect x="17.3" y="10.5" width="2.2" height="7.5" rx=".4" fill="#eef2f7" stroke="#5f6f82" stroke-width=".5"/>
+  <path d="M10.8 12.2h2.4a1.2 1.2 0 0 1 1.2 1.2v4.6h-4.8v-4.6a1.2 1.2 0 0 1 1.2-1.2Z" fill="url(#door)" stroke="#8f5520" stroke-width=".5"/>
+  <path d="M3 18.5h18v1.8H3v-1.8Z" fill="#6d7d90"/>
+  <path d="M2 20.3h20v1.2H2v-1.2Z" fill="#5f6f82"/>
+  <circle cx="12" cy="7.6" r="1.1" fill="#f0c060" stroke="#8f5520" stroke-width=".4"/>
+</svg>

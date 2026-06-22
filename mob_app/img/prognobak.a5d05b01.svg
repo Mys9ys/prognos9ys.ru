@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" fill="none">
+  <defs>
+    <linearGradient id="pbFront" x1="120" y1="360" x2="880" y2="640" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#9aef82"/>
+      <stop offset=".5" stop-color="#5fd456"/>
+      <stop offset="1" stop-color="#2f9e3f"/>
+    </linearGradient>
+    <linearGradient id="pbFold" x1="500" y1="500" x2="500" y2="640" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2a8f38"/>
+      <stop offset="1" stop-color="#1a5f28"/>
+    </linearGradient>
+    <linearGradient id="pbEdge" x1="720" y1="520" x2="900" y2="700" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3cb84f"/>
+      <stop offset="1" stop-color="#1f7030"/>
+    </linearGradient>
+    <radialGradient id="pbOval" cx="50%" cy="45%" r="50%">
+      <stop stop-color="#e8ffd8"/>
+      <stop offset="1" stop-color="#b0e890"/>
+    </radialGradient>
+  </defs>
+
+  <!-- загиб сзади -->
+  <path d="M700 520 L880 570 L860 690 L680 640 Z" fill="url(#pbEdge)" stroke="#1a5f28" stroke-width="10" stroke-linejoin="round"/>
+
+  <!-- купюра: горизонтальный прямоугольник 760×280 в квадратном холсте -->
+  <path d="M150 360 H850 C869 360 880 371 880 390 V610 C880 629 869 640 850 640 H150 C131 640 120 629 120 610 V390 C120 371 131 360 150 360 Z"
+    fill="url(#pbFront)" stroke="#1a5f28" stroke-width="14" stroke-linejoin="round"/>
+
+  <!-- тень сгиба -->
+  <path d="M120 500 H880 V610 C880 629 869 640 850 640 H150 C131 640 120 629 120 610 Z"
+    fill="url(#pbFold)"/>
+
+  <!-- рамка -->
+  <rect x="180" y="400" width="640" height="200" rx="16" fill="none" stroke="#1a5f28" stroke-width="8" opacity=".3"/>
+  <rect x="210" y="425" width="580" height="150" rx="12" fill="none" stroke="#1a5f28" stroke-width="5" opacity=".2"/>
+
+  <!-- овал и буква -->
+  <ellipse cx="500" cy="500" rx="130" ry="100" fill="url(#pbOval)" stroke="#1a5f28" stroke-width="11"/>
+  <ellipse cx="500" cy="500" rx="108" ry="84" fill="none" stroke="#2d8a3a" stroke-width="4" opacity=".35"/>
+  <text x="500" y="540" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="130" font-weight="700" fill="#1a5f28">п</text>
+
+  <!-- угловые метки -->
+  <circle cx="250" cy="450" r="14" fill="#1a5f28" opacity=".18"/>
+  <circle cx="750" cy="450" r="14" fill="#1a5f28" opacity=".18"/>
+  <circle cx="250" cy="550" r="14" fill="#1a5f28" opacity=".18"/>
+  <circle cx="750" cy="550" r="14" fill="#1a5f28" opacity=".18"/>
+
+  <!-- блик -->
+  <path d="M160 375 H860" stroke="#c8f8b0" stroke-width="7" stroke-linecap="round" opacity=".5"/>
+</svg>

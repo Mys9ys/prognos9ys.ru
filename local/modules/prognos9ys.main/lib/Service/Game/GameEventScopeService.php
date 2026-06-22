@@ -303,60 +303,21 @@ class GameEventScopeService
         return null;
     }
 
-    public function getLastSettledMatchIdForEvent(int $eventId): int
-    {
-        $match = $this->getLastSettledMatchForEvent($eventId);
-
-        return (int)($match['id'] ?? 0);
-    }
-
     /**
-     * Последний завершённый матч события (ACTIVE=N), в рамках игровой экономики.
+     * Последний матч события с внесённым результатом и прогнанным пересчётом.
      *
      * @return array{id:int,number:int}
      */
     public function getLastSettledMatchForEvent(int $eventId): array
     {
-        if ($eventId <= 0 || !Loader::includeModule('iblock')) {
-            return ['id' => 0, 'number' => 0];
-        }
+        return (new MatchEconomySettlementService(null, $this))->getLastSettledMatchForEvent($eventId);
+    }
 
-        $filter = [
-            'IBLOCK_ID' => 2,
-            'PROPERTY_events' => $eventId,
-            'ACTIVE' => 'N',
-        ];
+    public function getLastSettledMatchIdForEvent(int $eventId): int
+    {
+        $match = $this->getLastSettledMatchForEvent($eventId);
 
-        if (GameEconomyConfig::isTestMatchNumberLimitEnabled()) {
-            $filter['>=PROPERTY_number'] = GameEconomyConfig::getTestMatchNumberMin();
-            $filter['<=PROPERTY_number'] = GameEconomyConfig::getTestMatchNumberMax();
-        }
-
-        $response = \CIBlockElement::GetList(
-            ['PROPERTY_number' => 'DESC', 'ID' => 'DESC'],
-            $filter,
-            false,
-            false,
-            ['ID', 'PROPERTY_events', 'PROPERTY_number']
-        );
-
-        while ($row = $response->GetNext()) {
-            $matchId = (int)($row['ID'] ?? 0);
-            $matchNumber = $this->extractMatchNumberFromRow($row);
-            $rowEventId = (int)($row['PROPERTY_EVENTS_VALUE'] ?? $eventId);
-
-            if ($matchId <= 0 || $matchNumber <= 0) {
-                continue;
-            }
-
-            if (!$this->isMatchInScope($rowEventId, $matchNumber)) {
-                continue;
-            }
-
-            return ['id' => $matchId, 'number' => $matchNumber];
-        }
-
-        return ['id' => 0, 'number' => 0];
+        return (int)($match['id'] ?? 0);
     }
 
     public function getMatchNumber(int $matchId): int

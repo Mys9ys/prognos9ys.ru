@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+  <defs>
+    <linearGradient id="bill" x1="4" y1="6" x2="20" y2="18" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7ddf6a"/>
+      <stop offset="1" stop-color="#2e9e3f"/>
+    </linearGradient>
+    <linearGradient id="bill-dark" x1="4" y1="14" x2="20" y2="20" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2a8f38"/>
+      <stop offset="1" stop-color="#1d6b29"/>
+    </linearGradient>
+  </defs>
+  <path d="M4.5 7.5c0-1.2 1-2.2 2.2-2.2h10.6c1.2 0 2.2 1 2.2 2.2v9c0 1.2-1 2.2-2.2 2.2H6.7c-1.2 0-2.2-1-2.2-2.2v-9Z" fill="url(#bill)" stroke="#1a5f28" stroke-width=".8"/>
+  <path d="M4.5 14.5h15v2c0 1.2-1 2.2-2.2 2.2H6.7c-1.2 0-2.2-1-2.2-2.2v-2Z" fill="url(#bill-dark)"/>
+  <ellipse cx="12" cy="11.5" rx="4.2" ry="3.4" fill="#dff9d4" stroke="#1a5f28" stroke-width=".7"/>
+  <text x="12" y="12.6" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="5.2" font-weight="700" fill="#1a5f28">?</text>
+  <circle cx="7.2" cy="10.2" r=".7" fill="#1a5f28" opacity=".35"/>
+  <circle cx="16.8" cy="10.2" r=".7" fill="#1a5f28" opacity=".35"/>
+</svg>

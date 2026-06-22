@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+  <defs>
+    <linearGradient id="ruby-top" x1="12" y1="2" x2="12" y2="14" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ff6b8a"/>
+      <stop offset="1" stop-color="#c41e3a"/>
+    </linearGradient>
+    <linearGradient id="ruby-side" x1="4" y1="10" x2="20" y2="18" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#e8354f"/>
+      <stop offset="1" stop-color="#8b1530"/>
+    </linearGradient>
+    <linearGradient id="ruby-shine" x1="8" y1="5" x2="14" y2="11" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <path d="M12 2.5 18.5 8 12 21.5 5.5 8 12 2.5Z" fill="url(#ruby-side)"/>
+  <path d="M12 2.5 15.8 8 12 13.5 8.2 8 12 2.5Z" fill="url(#ruby-top)"/>
+  <path d="M5.5 8h13L12 13.5 5.5 8Z" fill="#9e1834"/>
+  <path d="M9.2 5.8 12 8.8l2.8-3" stroke="url(#ruby-shine)" stroke-width="1.2" stroke-linecap="round"/>
+</svg>

@@ -77,7 +77,6 @@ class ExperienceService
 
         $filter = [
             'IBLOCK_ID' => self::MATCHES_IBLOCK_ID,
-            'ACTIVE' => 'N',
             'PROPERTY_EVENTS' => $eligibleEventIds,
         ];
 
@@ -86,6 +85,7 @@ class ExperienceService
             $filter['<=PROPERTY_number'] = GameEconomyConfig::getTestMatchNumberMax();
         }
 
+        $settlementService = new MatchEconomySettlementService(null, $this->eventScope);
         $count = 0;
         $response = \CIBlockElement::GetList(
             [],
@@ -96,7 +96,12 @@ class ExperienceService
         );
 
         while ($row = $response->GetNext()) {
-            $this->syncPendingForMatch((int)$row['ID']);
+            $matchId = (int)($row['ID'] ?? 0);
+            if ($matchId <= 0 || !$settlementService->isMatchEconomicallySettled($matchId)) {
+                continue;
+            }
+
+            $this->syncPendingForMatch($matchId);
             $count++;
         }
 
@@ -362,21 +367,7 @@ class ExperienceService
 
     private function isMatchFinished(int $matchId): bool
     {
-        if (!Loader::includeModule('iblock')) {
-            return false;
-        }
-
-        $row = \CIBlockElement::GetList(
-            [],
-            [
-                'IBLOCK_ID' => self::MATCHES_IBLOCK_ID,
-                'ID' => $matchId,
-            ],
-            false,
-            false,
-            ['ID', 'ACTIVE']
-        )->GetNext();
-
-        return $row && (string)$row['ACTIVE'] === 'N';
+        return (new MatchEconomySettlementService(null, $this->eventScope))
+            ->isMatchEconomicallySettled($matchId);
     }
 }

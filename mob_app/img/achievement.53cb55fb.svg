@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" fill="none">
+  <defs>
+    <linearGradient id="bdgGold" x1="500" y1="120" x2="500" y2="520" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff4d0"/><stop offset="1" stop-color="#d4a840"/>
+    </linearGradient>
+    <linearGradient id="bdgRibbon" x1="500" y1="520" x2="500" y2="900" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#e8c050"/><stop offset="1" stop-color="#b88820"/>
+    </linearGradient>
+    <linearGradient id="bdgStar" x1="500" y1="280" x2="500" y2="460" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffe880"/><stop offset="1" stop-color="#c9922e"/>
+    </linearGradient>
+  </defs>
+  <!-- scalloped badge outer -->
+  <path d="M500 110
+    C540 110 560 150 590 140 C620 130 640 160 670 170 C700 180 700 220 720 250
+    C740 280 780 280 790 310 C800 340 770 360 770 390 C770 420 800 440 790 470
+    C780 500 740 500 720 530 C700 560 700 600 670 610 C640 620 620 650 590 640
+    C560 630 540 670 500 670 C460 670 440 630 410 640 C380 650 360 620 330 610
+    C300 600 300 560 280 530 C260 500 220 500 210 470 C200 440 230 420 230 390
+    C230 360 200 340 210 310 C220 280 260 280 280 250 C300 220 300 180 330 170
+    C360 160 380 130 410 140 C440 150 460 110 500 110 Z" fill="url(#bdgGold)" stroke="#8a6420" stroke-width="16"/>
+  <!-- inner ring -->
+  <circle cx="500" cy="390" r="175" fill="none" stroke="#8a6420" stroke-width="14"/>
+  <circle cx="500" cy="390" r="150" fill="#f0d888" stroke="#a87828" stroke-width="8"/>
+  <!-- star -->
+  <path d="M500 260 L535 350 H630 L555 410 L585 505 L500 455 L415 505 L445 410 L370 350 H465 Z" fill="url(#bdgStar)" stroke="#8a6420" stroke-width="10" stroke-linejoin="round"/>
+  <!-- ribbons -->
+  <path d="M380 560 L300 820 L500 700 L420 560 Z" fill="url(#bdgRibbon)" stroke="#8a6420" stroke-width="14" stroke-linejoin="round"/>
+  <path d="M620 560 L700 820 L500 700 L580 560 Z" fill="url(#bdgRibbon)" stroke="#8a6420" stroke-width="14" stroke-linejoin="round"/>
+  <path d="M420 700 H580" stroke="#8a6420" stroke-width="10"/>
+  <!-- ribbon V cuts -->
+  <path d="M300 820 L340 760 M700 820 L660 760" stroke="#8a6420" stroke-width="12" stroke-linecap="round"/>
+  <!-- shine -->
+  <ellipse cx="420" cy="300" rx="60" ry="35" fill="#fff" opacity=".35" transform="rotate(-20 420 300)"/>
+</svg>
