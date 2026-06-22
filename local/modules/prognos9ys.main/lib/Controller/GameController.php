@@ -416,7 +416,7 @@ class GameController extends BaseController
         ]);
     }
 
-    public function moderatorBulkActionAction(string $action): array
+    public function moderatorBulkActionAction(string $bulkAction): array
     {
         $actorId = TokenAuthService::getCurrentUserId();
 
@@ -429,7 +429,7 @@ class GameController extends BaseController
         }
 
         try {
-            $result = (new ModeratorBulkActionsService())->run($action);
+            $result = (new ModeratorBulkActionsService())->run($bulkAction);
         } catch (\InvalidArgumentException $e) {
             throw new ApiException($e->getMessage(), 400);
         }
