@@ -125,6 +125,10 @@ class Cs2MatchLoadInfo extends PrognosisGiveInfo
         $el['bet_reward'] = $this->getUserBetReward((int)$el['id']);
         $el['max'] = $this->getCountMatches();
 
+        if (Loader::includeModule('prognos9ys.main')) {
+            $el['maps'] = (new \Prognos9ys\Main\Service\Cs2\Cs2MapsService())->getPoolMaps();
+        }
+
         $this->arResult = $el;
     }
 

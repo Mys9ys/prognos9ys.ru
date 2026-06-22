@@ -115,7 +115,7 @@ class SetBotCs2Prognosis
         $boFormat = (string)($arr['bo_format'] ?? 'bo3');
         unset($arr['bo_format']);
 
-        $generator = new GenValuesBotCs2($boFormat);
+        $generator = new GenValuesBotCs2($boFormat, (new \Prognos9ys\Main\Service\Cs2\Cs2MapsService())->getPoolMaps());
         $props = array_replace($generator->getArFields(), $arr);
 
         $now = date(\CDatabase::DateFormatToPHP('DD.MM.YYYY HH:MI:SS'), time());

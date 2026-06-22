@@ -3,6 +3,7 @@
 namespace Prognos9ys\Main\Controller;
 
 use Prognos9ys\Main\Service\Cs2\Cs2EventListService;
+use Prognos9ys\Main\Service\Cs2\Cs2MapsService;
 use Prognos9ys\Main\Service\Cs2\Cs2MatchService;
 use Prognos9ys\Main\Service\Cs2\Cs2PrognosisService;
 
@@ -13,6 +14,7 @@ class Cs2Controller extends BaseController
         return [
             'getEventMatches' => $this->getDefaultConfigureForPost(true),
             'getMatch' => $this->getDefaultConfigureForPost(true),
+            'getMaps' => $this->getDefaultConfigureForPost(true),
             'sendPrognosis' => $this->getDefaultConfigureForPostToken(),
         ];
     }
@@ -25,6 +27,13 @@ class Cs2Controller extends BaseController
     public function getMatchAction(string $eventId, string $number, ?string $userToken = null): array
     {
         return (new Cs2MatchService())->getMatch($eventId, $number, $userToken);
+    }
+
+    public function getMapsAction(): array
+    {
+        return [
+            'maps' => (new Cs2MapsService())->getPoolMaps(),
+        ];
     }
 
     public function sendPrognosisAction(

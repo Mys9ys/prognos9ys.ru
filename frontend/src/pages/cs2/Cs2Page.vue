@@ -36,7 +36,7 @@
     </div>
 
     <div v-if="admin" class="block_gap">
-      <Cs2AdminSetResult :id="arMatch.id" :bo-format="boFormat" :result="matchR" :map-scores="mapScores" />
+      <Cs2AdminSetResult :id="arMatch.id" :bo-format="boFormat" :result="matchR" :map-scores="mapScores" :maps="cs2Maps" />
     </div>
 
     <div v-else>
@@ -141,21 +141,12 @@
               </div>
             </div>
             <div v-if="mapsBlock" class="maps_list">
-              <div class="map_row" v-for="(map, index) in mapScores" :key="map.slot">
-                <div class="map_slot">Карта {{ map.slot }}</div>
-                <input class="map_name" v-model="mapScores[index].map_code" placeholder="Ancient">
-                <div class="goal_block">
-                  <div class="minus goal_btn" @click="setMapRounds(index, 'home', -1)">-</div>
-                  <div class="value">{{ map.rounds_home }}</div>
-                  <div class="plus goal_btn" @click="setMapRounds(index, 'home', 1)">+</div>
-                </div>
-                <div class="dash">–</div>
-                <div class="goal_block">
-                  <div class="minus goal_btn" @click="setMapRounds(index, 'guest', -1)">-</div>
-                  <div class="value">{{ map.rounds_guest }}</div>
-                  <div class="plus goal_btn" @click="setMapRounds(index, 'guest', 1)">+</div>
-                </div>
-              </div>
+              <Cs2MapPicker
+                v-model="mapScores"
+                :maps="cs2Maps"
+                :slot-count="mapSlotCount"
+                :base-url="urlImg"
+              />
             </div>
           </div>
 
@@ -270,8 +261,10 @@ import PreLoader from '@/components/main/PreLoader';
 import SendSuccess from '@/components/main/SendSuccess';
 import ActionFailure from '@/components/main/ActionFailure';
 import Cs2AdminSetResult from '@/components/cs2/Cs2AdminSetResult';
+import Cs2MapPicker from '@/components/cs2/Cs2MapPicker';
 import Cs2ResultTable from '@/components/cs2/Cs2ResultTable';
 import AppIcon from '@/components/ui/AppIcon.vue';
+import { apiActions } from '@/api/bitrixClient';
 import { authRoute } from '@/utils/authRedirect';
 import {
   boFormatLabel,
@@ -286,6 +279,7 @@ export default {
   components: {
     ActionFailure,
     Cs2AdminSetResult,
+    Cs2MapPicker,
     PageHeader,
     PreLoader,
     SendSuccess,
@@ -308,6 +302,7 @@ export default {
       withBet: true,
       withBetUserTouched: false,
       mapScores: emptyMapScores(3),
+      cs2Maps: [],
       data: {
         30: this.$route.params.number,
         17: '',
@@ -347,6 +342,7 @@ export default {
     };
   },
   created() {
+    this.loadMaps();
     this.fillMatchElem();
     this.setOtherLink();
   },
@@ -356,6 +352,13 @@ export default {
     },
     boFormat(format) {
       this.mapScores = normalizeMapScores(this.mapScores, mapSlotsForFormat(format));
+      this.serializeMapScores();
+    },
+    mapScores: {
+      deep: true,
+      handler() {
+        this.serializeMapScores();
+      },
     },
   },
   computed: {
@@ -377,6 +380,9 @@ export default {
     },
     boLabel() {
       return boFormatLabel(this.boFormat);
+    },
+    mapSlotCount() {
+      return mapSlotsForFormat(this.boFormat);
     },
     canAffordBet() {
       return Number(this.userInfo?.game_info?.wallet?.prognobaks ?? 0) >= 10;
@@ -444,11 +450,21 @@ export default {
         .filter(item => item.rounds_home > 0 || item.rounds_guest > 0 || item.map_code)
         .map(item => ({
           slot: item.slot,
+          map_id: Number(item.map_id || 0),
           map_code: item.map_code,
           rounds_home: Number(item.rounds_home),
           rounds_guest: Number(item.rounds_guest),
         }));
       this.data[29] = JSON.stringify(payload);
+    },
+
+    async loadMaps() {
+      try {
+        const res = await apiActions.cs2.getMaps();
+        this.cs2Maps = res.maps || [];
+      } catch (e) {
+        this.cs2Maps = this.arMatch?.maps || [];
+      }
     },
 
     syncFormFromPrognosis() {

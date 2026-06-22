@@ -90,25 +90,14 @@
     <div class="part_block maps_block">
       <div class="title_block">
         <div class="item icon">M</div>
-        <div class="item title">Счёт по картам:</div>
+        <div class="item title">Счёт по картам (пики для статистики):</div>
       </div>
-      <div class="maps_list">
-        <div class="map_row" v-for="(map, index) in localMapScores" :key="map.slot">
-          <div class="map_slot">Карта {{ map.slot }}</div>
-          <input class="map_name" v-model="localMapScores[index].map_code" placeholder="map">
-          <div class="goal_block">
-            <div class="btn" @click="bumpMap(index, 'home', -1)">-</div>
-            <div class="value">{{ map.rounds_home }}</div>
-            <div class="btn" @click="bumpMap(index, 'home', 1)">+</div>
-          </div>
-          <div class="dash">–</div>
-          <div class="goal_block">
-            <div class="btn" @click="bumpMap(index, 'guest', -1)">-</div>
-            <div class="value">{{ map.rounds_guest }}</div>
-            <div class="btn" @click="bumpMap(index, 'guest', 1)">+</div>
-          </div>
-        </div>
-      </div>
+      <Cs2MapPicker
+        v-model="localMapScores"
+        :maps="maps"
+        :slot-count="mapSlotCount"
+        :show-pick-by="true"
+      />
     </div>
 
     <div class="btns_block">
@@ -123,16 +112,18 @@
 <script>
 import { mapActions, mapState } from 'vuex';
 import PreLoader from '@/components/main/PreLoader';
+import Cs2MapPicker from '@/components/cs2/Cs2MapPicker';
 import { emptyMapScores, mapSlotsForFormat, maxMapsWin, normalizeMapScores } from '@/utils/cs2Format';
 
 export default {
   name: 'Cs2AdminSetResult',
-  components: { PreLoader },
+  components: { PreLoader, Cs2MapPicker },
   props: {
     id: Number,
     boFormat: { type: String, default: 'bo3' },
     result: { type: Object, default: () => ({}) },
     mapScores: { type: Array, default: () => [] },
+    maps: { type: Array, default: () => [] },
   },
   data() {
     return {
@@ -150,13 +141,24 @@ export default {
     };
   },
   created() {
-    this.localMapScores = normalizeMapScores(this.mapScores.length ? this.mapScores : this.result.map_scores, mapSlotsForFormat(this.boFormat));
+    this.localMapScores = normalizeMapScores(
+      this.mapScores.length ? this.mapScores : this.result.map_scores,
+      mapSlotsForFormat(this.boFormat),
+    );
   },
   computed: {
     ...mapState({
       token: state => state.auth.authData.token,
       role: state => state.auth.userInfo.role,
     }),
+    mapSlotCount() {
+      return mapSlotsForFormat(this.boFormat);
+    },
+  },
+  watch: {
+    boFormat(format) {
+      this.localMapScores = normalizeMapScores(this.localMapScores, mapSlotsForFormat(format));
+    },
   },
   methods: {
     ...mapActions({
@@ -185,20 +187,17 @@ export default {
       this.data[field] = Math.max(0, Number(this.data[field]) + delta);
     },
 
-    bumpMap(index, side, delta) {
-      const key = side === 'home' ? 'rounds_home' : 'rounds_guest';
-      this.localMapScores[index][key] = Math.max(0, Number(this.localMapScores[index][key]) + delta);
-    },
-
     buildPayload() {
       this.syncDerived();
       const maps = this.localMapScores
         .filter(item => item.rounds_home > 0 || item.rounds_guest > 0 || item.map_code)
         .map(item => ({
           slot: item.slot,
+          map_id: Number(item.map_id || 0),
           map_code: item.map_code,
           rounds_home: Number(item.rounds_home),
           rounds_guest: Number(item.rounds_guest),
+          pick_by: item.pick_by || '',
         }));
 
       return {
@@ -238,29 +237,4 @@ export default {
 <style lang="less" scoped>
 @import "src/assets/css/variables.less";
 @import "src/assets/css/match-page.less";
-
-.maps_list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.map_row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  justify-content: flex-end;
-  align-items: center;
-
-  .map_slot {
-    min-width: 52px;
-    font-size: 11px;
-    color: @YesWrite;
-  }
-
-  .map_name {
-    width: 72px;
-    font-size: 11px;
-  }
-}
 </style>

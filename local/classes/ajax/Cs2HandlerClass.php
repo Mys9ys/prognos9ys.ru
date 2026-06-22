@@ -125,14 +125,37 @@ class Cs2HandlerClass extends FootballHandlerClass
             $el['bet_ratio'] = $betRatio['odds'];
             $el['bet_ratio_meta'] = $betRatio['meta'];
 
-            $period = $this->fillSectionArray($res['DATE_ACTIVE_FROM']);
-            $this->arFill[$period['period']]['items'][$el['date']][$el['number']] = $el;
-            $this->arFill[$period['period']]['info'] = $period;
+            $period = (string)($res['PROPERTY_STAGE_VALUE'] ?? '');
+            if ($period === '') {
+                $period = 'Матчи';
+            }
+
+            if (!isset($this->arFill[$period])) {
+                $this->arFill[$period] = [
+                    'items' => [],
+                    'info' => [
+                        'period' => $period,
+                        'title' => $period,
+                        'visible' => true,
+                        'count' => 0,
+                    ],
+                ];
+            }
+
+            $this->arFill[$period]['items'][$el['date']][$el['number']] = $el;
+            $this->arFill[$period]['info']['count'] = (int)$this->arFill[$period]['info']['count'] + 1;
         }
 
-        foreach ($this->arFill as $section => $arr) {
-            $this->checkVisible();
-            $this->arFill[$section]['info'] = $this->arPeriod[$section];
-        }
+        $stageOrder = [
+            'Stage 1' => 10,
+            'Stage 2' => 20,
+            'Stage 3' => 30,
+            'Четвертьфинал' => 40,
+            'Полуфинал' => 50,
+            'Финал' => 60,
+        ];
+        uksort($this->arFill, static function ($a, $b) use ($stageOrder) {
+            return ($stageOrder[$a] ?? 999) <=> ($stageOrder[$b] ?? 999);
+        });
     }
 }

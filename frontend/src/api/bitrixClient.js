@@ -100,6 +100,7 @@ export const apiActions = {
             'prognos9ys:main.Cs2Controller.getMatch',
             { eventId, number, userToken }
         ),
+        getMaps: () => runBitrixAction('prognos9ys:main.Cs2Controller.getMaps', {}),
         sendPrognosis: (userToken, fields, mapScoresJson = '', withBet = null) => runBitrixAction(
             'prognos9ys:main.Cs2Controller.sendPrognosis',
             {

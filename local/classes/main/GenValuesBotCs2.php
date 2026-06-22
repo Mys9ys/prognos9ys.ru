@@ -6,9 +6,13 @@ class GenValuesBotCs2
 
     protected string $boFormat;
 
-    public function __construct(string $boFormat = 'bo3')
+    /** @var list<array{id:int,code:string,name:string}> */
+    protected array $mapPool;
+
+    public function __construct(string $boFormat = 'bo3', array $mapPool = [])
     {
         $this->boFormat = $this->normalizeBoFormat($boFormat);
+        $this->mapPool = $mapPool;
         $this->setSeriesMaps();
         $this->setOpeningPct();
         $this->setPistolPct();
@@ -80,10 +84,12 @@ class GenValuesBotCs2
             $homeWins = (bool)random_int(0, 1);
             $winnerRounds = random_int(13, 16);
             $loserRounds = random_int(6, 12);
+            $map = $this->pickRandomMap();
 
             $maps[] = [
                 'slot' => $i + 1,
-                'map_code' => '',
+                'map_id' => $map['id'] ?? 0,
+                'map_code' => $map['code'] ?? '',
                 'rounds_home' => $homeWins ? $winnerRounds : $loserRounds,
                 'rounds_guest' => $homeWins ? $loserRounds : $winnerRounds,
             ];
@@ -101,5 +107,20 @@ class GenValuesBotCs2
         }
 
         return 'bo3';
+    }
+
+    /** @return array{id:int,code:string} */
+    protected function pickRandomMap(): array
+    {
+        if (!$this->mapPool) {
+            return ['id' => 0, 'code' => ''];
+        }
+
+        $map = $this->mapPool[array_rand($this->mapPool)];
+
+        return [
+            'id' => (int)($map['id'] ?? 0),
+            'code' => (string)($map['code'] ?? ''),
+        ];
     }
 }

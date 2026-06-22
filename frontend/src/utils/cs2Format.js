@@ -22,9 +22,11 @@ export function boFormatLabel(boFormat) {
 export function emptyMapScores(count) {
   return Array.from({ length: count }, (_, index) => ({
     slot: index + 1,
+    map_id: 0,
     map_code: '',
     rounds_home: 0,
     rounds_guest: 0,
+    pick_by: '',
   }));
 }
 
@@ -39,9 +41,11 @@ export function normalizeMapScores(raw, slotCount) {
     if (!base[index]) return;
     base[index] = {
       slot: index + 1,
+      map_id: Number(item.map_id ?? 0),
       map_code: item.map_code || item.map || '',
       rounds_home: Number(item.rounds_home ?? item.home ?? 0),
       rounds_guest: Number(item.rounds_guest ?? item.guest ?? 0),
+      pick_by: item.pick_by || '',
     };
   });
 

@@ -7,6 +7,7 @@ use Bitrix\Main\Loader;
 class Cs2IblockRegistry
 {
     public const IBLOCK_TEAMS = 'cs2teams';
+    public const IBLOCK_MAPS = 'cs2maps';
     public const IBLOCK_MATCHES = 'cs2matches';
     public const IBLOCK_PROGNOSIS = 'prognoscs2';
     public const IBLOCK_RESULT = 'resultcs2';
@@ -69,7 +70,7 @@ class Cs2IblockRegistry
             return;
         }
 
-        foreach ([self::IBLOCK_TEAMS, self::IBLOCK_MATCHES, self::IBLOCK_PROGNOSIS, self::IBLOCK_RESULT] as $code) {
+        foreach ([self::IBLOCK_TEAMS, self::IBLOCK_MAPS, self::IBLOCK_MATCHES, self::IBLOCK_PROGNOSIS, self::IBLOCK_RESULT] as $code) {
             $row = \CIBlock::GetList([], ['CODE' => $code, 'CHECK_PERMISSIONS' => 'N'])->Fetch();
             if ($row) {
                 self::$iblockIds[$code] = (int)$row['ID'];
