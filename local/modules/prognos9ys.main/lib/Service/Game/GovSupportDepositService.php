@@ -50,13 +50,6 @@ class GovSupportDepositService
             $bankId
         );
 
-        $this->treasuryService->credit(
-            GameEconomyConfig::CURRENCY_PROGNOBAKS,
-            $amount,
-            'gov_support_deposit',
-            $bankId
-        );
-
         $eventId = $this->scopeService->resolveContractEventId($eventId);
         $lastSettledMatch = $this->scopeService->getLastSettledMatchForEvent($eventId);
         $now = new DateTime();
@@ -79,6 +72,7 @@ class GovSupportDepositService
         ]);
 
         $this->repository->updateWalletTxRefForLastReason($userId, 'gov_support_deposit', 'deposit', $depositId);
+        $this->repository->adjustUserBankLiquid($bankId, $amount);
 
         return self::formatContract($this->repository->getBankDepositById($depositId));
     }
@@ -90,7 +84,7 @@ class GovSupportDepositService
         }
 
         $depositId = (int)$deposit['ID'];
-        $userId = (int)($deposit['UF_USER_ID'] ?? 0);
+        $bankId = (int)($deposit['UF_BANK_ID'] ?? 0);
         $status = (string)($deposit['UF_STATUS'] ?? '');
 
         if ($status === GameEconomyConfig::CONTRACT_STATUS_CLOSED) {
@@ -106,23 +100,21 @@ class GovSupportDepositService
         $now = new DateTime();
 
         if ($interest > 0) {
-            if (!$this->treasuryService->hasFunds(GameEconomyConfig::CURRENCY_PROGNOBAKS, $interest)) {
+            $bank = $this->repository->getUserBankById($bankId);
+            if (!$bank) {
                 return;
             }
 
-            $this->treasuryService->debit(
-                GameEconomyConfig::CURRENCY_PROGNOBAKS,
-                $interest,
-                'gov_support_interest',
-                $depositId
-            );
+            $liquid = round((float)($bank['UF_LIQUID'] ?? 0), 1);
+            if ($liquid < $interest) {
+                return;
+            }
 
-            $this->walletService->credit(
-                $userId,
+            $this->repository->adjustUserBankLiquid($bankId, -$interest);
+            $this->treasuryService->credit(
                 GameEconomyConfig::CURRENCY_PROGNOBAKS,
                 $interest,
                 'gov_support_interest',
-                'deposit',
                 $depositId
             );
         }
@@ -157,19 +149,20 @@ class GovSupportDepositService
             throw new \RuntimeException('Сначала дождитесь выплаты процентов (5 туров)');
         }
 
+        $bankId = (int)($deposit['UF_BANK_ID'] ?? 0);
         $principal = round((float)($deposit['UF_PRINCIPAL'] ?? 0), 1);
-        if (!$this->treasuryService->hasFunds(GameEconomyConfig::CURRENCY_PROGNOBAKS, $principal)) {
-            throw new \RuntimeException('В казне недостаточно средств для возврата вклада');
+        $bank = $this->repository->getUserBankById($bankId);
+        if (!$bank) {
+            throw new \RuntimeException('Банк вклада не найден');
+        }
+
+        $liquid = round((float)($bank['UF_LIQUID'] ?? 0), 1);
+        if ($liquid < $principal) {
+            throw new \RuntimeException('В банке недостаточно ликвидности для возврата вклада');
         }
 
         $now = new DateTime();
-        $this->treasuryService->debit(
-            GameEconomyConfig::CURRENCY_PROGNOBAKS,
-            $principal,
-            'gov_support_return',
-            $depositId
-        );
-
+        $this->repository->adjustUserBankLiquid($bankId, -$principal);
         $this->walletService->credit(
             $userId,
             GameEconomyConfig::CURRENCY_PROGNOBAKS,
