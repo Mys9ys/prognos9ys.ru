@@ -192,6 +192,14 @@ export const gameModule = {
             const res = await apiActions.game.cancelDeposit(userToken, depositId);
             return applyGamePayload(ctx, res);
         },
+        async forceCloseDeposit(ctx, depositId) {
+            const userToken = ctx.rootState.auth?.authData?.token;
+            if (!userToken) {
+                throw new Error('Требуется авторизация');
+            }
+            const res = await apiActions.game.forceCloseDeposit(userToken, depositId);
+            return applyGamePayload(ctx, res);
+        },
         async closeBank(ctx) {
             const userToken = ctx.rootState.auth?.authData?.token;
             if (!userToken) {

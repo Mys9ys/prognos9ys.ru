@@ -43,7 +43,9 @@
             :key="'gov' + d.id"
             :contract="d"
             kind="deposit"
+            show-force-close
             @close="onCloseGovDeposit"
+            @force-close="onForceCloseGovDeposit"
         />
       </div>
       <template v-else-if="banks.length">
@@ -138,6 +140,7 @@ export default {
       'createGovSupportDeposit',
       'closeGovSupportDeposit',
       'getGovSupportDeposits',
+      'forceCloseDeposit',
     ]),
     ...mapActions('auth', ['refreshGameInfo']),
 
@@ -229,6 +232,29 @@ export default {
         await this.refresh();
       } catch (e) {
         this.error = e.message || 'Не удалось закрыть вклад';
+      } finally {
+        this.actionLoading = false;
+      }
+    },
+
+    async onForceCloseGovDeposit(contract) {
+      if (!contract?.id) {
+        return;
+      }
+      const msg = 'Досрочно забрать гос. вклад? Проценты в казну не поступят, вернётся только тело.';
+      if (!window.confirm(msg)) {
+        return;
+      }
+      this.actionLoading = true;
+      this.error = '';
+      this.message = '';
+      try {
+        await this.forceCloseDeposit(contract.id);
+        this.message = 'Гос. вклад досрочно закрыт';
+        await this.refreshGameInfo();
+        await this.refresh();
+      } catch (e) {
+        this.error = e.message || 'Не удалось досрочно закрыть вклад';
       } finally {
         this.actionLoading = false;
       }

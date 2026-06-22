@@ -171,7 +171,9 @@
               :contract="d"
               kind="deposit"
               show-cancel
+              show-force-close
               @cancel="onCancelDeposit"
+              @force-close="onForceCloseDeposit"
             />
           </template>
           <template v-else>
@@ -353,6 +355,7 @@ export default {
       'closeBank',
       'cancelLoan',
       'cancelDeposit',
+      'forceCloseDeposit',
     ]),
     ...mapActions('auth', ['refreshGameInfo']),
     formatSignedAmount(amount) {
@@ -485,6 +488,28 @@ export default {
         return;
       }
       await this.cancelContract('deposit', contract.id);
+    },
+    async onForceCloseDeposit(contract) {
+      if (!contract?.id) {
+        return;
+      }
+      const msg = 'Досрочно забрать вклад? Проценты будут потеряны, вернётся только тело.';
+      if (!window.confirm(msg)) {
+        return;
+      }
+      this.loading = true;
+      this.error = '';
+      this.message = '';
+      try {
+        await this.forceCloseDeposit(contract.id);
+        this.message = 'Вклад досрочно закрыт, тело возвращено';
+        await this.refreshGameInfo();
+        await this.refresh();
+      } catch (e) {
+        this.error = e.message || 'Не удалось досрочно закрыть вклад';
+      } finally {
+        this.loading = false;
+      }
     },
     async onCancelLoan(contract) {
       if (!contract?.id || !window.confirm('Отменить займ и вернуть сумму в банк?')) {

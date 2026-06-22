@@ -47,6 +47,7 @@ class GameController extends BaseController
             'takeLoan' => $this->getDefaultConfigureForPostToken(),
             'cancelLoan' => $this->getDefaultConfigureForPostToken(),
             'cancelDeposit' => $this->getDefaultConfigureForPostToken(),
+            'forceCloseDeposit' => $this->getDefaultConfigureForPostToken(),
             'closeBank' => $this->getDefaultConfigureForPostToken(),
             'getAchievements' => $this->getDefaultConfigureForPostToken(),
         ];
@@ -361,6 +362,20 @@ class GameController extends BaseController
         return [
             'status' => 'ok',
             'deposit' => (new BankContractLifecycleService())->cancelDeposit($userId, $depositId),
+            'game' => (new GameProfileService())->getSummary($userId),
+        ];
+    }
+
+    public function forceCloseDepositAction(int $depositId): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        return [
+            'status' => 'ok',
+            'deposit' => (new BankContractLifecycleService())->forceCloseDeposit($userId, $depositId),
             'game' => (new GameProfileService())->getSummary($userId),
         ];
     }

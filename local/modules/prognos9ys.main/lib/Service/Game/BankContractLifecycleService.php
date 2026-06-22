@@ -170,6 +170,94 @@ class BankContractLifecycleService
         return BankDepositService::formatContract($this->repository->getBankDepositById($depositId));
     }
 
+    /**
+     * Досрочное изъятие вклада: только тело, без процентов (если в банке есть ликвидность).
+     *
+     * @return array{can_force_close:bool,reason?:string}
+     */
+    public function evaluateForceCloseEligibility(array $contractRow): array
+    {
+        if (GovSupportDepositService::isGovSupportDeposit($contractRow)) {
+            return GovSupportDepositService::evaluateForceCloseEligibility($contractRow, $this->repository);
+        }
+
+        $status = (string)($contractRow['UF_STATUS'] ?? '');
+        if ($status === GameEconomyConfig::CONTRACT_STATUS_CLOSED) {
+            return ['can_force_close' => false, 'reason' => 'closed'];
+        }
+
+        if ($status !== GameEconomyConfig::CONTRACT_STATUS_ACTIVE
+            && $status !== GameEconomyConfig::CONTRACT_STATUS_EXTENDED) {
+            return ['can_force_close' => false, 'reason' => 'not_active'];
+        }
+
+        $contractId = (int)($contractRow['ID'] ?? 0);
+        $userId = (int)($contractRow['UF_USER_ID'] ?? 0);
+        $principal = round((float)($contractRow['UF_PRINCIPAL'] ?? 0), 1);
+
+        if ($this->repository->hasWalletTx($userId, 'bank_deposit_return', 'deposit', $contractId)
+            || $this->repository->hasWalletTx($userId, 'bank_deposit_return_half', 'deposit', $contractId)
+            || $this->repository->hasWalletTx($userId, 'bank_deposit_cancel', 'deposit', $contractId)
+            || $this->repository->hasWalletTx($userId, 'bank_deposit_early_close', 'deposit', $contractId)) {
+            return ['can_force_close' => false, 'reason' => 'already_settled'];
+        }
+
+        $bankId = (int)($contractRow['UF_BANK_ID'] ?? 0);
+        $bank = $this->repository->getUserBankById($bankId);
+        if (!$bank) {
+            return ['can_force_close' => false, 'reason' => 'bank_not_found'];
+        }
+
+        $liquid = round((float)($bank['UF_LIQUID'] ?? 0), 1);
+        if ($liquid < $principal) {
+            return ['can_force_close' => false, 'reason' => 'bank_liquid_moved'];
+        }
+
+        return ['can_force_close' => true];
+    }
+
+    public function forceCloseDeposit(int $userId, int $depositId): array
+    {
+        $deposit = $this->repository->getBankDepositById($depositId);
+        if (!$deposit) {
+            throw new \RuntimeException('Вклад не найден');
+        }
+
+        if ((int)($deposit['UF_USER_ID'] ?? 0) !== $userId) {
+            throw new \RuntimeException('Нет доступа к этому вкладу');
+        }
+
+        if (GovSupportDepositService::isGovSupportDeposit($deposit)) {
+            return (new GovSupportDepositService($this->repository))->forceCloseDeposit($userId, $depositId);
+        }
+
+        $check = $this->evaluateForceCloseEligibility($deposit);
+        if (!($check['can_force_close'] ?? false)) {
+            throw new \RuntimeException($this->forceCloseBlockMessage($check['reason'] ?? ''));
+        }
+
+        $bankId = (int)($deposit['UF_BANK_ID'] ?? 0);
+        $principal = round((float)($deposit['UF_PRINCIPAL'] ?? 0), 1);
+        $now = new DateTime();
+
+        $this->repository->adjustUserBankLiquid($bankId, -$principal);
+        $this->walletService->credit(
+            $userId,
+            GameEconomyConfig::CURRENCY_PROGNOBAKS,
+            $principal,
+            'bank_deposit_early_close',
+            'deposit',
+            $depositId
+        );
+        $this->repository->updateBankDeposit($depositId, [
+            'UF_STATUS' => GameEconomyConfig::CONTRACT_STATUS_CLOSED,
+            'UF_UPDATED_AT' => $now,
+            'UF_CLOSED_AT' => $now,
+        ]);
+
+        return BankDepositService::formatContract($this->repository->getBankDepositById($depositId));
+    }
+
     private function cancelBlockMessage(string $reason): string
     {
         switch ($reason) {
@@ -186,6 +274,22 @@ class BankContractLifecycleService
                 return 'Контракт уже закрыт';
             default:
                 return 'Отмена сейчас недоступна';
+        }
+    }
+
+    private function forceCloseBlockMessage(string $reason): string
+    {
+        switch ($reason) {
+            case 'bank_liquid_moved':
+                return 'Досрочное изъятие недоступно: в банке нет свободной ликвидности';
+            case 'already_settled':
+                return 'Вклад уже закрыт или изменён';
+            case 'closed':
+                return 'Вклад уже закрыт';
+            case 'interest_paid_use_close':
+                return 'Проценты уже в казне — заберите вклад обычной кнопкой';
+            default:
+                return 'Досрочное изъятие сейчас недоступно';
         }
     }
 }

@@ -396,6 +396,7 @@ class BankDepositService
             ? $opening['opening_match_number'] + $term
             : 0;
         $cancel = (new BankContractLifecycleService())->evaluateCancelEligibility($row, 'deposit');
+        $forceClose = (new BankContractLifecycleService())->evaluateForceCloseEligibility($row);
 
         return [
             'id' => (int)$row['ID'],
@@ -421,6 +422,7 @@ class BankDepositService
             'last_tick_match_id' => $lastTickMatchId,
             'last_tick_match_label' => $scope->formatMatchLabel($lastTickMatchId),
             'can_cancel' => (bool)($cancel['can_cancel'] ?? false),
+            'can_force_close' => (bool)($forceClose['can_force_close'] ?? false),
         ];
     }
 }

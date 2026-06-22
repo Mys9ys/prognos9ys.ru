@@ -181,6 +181,52 @@ class GovSupportDepositService
         return self::formatContract($this->repository->getBankDepositById($depositId));
     }
 
+    /**
+     * Досрочное изъятие гос. вклада: тело с банка, проценты в казну не идут.
+     */
+    public function forceCloseDeposit(int $userId, int $depositId): array
+    {
+        $deposit = $this->repository->getBankDepositById($depositId);
+        if (!$deposit) {
+            throw new \RuntimeException('Вклад не найден');
+        }
+
+        if ((int)($deposit['UF_USER_ID'] ?? 0) !== $userId) {
+            throw new \RuntimeException('Нет доступа к этому вкладу');
+        }
+
+        if (!$this->isGovSupportDeposit($deposit)) {
+            throw new \RuntimeException('Это не гос. вклад поддержки');
+        }
+
+        $check = self::evaluateForceCloseEligibility($deposit, $this->repository);
+        if (!($check['can_force_close'] ?? false)) {
+            throw new \RuntimeException(self::forceCloseBlockMessage($check['reason'] ?? ''));
+        }
+
+        $bankId = (int)($deposit['UF_BANK_ID'] ?? 0);
+        $principal = round((float)($deposit['UF_PRINCIPAL'] ?? 0), 1);
+        $now = new DateTime();
+
+        $this->repository->adjustUserBankLiquid($bankId, -$principal);
+        $this->walletService->credit(
+            $userId,
+            GameEconomyConfig::CURRENCY_PROGNOBAKS,
+            $principal,
+            'gov_support_early_close',
+            'deposit',
+            $depositId
+        );
+
+        $this->repository->updateBankDeposit($depositId, [
+            'UF_STATUS' => GameEconomyConfig::CONTRACT_STATUS_CLOSED,
+            'UF_UPDATED_AT' => $now,
+            'UF_CLOSED_AT' => $now,
+        ]);
+
+        return self::formatContract($this->repository->getBankDepositById($depositId));
+    }
+
     public function getMyContracts(int $userId): array
     {
         $items = [];
@@ -210,6 +256,71 @@ class GovSupportDepositService
             === GameEconomyConfig::CONTRACT_TYPE_GOV_SUPPORT;
     }
 
+    /**
+     * @return array{can_force_close:bool,reason?:string}
+     */
+    public static function evaluateForceCloseEligibility(
+        array $row,
+        ?GameEconomyRepository $repository = null
+    ): array {
+        $repository = $repository ?? new GameEconomyRepository();
+
+        if (!self::isGovSupportDeposit($row)) {
+            return ['can_force_close' => false, 'reason' => 'not_gov_support'];
+        }
+
+        $status = (string)($row['UF_STATUS'] ?? '');
+        if ($status === GameEconomyConfig::CONTRACT_STATUS_CLOSED) {
+            return ['can_force_close' => false, 'reason' => 'closed'];
+        }
+
+        if ($status === GameEconomyConfig::CONTRACT_STATUS_INTEREST_PAID) {
+            return ['can_force_close' => false, 'reason' => 'interest_paid_use_close'];
+        }
+
+        if ($status !== GameEconomyConfig::CONTRACT_STATUS_ACTIVE
+            && $status !== GameEconomyConfig::CONTRACT_STATUS_EXTENDED) {
+            return ['can_force_close' => false, 'reason' => 'not_active'];
+        }
+
+        $depositId = (int)($row['ID'] ?? 0);
+        $userId = (int)($row['UF_USER_ID'] ?? 0);
+        $principal = round((float)($row['UF_PRINCIPAL'] ?? 0), 1);
+
+        if ($repository->hasWalletTx($userId, 'gov_support_return', 'deposit', $depositId)
+            || $repository->hasWalletTx($userId, 'gov_support_early_close', 'deposit', $depositId)) {
+            return ['can_force_close' => false, 'reason' => 'already_settled'];
+        }
+
+        $bankId = (int)($row['UF_BANK_ID'] ?? 0);
+        $bank = $repository->getUserBankById($bankId);
+        if (!$bank) {
+            return ['can_force_close' => false, 'reason' => 'bank_not_found'];
+        }
+
+        $liquid = round((float)($bank['UF_LIQUID'] ?? 0), 1);
+        if ($liquid < $principal) {
+            return ['can_force_close' => false, 'reason' => 'bank_liquid_moved'];
+        }
+
+        return ['can_force_close' => true];
+    }
+
+    private static function forceCloseBlockMessage(string $reason): string
+    {
+        switch ($reason) {
+            case 'bank_liquid_moved':
+                return 'Досрочное изъятие недоступно: в банке нет свободной ликвидности';
+            case 'interest_paid_use_close':
+                return 'Проценты уже ушли в казну — заберите вклад обычной кнопкой';
+            case 'already_settled':
+            case 'closed':
+                return 'Вклад уже закрыт';
+            default:
+                return 'Досрочное изъятие сейчас недоступно';
+        }
+    }
+
     public static function formatContract(array $row): array
     {
         $formatted = BankDepositService::formatContract($row);
@@ -218,6 +329,8 @@ class GovSupportDepositService
             round((float)($row['UF_PRINCIPAL'] ?? 0), 1)
         );
         $formatted['can_close'] = ($row['UF_STATUS'] ?? '') === GameEconomyConfig::CONTRACT_STATUS_INTEREST_PAID;
+        $forceClose = self::evaluateForceCloseEligibility($row);
+        $formatted['can_force_close'] = (bool)($forceClose['can_force_close'] ?? false);
         $formatted['label'] = 'Гос. вклад поддержки';
 
         return $formatted;

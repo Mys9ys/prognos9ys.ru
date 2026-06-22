@@ -29,6 +29,12 @@
         Отменить
       </button>
     </div>
+    <div class="contract_actions force_close" v-else-if="contract.can_force_close && showForceClose">
+      <button class="btn_force_close" type="button" @click.stop="$emit('force-close', contract)">
+        Досрочно забрать
+      </button>
+      <span class="force_hint">без процентов</span>
+    </div>
     <div class="user_cell" v-if="showClient && clientId">
       <span class="user_ava">
         <img :src="avatarUrl" alt="">
@@ -72,6 +78,10 @@ export default {
       default: false,
     },
     showCancel: {
+      type: Boolean,
+      default: false,
+    },
+    showForceClose: {
       type: Boolean,
       default: false,
     },
@@ -249,5 +259,27 @@ export default {
   padding: 4px 10px;
   font-size: 11px;
   cursor: pointer;
+}
+
+.force_close {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn_force_close {
+  background: transparent;
+  color: #f0c080;
+  border: 1px solid @orange;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.force_hint {
+  font-size: 10px;
+  color: @colorBlur;
 }
 </style>

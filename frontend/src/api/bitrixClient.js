@@ -247,6 +247,10 @@ export const apiActions = {
             'prognos9ys:main.GameController.cancelDeposit',
             { userToken, depositId }
         ),
+        forceCloseDeposit: (userToken, depositId) => runBitrixAction(
+            'prognos9ys:main.GameController.forceCloseDeposit',
+            { userToken, depositId }
+        ),
         closeBank: (userToken) => runBitrixAction(
             'prognos9ys:main.GameController.closeBank',
             { userToken }
