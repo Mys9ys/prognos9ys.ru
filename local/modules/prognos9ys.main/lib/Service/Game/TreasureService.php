@@ -101,13 +101,33 @@ class TreasureService
         }
 
         $syntheticMatchId = -$level;
-        $existing = $this->repository->getTreasureChest($userId, $syntheticMatchId);
+        $existing = $this->repository->getTreasureChestByType(
+            $userId,
+            $syntheticMatchId,
+            self::CHEST_TYPE_LEVEL
+        );
 
         if ($existing) {
             return false;
         }
 
         $now = new DateTime();
+        $legacy = $this->repository->getTreasureChest($userId, $syntheticMatchId);
+
+        if ($legacy) {
+            $legacyType = (string)($legacy['UF_TYPE'] ?? '');
+            if ($legacyType === '' || $legacyType === self::CHEST_TYPE_MATCH) {
+                $this->repository->updateTreasureChest((int)$legacy['ID'], [
+                    'UF_TYPE' => self::CHEST_TYPE_LEVEL,
+                    'UF_UPDATED_AT' => $now,
+                ]);
+
+                return true;
+            }
+
+            return false;
+        }
+
         $eventId = (new GameEventScopeService())->getAnchorEventId();
 
         $this->repository->addTreasureChest([

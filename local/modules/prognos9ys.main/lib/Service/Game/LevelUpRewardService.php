@@ -58,6 +58,27 @@ class LevelUpRewardService
     }
 
     /**
+     * Доначислить только сундуки за уровни 1…текущий (без кошелька).
+     */
+    public function grantMissedLevelChests(int $userId): int
+    {
+        if ($userId <= 0) {
+            return 0;
+        }
+
+        $currentLevel = (int)($this->progressService->getSummary($userId)['level'] ?? 0);
+        $granted = 0;
+
+        for ($level = 1; $level <= $currentLevel; $level++) {
+            if ($this->treasureService->grantLevelUpChest($userId, $level)) {
+                $granted++;
+            }
+        }
+
+        return $granted;
+    }
+
+    /**
      * @return array{level:int,prognobaks:float,rublius:float,chests:int}|null
      */
     private function grantForLevel(int $userId, int $level): ?array

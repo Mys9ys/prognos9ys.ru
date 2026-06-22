@@ -870,6 +870,7 @@ class GameEconomyRepository
 
             $breakdown['total'] += $count;
             $type = (string)($row['UF_TYPE'] ?? '');
+            $matchId = (int)($row['UF_MATCH_ID'] ?? 0);
 
             if ($type === 'shop_wc26') {
                 $breakdown['shop'] += $count;
@@ -881,7 +882,7 @@ class GameEconomyRepository
                 continue;
             }
 
-            if ($type === 'level') {
+            if ($type === 'level' || ($type === '' && $matchId < 0 && $matchId >= -500)) {
                 $breakdown['level'] += $count;
                 continue;
             }

@@ -17,6 +17,7 @@
           <AppIcon v-else :name="item.icon" :size="slotIconSize" />
         </div>
         <span class="slot_count">{{ item.count }}</span>
+        <span class="slot_caption">{{ item.caption }}</span>
       </div>
     </div>
 
@@ -30,11 +31,11 @@
 import AppIcon from '@/components/ui/AppIcon.vue';
 
 const INVENTORY_SLOTS = [
-  { id: 'match', field: 'match_chests', icon: 'chest_wc2026', label: 'Сундуки за баллы в матчах' },
-  { id: 'achievement', field: 'achievement_chests', icon: 'chest_wc2026', label: 'Сундуки за ачивки' },
-  { id: 'level', field: 'level_chests', icon: 'chest_xp', label: 'Сундуки за уровень' },
-  { id: 'shop', field: 'shop_chests', icon: 'chest_wc2026', label: 'Сундуки из лавки казны' },
-  { id: 'premium', field: 'premium_scrolls', emoji: '📜', label: 'Свиток премиума (1 сутки)' },
+  { id: 'match', field: 'match_chests', icon: 'chest_wc2026', caption: 'ЧМ', label: 'Сундуки за баллы в матчах' },
+  { id: 'achievement', field: 'achievement_chests', icon: 'chest_wc2026', caption: 'Ачивка', label: 'Сундуки за ачивки' },
+  { id: 'level', field: 'level_chests', icon: 'chest_xp', caption: 'Уровень', label: 'Сундуки за уровень' },
+  { id: 'shop', field: 'shop_chests', icon: 'chest_wc2026', caption: 'Лавка', label: 'Сундуки из лавки казны' },
+  { id: 'premium', field: 'premium_scrolls', emoji: '📜', caption: 'Прем', label: 'Свиток премиума (1 сутки)' },
 ];
 
 export default {
@@ -65,7 +66,7 @@ export default {
       return this.totalItems > 0;
     },
     slotIconSize() {
-      return 34;
+      return 30;
     },
   },
 };
@@ -115,7 +116,7 @@ export default {
 .inventory_slot {
   position: relative;
   aspect-ratio: 1;
-  min-height: 52px;
+  min-height: 58px;
   border: 1px solid fade(@colorBlur, 35%);
   border-radius: 2px;
   background: linear-gradient(180deg, fade(@DarkColorBG, 90%) 0%, fade(@darkbg, 95%) 100%);
@@ -125,7 +126,10 @@ export default {
 
 .slot_icon {
   position: absolute;
-  inset: 4px;
+  top: 4px;
+  left: 4px;
+  right: 4px;
+  bottom: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -133,14 +137,14 @@ export default {
 }
 
 .slot_emoji {
-  font-size: 28px;
+  font-size: 26px;
   line-height: 1;
 }
 
 .slot_count {
   position: absolute;
   right: 2px;
-  bottom: 2px;
+  bottom: 12px;
   min-width: 14px;
   padding: 0 3px;
   font-size: 10px;
@@ -152,6 +156,21 @@ export default {
   border: 1px solid fade(@colorBlur, 45%);
   border-radius: 2px;
   box-shadow: 0 0 0 1px fade(#000, 25%);
+}
+
+.slot_caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 1px;
+  font-size: 8px;
+  line-height: 10px;
+  text-align: center;
+  color: @colorBlur;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 2px;
 }
 
 .inventory_empty {

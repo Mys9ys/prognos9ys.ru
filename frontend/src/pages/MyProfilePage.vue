@@ -227,7 +227,8 @@ export default {
   methods: {
     ...mapActions({
       getProfileInfo: 'profile/getProfileData',
-      logoutVue: 'auth/logoutVue'
+      logoutVue: 'auth/logoutVue',
+      refreshGameInfo: 'auth/refreshGameInfo',
     }),
 
     setActiveFootballEvent(id) {
@@ -363,6 +364,11 @@ export default {
         this.ensurePrognosisStatus();
         this.ensureActiveFootballEvent();
       },
+    },
+    active(tab) {
+      if (tab === 'inventory') {
+        this.refreshGameInfo();
+      }
     },
   },
 

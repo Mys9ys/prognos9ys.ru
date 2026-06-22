@@ -46,6 +46,12 @@ class GameProfileService
         }
 
         try {
+            (new LevelUpRewardService())->grantMissedLevelChests($userId);
+        } catch (\Throwable $exception) {
+            // не блокируем профиль
+        }
+
+        try {
             $myBank = $includeBankDetails ? $this->bankService->getMyBank($userId) : null;
             $hasBank = $includeBankDetails
                 ? $myBank !== null
