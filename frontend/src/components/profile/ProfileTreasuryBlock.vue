@@ -37,7 +37,7 @@
         </select>
       </div>
 
-      <div v-if="govDeposits.length">
+      <div v-if="govDeposits.length" class="gov_deposits_list">
         <BankContractCard
             v-for="d in govDeposits"
             :key="'gov' + d.id"
@@ -48,15 +48,17 @@
             @force-close="onForceCloseGovDeposit"
         />
       </div>
-      <template v-else-if="banks.length">
+
+      <div v-if="banks.length && canOpenGovDeposit" class="gov_open_row">
         <select v-model.number="selectedGovBankId" class="event_select">
           <option v-for="b in banks" :key="b.id" :value="b.id">Банк #{{ b.id }} ({{ b.owner_name }})</option>
         </select>
         <button class="btn small" :disabled="actionLoading || !selectedGovBankId" @click="onCreateGovDeposit">
           Открыть гос. вклад 500 <AppIcon name="prognobak" :size="14" />
         </button>
-      </template>
-      <div v-else class="hint">Сначала откройте банк во вкладке «Финансы» или дождитесь появления банков в каталоге</div>
+      </div>
+      <div v-else-if="!banks.length" class="hint">Сначала откройте банк во вкладке «Финансы» или дождитесь появления банков в каталоге</div>
+      <div v-else-if="!canOpenGovDeposit" class="hint">В казне меньше 500 прогнобаксов для нового вклада</div>
     </div>
   </div>
 </template>
@@ -102,6 +104,9 @@ export default {
     },
     contractEvents() {
       return this.bankInfo.contract_events || [];
+    },
+    canOpenGovDeposit() {
+      return Number(this.treasury?.prognobaks ?? 0) >= 500;
     },
   },
   watch: {
@@ -182,7 +187,7 @@ export default {
 
     async loadBanks() {
       try {
-        const res = await this.listBanks();
+        const res = await this.listBanks(200);
         this.banks = res.banks || [];
       } catch (e) {
         this.error = e.message || 'Не удалось загрузить банки';
@@ -306,6 +311,17 @@ export default {
   color: @colorBlur;
   margin: 4px 0 8px;
   line-height: 1.35;
+}
+
+.gov_open_row {
+  margin-top: 8px;
+}
+
+.gov_deposits_list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
 .event_pick {

@@ -34,8 +34,11 @@ class GovSupportDepositService
             throw new \RuntimeException('Банк не найден или закрыт');
         }
 
-        if ($this->hasActiveGovDeposit($userId)) {
-            throw new \RuntimeException('У вас уже есть активный гос. вклад поддержки');
+        if (!$this->treasuryService->hasFunds(
+            GameEconomyConfig::CURRENCY_PROGNOBAKS,
+            $amount
+        )) {
+            throw new \RuntimeException('Недостаточно средств в казне');
         }
 
         $this->treasuryService->debit(
