@@ -127,7 +127,7 @@
       <div class="title_wrapper">
         <div class="title">Казна</div>
       </div>
-      <ProfileTreasuryBlock />
+      <ProfileTreasuryBlock :game="gameInfo" />
     </div>
 
     <div class="body_item" v-if="active === 'achievement'">

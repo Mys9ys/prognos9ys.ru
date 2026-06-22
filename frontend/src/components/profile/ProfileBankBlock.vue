@@ -106,32 +106,6 @@
         <button class="btn" :disabled="loading" @click="onOpenBank">Открыть банк (200 <AppIcon name="prognobak" :size="14" />)</button>
       </div>
 
-      <div class="section" v-if="contractEvents.length">
-        <div class="section_title">Гос. вклад поддержки</div>
-        <p class="hint">
-          500 <AppIcon name="prognobak" :size="14" /> под 5% на 5 туров. Деньги идут в казну.
-          Проценты после 5 матчей, тело — кнопкой «Забрать вклад».
-        </p>
-        <div v-if="govDeposits.length">
-          <BankContractCard
-              v-for="d in govDeposits"
-              :key="'gov' + d.id"
-              :contract="d"
-              kind="deposit"
-              @close="onCloseGovDeposit"
-          />
-        </div>
-        <template v-else-if="banks.length">
-          <select v-model.number="selectedGovBankId" class="event_select">
-            <option v-for="b in banks" :key="b.id" :value="b.id">Банк #{{ b.id }} ({{ b.owner_name }})</option>
-          </select>
-          <button class="btn small" :disabled="loading || !selectedGovBankId" @click="onCreateGovDeposit">
-            Открыть гос. вклад 500 <AppIcon name="prognobak" :size="14" />
-          </button>
-        </template>
-        <div v-else class="hint">Сначала откройте банк или выберите чужой банк из списка ниже</div>
-      </div>
-
       <div class="section section_collapsible">
         <div class="section_title section_title_toggle" @click="toggleOperations">
           <span>Операции</span>
@@ -268,8 +242,6 @@ export default {
       error: '',
       message: '',
       banks: [],
-      govDeposits: [],
-      selectedGovBankId: 0,
       contracts: { deposits: [], loans: [] },
       operations: [],
       activeOpsTab: 'all',
@@ -363,19 +335,6 @@ export default {
         this.syncBankContractTab();
       },
     },
-    banks(bankList) {
-      if (!bankList.length) {
-        this.selectedGovBankId = 0;
-        return;
-      }
-      if (this.myBank?.id && bankList.some((b) => b.id === this.myBank.id)) {
-        this.selectedGovBankId = this.myBank.id;
-        return;
-      }
-      if (!bankList.some((b) => b.id === this.selectedGovBankId)) {
-        this.selectedGovBankId = bankList[0].id;
-      }
-    },
     contracts: {
       deep: true,
       handler() {
@@ -394,9 +353,6 @@ export default {
       'closeBank',
       'cancelLoan',
       'cancelDeposit',
-      'createGovSupportDeposit',
-      'closeGovSupportDeposit',
-      'getGovSupportDeposits',
     ]),
     ...mapActions('auth', ['refreshGameInfo']),
     formatSignedAmount(amount) {
@@ -409,7 +365,7 @@ export default {
     },
     async refresh() {
       this.error = '';
-      const tasks = [this.loadBanks(), this.loadContracts(), this.loadGovDeposits()];
+      const tasks = [this.loadBanks(), this.loadContracts()];
       if (this.operationsExpanded) {
         tasks.push(this.loadOperations());
       }
@@ -456,14 +412,6 @@ export default {
         this.error = e.message || 'Не удалось загрузить контракты';
       }
     },
-    async loadGovDeposits() {
-      try {
-        const res = await this.getGovSupportDeposits();
-        this.govDeposits = res.deposits || [];
-      } catch (e) {
-        this.error = e.message || 'Не удалось загрузить гос. вклады';
-      }
-    },
     async loadOperations() {
       try {
         const res = await this.getBankOperations();
@@ -484,43 +432,6 @@ export default {
         await this.refresh();
       } catch (e) {
         this.error = e.message || 'Ошибка открытия банка';
-      } finally {
-        this.loading = false;
-      }
-    },
-    async onCreateGovDeposit() {
-      if (!this.selectedGovBankId) {
-        return;
-      }
-
-      this.loading = true;
-      this.error = '';
-      this.message = '';
-      try {
-        await this.createGovSupportDeposit({
-          bankId: this.selectedGovBankId,
-          eventId: this.selectedEventId,
-        });
-        this.message = 'Гос. вклад поддержки открыт';
-        await this.refreshGameInfo();
-        await this.refresh();
-      } catch (e) {
-        this.error = e.message || 'Ошибка гос. вклада';
-      } finally {
-        this.loading = false;
-      }
-    },
-    async onCloseGovDeposit(contract) {
-      this.loading = true;
-      this.error = '';
-      this.message = '';
-      try {
-        await this.closeGovSupportDeposit(contract.id);
-        this.message = 'Гос. вклад закрыт, тело возвращено';
-        await this.refreshGameInfo();
-        await this.refresh();
-      } catch (e) {
-        this.error = e.message || 'Не удалось закрыть вклад';
       } finally {
         this.loading = false;
       }
