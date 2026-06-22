@@ -197,6 +197,29 @@ export const gameModule = {
             const res = await apiActions.game.closeBank(userToken);
             return applyGamePayload(ctx, res);
         },
+        async createGovSupportDeposit(ctx, { bankId, eventId = 0 }) {
+            const userToken = ctx.rootState.auth?.authData?.token;
+            if (!userToken) {
+                throw new Error('Требуется авторизация');
+            }
+            const res = await apiActions.game.createGovSupportDeposit(userToken, bankId, eventId);
+            return applyGamePayload(ctx, res);
+        },
+        async closeGovSupportDeposit(ctx, depositId) {
+            const userToken = ctx.rootState.auth?.authData?.token;
+            if (!userToken) {
+                throw new Error('Требуется авторизация');
+            }
+            const res = await apiActions.game.closeGovSupportDeposit(userToken, depositId);
+            return applyGamePayload(ctx, res);
+        },
+        async getGovSupportDeposits({ rootState }) {
+            const userToken = rootState.auth?.authData?.token;
+            if (!userToken) {
+                throw new Error('Требуется авторизация');
+            }
+            return apiActions.game.getGovSupportDeposits(userToken);
+        },
     },
     namespaced: true,
 };

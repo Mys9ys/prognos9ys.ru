@@ -3,6 +3,7 @@
   <div class="ratings_wrapper">
     <PageHeader class="header">Рейтинги</PageHeader>
 
+    <TreasuryShopBlock />
     <WealthRatingBlock />
 
     <div class="period_filter" v-if="hasNowEvents || hasOldEvents">
@@ -94,6 +95,7 @@ import RaceRatingBlock from "@/components/race/RaceRatingBlock";
 import RatingSetBar from "@/components/rating/RatingSetBar";
 import RatingSetModal from "@/components/rating/RatingSetModal";
 import WealthRatingBlock from "@/components/game/WealthRatingBlock";
+import TreasuryShopBlock from "@/components/game/TreasuryShopBlock";
 import { apiActions } from "@/api/bitrixClient";
 
 export default {
@@ -106,6 +108,7 @@ export default {
     RatingSetBar,
     RatingSetModal,
     WealthRatingBlock,
+    TreasuryShopBlock,
   },
   data() {
     return {

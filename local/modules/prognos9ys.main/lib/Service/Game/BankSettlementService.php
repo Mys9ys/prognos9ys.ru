@@ -91,7 +91,11 @@ class BankSettlementService
 
         $fresh = $this->repository->getBankDepositById($depositId);
         if ($fresh && ($fresh['UF_STATUS'] ?? '') !== GameEconomyConfig::CONTRACT_STATUS_CLOSED) {
-            $this->depositService->processMaturity($fresh);
+            if (GovSupportDepositService::isGovSupportDeposit($fresh)) {
+                (new GovSupportDepositService($this->repository))->processMaturity($fresh);
+            } else {
+                $this->depositService->processMaturity($fresh);
+            }
         }
     }
 

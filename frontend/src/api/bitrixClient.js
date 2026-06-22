@@ -187,6 +187,30 @@ export const apiActions = {
             'prognos9ys:main.GameController.getGameBank',
             { userToken }
         ),
+        getTreasury: (userToken) => runBitrixAction(
+            'prognos9ys:main.GameController.getTreasury',
+            { userToken }
+        ),
+        getTreasuryShop: (userToken) => runBitrixAction(
+            'prognos9ys:main.GameController.getTreasuryShop',
+            { userToken }
+        ),
+        buyTreasuryChest: (userToken, currency) => runBitrixAction(
+            'prognos9ys:main.GameController.buyTreasuryChest',
+            { userToken, currency }
+        ),
+        createGovSupportDeposit: (userToken, bankId, eventId = 0) => runBitrixAction(
+            'prognos9ys:main.GameController.createGovSupportDeposit',
+            { userToken, bankId, eventId: eventId || undefined }
+        ),
+        closeGovSupportDeposit: (userToken, depositId) => runBitrixAction(
+            'prognos9ys:main.GameController.closeGovSupportDeposit',
+            { userToken, depositId }
+        ),
+        getGovSupportDeposits: (userToken) => runBitrixAction(
+            'prognos9ys:main.GameController.getGovSupportDeposits',
+            { userToken }
+        ),
         listBanks: (userToken, limit = 30) => runBitrixAction(
             'prognos9ys:main.GameController.listBanks',
             { userToken, limit }

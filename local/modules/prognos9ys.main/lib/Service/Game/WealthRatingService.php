@@ -8,10 +8,12 @@ use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
 class WealthRatingService
 {
     private GameEconomyRepository $repository;
+    private LevelService $levelService;
 
-    public function __construct(?GameEconomyRepository $repository = null)
+    public function __construct(?GameEconomyRepository $repository = null, ?LevelService $levelService = null)
     {
         $this->repository = $repository ?? new GameEconomyRepository();
+        $this->levelService = $levelService ?? new LevelService($this->repository);
     }
 
     public function getRating(int $limit = 30, string $wealthSort = 'rich'): array
@@ -38,6 +40,7 @@ class WealthRatingService
     private function getWealthRating(int $limit, bool $poorestFirst): array
     {
         $wallets = $this->repository->getAllWallets();
+        $levelMap = $this->buildLevelMap();
         $prepared = [];
 
         foreach ($wallets as $wallet) {
@@ -84,6 +87,7 @@ class WealthRatingService
                 'user' => $this->resolveUser($users, $userId),
                 'prognobaks' => $row['prognobaks'],
                 'rublius' => $row['rublius'],
+                'level' => $levelMap[$userId] ?? 0,
                 'total' => $row['total'],
                 'score' => $row['total'],
                 'pending_count' => 0,
@@ -107,6 +111,7 @@ class WealthRatingService
             static fn(int $matchId): bool => $scope->isMatchEligible($matchId)
         );
         $walletMap = [];
+        $levelMap = $this->buildLevelMap();
 
         foreach ($this->repository->getAllWallets() as $wallet) {
             $walletMap[$wallet['user_id']] = $wallet;
@@ -151,6 +156,7 @@ class WealthRatingService
                 'user' => $this->resolveUser($users, $userId),
                 'prognobaks' => $row['prognobaks'],
                 'rublius' => $row['rublius'],
+                'level' => $levelMap[$userId] ?? 0,
                 'total' => $row['total'],
                 'score' => $row['pending_points'],
                 'pending_count' => $row['pending_count'],
@@ -179,6 +185,7 @@ class WealthRatingService
         }
 
         $treasureMap = $this->repository->getClosedTreasureChestTotalsMapForAllUsers();
+        $levelMap = $this->buildLevelMap();
 
         $prepared = [];
         foreach ($wallets as $wallet) {
@@ -228,6 +235,7 @@ class WealthRatingService
                 'user' => $this->resolveUser($users, $userId),
                 'prognobaks' => $row['prognobaks'],
                 'rublius' => $row['rublius'],
+                'level' => $levelMap[$userId] ?? 0,
                 'total' => $row['total'],
                 'treasure_total' => $row['treasure_total'],
                 'score' => $row['treasure_total'],
@@ -248,6 +256,19 @@ class WealthRatingService
     private function calcTotalWealth(float $prognobaks, float $rublius): float
     {
         return round($prognobaks, 1);
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function buildLevelMap(): array
+    {
+        $map = [];
+        foreach ($this->repository->getAllUserXpMap() as $userId => $xp) {
+            $map[$userId] = $this->levelService->getLevelFromXp($xp);
+        }
+
+        return $map;
     }
 
     /**

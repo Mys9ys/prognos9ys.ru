@@ -19,7 +19,12 @@
       <span v-if="contract.maturity_match_label"> · {{ contract.maturity_match_label }}</span>
       <span v-if="contract.status === 'extended'" class="badge">продлён</span>
     </div>
-    <div class="contract_actions" v-if="contract.can_cancel && showCancel">
+    <div class="contract_actions" v-if="contract.can_close">
+      <button class="btn_close" type="button" @click.stop="$emit('close', contract)">
+        Забрать вклад
+      </button>
+    </div>
+    <div class="contract_actions" v-else-if="contract.can_cancel && showCancel">
       <button class="btn_cancel" type="button" @click.stop="$emit('cancel', contract)">
         Отменить
       </button>
@@ -80,6 +85,9 @@ export default {
   computed: {
     ...mapState('auth', ['userInfo']),
     title() {
+      if (this.contract.label) {
+        return this.contract.label;
+      }
       const label = this.kind === 'loan' ? 'Займ' : 'Вклад';
       return `${label} #${this.contract.id}`;
     },
@@ -227,6 +235,16 @@ export default {
   background: transparent;
   color: #f0a0a0;
   border: 1px solid #c44;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.btn_close {
+  background: transparent;
+  color: @YesWrite;
+  border: 1px solid @YesWrite;
   border-radius: 4px;
   padding: 4px 10px;
   font-size: 11px;

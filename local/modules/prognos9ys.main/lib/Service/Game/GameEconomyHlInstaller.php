@@ -20,6 +20,7 @@ class GameEconomyHlInstaller
     public const TABLE_USER_BANK = 'prognos9ys_user_bank';
     public const TABLE_BANK_DEPOSIT = 'prognos9ys_bank_deposit';
     public const TABLE_BANK_LOAN = 'prognos9ys_bank_loan';
+    public const TABLE_TREASURY_SHOP_WAVE = 'prognos9ys_treasury_shop_wave';
 
     public function install(): array
     {
@@ -67,6 +68,7 @@ class GameEconomyHlInstaller
         $bankHlId = $this->ensureHlBlock('Prognos9ysGameBank', self::TABLE_GAME_BANK, [
             'UF_CODE' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
             'UF_PROGNOBAKS' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
+            'UF_RUBLIUS' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
         ]);
 
         $betHlId = $this->ensureHlBlock('Prognos9ysMatchBet', self::TABLE_MATCH_BET, [
@@ -124,6 +126,7 @@ class GameEconomyHlInstaller
             'UF_CREATED_AT' => ['USER_TYPE_ID' => 'datetime'],
             'UF_UPDATED_AT' => ['USER_TYPE_ID' => 'datetime'],
             'UF_CLOSED_AT' => ['USER_TYPE_ID' => 'datetime'],
+            'UF_CONTRACT_TYPE' => ['USER_TYPE_ID' => 'string'],
         ]);
 
         $bankLoanHlId = $this->ensureHlBlock('Prognos9ysBankLoan', self::TABLE_BANK_LOAN, [
@@ -143,7 +146,19 @@ class GameEconomyHlInstaller
             'UF_CLOSED_AT' => ['USER_TYPE_ID' => 'datetime'],
         ]);
 
+        $treasuryShopHlId = $this->ensureHlBlock('Prognos9ysTreasuryShopWave', self::TABLE_TREASURY_SHOP_WAVE, [
+            'UF_USER_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_MILESTONE' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_PROGNOBAKS_BOUGHT' => ['USER_TYPE_ID' => 'boolean'],
+            'UF_RUBLIUS_BOUGHT' => ['USER_TYPE_ID' => 'boolean'],
+            'UF_PREMIUM_BOUGHT' => ['USER_TYPE_ID' => 'boolean'],
+            'UF_CREATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+            'UF_UPDATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+        ]);
+
         (new LevelService())->seedDefaultTiers();
+
+        $this->ensureStateTreasurySeed();
 
         return [
             'wallet_hl_id' => $walletHlId,
@@ -158,7 +173,66 @@ class GameEconomyHlInstaller
             'user_bank_hl_id' => $userBankHlId,
             'bank_deposit_hl_id' => $bankDepositHlId,
             'bank_loan_hl_id' => $bankLoanHlId,
+            'treasury_shop_wave_hl_id' => $treasuryShopHlId,
         ];
+    }
+
+    /**
+     * Добавляет поля казны/лавки к уже установленным HL (идемпотентно).
+     */
+    public function upgradeTreasuryFeatures(): array
+    {
+        if (!Loader::includeModule('highloadblock')) {
+            throw new \RuntimeException('Модуль highloadblock не установлен');
+        }
+
+        $bankHlId = $this->ensureHlBlock('Prognos9ysGameBank', self::TABLE_GAME_BANK, [
+            'UF_CODE' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_PROGNOBAKS' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
+            'UF_RUBLIUS' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
+        ]);
+
+        $depositHlId = $this->ensureHlBlock('Prognos9ysBankDeposit', self::TABLE_BANK_DEPOSIT, [
+            'UF_BANK_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_USER_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_PRINCIPAL' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
+            'UF_INTEREST_RATE' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
+            'UF_STATUS' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_MATCHES_SINCE_START' => ['USER_TYPE_ID' => 'integer'],
+            'UF_TERM_MATCHES' => ['USER_TYPE_ID' => 'integer'],
+            'UF_EVENT_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_OPENING_MATCH_ID' => ['USER_TYPE_ID' => 'integer'],
+            'UF_OPENING_MATCH_NUMBER' => ['USER_TYPE_ID' => 'integer'],
+            'UF_LAST_TICK_MATCH_ID' => ['USER_TYPE_ID' => 'integer'],
+            'UF_CREATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+            'UF_UPDATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+            'UF_CLOSED_AT' => ['USER_TYPE_ID' => 'datetime'],
+            'UF_CONTRACT_TYPE' => ['USER_TYPE_ID' => 'string'],
+        ]);
+
+        $treasuryShopHlId = $this->ensureHlBlock('Prognos9ysTreasuryShopWave', self::TABLE_TREASURY_SHOP_WAVE, [
+            'UF_USER_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_MILESTONE' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_PROGNOBAKS_BOUGHT' => ['USER_TYPE_ID' => 'boolean'],
+            'UF_RUBLIUS_BOUGHT' => ['USER_TYPE_ID' => 'boolean'],
+            'UF_PREMIUM_BOUGHT' => ['USER_TYPE_ID' => 'boolean'],
+            'UF_CREATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+            'UF_UPDATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+        ]);
+
+        $this->ensureStateTreasurySeed();
+
+        return [
+            'game_bank_hl_id' => $bankHlId,
+            'bank_deposit_hl_id' => $depositHlId,
+            'treasury_shop_wave_hl_id' => $treasuryShopHlId,
+        ];
+    }
+
+    private function ensureStateTreasurySeed(): void
+    {
+        $repository = new GameEconomyRepository();
+        $repository->ensureGameBank(GameEconomyConfig::GAME_BANK_CODE_STATE_TREASURY);
     }
 
     private function ensureHlBlock(string $name, string $tableName, array $fields): int

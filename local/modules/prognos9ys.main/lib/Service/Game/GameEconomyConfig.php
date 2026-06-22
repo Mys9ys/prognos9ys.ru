@@ -19,6 +19,20 @@ class GameEconomyConfig
     public const BET_STATUS_REFUNDED = 'refunded';
     public const BET_STAKE_PROGNOBAKS = 10.0;
     public const GAME_BANK_CODE_FOOTBALL_PARIMUTUEL = 'football_parimutuel';
+    public const GAME_BANK_CODE_STATE_TREASURY = 'state_treasury';
+
+    /** Лавка казны: волны сундуков ЧМ-26 (40, 50, 60…). */
+    public const TREASURY_SHOP_FIRST_MILESTONE = 40;
+    public const TREASURY_SHOP_MILESTONE_STEP = 10;
+    public const TREASURY_SHOP_CHEST_PROGNOBAKS_PRICE = 50.0;
+    public const TREASURY_SHOP_CHEST_RUBLIUS_PRICE = 5.0;
+    public const TREASURY_SHOP_PREMIUM_RUBLIUS_PRICE = 5.0;
+
+    public const CONTRACT_TYPE_REGULAR = 'regular';
+    public const CONTRACT_TYPE_GOV_SUPPORT = 'gov_support';
+    public const GOV_SUPPORT_DEPOSIT_AMOUNT_PROGNOBAKS = 500.0;
+    public const GOV_SUPPORT_DEPOSIT_INTEREST_PERCENT = 5.0;
+    public const CONTRACT_STATUS_INTEREST_PAID = 'interest_paid';
 
     /** Фаза C+ — частные банки и кредиты (см. ROADMAP). */
     public const BANK_OPEN_MIN_WALLET_PROGNOBAKS = 250.0;
@@ -163,9 +177,32 @@ class GameEconomyConfig
         ];
     }
 
-    public static function calculateDepositInterest(float $principal): float
+    public static function calculateDepositInterest(float $principal, ?float $ratePercent = null): float
     {
-        return round($principal * self::DEPOSIT_INTEREST_PERCENT / 100, 1);
+        $rate = $ratePercent ?? self::DEPOSIT_INTEREST_PERCENT;
+
+        return round($principal * $rate / 100, 1);
+    }
+
+    public static function calculateGovSupportInterest(float $principal): float
+    {
+        return self::calculateDepositInterest($principal, self::GOV_SUPPORT_DEPOSIT_INTEREST_PERCENT);
+    }
+
+    /**
+     * @return int[]
+     */
+    public static function getTreasuryShopMilestonesUpTo(int $currentTour): array
+    {
+        $milestones = [];
+        $m = self::TREASURY_SHOP_FIRST_MILESTONE;
+
+        while ($m <= $currentTour && $m <= 200) {
+            $milestones[] = $m;
+            $m += self::TREASURY_SHOP_MILESTONE_STEP;
+        }
+
+        return $milestones;
     }
 
     public static function calculateLoanInterest(float $principal): float

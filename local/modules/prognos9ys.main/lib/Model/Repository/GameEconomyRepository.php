@@ -18,6 +18,7 @@ class GameEconomyRepository
     private ?string $matchBetDataClass = null;
     private ?string $treasureChestDataClass = null;
     private ?string $achievementClaimDataClass = null;
+    private ?string $treasuryShopWaveDataClass = null;
 
     public function getWalletDataClass(): string
     {
@@ -62,6 +63,11 @@ class GameEconomyRepository
     public function getAchievementClaimDataClass(): string
     {
         return $this->achievementClaimDataClass ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_ACHIEVEMENT_CLAIM);
+    }
+
+    public function getTreasuryShopWaveDataClass(): string
+    {
+        return $this->treasuryShopWaveDataClass ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_TREASURY_SHOP_WAVE);
     }
 
     public function getWalletByUserId(int $userId): ?array
@@ -553,6 +559,7 @@ class GameEconomyRepository
         $id = $this->addGameBank([
             'UF_CODE' => $code,
             'UF_PROGNOBAKS' => 0,
+            'UF_RUBLIUS' => 0,
         ]);
 
         return $this->getGameBankById($id);
@@ -824,7 +831,7 @@ class GameEconomyRepository
     }
 
     /**
-     * @return array{total:int,match:int,level:int,achievement:int}
+     * @return array{total:int,match:int,level:int,achievement:int,shop:int}
      */
     public function getTreasureChestBreakdownForUser(int $userId): array
     {
@@ -834,6 +841,7 @@ class GameEconomyRepository
                 'match' => 0,
                 'level' => 0,
                 'achievement' => 0,
+                'shop' => 0,
             ];
         }
 
@@ -843,6 +851,7 @@ class GameEconomyRepository
             'match' => 0,
             'level' => 0,
             'achievement' => 0,
+            'shop' => 0,
         ];
 
         $response = $dataClass::getList([
@@ -861,15 +870,19 @@ class GameEconomyRepository
 
             $breakdown['total'] += $count;
             $type = (string)($row['UF_TYPE'] ?? '');
-            $matchId = (int)($row['UF_MATCH_ID'] ?? 0);
 
-            if ($type === 'level' || $matchId < 0) {
-                $breakdown['level'] += $count;
+            if ($type === 'shop_wc26') {
+                $breakdown['shop'] += $count;
                 continue;
             }
 
             if ($type === 'achievement') {
                 $breakdown['achievement'] += $count;
+                continue;
+            }
+
+            if ($type === 'level') {
+                $breakdown['level'] += $count;
                 continue;
             }
 
@@ -1054,9 +1067,85 @@ class GameEconomyRepository
             return;
         }
 
-        $this->updateGameBank((int)$row['ID'], [
-            'UF_PROGNOBAKS' => 0,
-        ]);
+        $fields = ['UF_PROGNOBAKS' => 0];
+        if (array_key_exists('UF_RUBLIUS', $row)) {
+            $fields['UF_RUBLIUS'] = 0;
+        }
+
+        $this->updateGameBank((int)$row['ID'], $fields);
+    }
+
+    public function getTreasuryShopWave(int $userId, int $milestone): ?array
+    {
+        if ($userId <= 0 || $milestone <= 0) {
+            return null;
+        }
+
+        $dataClass = $this->getTreasuryShopWaveDataClass();
+        $row = $dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '=UF_MILESTONE' => $milestone,
+            ],
+            'limit' => 1,
+        ])->fetch();
+
+        return $row ?: null;
+    }
+
+    public function getTreasuryShopWaveById(int $id): ?array
+    {
+        if ($id <= 0) {
+            return null;
+        }
+
+        $dataClass = $this->getTreasuryShopWaveDataClass();
+        $row = $dataClass::getById($id)->fetch();
+
+        return $row ?: null;
+    }
+
+    public function addTreasuryShopWave(array $fields): int
+    {
+        $dataClass = $this->getTreasuryShopWaveDataClass();
+        $result = $dataClass::add($fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+
+        return (int)$result->getId();
+    }
+
+    public function updateTreasuryShopWave(int $id, array $fields): void
+    {
+        $dataClass = $this->getTreasuryShopWaveDataClass();
+        $result = $dataClass::update($id, $fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+    }
+
+    /**
+     * @return array<int, float> userId => xp
+     */
+    public function getAllUserXpMap(): array
+    {
+        $dataClass = $this->getUserProgressDataClass();
+        $map = [];
+        $response = $dataClass::getList(['select' => ['UF_USER_ID', 'UF_XP']]);
+
+        while ($row = $response->fetch()) {
+            $userId = (int)($row['UF_USER_ID'] ?? 0);
+            if ($userId <= 0) {
+                continue;
+            }
+
+            $map[$userId] = round((float)($row['UF_XP'] ?? 0), 1);
+        }
+
+        return $map;
     }
 
     public function addMatchBet(array $fields): int

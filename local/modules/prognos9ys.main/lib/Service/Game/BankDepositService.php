@@ -77,6 +77,9 @@ class BankDepositService
     {
         $items = [];
         foreach ($this->repository->getDepositsByUserId($userId) as $row) {
+            if (GovSupportDepositService::isGovSupportDeposit($row)) {
+                continue;
+            }
             if (($row['UF_STATUS'] ?? '') === GameEconomyConfig::CONTRACT_STATUS_CLOSED) {
                 continue;
             }
@@ -88,6 +91,12 @@ class BankDepositService
 
     public function processMaturity(array $deposit): void
     {
+        if (GovSupportDepositService::isGovSupportDeposit($deposit)) {
+            (new GovSupportDepositService($this->repository))->processMaturity($deposit);
+
+            return;
+        }
+
         $depositId = (int)$deposit['ID'];
         $bankId = (int)($deposit['UF_BANK_ID'] ?? 0);
         $userId = (int)($deposit['UF_USER_ID'] ?? 0);

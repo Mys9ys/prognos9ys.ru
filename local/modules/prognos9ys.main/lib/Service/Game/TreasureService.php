@@ -11,6 +11,7 @@ class TreasureService
     public const CHEST_TYPE_MATCH = 'match';
     public const CHEST_TYPE_LEVEL = 'level';
     public const CHEST_TYPE_ACHIEVEMENT = 'achievement';
+    public const CHEST_TYPE_SHOP_WC26 = 'shop_wc26';
 
     private GameEconomyRepository $repository;
     private GameEventScopeService $scopeService;
@@ -83,6 +84,7 @@ class TreasureService
             'match_chests' => $breakdown['match'],
             'level_chests' => $breakdown['level'],
             'achievement_chests' => $breakdown['achievement'],
+            'shop_chests' => $breakdown['shop'],
         ];
     }
 
@@ -144,6 +146,40 @@ class TreasureService
             'UF_COUNT' => $count,
             'UF_STATUS' => self::CHEST_STATUS_CLOSED,
             'UF_TYPE' => self::CHEST_TYPE_ACHIEVEMENT,
+            'UF_CREATED_AT' => $now,
+            'UF_UPDATED_AT' => $now,
+        ]);
+
+        return true;
+    }
+
+    /**
+     * Закрытый сундук ЧМ-26 из лавки казны (идемпотентно по волне + валюте).
+     */
+    public function grantShopChest(int $userId, int $milestone, string $currency): bool
+    {
+        if ($userId <= 0 || $milestone <= 0) {
+            return false;
+        }
+
+        $currencyCode = $currency === GameEconomyConfig::CURRENCY_RUBLIUS ? 'r' : 'p';
+        $syntheticMatchId = -1000000 - ($milestone * 10) - ($currencyCode === 'r' ? 1 : 0);
+        $existing = $this->repository->getTreasureChestByType($userId, $syntheticMatchId, self::CHEST_TYPE_SHOP_WC26);
+
+        if ($existing) {
+            return false;
+        }
+
+        $now = new DateTime();
+        $eventId = $this->scopeService->getAnchorEventId();
+
+        $this->repository->addTreasureChest([
+            'UF_USER_ID' => $userId,
+            'UF_MATCH_ID' => $syntheticMatchId,
+            'UF_EVENT_ID' => $eventId > 0 ? $eventId : GameEconomyConfig::ANCHOR_EVENT_ID,
+            'UF_COUNT' => 1,
+            'UF_STATUS' => self::CHEST_STATUS_CLOSED,
+            'UF_TYPE' => self::CHEST_TYPE_SHOP_WC26,
             'UF_CREATED_AT' => $now,
             'UF_UPDATED_AT' => $now,
         ]);

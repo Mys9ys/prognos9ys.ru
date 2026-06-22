@@ -13,7 +13,10 @@ use Prognos9ys\Main\Service\Game\ExperienceService;
 use Prognos9ys\Main\Service\Game\GameBankService;
 use Prognos9ys\Main\Service\Game\GameEconomyConfig;
 use Prognos9ys\Main\Service\Game\GameProfileService;
+use Prognos9ys\Main\Service\Game\GovSupportDepositService;
 use Prognos9ys\Main\Service\Game\LevelService;
+use Prognos9ys\Main\Service\Game\TreasuryService;
+use Prognos9ys\Main\Service\Game\TreasuryShopService;
 use Prognos9ys\Main\Service\Game\UserBankService;
 use Prognos9ys\Main\Service\Game\WalletService;
 use Prognos9ys\Main\Service\Game\WealthRatingService;
@@ -29,6 +32,12 @@ class GameController extends BaseController
             'getLevelTiers' => $this->getDefaultConfigureForPostPublic(),
             'getWealthRating' => $this->getDefaultConfigureForPostPublic(),
             'getGameBank' => $this->getDefaultConfigureForPostToken(),
+            'getTreasury' => $this->getDefaultConfigureForPostToken(),
+            'getTreasuryShop' => $this->getDefaultConfigureForPostToken(),
+            'buyTreasuryChest' => $this->getDefaultConfigureForPostToken(),
+            'createGovSupportDeposit' => $this->getDefaultConfigureForPostToken(),
+            'closeGovSupportDeposit' => $this->getDefaultConfigureForPostToken(),
+            'getGovSupportDeposits' => $this->getDefaultConfigureForPostToken(),
             'listBanks' => $this->getDefaultConfigureForPostToken(),
             'getMyBank' => $this->getDefaultConfigureForPostToken(),
             'getMyContracts' => $this->getDefaultConfigureForPostToken(),
@@ -113,6 +122,99 @@ class GameController extends BaseController
         return [
             'status' => 'ok',
             'bank' => (new GameBankService())->getSummary(),
+            'treasury' => (new TreasuryService())->getSummary(),
+        ];
+    }
+
+    public function getTreasuryAction(): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        if (!(new ImpersonationService())->canImpersonate($userId)) {
+            throw new ApiException('Нет доступа', 403);
+        }
+
+        return [
+            'status' => 'ok',
+            'treasury' => (new TreasuryService())->getSummary(),
+        ];
+    }
+
+    public function getTreasuryShopAction(): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        return [
+            'status' => 'ok',
+            'shop' => (new TreasuryShopService())->getShopState($userId),
+        ];
+    }
+
+    public function buyTreasuryChestAction(string $currency): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        $result = (new TreasuryShopService())->buyChest($userId, $currency);
+
+        return array_merge(['status' => 'ok'], $result, [
+            'game' => (new GameProfileService())->getSummary($userId),
+        ]);
+    }
+
+    public function createGovSupportDepositAction(int $bankId, int $eventId = 0): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        return [
+            'status' => 'ok',
+            'deposit' => (new GovSupportDepositService())->createDeposit(
+                $userId,
+                $bankId,
+                $eventId > 0 ? $eventId : null
+            ),
+            'game' => (new GameProfileService())->getSummary($userId),
+        ];
+    }
+
+    public function closeGovSupportDepositAction(int $depositId): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        return [
+            'status' => 'ok',
+            'deposit' => (new GovSupportDepositService())->closeDeposit($userId, $depositId),
+            'game' => (new GameProfileService())->getSummary($userId),
+        ];
+    }
+
+    public function getGovSupportDepositsAction(): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        return [
+            'status' => 'ok',
+            'deposits' => (new GovSupportDepositService())->getMyContracts($userId),
         ];
     }
 

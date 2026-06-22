@@ -14,6 +14,40 @@
         <AppIcon name="bank" :size="14" /> Госбанк: <strong>{{ formatMoney(gameBank.prognobaks) }} <AppIcon name="prognobak" :size="14" /></strong>
         <span class="bank_hint">остатки паримутуеля</span>
       </div>
+      <TreasuryAdminBlock v-if="isModerator && treasury" :treasury="treasury" />
+      <div class="player_toolbar" v-if="isLoggedIn && expanded" @click.stop>
+        <div class="toolbar_level">Ур. <strong>{{ playerLevel }}</strong></div>
+        <button
+            v-if="showClaimXpBtn"
+            type="button"
+            class="toolbar_btn xp_btn"
+            :disabled="claimingXp"
+            @click="claimAllExperience"
+        >
+          <AppIcon name="xp" :size="14" />
+          <span>{{ claimingXp ? '...' : `+${pendingXpDisplay}` }}</span>
+        </button>
+        <button
+            type="button"
+            class="toolbar_btn chest_btn"
+            :class="{ bought: shopOffers.prognobaks?.bought }"
+            :disabled="buyingChest || !shopOffers.prognobaks?.available"
+            @click="buyChest('prognobaks')"
+        >
+          <AppIcon name="chest_wc2026" :size="16" />
+          <span>50 <AppIcon name="prognobak" :size="12" /></span>
+        </button>
+        <button
+            type="button"
+            class="toolbar_btn chest_btn"
+            :class="{ bought: shopOffers.rublius?.bought }"
+            :disabled="buyingChest || !shopOffers.rublius?.available"
+            @click="buyChest('rublius')"
+        >
+          <AppIcon name="chest_wc2026" :size="16" />
+          <span>5 <AppIcon name="rublius" :size="12" /></span>
+        </button>
+      </div>
       <div class="wealth_filters" v-if="expanded" @click.stop>
         <button
             type="button"
@@ -50,6 +84,7 @@
         <tr>
           <th>#</th>
           <th>Ник</th>
+          <th v-if="showLevelColumn">Ур.</th>
           <th v-if="mode === 'pending_xp'">Матчей</th>
           <th v-if="mode === 'pending_xp'"><AppIcon name="xp" :size="14" /></th>
           <th v-if="isTreasureMode"><AppIcon name="chest_wc2026" :size="16" /></th>
@@ -77,6 +112,7 @@
               <span class="user_info" @click.stop="$router.push('/profile/' + el.user.id)">i</span>
             </div>
           </td>
+          <td class="level_cell" v-if="showLevelColumn">{{ el.level ?? 0 }}</td>
           <td class="pending_count" v-if="mode === 'pending_xp'">{{ el.pending_count }}</td>
           <td class="pending_xp" v-if="mode === 'pending_xp'">+{{ formatMoney(el.pending_points) }}</td>
           <td class="money" v-if="isTreasureMode">{{ el.treasure_total }}</td>
@@ -94,12 +130,13 @@
 import { mapActions, mapState } from 'vuex';
 import PreLoader from '@/components/main/PreLoader';
 import AppIcon from '@/components/ui/AppIcon.vue';
+import TreasuryAdminBlock from '@/components/game/TreasuryAdminBlock.vue';
 import { apiActions } from '@/api/bitrixClient';
 import { DEFAULT_AVATAR_URL } from '@/utils/defaultAvatar';
 
 export default {
   name: 'WealthRatingBlock',
-  components: { PreLoader, AppIcon },
+  components: { PreLoader, AppIcon, TreasuryAdminBlock },
   data() {
     return {
       expanded: false,
@@ -108,6 +145,11 @@ export default {
       mode: 'poor',
       ratings: [],
       gameBank: null,
+      treasury: null,
+      shop: null,
+      claimingXp: false,
+      buyingChest: false,
+      toolbarError: '',
       url: 'https://prognos9ys.ru',
       defaultAvatar: DEFAULT_AVATAR_URL,
     };
@@ -115,7 +157,38 @@ export default {
   computed: {
     ...mapState({
       userInfo: state => state.auth.userInfo,
+      authData: state => state.auth.authData,
     }),
+    isLoggedIn() {
+      return !!this.authData?.token;
+    },
+    playerLevel() {
+      return Number(this.userInfo?.game_info?.progress?.level ?? 0);
+    },
+    pendingXp() {
+      const pending = this.userInfo?.game_info?.pending_xp || {};
+      return {
+        count: Number(pending.count ?? 0),
+        points: Number(pending.points ?? 0),
+      };
+    },
+    pendingXpDisplay() {
+      const points = this.pendingXp.points;
+      return Number.isInteger(points) ? points : points.toFixed(1);
+    },
+    showClaimXpBtn() {
+      return this.pendingXp.count > 0 || this.pendingXp.points > 0;
+    },
+    shopOffers() {
+      const offers = this.shop?.offers || {};
+      return {
+        prognobaks: offers.prognobaks_chest || null,
+        rublius: offers.rublius_chest || null,
+      };
+    },
+    showLevelColumn() {
+      return this.mode === 'rich' || this.mode === 'poor';
+    },
     isTreasureMode() {
       return this.mode === 'treasure_rich';
     },
@@ -183,6 +256,7 @@ export default {
   },
   created() {
     this.loadGameBank();
+    this.loadShop();
   },
   watch: {
     expanded(isExpanded) {
@@ -190,16 +264,28 @@ export default {
         this.ratingLoaded = true;
         this.loadRating();
       }
+      if (isExpanded && this.isLoggedIn) {
+        this.loadShop();
+      }
     },
     'userInfo.token'(token) {
       if (token) {
         this.loadGameBank();
+        this.loadShop();
+      }
+    },
+    'authData.token'(token) {
+      if (token) {
+        this.loadShop();
       }
     },
   },
   methods: {
     ...mapActions({
       impersonateStart: 'auth/impersonateStart',
+      claimAllXp: 'game/claimAllXp',
+      refreshGameInfo: 'auth/refreshGameInfo',
+      showBulkLevelBanner: 'game/showBulkLevelBanner',
     }),
 
     setMode(mode) {
@@ -239,9 +325,77 @@ export default {
         const data = await apiActions.game.getGameBank(userToken);
         if (data?.status === 'ok') {
           this.gameBank = data.bank || null;
+          this.treasury = data.treasury || null;
         }
       } catch (e) {
         console.log('game bank error', e);
+      }
+    },
+
+    async loadShop() {
+      if (!this.isLoggedIn) {
+        return;
+      }
+
+      try {
+        const data = await apiActions.game.getTreasuryShop(this.authData.token);
+        if (data?.status === 'ok') {
+          this.shop = data.shop || null;
+        }
+      } catch (e) {
+        console.log('treasury shop error', e);
+      }
+    },
+
+    async claimAllExperience() {
+      if (this.claimingXp) {
+        return;
+      }
+
+      this.claimingXp = true;
+      try {
+        const result = await this.claimAllXp();
+        await this.refreshGameInfo();
+        if (result?.level_up) {
+          this.showBulkLevelBanner({
+            oldLevel: result.old_level,
+            newLevel: result.new_level,
+            levelRewards: result.level_rewards || [],
+          });
+        }
+        if (this.ratingLoaded) {
+          this.loadRating();
+        }
+      } catch (e) {
+        console.log('claimAllXp error', e);
+      } finally {
+        this.claimingXp = false;
+      }
+    },
+
+    async buyChest(currency) {
+      if (this.buyingChest || !this.authData?.token) {
+        return;
+      }
+
+      this.buyingChest = true;
+      try {
+        const data = await apiActions.game.buyTreasuryChest(this.authData.token, currency);
+        if (data?.status === 'ok') {
+          this.shop = data.shop || this.shop;
+          await this.refreshGameInfo();
+          if (data?.level_up) {
+            this.showBulkLevelBanner({
+              oldLevel: data.old_level,
+              newLevel: data.new_level,
+              levelRewards: data.level_rewards || [],
+            });
+          }
+        }
+      } catch (e) {
+        console.log('buyTreasuryChest error', e);
+      } finally {
+        this.buyingChest = false;
       }
     },
 
@@ -471,5 +625,61 @@ export default {
   color: @colorBlur;
   text-align: right;
   padding-right: 4px;
+}
+
+.player_toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 6px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.toolbar_level {
+  font-size: 12px;
+  color: @colorBlur;
+  margin-right: 4px;
+
+  strong {
+    color: @orange;
+    font-size: 14px;
+  }
+}
+
+.toolbar_btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid @orange;
+  border-radius: 4px;
+  background: @darkbg;
+  color: @colorText;
+  font-size: 11px;
+  padding: 4px 8px;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  &.bought {
+    border-color: @YesWrite;
+  }
+}
+
+.xp_btn {
+  color: @yellow;
+  font-weight: 700;
+}
+
+.level_cell {
+  text-align: center;
+  font-weight: 700;
+  color: @orange;
+  white-space: nowrap;
 }
 </style>
