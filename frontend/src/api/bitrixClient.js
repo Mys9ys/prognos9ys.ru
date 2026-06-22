@@ -215,6 +215,10 @@ export const apiActions = {
             'prognos9ys:main.GameController.getGovSupportDeposits',
             { userToken }
         ),
+        moderatorBulkAction: (userToken, action) => runBitrixAction(
+            'prognos9ys:main.GameController.moderatorBulkAction',
+            { userToken, action }
+        ),
         listBanks: (userToken, limit = 30) => runBitrixAction(
             'prognos9ys:main.GameController.listBanks',
             { userToken, limit }

@@ -8,18 +8,15 @@ use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
 class GovSupportDepositService
 {
     private GameEconomyRepository $repository;
-    private WalletService $walletService;
     private TreasuryService $treasuryService;
     private GameEventScopeService $scopeService;
 
     public function __construct(
         ?GameEconomyRepository $repository = null,
-        ?WalletService $walletService = null,
         ?TreasuryService $treasuryService = null,
         ?GameEventScopeService $scopeService = null
     ) {
         $this->repository = $repository ?? new GameEconomyRepository();
-        $this->walletService = $walletService ?? new WalletService($this->repository);
         $this->treasuryService = $treasuryService ?? new TreasuryService($this->repository);
         $this->scopeService = $scopeService ?? new GameEventScopeService();
     }
@@ -41,12 +38,10 @@ class GovSupportDepositService
             throw new \RuntimeException('У вас уже есть активный гос. вклад поддержки');
         }
 
-        $this->walletService->debit(
-            $userId,
+        $this->treasuryService->debit(
             GameEconomyConfig::CURRENCY_PROGNOBAKS,
             $amount,
             'gov_support_deposit',
-            'bank',
             $bankId
         );
 
@@ -71,7 +66,6 @@ class GovSupportDepositService
             'UF_UPDATED_AT' => $now,
         ]);
 
-        $this->repository->updateWalletTxRefForLastReason($userId, 'gov_support_deposit', 'deposit', $depositId);
         $this->repository->adjustUserBankLiquid($bankId, $amount);
 
         return self::formatContract($this->repository->getBankDepositById($depositId));
@@ -163,12 +157,10 @@ class GovSupportDepositService
 
         $now = new DateTime();
         $this->repository->adjustUserBankLiquid($bankId, -$principal);
-        $this->walletService->credit(
-            $userId,
+        $this->treasuryService->credit(
             GameEconomyConfig::CURRENCY_PROGNOBAKS,
             $principal,
             'gov_support_return',
-            'deposit',
             $depositId
         );
 
@@ -209,12 +201,10 @@ class GovSupportDepositService
         $now = new DateTime();
 
         $this->repository->adjustUserBankLiquid($bankId, -$principal);
-        $this->walletService->credit(
-            $userId,
+        $this->treasuryService->credit(
             GameEconomyConfig::CURRENCY_PROGNOBAKS,
             $principal,
             'gov_support_early_close',
-            'deposit',
             $depositId
         );
 
@@ -284,13 +274,7 @@ class GovSupportDepositService
         }
 
         $depositId = (int)($row['ID'] ?? 0);
-        $userId = (int)($row['UF_USER_ID'] ?? 0);
         $principal = round((float)($row['UF_PRINCIPAL'] ?? 0), 1);
-
-        if ($repository->hasWalletTx($userId, 'gov_support_return', 'deposit', $depositId)
-            || $repository->hasWalletTx($userId, 'gov_support_early_close', 'deposit', $depositId)) {
-            return ['can_force_close' => false, 'reason' => 'already_settled'];
-        }
 
         $bankId = (int)($row['UF_BANK_ID'] ?? 0);
         $bank = $repository->getUserBankById($bankId);

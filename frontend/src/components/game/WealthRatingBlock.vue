@@ -14,6 +14,65 @@
         <AppIcon name="bank" :size="14" /> Госбанк: <strong>{{ formatMoney(gameBank.prognobaks) }} <AppIcon name="prognobak" :size="14" /></strong>
         <span class="bank_hint">остатки паримутуеля</span>
       </div>
+      <div class="bulk_actions" v-if="isModerator && expanded" @click.stop>
+        <div class="bulk_title">Массовые действия</div>
+        <div class="bulk_row">
+          <button
+              type="button"
+              class="bulk_btn"
+              :disabled="bulkLoading"
+              title="Сундук ЧМ за 50 прогнобаксов — у кого доступен и не куплен"
+              @click="runBulk('prognobaks_chests')"
+          >
+            <AppIcon name="chest_wc2026" :size="12" />
+            <AppIcon name="prognobak" :size="10" />
+            <span>50 всем</span>
+          </button>
+          <button
+              type="button"
+              class="bulk_btn"
+              :disabled="bulkLoading"
+              title="Забрать незабранный опыт у всех"
+              @click="runBulk('claim_xp')"
+          >
+            <AppIcon name="xp" :size="12" />
+            <span>Опыт всем</span>
+          </button>
+          <button
+              type="button"
+              class="bulk_btn"
+              :disabled="bulkLoading"
+              title="Сундук за 5 рублиусов — у кого есть 💎 и не куплен"
+              @click="runBulk('rublius_chests')"
+          >
+            <AppIcon name="chest_wc2026" :size="12" />
+            <AppIcon name="rublius" :size="10" />
+            <span>5💎 всем</span>
+          </button>
+          <button
+              type="button"
+              class="bulk_btn"
+              :disabled="bulkLoading"
+              title="Премиум 1 сутки за 3 рублиуса — у кого есть 💎"
+              @click="runBulk('premium_1d')"
+          >
+            <span class="bulk_emoji">📜</span>
+            <span>1д всем</span>
+          </button>
+          <button
+              type="button"
+              class="bulk_btn"
+              :disabled="bulkLoading"
+              title="Займ 50 прогнобаксов — у кого меньше 50, из банка с max ликвидностью"
+              @click="runBulk('grant_loans')"
+          >
+            <AppIcon name="bank" :size="12" />
+            <span>Займ 50</span>
+          </button>
+        </div>
+        <div class="bulk_msg ok" v-if="bulkMessage">{{ bulkMessage }}</div>
+        <div class="bulk_msg error" v-if="bulkError">{{ bulkError }}</div>
+      </div>
       <div class="wealth_filters" v-if="expanded" @click.stop>
         <button
             type="button"
@@ -178,6 +237,9 @@ export default {
       total: 0,
       gameBank: null,
       rowAction: null,
+      bulkLoading: false,
+      bulkMessage: '',
+      bulkError: '',
       url: 'https://prognos9ys.ru',
       defaultAvatar: DEFAULT_AVATAR_URL,
     };
@@ -362,6 +424,42 @@ export default {
         wr_mode: this.mode,
         wr_page: page > 1 ? page : undefined,
       });
+    },
+
+    async runBulk(action) {
+      if (!this.authData?.token || this.bulkLoading) {
+        return;
+      }
+
+      const prompts = {
+        prognobaks_chests: 'Купить всем доступный сундук ЧМ за 50 прогнобаксов?',
+        claim_xp: 'Забрать незабранный опыт у всех игроков?',
+        rublius_chests: 'Купить всем (с рублиусами) сундук за 5 💎?',
+        premium_1d: 'Купить всем (с рублиусами) премиум на 1 сутки за 3 💎?',
+        grant_loans: 'Выдать займ 50 прогнобаксов всем, у кого на кошельке меньше 50? Банк — с максимальной ликвидностью.',
+      };
+
+      if (!window.confirm(prompts[action] || 'Выполнить массовое действие?')) {
+        return;
+      }
+
+      this.bulkLoading = true;
+      this.bulkMessage = '';
+      this.bulkError = '';
+      try {
+        const data = await apiActions.game.moderatorBulkAction(this.authData.token, action);
+        if (data?.status === 'ok') {
+          this.bulkMessage = `Готово: ${data.success || 0} ок, пропущено ${data.skipped || 0}, ошибок ${data.failed || 0}`;
+          await this.loadRating();
+          await this.loadGameBank();
+          await this.refreshGameInfo();
+        }
+      } catch (e) {
+        this.bulkError = e.message || 'Массовое действие не выполнено';
+        console.log('runBulk error', e);
+      } finally {
+        this.bulkLoading = false;
+      }
     },
 
     async loadRating() {
@@ -607,6 +705,65 @@ export default {
   flex-wrap: wrap;
   gap: 4px;
   margin-top: 6px;
+}
+
+.bulk_actions {
+  margin-top: 6px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.bulk_title {
+  font-size: 10px;
+  color: @colorBlur;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 5px;
+}
+
+.bulk_row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.bulk_btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border: 1px solid @orange;
+  background: @darkbg;
+  color: @colorText;
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 10px;
+  line-height: 1.1;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .bulk_emoji {
+    font-size: 12px;
+    line-height: 1;
+  }
+}
+
+.bulk_msg {
+  margin-top: 5px;
+  font-size: 11px;
+  line-height: 1.3;
+
+  &.ok {
+    color: @YesWrite;
+  }
+
+  &.error {
+    color: #f88;
+  }
 }
 
 .filter_btn {

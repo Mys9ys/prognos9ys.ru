@@ -14,7 +14,7 @@ use Prognos9ys\Main\Service\Game\GameBankService;
 use Prognos9ys\Main\Service\Game\GameEconomyConfig;
 use Prognos9ys\Main\Service\Game\GameProfileService;
 use Prognos9ys\Main\Service\Game\GovSupportDepositService;
-use Prognos9ys\Main\Service\Game\LevelService;
+use Prognos9ys\Main\Service\Game\ModeratorBulkActionsService;
 use Prognos9ys\Main\Service\Game\TreasuryService;
 use Prognos9ys\Main\Service\Game\TreasuryShopService;
 use Prognos9ys\Main\Service\Game\UserBankService;
@@ -51,6 +51,7 @@ class GameController extends BaseController
             'forceCloseDeposit' => $this->getDefaultConfigureForPostToken(),
             'closeBank' => $this->getDefaultConfigureForPostToken(),
             'getAchievements' => $this->getDefaultConfigureForPostToken(),
+            'moderatorBulkAction' => $this->getDefaultConfigureForPostToken(),
         ];
     }
 
@@ -413,6 +414,27 @@ class GameController extends BaseController
         return array_merge(['status' => 'ok'], $result, [
             'game' => (new GameProfileService())->getSummary($userId),
         ]);
+    }
+
+    public function moderatorBulkActionAction(string $action): array
+    {
+        $actorId = TokenAuthService::getCurrentUserId();
+
+        if (!$actorId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        if (!(new ImpersonationService())->canImpersonate($actorId)) {
+            throw new ApiException('Нет доступа', 403);
+        }
+
+        try {
+            $result = (new ModeratorBulkActionsService())->run($action);
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok'], $result);
     }
 
     public function getAchievementsAction(): array

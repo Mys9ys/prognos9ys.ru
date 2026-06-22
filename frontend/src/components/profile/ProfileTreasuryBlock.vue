@@ -26,7 +26,7 @@
     <div class="section" v-if="contractEvents.length">
       <div class="section_title">Гос. вклад поддержки</div>
       <p class="hint">
-        500 <AppIcon name="prognobak" :size="14" /> с кошелька пополняют ликвидность выбранного банка (господдержка).
+        500 <AppIcon name="prognobak" :size="14" /> из казны пополняют ликвидность выбранного банка (господдержка).
         После 5 туров 5% поступают в казну. Тело вклада — кнопкой «Забрать вклад».
       </p>
 
