@@ -108,9 +108,9 @@ class GameController extends BaseController
         ];
     }
 
-    public function getWealthRatingAction(int $limit = 30, string $wealthSort = 'rich'): array
+    public function getWealthRatingAction(int $limit = 30, string $wealthSort = 'rich', int $offset = 0): array
     {
-        return (new WealthRatingService())->getRating($limit, $wealthSort);
+        return (new WealthRatingService())->getRating($limit, $wealthSort, $offset);
     }
 
     public function getGameBankAction(): array

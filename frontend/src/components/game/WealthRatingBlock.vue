@@ -122,6 +122,21 @@
         </tbody>
       </table>
       <div class="wealth_empty" v-else>{{ emptyText }}</div>
+      <div class="wealth_pager" v-if="totalPages > 1">
+        <button
+            type="button"
+            class="pager_btn"
+            :disabled="loading || page <= 1"
+            @click="goToPage(page - 1)"
+        >‹</button>
+        <span class="pager_info">{{ page }} / {{ totalPages }}</span>
+        <button
+            type="button"
+            class="pager_btn"
+            :disabled="loading || page >= totalPages"
+            @click="goToPage(page + 1)"
+        >›</button>
+      </div>
       <div class="wealth_hint">{{ hintText }}</div>
     </div>
   </div>
@@ -134,6 +149,9 @@ import AppIcon from '@/components/ui/AppIcon.vue';
 import { apiActions } from '@/api/bitrixClient';
 import { DEFAULT_AVATAR_URL } from '@/utils/defaultAvatar';
 
+const PAGE_SIZE = 50;
+const WEALTH_MODES = ['rich', 'poor', 'pending_xp', 'treasure_rich'];
+
 export default {
   name: 'WealthRatingBlock',
   components: { PreLoader, AppIcon },
@@ -144,6 +162,7 @@ export default {
       loading: false,
       mode: 'poor',
       ratings: [],
+      total: 0,
       gameBank: null,
       rowAction: null,
       url: 'https://prognos9ys.ru',
@@ -232,8 +251,19 @@ export default {
 
       return 'Σ = прогнобаксы';
     },
+    page() {
+      const raw = Number(this.$route?.query?.wr_page ?? 1);
+      return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 1;
+    },
+    offset() {
+      return (this.page - 1) * PAGE_SIZE;
+    },
+    totalPages() {
+      return Math.max(1, Math.ceil(this.total / PAGE_SIZE));
+    },
   },
   created() {
+    this.applyRouteState(false);
     this.loadGameBank();
   },
   watch: {
@@ -242,6 +272,12 @@ export default {
         this.ratingLoaded = true;
         this.loadRating();
       }
+    },
+    '$route.query': {
+      deep: true,
+      handler() {
+        this.applyRouteState(true);
+      },
     },
     'userInfo.token'(token) {
       if (token) {
@@ -261,16 +297,71 @@ export default {
         return;
       }
 
-      this.mode = mode;
-      this.loadRating();
+      this.updateRoute({ wr_mode: mode, wr_page: undefined });
+    },
+
+    applyRouteState(reload) {
+      const routeMode = this.$route?.query?.wr_mode;
+      if (WEALTH_MODES.includes(routeMode) && routeMode !== this.mode) {
+        this.mode = routeMode;
+      }
+
+      if (this.$route?.query?.wr_mode || this.$route?.query?.wr_page) {
+        this.expanded = true;
+        if (!this.ratingLoaded) {
+          this.ratingLoaded = true;
+        }
+        if (reload) {
+          this.loadRating();
+        } else if (this.ratingLoaded) {
+          this.loadRating();
+        }
+      }
+    },
+
+    async updateRoute(patch) {
+      const query = { ...this.$route.query };
+
+      Object.entries(patch).forEach(([key, value]) => {
+        if (value === undefined || value === null || value === '') {
+          delete query[key];
+        } else {
+          query[key] = String(value);
+        }
+      });
+
+      if (patch.wr_mode) {
+        this.mode = patch.wr_mode;
+      }
+
+      const sameQuery = JSON.stringify(query) === JSON.stringify(this.$route.query);
+      if (!sameQuery) {
+        await this.$router.replace({ query });
+        return;
+      }
+
+      await this.loadRating();
+    },
+
+    goToPage(nextPage) {
+      const page = Math.max(1, Math.min(this.totalPages, Number(nextPage) || 1));
+      this.updateRoute({
+        wr_mode: this.mode,
+        wr_page: page > 1 ? page : undefined,
+      });
     },
 
     async loadRating() {
       this.loading = true;
       try {
-        const data = await apiActions.game.getWealthRating(50, this.mode);
+        const data = await apiActions.game.getWealthRating(PAGE_SIZE, this.mode, this.offset);
         if (data?.status === 'ok') {
           this.ratings = data.ratings || [];
+          this.total = Number(data.total ?? this.ratings.length);
+          const maxPage = Math.max(1, Math.ceil(this.total / PAGE_SIZE));
+          if (this.page > maxPage) {
+            await this.updateRoute({ wr_mode: this.mode, wr_page: undefined });
+          }
         }
       } catch (e) {
         console.log('wealth rating error', e);
@@ -626,6 +717,39 @@ export default {
   color: @colorBlur;
   text-align: right;
   padding-right: 4px;
+}
+
+.wealth_pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 4px 0;
+}
+
+.pager_btn {
+  background: @darkbg;
+  color: @colorText;
+  border: 1px solid fade(@colorBlur, 40%);
+  border-radius: 4px;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+}
+
+.pager_info {
+  font-size: 12px;
+  color: @colorText;
+  min-width: 52px;
+  text-align: center;
 }
 
 .level_cell {

@@ -24,9 +24,10 @@ class WealthRatingService
         $this->scopeService = $scopeService ?? new GameEventScopeService();
     }
 
-    public function getRating(int $limit = 30, string $wealthSort = 'rich'): array
+    public function getRating(int $limit = 30, string $wealthSort = 'rich', int $offset = 0): array
     {
         $limit = max(1, min(100, $limit));
+        $offset = max(0, $offset);
         $wealthSort = in_array($wealthSort, [
             'rich',
             'poor',
@@ -35,17 +36,17 @@ class WealthRatingService
         ], true) ? $wealthSort : 'rich';
 
         if ($wealthSort === 'pending_xp') {
-            return $this->getPendingXpRating($limit);
+            return $this->getPendingXpRating($limit, $offset);
         }
 
         if ($wealthSort === 'treasure_rich') {
-            return $this->getTreasureRating($limit);
+            return $this->getTreasureRating($limit, $offset);
         }
 
-        return $this->getWealthRating($limit, $wealthSort === 'poor');
+        return $this->getWealthRating($limit, $offset, $wealthSort === 'poor');
     }
 
-    private function getWealthRating(int $limit, bool $poorestFirst): array
+    private function getWealthRating(int $limit, int $offset, bool $poorestFirst): array
     {
         $wallets = $this->repository->getAllWallets();
         $levelMap = $this->buildLevelMap();
@@ -78,7 +79,7 @@ class WealthRatingService
                 : ($b['total'] <=> $a['total']);
         });
 
-        $prepared = array_slice($prepared, 0, $limit);
+        $total = count($prepared);
         $users = $this->loadUsers(array_column($prepared, 'user_id'));
 
         $ratings = [];
@@ -86,6 +87,18 @@ class WealthRatingService
         $prevTotal = null;
 
         foreach ($prepared as $index => $row) {
+            if ($index < $offset) {
+                if ($prevTotal === null || $row['total'] !== $prevTotal) {
+                    $place = $index + 1;
+                }
+                $prevTotal = $row['total'];
+                continue;
+            }
+
+            if ($index >= $offset + $limit) {
+                break;
+            }
+
             if ($prevTotal === null || $row['total'] !== $prevTotal) {
                 $place = $index + 1;
             }
@@ -108,11 +121,14 @@ class WealthRatingService
         return [
             'status' => 'ok',
             'wealth_sort' => $poorestFirst ? 'poor' : 'rich',
+            'total' => $total,
+            'limit' => $limit,
+            'offset' => $offset,
             'ratings' => $ratings,
         ];
     }
 
-    private function getPendingXpRating(int $limit): array
+    private function getPendingXpRating(int $limit, int $offset): array
     {
         $scope = new GameEventScopeService();
         $aggregates = $this->repository->getPendingXpAggregatesByUser(
@@ -146,14 +162,27 @@ class WealthRatingService
             return $b['pending_points'] <=> $a['pending_points'];
         });
 
-        $prepared = array_slice($prepared, 0, $limit);
+        $total = count($prepared);
         $users = $this->loadUsers(array_column($prepared, 'user_id'));
 
         $ratings = [];
         $place = 0;
         $prevPoints = null;
+        $pendingMap = $this->buildPendingMap();
 
         foreach ($prepared as $index => $row) {
+            if ($index < $offset) {
+                if ($prevPoints === null || $row['pending_points'] !== $prevPoints) {
+                    $place = $index + 1;
+                }
+                $prevPoints = $row['pending_points'];
+                continue;
+            }
+
+            if ($index >= $offset + $limit) {
+                break;
+            }
+
             if ($prevPoints === null || $row['pending_points'] !== $prevPoints) {
                 $place = $index + 1;
             }
@@ -180,17 +209,23 @@ class WealthRatingService
         return [
             'status' => 'ok',
             'wealth_sort' => 'pending_xp',
+            'total' => $total,
+            'limit' => $limit,
+            'offset' => $offset,
             'ratings' => $ratings,
         ];
     }
 
-    private function getTreasureRating(int $limit): array
+    private function getTreasureRating(int $limit, int $offset): array
     {
         $wallets = $this->repository->getAllWallets();
         if (!$wallets) {
             return [
                 'status' => 'ok',
                 'wealth_sort' => 'treasure_rich',
+                'total' => 0,
+                'limit' => $limit,
+                'offset' => $offset,
                 'ratings' => [],
             ];
         }
@@ -229,13 +264,25 @@ class WealthRatingService
             return $b['treasure_total'] <=> $a['treasure_total'];
         });
 
-        $prepared = array_slice($prepared, 0, $limit);
+        $total = count($prepared);
         $users = $this->loadUsers(array_column($prepared, 'user_id'));
 
         $ratings = [];
         $place = 0;
         $prevTreasure = null;
         foreach ($prepared as $index => $row) {
+            if ($index < $offset) {
+                if ($prevTreasure === null || $row['treasure_total'] !== $prevTreasure) {
+                    $place = $index + 1;
+                }
+                $prevTreasure = $row['treasure_total'];
+                continue;
+            }
+
+            if ($index >= $offset + $limit) {
+                break;
+            }
+
             if ($prevTreasure === null || $row['treasure_total'] !== $prevTreasure) {
                 $place = $index + 1;
             }
@@ -260,6 +307,9 @@ class WealthRatingService
         return [
             'status' => 'ok',
             'wealth_sort' => 'treasure_rich',
+            'total' => $total,
+            'limit' => $limit,
+            'offset' => $offset,
             'ratings' => $ratings,
         ];
     }

@@ -179,9 +179,9 @@ export const apiActions = {
             'prognos9ys:main.GameController.getLevelTiers',
             {}
         ),
-        getWealthRating: (limit = 30, wealthSort = 'rich') => runBitrixAction(
+        getWealthRating: (limit = 30, wealthSort = 'rich', offset = 0) => runBitrixAction(
             'prognos9ys:main.GameController.getWealthRating',
-            { limit, wealthSort }
+            { limit, wealthSort, offset }
         ),
         getGameBank: (userToken) => runBitrixAction(
             'prognos9ys:main.GameController.getGameBank',
