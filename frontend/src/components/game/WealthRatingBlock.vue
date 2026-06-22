@@ -14,7 +14,6 @@
         <AppIcon name="bank" :size="14" /> Госбанк: <strong>{{ formatMoney(gameBank.prognobaks) }} <AppIcon name="prognobak" :size="14" /></strong>
         <span class="bank_hint">остатки паримутуеля</span>
       </div>
-      <TreasuryAdminBlock v-if="isModerator && treasury" :treasury="treasury" />
       <div class="wealth_filters" v-if="expanded" @click.stop>
         <button
             type="button"
@@ -132,13 +131,12 @@
 import { mapActions, mapState } from 'vuex';
 import PreLoader from '@/components/main/PreLoader';
 import AppIcon from '@/components/ui/AppIcon.vue';
-import TreasuryAdminBlock from '@/components/game/TreasuryAdminBlock.vue';
 import { apiActions } from '@/api/bitrixClient';
 import { DEFAULT_AVATAR_URL } from '@/utils/defaultAvatar';
 
 export default {
   name: 'WealthRatingBlock',
-  components: { PreLoader, AppIcon, TreasuryAdminBlock },
+  components: { PreLoader, AppIcon },
   data() {
     return {
       expanded: false,
@@ -147,7 +145,6 @@ export default {
       mode: 'poor',
       ratings: [],
       gameBank: null,
-      treasury: null,
       rowAction: null,
       url: 'https://prognos9ys.ru',
       defaultAvatar: DEFAULT_AVATAR_URL,
@@ -296,7 +293,6 @@ export default {
         const data = await apiActions.game.getGameBank(userToken);
         if (data?.status === 'ok') {
           this.gameBank = data.bank || null;
-          this.treasury = data.treasury || null;
         }
       } catch (e) {
         console.log('game bank error', e);

@@ -139,10 +139,6 @@ class GameController extends BaseController
             throw new ApiException('Пользователь не авторизован', 401);
         }
 
-        if (!(new ImpersonationService())->canImpersonate($userId)) {
-            throw new ApiException('Нет доступа', 403);
-        }
-
         return [
             'status' => 'ok',
             'treasury' => (new TreasuryService())->getSummary(),

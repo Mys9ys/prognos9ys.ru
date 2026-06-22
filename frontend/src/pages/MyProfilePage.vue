@@ -10,7 +10,8 @@
       :class="{'active': active === index}"
     >
       <div class="title">
-        <div class="icon" v-if="el.icon">
+        <div class="icon emoji_icon" v-if="el.emoji">{{ el.emoji }}</div>
+        <div class="icon" v-else-if="el.icon">
           <AppIcon :name="el.icon" :size="20" />
         </div>
         <div class="icon" v-else>
@@ -122,6 +123,13 @@
       <ProfileBankBlock :game="gameInfo" v-if="gameInfo"></ProfileBankBlock>
     </div>
 
+    <div class="body_item" v-if="active === 'treasury'">
+      <div class="title_wrapper">
+        <div class="title">Казна</div>
+      </div>
+      <ProfileTreasuryBlock />
+    </div>
+
     <div class="body_item" v-if="active === 'achievement'">
       <div class="title_wrapper">
         <div class="title">
@@ -161,6 +169,7 @@ import ProfileRaceBlock from "@/components/profile/ProfileRaceBlock";
 import ProfileTitle from "@/components/profile/ProfileTitle";
 import ProfileGameBlock from "@/components/profile/ProfileGameBlock";
 import ProfileBankBlock from "@/components/profile/ProfileBankBlock";
+import ProfileTreasuryBlock from "@/components/profile/ProfileTreasuryBlock";
 import ImpersonationPanel from "@/components/profile/ImpersonationPanel";
 import AppIcon from '@/components/ui/AppIcon.vue';
 
@@ -174,6 +183,7 @@ export default {
     ProfileEventBody,
     ProfileGameBlock,
     ProfileBankBlock,
+    ProfileTreasuryBlock,
     ImpersonationPanel,
     AppIcon,
   },
@@ -190,6 +200,7 @@ export default {
         general: {title: 'Общая', icon: 'profile_info'},
         prognosis: {title: 'Прогнозы', icon: 'prognosis'},
         finance: {title: 'Финансы', icon: 'bank'},
+        treasury: {title: 'Казна', emoji: '🏛️'},
         achievement: {title: 'Награды', icon: 'achievement'},
         settings: {title: 'Настройки', icon: 'settings'},
       }
@@ -474,6 +485,11 @@ export default {
         width: 20px;
         height: 20px;
         object-fit: contain;
+      }
+
+      &.emoji_icon {
+        font-size: 18px;
+        line-height: 1;
       }
     }
 
