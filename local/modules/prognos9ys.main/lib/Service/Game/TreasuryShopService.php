@@ -77,23 +77,25 @@ class TreasuryShopService
 
         $price = (float)($offer['price'] ?? 0);
         $wave = $this->ensureWaveRow($userId, $milestone);
+        $waveId = (int)$wave['ID'];
 
-        $this->walletService->debit(
+        $charged = $this->chargeWalletForShop(
             $userId,
             $currency,
             $price,
             'treasury_shop_chest',
-            'treasury_shop_wave',
-            (int)$wave['ID']
+            $waveId
         );
 
-        $this->treasuryService->credit($currency, $price, 'treasury_shop_wave', (int)$wave['ID']);
+        if ($charged) {
+            $this->treasuryService->credit($currency, $price, 'treasury_shop_wave', $waveId);
+        }
 
         $field = $currency === GameEconomyConfig::CURRENCY_PROGNOBAKS
             ? 'UF_PROGNOBAKS_BOUGHT'
             : 'UF_RUBLIUS_BOUGHT';
 
-        $this->repository->updateTreasuryShopWave((int)$wave['ID'], [
+        $this->repository->updateTreasuryShopWave($waveId, [
             $field => true,
             'UF_UPDATED_AT' => new DateTime(),
         ]);
@@ -132,20 +134,22 @@ class TreasuryShopService
         $price = (float)($offer['price'] ?? 0);
         $days = (int)($offer['days'] ?? 1);
         $wave = $this->ensureWaveRow($userId, $milestone);
+        $waveId = (int)$wave['ID'];
 
-        $this->walletService->debit(
+        $charged = $this->chargeWalletForShop(
             $userId,
             $currency,
             $price,
             'treasury_shop_premium',
-            'treasury_shop_wave',
-            (int)$wave['ID']
+            $waveId
         );
 
-        $this->treasuryService->credit($currency, $price, 'treasury_shop_wave', (int)$wave['ID']);
+        if ($charged) {
+            $this->treasuryService->credit($currency, $price, 'treasury_shop_wave', $waveId);
+        }
 
         $boughtField = $this->getPremiumBoughtField($offerKey);
-        $this->repository->updateTreasuryShopWave((int)$wave['ID'], [
+        $this->repository->updateTreasuryShopWave($waveId, [
             $boughtField => true,
             'UF_UPDATED_AT' => new DateTime(),
         ]);
@@ -325,5 +329,158 @@ class TreasuryShopService
     private function isTruthy($value): bool
     {
         return $value === true || $value === 1 || $value === '1' || $value === 'Y';
+    }
+
+    /**
+     * @return bool true если списание выполнено сейчас
+     */
+    private function chargeWalletForShop(
+        int $userId,
+        string $currency,
+        float $price,
+        string $reason,
+        int $waveId
+    ): bool {
+        if ($this->repository->hasWalletTx($userId, $reason, 'treasury_shop_wave', $waveId, $currency)) {
+            return false;
+        }
+
+        $wallet = $this->walletService->getWalletSummary($userId);
+        $balanceKey = $currency === GameEconomyConfig::CURRENCY_RUBLIUS ? 'rublius' : 'prognobaks';
+
+        if (round((float)($wallet[$balanceKey] ?? 0), 1) < round($price, 1)) {
+            throw new \RuntimeException('Недостаточно средств');
+        }
+
+        $this->walletService->debit(
+            $userId,
+            $currency,
+            $price,
+            $reason,
+            'treasury_shop_wave',
+            $waveId
+        );
+
+        if (!$this->repository->hasWalletTx($userId, $reason, 'treasury_shop_wave', $waveId, $currency)) {
+            throw new \RuntimeException('Списание не зафиксировано в журнале кошелька');
+        }
+
+        return true;
+    }
+
+    /**
+     * Доначислить пропущенные списания за уже отмеченные покупки (ручной repair).
+     *
+     * @return array{fixed:int,skipped:int,errors:array<int,string>}
+     */
+    public function repairMissingShopCharges(bool $dryRun = true): array
+    {
+        $result = ['fixed' => 0, 'skipped' => 0, 'errors' => []];
+        $dataClass = $this->repository->getTreasuryShopWaveDataClass();
+        $response = $dataClass::getList([
+            'select' => ['*'],
+            'order' => ['ID' => 'ASC'],
+        ]);
+
+        while ($wave = $response->fetch()) {
+            $userId = (int)($wave['UF_USER_ID'] ?? 0);
+            $waveId = (int)($wave['ID'] ?? 0);
+            $milestone = (int)($wave['UF_MILESTONE'] ?? 0);
+
+            if ($userId <= 0 || $waveId <= 0) {
+                continue;
+            }
+
+            $jobs = [];
+
+            if ($this->isTruthy($wave['UF_RUBLIUS_BOUGHT'] ?? false)) {
+                $jobs[] = [
+                    'currency' => GameEconomyConfig::CURRENCY_RUBLIUS,
+                    'price' => GameEconomyConfig::TREASURY_SHOP_CHEST_RUBLIUS_PRICE,
+                    'reason' => 'treasury_shop_chest',
+                    'grant_type' => 'rublius_chest',
+                ];
+            }
+
+            if ($this->isTruthy($wave['UF_PROGNOBAKS_BOUGHT'] ?? false)) {
+                $jobs[] = [
+                    'currency' => GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                    'price' => GameEconomyConfig::TREASURY_SHOP_CHEST_PROGNOBAKS_PRICE,
+                    'reason' => 'treasury_shop_chest',
+                    'grant_type' => 'prognobaks_chest',
+                ];
+            }
+
+            if ($this->isTruthy($wave['UF_PREMIUM_BOUGHT'] ?? false)) {
+                $jobs[] = [
+                    'currency' => GameEconomyConfig::CURRENCY_RUBLIUS,
+                    'price' => GameEconomyConfig::TREASURY_SHOP_PREMIUM_1D_RUBLIUS_PRICE,
+                    'reason' => 'treasury_shop_premium',
+                    'grant_type' => 'premium',
+                ];
+            }
+
+            foreach ($jobs as $job) {
+                if ($this->repository->hasWalletTx(
+                    $userId,
+                    $job['reason'],
+                    'treasury_shop_wave',
+                    $waveId,
+                    $job['currency']
+                )) {
+                    $result['skipped']++;
+                    continue;
+                }
+
+                if ($dryRun) {
+                    $result['fixed']++;
+                    continue;
+                }
+
+                try {
+                    $this->walletService->getWalletSummary($userId);
+                    $charged = $this->chargeWalletForShop(
+                        $userId,
+                        $job['currency'],
+                        (float)$job['price'],
+                        $job['reason'],
+                        $waveId
+                    );
+                    if ($charged) {
+                        $this->treasuryService->credit(
+                            $job['currency'],
+                            (float)$job['price'],
+                            'treasury_shop_wave',
+                            $waveId
+                        );
+                    }
+                    $this->grantRepairReward($userId, $milestone, (string)$job['grant_type']);
+                    $result['fixed']++;
+                } catch (\Throwable $e) {
+                    $result['errors'][] = 'user #' . $userId . ' wave #' . $waveId . ': ' . $e->getMessage();
+                }
+            }
+        }
+
+        return $result;
+    }
+
+    private function grantRepairReward(int $userId, int $milestone, string $grantType): void
+    {
+        if ($grantType === 'rublius_chest') {
+            $this->treasureService->grantShopChest($userId, $milestone, GameEconomyConfig::CURRENCY_RUBLIUS);
+
+            return;
+        }
+
+        if ($grantType === 'prognobaks_chest') {
+            $this->treasureService->grantShopChest($userId, $milestone, GameEconomyConfig::CURRENCY_PROGNOBAKS);
+
+            return;
+        }
+
+        if ($grantType === 'premium') {
+            $this->treasureService->grantPremiumScroll($userId, $milestone, 1);
+        }
     }
 }

@@ -176,6 +176,7 @@ class GameController extends BaseController
         $result = (new TreasuryShopService())->buyChest($userId, $currency);
 
         $response = array_merge(['status' => 'ok', 'target_user_id' => $userId], $result);
+        $response['wallet'] = (new WalletService())->getWalletSummary($userId);
 
         if ($userId === $actorId) {
             $response['game'] = (new GameProfileService())->getSummary($userId);
@@ -196,6 +197,7 @@ class GameController extends BaseController
         $result = (new TreasuryShopService())->buyPremium($userId, $offerKey);
 
         $response = array_merge(['status' => 'ok', 'target_user_id' => $userId], $result);
+        $response['wallet'] = (new WalletService())->getWalletSummary($userId);
 
         if ($userId === $actorId) {
             $response['game'] = (new GameProfileService())->getSummary($userId);

@@ -132,13 +132,98 @@ class GameEconomyRepository
 
     public function getWalletByUserId(int $userId): ?array
     {
-        $dataClass = $this->getWalletDataClass();
-        $row = $dataClass::getList([
-            'filter' => ['=UF_USER_ID' => $userId],
-            'limit' => 1,
-        ])->fetch();
+        $rows = $this->getWalletRowsByUserId($userId);
 
-        return $row ?: null;
+        if (!$rows) {
+            return null;
+        }
+
+        if (count($rows) > 1) {
+            return $this->mergeWalletDuplicatesForUser($userId, $rows);
+        }
+
+        return $rows[0];
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $rows
+     */
+    public function mergeWalletDuplicatesForUser(int $userId, array $rows): array
+    {
+        if ($userId <= 0 || !$rows) {
+            throw new \InvalidArgumentException('Некорректный кошелёк для объединения');
+        }
+
+        if (count($rows) === 1) {
+            return $rows[0];
+        }
+
+        $primary = $rows[0];
+        $primaryId = (int)($primary['ID'] ?? 0);
+        $prognobaks = 0.0;
+        $rublius = 0.0;
+
+        foreach ($rows as $row) {
+            $prognobaks += round((float)($row['UF_PROGNOBAKS'] ?? 0), 1);
+            $rublius += round((float)($row['UF_RUBLIUS'] ?? 0), 1);
+        }
+
+        $this->updateWallet($primaryId, [
+            'UF_PROGNOBAKS' => round($prognobaks, 1),
+            'UF_RUBLIUS' => round($rublius, 1),
+        ]);
+
+        for ($i = 1, $count = count($rows); $i < $count; $i++) {
+            $duplicateId = (int)($rows[$i]['ID'] ?? 0);
+            if ($duplicateId > 0 && $duplicateId !== $primaryId) {
+                $this->deleteWallet($duplicateId);
+            }
+        }
+
+        $merged = $this->getWalletRowsByUserId($userId);
+
+        if (!$merged) {
+            throw new \RuntimeException('Не удалось объединить кошельки пользователя #' . $userId);
+        }
+
+        return $merged[0];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function getWalletRowsByUserId(int $userId): array
+    {
+        if ($userId <= 0) {
+            return [];
+        }
+
+        $dataClass = $this->getWalletDataClass();
+        $rows = [];
+        $response = $dataClass::getList([
+            'filter' => ['=UF_USER_ID' => $userId],
+            'order' => ['ID' => 'ASC'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
+    public function deleteWallet(int $id): void
+    {
+        if ($id <= 0) {
+            return;
+        }
+
+        $dataClass = $this->getWalletDataClass();
+        $result = $dataClass::delete($id);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
     }
 
     /**
@@ -147,9 +232,10 @@ class GameEconomyRepository
     public function getAllWallets(): array
     {
         $dataClass = $this->getWalletDataClass();
-        $rows = [];
+        $grouped = [];
         $response = $dataClass::getList([
             'select' => ['UF_USER_ID', 'UF_PROGNOBAKS', 'UF_RUBLIUS'],
+            'order' => ['UF_USER_ID' => 'ASC', 'ID' => 'ASC'],
         ]);
 
         while ($row = $response->fetch()) {
@@ -158,14 +244,25 @@ class GameEconomyRepository
                 continue;
             }
 
-            $rows[] = [
-                'user_id' => $userId,
-                'prognobaks' => round((float)($row['UF_PROGNOBAKS'] ?? 0), 1),
-                'rublius' => round((float)($row['UF_RUBLIUS'] ?? 0), 1),
-            ];
+            if (!isset($grouped[$userId])) {
+                $grouped[$userId] = [
+                    'user_id' => $userId,
+                    'prognobaks' => 0.0,
+                    'rublius' => 0.0,
+                ];
+            }
+
+            $grouped[$userId]['prognobaks'] += round((float)($row['UF_PROGNOBAKS'] ?? 0), 1);
+            $grouped[$userId]['rublius'] += round((float)($row['UF_RUBLIUS'] ?? 0), 1);
         }
 
-        return $rows;
+        return array_values(array_map(static function (array $wallet): array {
+            return [
+                'user_id' => (int)$wallet['user_id'],
+                'prognobaks' => round((float)$wallet['prognobaks'], 1),
+                'rublius' => round((float)$wallet['rublius'], 1),
+            ];
+        }, $grouped));
     }
 
     public function addWallet(array $fields): int
@@ -232,8 +329,13 @@ class GameEconomyRepository
         ]);
     }
 
-    public function hasWalletTx(int $userId, string $reason, ?string $refType = null, ?int $refId = null): bool
-    {
+    public function hasWalletTx(
+        int $userId,
+        string $reason,
+        ?string $refType = null,
+        ?int $refId = null,
+        ?string $currency = null
+    ): bool {
         $filter = [
             '=UF_USER_ID' => $userId,
             '=UF_REASON' => $reason,
@@ -245,6 +347,10 @@ class GameEconomyRepository
 
         if ($refId !== null) {
             $filter['=UF_REF_ID'] = $refId;
+        }
+
+        if ($currency !== null) {
+            $filter['=UF_CURRENCY'] = $currency;
         }
 
         $dataClass = $this->getWalletTxDataClass();
@@ -1206,6 +1312,7 @@ class GameEconomyRepository
                 '=UF_USER_ID' => $userId,
                 '=UF_MILESTONE' => $milestone,
             ],
+            'order' => ['ID' => 'ASC'],
             'limit' => 1,
         ])->fetch();
 

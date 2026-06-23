@@ -16,9 +16,13 @@ class WalletService
 
     public function ensureWallet(int $userId): array
     {
-        $row = $this->repository->getWalletByUserId($userId);
+        $rows = $this->repository->getWalletRowsByUserId($userId);
 
-        if ($row) {
+        if ($rows) {
+            $row = count($rows) > 1
+                ? $this->repository->mergeWalletDuplicatesForUser($userId, $rows)
+                : $rows[0];
+
             return $this->formatWallet($row);
         }
 
@@ -239,18 +243,22 @@ class WalletService
 
     private function ensureWalletRow(int $userId): array
     {
-        $row = $this->repository->getWalletByUserId($userId);
+        $rows = $this->repository->getWalletRowsByUserId($userId);
 
-        if (!$row) {
+        if (!$rows) {
             $this->ensureWallet($userId);
-            $row = $this->repository->getWalletByUserId($userId);
+            $rows = $this->repository->getWalletRowsByUserId($userId);
         }
 
-        if (!$row) {
+        if (!$rows) {
             throw new \RuntimeException('Не удалось создать кошелёк пользователя');
         }
 
-        return $row;
+        if (count($rows) > 1) {
+            return $this->repository->mergeWalletDuplicatesForUser($userId, $rows);
+        }
+
+        return $rows[0];
     }
 
     private function currencyField(string $currency): string
