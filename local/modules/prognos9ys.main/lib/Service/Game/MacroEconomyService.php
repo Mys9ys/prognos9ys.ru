@@ -37,8 +37,17 @@ class MacroEconomyService
         $avgP = $users > 0 ? round($totalP / $users, 1) : 0.0;
         $avgR = $users > 0 ? round($totalR / $users, 1) : 0.0;
 
+        $scopeService = new GameEventScopeService();
+        $lastSettled = (new MatchEconomySettlementService($this->repository, $scopeService))
+            ->getLastSettledMatchForEvent($scopeService->getAnchorEventId());
+        $lastMatchNumber = (int)($lastSettled['number'] ?? 0);
+        $lastMatchId = (int)($lastSettled['id'] ?? 0);
+
         return [
             'registered_users' => $users,
+            'last_settled_match_id' => $lastMatchId,
+            'last_settled_match_number' => $lastMatchNumber,
+            'last_settled_match_label' => $scopeService->formatMatchLabelByNumber($lastMatchNumber),
             'prognobaks' => [
                 'total' => $totalP,
                 'hands' => $handsP,

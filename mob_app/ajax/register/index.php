@@ -60,13 +60,6 @@ class VueRegistrationClass
             $this->arrError['mes'] = explode('(', $user->LAST_ERROR)[0] . 'уже существует';
         } else {
             $this->arrError['status'] = 'ok';
-            if ($ID > 0 && \Bitrix\Main\Loader::includeModule('prognos9ys.main')) {
-                try {
-                    \Prognos9ys\Main\Service\Game\RegistrationBonusService::onUserRegistered((int)$ID);
-                } catch (\Throwable $exception) {
-                    // не блокируем регистрацию
-                }
-            }
         }
 
     }

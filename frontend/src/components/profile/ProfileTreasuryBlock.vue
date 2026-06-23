@@ -26,6 +26,9 @@
     <div class="section" v-if="macro">
       <div class="section_title">Макроэкономика</div>
       <p class="hint macro_users">Зарегистрировано пользователей: <strong>{{ macro.registered_users }}</strong></p>
+      <p class="hint macro_match" v-if="macro.last_settled_match_label">
+        Результаты внесены за <strong>{{ macro.last_settled_match_label }}</strong>
+      </p>
 
       <div class="macro_block">
         <div class="macro_currency_title">
@@ -360,6 +363,14 @@ export default {
 
   strong {
     color: @yellow;
+  }
+}
+
+.macro_match {
+  margin: -2px 0 8px;
+
+  strong {
+    color: @orange;
   }
 }
 
