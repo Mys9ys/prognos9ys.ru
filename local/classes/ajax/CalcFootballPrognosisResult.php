@@ -396,6 +396,12 @@ class CalcFootballPrognosisResult
             $this->logGameEconomyError('syncPendingForMatch', $matchId, $exception);
         }
 
+        try {
+            (new \Prognos9ys\Main\Service\Game\AchievementService())->syncAfterMatch($matchId, false);
+        } catch (\Throwable $exception) {
+            $this->logGameEconomyError('syncAchievementsAfterMatch', $matchId, $exception);
+        }
+
         $eventId = 0;
         if (Loader::includeModule('iblock')) {
             $matchRow = \CIBlockElement::GetList(

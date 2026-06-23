@@ -63,6 +63,10 @@ export function getChestIconName(chestType) {
         return 'chest_xp';
     }
 
+    if (chestType === 'achievement') {
+        return 'chest_achievement';
+    }
+
     return 'chest_wc2026';
 }
 

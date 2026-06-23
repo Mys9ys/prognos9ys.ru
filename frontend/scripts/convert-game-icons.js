@@ -37,7 +37,27 @@ const metricPairs = [
   { src: 'local/tools/assets/metrics/ps/metric_total_all.png', dst: 'frontend/src/assets/icons/metrics/metric_total_all.png', size: '128' },
 ];
 
-const allPairs = [...pairs, ...metricPairs];
+const achievementPairs = [
+  { src: 'local/tools/assets/achievements/ps/welcome.png', dst: 'frontend/src/assets/icons/achievements/ach_welcome.png', size: '128' },
+  { src: 'local/tools/assets/achievements/ps/wc26.png', dst: 'frontend/src/assets/icons/achievements/ach_chm2026.png', size: '128' },
+  { src: 'local/tools/assets/achievements/ps/prodigy.png', dst: 'frontend/src/assets/icons/achievements/ach_prodigy.png', size: '128' },
+  { src: 'local/tools/assets/achievements/ps/luck.png', dst: 'frontend/src/assets/icons/achievements/ach_luck.png', size: '128' },
+  { src: 'local/tools/assets/achievements/ps/score.png', dst: 'frontend/src/assets/icons/achievements/ach_scoreboard.png', size: '128' },
+  { src: 'local/tools/assets/achievements/ps/way_red.png', dst: 'frontend/src/assets/icons/achievements/ach_wow_red.png', size: '128' },
+  { src: 'local/tools/assets/achievements/ps/way_penalty.png', dst: 'frontend/src/assets/icons/achievements/ach_wow_pen.png', size: '128' },
+];
+
+const pennantPairs = [
+  { src: 'local/tools/assets/achievements/ps/pennant_site.png', dst: 'frontend/src/assets/icons/pennants/pennant_site.png', size: '256' },
+  { src: 'local/tools/assets/achievements/ps/pennant_wc26.png', dst: 'frontend/src/assets/icons/pennants/pennant_chm2026.png', size: '256' },
+];
+
+const inventoryPairs = [
+  { src: 'local/tools/assets/achievements/ps/premium_scroll_1d.png', dst: 'frontend/src/assets/icons/inventory/premium_scroll_1d.png', size: '256' },
+  { src: 'local/tools/assets/achievements/ps/achiv_chess.png', dst: 'frontend/src/assets/icons/game/chest-achievement.png', size: '256' },
+];
+
+const allPairs = [...pairs, ...metricPairs, ...achievementPairs, ...pennantPairs, ...inventoryPairs];
 
 const root = path.join(__dirname, '..', '..');
 const size = '256';

@@ -16,19 +16,22 @@ class ModeratorBulkActionsService
     private ExperienceService $experienceService;
     private BankLoanService $loanService;
     private GameEventScopeService $scopeService;
+    private AchievementService $achievementService;
 
     public function __construct(
         ?GameEconomyRepository $repository = null,
         ?TreasuryShopService $shopService = null,
         ?ExperienceService $experienceService = null,
         ?BankLoanService $loanService = null,
-        ?GameEventScopeService $scopeService = null
+        ?GameEventScopeService $scopeService = null,
+        ?AchievementService $achievementService = null
     ) {
         $this->repository = $repository ?? new GameEconomyRepository();
         $this->shopService = $shopService ?? new TreasuryShopService($this->repository);
         $this->experienceService = $experienceService ?? new ExperienceService($this->repository);
         $this->loanService = $loanService ?? new BankLoanService($this->repository);
         $this->scopeService = $scopeService ?? new GameEventScopeService();
+        $this->achievementService = $achievementService ?? new AchievementService($this->repository, $this->scopeService);
     }
 
     /**
@@ -196,6 +199,22 @@ class ModeratorBulkActionsService
                     ['bank_id' => (int)$bank['ID'], 'bank_owner_id' => $ownerId]
                 );
 
+            case 'claim_achievements':
+                $granted = $this->achievementService->claimAllAvailable($userId);
+                $count = count($granted);
+
+                if ($count <= 0) {
+                    return $this->oneResult($bulkAction, $userId, 'skipped', 'Нечего забирать');
+                }
+
+                return $this->oneResult(
+                    $bulkAction,
+                    $userId,
+                    'success',
+                    'Ачивки: ' . $count . ' ур.',
+                    ['granted_count' => $count, 'granted' => $granted]
+                );
+
             default:
                 throw new \InvalidArgumentException('Неизвестное массовое действие');
         }
@@ -266,6 +285,15 @@ class ModeratorBulkActionsService
                 }
 
                 return ['eligible' => true, 'hint' => 'Займ 50 🪙'];
+
+            case 'claim_achievements':
+                $claimable = $this->achievementService->getClaimableItems($userId);
+                $count = count($claimable);
+                if ($count <= 0) {
+                    return ['eligible' => false, 'skip_reason' => 'Нет ачивок'];
+                }
+
+                return ['eligible' => true, 'hint' => $count . ' наград'];
 
             default:
                 return ['eligible' => false, 'skip_reason' => 'Неизвестное действие'];
@@ -340,6 +368,7 @@ class ModeratorBulkActionsService
             'rublius_chests',
             'premium_1d',
             'grant_loans',
+            'claim_achievements',
         ], true)) {
             throw new \InvalidArgumentException('Неизвестное массовое действие');
         }

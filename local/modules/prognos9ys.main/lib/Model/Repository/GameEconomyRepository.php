@@ -1145,6 +1145,52 @@ class GameEconomyRepository
         return $breakdown;
     }
 
+    /**
+     * @return array{site:int,chm2026:int}
+     */
+    public function getPennantInventoryCountsForUser(int $userId): array
+    {
+        $counts = [
+            'site' => 0,
+            'chm2026' => 0,
+        ];
+
+        if ($userId <= 0) {
+            return $counts;
+        }
+
+        $dataClass = $this->getTreasureChestDataClass();
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '=UF_TYPE' => 'pennant',
+                '=UF_STATUS' => 'inventory',
+            ],
+            'select' => ['UF_COUNT', 'UF_MATCH_ID'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $code = $this->resolvePennantCodeFromSyntheticMatchId((int)($row['UF_MATCH_ID'] ?? 0));
+            if ($code === null) {
+                continue;
+            }
+
+            $counts[$code] = (int)($counts[$code] ?? 0) + (int)($row['UF_COUNT'] ?? 0);
+        }
+
+        return $counts;
+    }
+
+    private function resolvePennantCodeFromSyntheticMatchId(int $matchId): ?string
+    {
+        $map = [
+            -3000001 => 'site',
+            -3000002 => 'chm2026',
+        ];
+
+        return $map[$matchId] ?? null;
+    }
+
     private function resolvePremiumScrollDays(int $matchId): int
     {
         if ($matchId >= -2000000) {

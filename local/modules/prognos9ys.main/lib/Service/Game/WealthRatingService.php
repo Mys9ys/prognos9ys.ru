@@ -11,17 +11,20 @@ class WealthRatingService
     private LevelService $levelService;
     private TreasuryShopService $shopService;
     private GameEventScopeService $scopeService;
+    private AchievementService $achievementService;
 
     public function __construct(
         ?GameEconomyRepository $repository = null,
         ?LevelService $levelService = null,
         ?TreasuryShopService $shopService = null,
-        ?GameEventScopeService $scopeService = null
+        ?GameEventScopeService $scopeService = null,
+        ?AchievementService $achievementService = null
     ) {
         $this->repository = $repository ?? new GameEconomyRepository();
         $this->levelService = $levelService ?? new LevelService($this->repository);
         $this->shopService = $shopService ?? new TreasuryShopService($this->repository);
         $this->scopeService = $scopeService ?? new GameEventScopeService();
+        $this->achievementService = $achievementService ?? new AchievementService();
     }
 
     public function getRating(int $limit = 30, string $wealthSort = 'rich', int $offset = 0): array
@@ -32,11 +35,16 @@ class WealthRatingService
             'rich',
             'poor',
             'pending_xp',
+            'pending_achievements',
             'treasure_rich',
         ], true) ? $wealthSort : 'rich';
 
         if ($wealthSort === 'pending_xp') {
             return $this->getPendingXpRating($limit, $offset);
+        }
+
+        if ($wealthSort === 'pending_achievements') {
+            return $this->getPendingAchievementsRating($limit, $offset);
         }
 
         if ($wealthSort === 'treasure_rich') {
@@ -209,6 +217,90 @@ class WealthRatingService
         return [
             'status' => 'ok',
             'wealth_sort' => 'pending_xp',
+            'total' => $total,
+            'limit' => $limit,
+            'offset' => $offset,
+            'ratings' => $ratings,
+        ];
+    }
+
+    private function getPendingAchievementsRating(int $limit, int $offset): array
+    {
+        $levelMap = $this->buildLevelMap();
+        $prepared = [];
+
+        foreach ($this->repository->getAllWallets() as $wallet) {
+            $userId = (int)($wallet['user_id'] ?? 0);
+            if ($userId <= 0) {
+                continue;
+            }
+
+            $pendingAchievements = $this->achievementService->countClaimableAchievements($userId);
+            if ($pendingAchievements <= 0) {
+                continue;
+            }
+
+            $prepared[] = [
+                'user_id' => $userId,
+                'prognobaks' => $wallet['prognobaks'],
+                'rublius' => $wallet['rublius'],
+                'total' => $this->calcTotalWealth($wallet['prognobaks'], $wallet['rublius']),
+                'pending_achievements' => $pendingAchievements,
+            ];
+        }
+
+        usort($prepared, static function (array $a, array $b): int {
+            if ($a['pending_achievements'] === $b['pending_achievements']) {
+                return $a['user_id'] <=> $b['user_id'];
+            }
+
+            return $b['pending_achievements'] <=> $a['pending_achievements'];
+        });
+
+        $total = count($prepared);
+        $users = $this->loadUsers(array_column($prepared, 'user_id'));
+
+        $ratings = [];
+        $place = 0;
+        $prevCount = null;
+
+        foreach ($prepared as $index => $row) {
+            if ($index < $offset) {
+                if ($prevCount === null || $row['pending_achievements'] !== $prevCount) {
+                    $place = $index + 1;
+                }
+                $prevCount = $row['pending_achievements'];
+                continue;
+            }
+
+            if ($index >= $offset + $limit) {
+                break;
+            }
+
+            if ($prevCount === null || $row['pending_achievements'] !== $prevCount) {
+                $place = $index + 1;
+            }
+
+            $userId = $row['user_id'];
+            $ratings[] = [
+                'place' => $place,
+                'user' => $this->resolveUser($users, $userId),
+                'prognobaks' => $row['prognobaks'],
+                'rublius' => $row['rublius'],
+                'level' => $levelMap[$userId] ?? 0,
+                'total' => $row['total'],
+                'score' => $row['pending_achievements'],
+                'pending_achievements' => $row['pending_achievements'],
+                'pending_count' => 0,
+                'pending_points' => 0.0,
+            ];
+
+            $prevCount = $row['pending_achievements'];
+        }
+
+        return [
+            'status' => 'ok',
+            'wealth_sort' => 'pending_achievements',
             'total' => $total,
             'limit' => $limit,
             'offset' => $offset,

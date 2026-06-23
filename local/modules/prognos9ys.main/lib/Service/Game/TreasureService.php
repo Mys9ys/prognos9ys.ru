@@ -14,6 +14,13 @@ class TreasureService
     public const CHEST_TYPE_ACHIEVEMENT = 'achievement';
     public const CHEST_TYPE_SHOP_WC26 = 'shop_wc26';
     public const CHEST_TYPE_PREMIUM_SCROLL = 'premium_scroll';
+    public const CHEST_TYPE_PENNANT = 'pennant';
+
+    /** @var array<string, int> */
+    private const PENNANT_SYNTHETIC_MATCH_IDS = [
+        'site' => -3000001,
+        'chm2026' => -3000002,
+    ];
 
     private GameEconomyRepository $repository;
     private GameEventScopeService $scopeService;
@@ -81,6 +88,7 @@ class TreasureService
     {
         $breakdown = $this->repository->getTreasureChestBreakdownForUser($userId);
         $premiumScrolls = $this->repository->getPremiumScrollBreakdownForUser($userId);
+        $pennants = $this->repository->getPennantInventoryCountsForUser($userId);
 
         return [
             'closed_chests' => $breakdown['total'],
@@ -92,6 +100,8 @@ class TreasureService
             'premium_scrolls_1d' => $premiumScrolls[1] ?? 0,
             'premium_scrolls_3d' => $premiumScrolls[3] ?? 0,
             'premium_scrolls_5d' => $premiumScrolls[5] ?? 0,
+            'pennant_site' => $pennants['site'] ?? 0,
+            'pennant_chm2026' => $pennants['chm2026'] ?? 0,
         ];
     }
 
@@ -253,6 +263,53 @@ class TreasureService
         ]);
 
         return true;
+    }
+
+    /**
+     * Вымпел в инвентарь (идемпотентно по коду, напр. site / chm2026).
+     */
+    public function grantPennant(int $userId, string $pennantCode): bool
+    {
+        $pennantCode = trim($pennantCode);
+        if ($userId <= 0 || $pennantCode === '') {
+            return false;
+        }
+
+        $syntheticMatchId = $this->resolvePennantSyntheticMatchId($pennantCode);
+        $existing = $this->repository->getTreasureChestByType(
+            $userId,
+            $syntheticMatchId,
+            self::CHEST_TYPE_PENNANT
+        );
+
+        if ($existing) {
+            return false;
+        }
+
+        $now = new DateTime();
+        $eventId = $this->scopeService->getAnchorEventId();
+
+        $this->repository->addTreasureChest([
+            'UF_USER_ID' => $userId,
+            'UF_MATCH_ID' => $syntheticMatchId,
+            'UF_EVENT_ID' => $eventId > 0 ? $eventId : GameEconomyConfig::ANCHOR_EVENT_ID,
+            'UF_COUNT' => 1,
+            'UF_STATUS' => self::CHEST_STATUS_INVENTORY,
+            'UF_TYPE' => self::CHEST_TYPE_PENNANT,
+            'UF_CREATED_AT' => $now,
+            'UF_UPDATED_AT' => $now,
+        ]);
+
+        return true;
+    }
+
+    private function resolvePennantSyntheticMatchId(string $pennantCode): int
+    {
+        if (isset(self::PENNANT_SYNTHETIC_MATCH_IDS[$pennantCode])) {
+            return self::PENNANT_SYNTHETIC_MATCH_IDS[$pennantCode];
+        }
+
+        return -3000000 - abs((int)crc32($pennantCode));
     }
 }
 

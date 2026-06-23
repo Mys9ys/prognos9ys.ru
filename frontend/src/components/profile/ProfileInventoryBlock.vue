@@ -14,7 +14,7 @@
       >
         <div class="slot_icon">
           <span v-if="item.emoji" class="slot_emoji">{{ item.emoji }}</span>
-          <AppIcon v-else :name="item.icon" :size="slotIconSize" />
+          <AppIcon v-else :name="item.icon" size="100%" icon-class="slot_app_icon" />
         </div>
         <span class="slot_count">{{ item.count }}</span>
         <span class="slot_caption">{{ item.caption }}</span>
@@ -22,7 +22,7 @@
     </div>
 
     <div class="inventory_empty" v-else>
-      Пока пусто — зарабатывайте сундуки в матчах, повышайте уровень или покупайте в лавке казны.
+      Пока пусто — зарабатывайте сундуки в матчах, ачивки, повышайте уровень или покупайте в лавке казны.
     </div>
   </div>
 </template>
@@ -32,12 +32,14 @@ import AppIcon from '@/components/ui/AppIcon.vue';
 
 const INVENTORY_SLOTS = [
   { id: 'match', field: 'match_chests', icon: 'chest_wc2026', caption: 'ЧМ', label: 'Сундуки за баллы в матчах' },
-  { id: 'achievement', field: 'achievement_chests', icon: 'chest_wc2026', caption: 'Ачивка', label: 'Сундуки за ачивки' },
+  { id: 'achievement', field: 'achievement_chests', icon: 'chest_achievement', caption: 'Ачивка', label: 'Сундуки за ачивки' },
   { id: 'level', field: 'level_chests', icon: 'chest_xp', caption: 'Уровень', label: 'Сундуки за уровень' },
   { id: 'shop', field: 'shop_chests', icon: 'chest_wc2026', caption: 'Лавка', label: 'Сундуки из лавки казны' },
-  { id: 'premium_1d', field: 'premium_scrolls_1d', emoji: '📜', caption: '1д', label: 'Свиток премиума (1 сутки)' },
+  { id: 'premium_1d', field: 'premium_scrolls_1d', icon: 'premium_scroll_1d', caption: '1д', label: 'Свиток премиума (1 сутки)' },
   { id: 'premium_3d', field: 'premium_scrolls_3d', emoji: '📜', caption: '3д', label: 'Свиток премиума (3 суток)' },
   { id: 'premium_5d', field: 'premium_scrolls_5d', emoji: '📜', caption: '5д', label: 'Свиток премиума (5 суток)' },
+  { id: 'pennant_site', field: 'pennant_site', icon: 'pennant_site', caption: 'Сайт', label: 'Вымпел Прогносяус' },
+  { id: 'pennant_chm2026', field: 'pennant_chm2026', icon: 'pennant_chm2026', caption: 'ЧМ26', label: 'Вымпел ЧМ-2026' },
 ];
 
 export default {
@@ -70,9 +72,6 @@ export default {
     },
     hasAnyItems() {
       return this.totalItems > 0;
-    },
-    slotIconSize() {
-      return 30;
     },
   },
 };
@@ -132,25 +131,43 @@ export default {
 
 .slot_icon {
   position: absolute;
-  top: 4px;
-  left: 4px;
-  right: 4px;
-  bottom: 14px;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   pointer-events: none;
+  z-index: 1;
+
+  :deep(.slot_app_icon) {
+    width: 100% !important;
+    height: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+  }
+
+  :deep(.app_icon) {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center;
+  }
 }
 
 .slot_emoji {
-  font-size: 26px;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(22px, 72%, 40px);
   line-height: 1;
 }
 
 .slot_count {
   position: absolute;
   right: 2px;
-  bottom: 12px;
+  top: 2px;
+  z-index: 3;
   min-width: 14px;
   padding: 0 3px;
   font-size: 10px;
@@ -168,15 +185,17 @@ export default {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 1px;
+  bottom: 0;
+  z-index: 2;
   font-size: 8px;
   line-height: 10px;
   text-align: center;
-  color: @colorBlur;
+  color: @colorText;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding: 0 2px;
+  padding: 1px 2px;
+  background: fade(@darkbg, 82%);
 }
 
 .inventory_empty {

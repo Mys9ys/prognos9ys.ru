@@ -63,6 +63,16 @@
               type="button"
               class="bulk_btn"
               :disabled="bulkLoading"
+              title="Забрать все доступные награды за ачивки"
+              @click="runBulk('claim_achievements')"
+          >
+            <AppIcon name="achievement" :size="12" />
+            <span>Все ачивки</span>
+          </button>
+          <button
+              type="button"
+              class="bulk_btn"
+              :disabled="bulkLoading"
               title="Займ 50 прогнобаксов — у кого меньше 50, из банка с max ликвидностью"
               @click="runBulk('grant_loans')"
           >
@@ -98,6 +108,12 @@
             :class="{ active: mode === 'pending_xp' }"
             @click="setMode('pending_xp')"
         ><span class="filter_icon_back"><AppIcon name="xp" :size="14" /></span> Есть опыт</button>
+        <button
+            type="button"
+            class="filter_btn"
+            :class="{ active: mode === 'pending_achievements' }"
+            @click="setMode('pending_achievements')"
+        ><span class="filter_icon_back"><AppIcon name="achievement" :size="14" /></span> Есть ачивки</button>
       </div>
     </div>
 
@@ -112,9 +128,10 @@
           <th v-if="showLevelColumn">Ур.</th>
           <th v-if="mode === 'pending_xp'">Матчей</th>
           <th v-if="mode === 'pending_xp'"><AppIcon name="xp" :size="14" /></th>
+          <th v-if="mode === 'pending_achievements'"><AppIcon name="achievement" :size="14" /></th>
           <th v-if="isTreasureMode"><AppIcon name="chest_wc2026" :size="16" /></th>
-          <th v-if="!isTreasureMode && mode !== 'pending_xp'"><AppIcon name="prognobak" :size="16" /></th>
-          <th v-if="!isTreasureMode && mode !== 'pending_xp'"><AppIcon name="rublius" :size="16" /></th>
+          <th v-if="!isTreasureMode && mode !== 'pending_xp' && mode !== 'pending_achievements'"><AppIcon name="prognobak" :size="16" /></th>
+          <th v-if="!isTreasureMode && mode !== 'pending_xp' && mode !== 'pending_achievements'"><AppIcon name="rublius" :size="16" /></th>
         </tr>
         </thead>
         <tbody>
@@ -129,6 +146,19 @@
             <div class="user_actions" v-if="el.user?.id">
               <template v-if="showRowAdminActions">
                 <button
+                    v-if="mode === 'pending_achievements'"
+                    type="button"
+                    class="row_btn ach_btn"
+                    :class="{ dim: !hasPendingAchievements(el) }"
+                    :disabled="rowBusy(el.user.id, 'achievements') || !hasPendingAchievements(el)"
+                    :title="hasPendingAchievements(el) ? `Забрать ${el.pending_achievements} ачивок` : 'Нет ачивок'"
+                    @click.stop="claimAchievementsForUser(el)"
+                >
+                  <AppIcon name="achievement" :size="12" />
+                  <span v-if="hasPendingAchievements(el)">{{ el.pending_achievements }}</span>
+                </button>
+                <button
+                    v-else
                     type="button"
                     class="row_btn xp_btn"
                     :class="{ dim: !hasPendingXp(el) }"
@@ -187,9 +217,10 @@
           <td class="level_cell" v-if="showLevelColumn">{{ el.level ?? 0 }}</td>
           <td class="pending_count" v-if="mode === 'pending_xp'">{{ el.pending_count }}</td>
           <td class="pending_xp" v-if="mode === 'pending_xp'">+{{ formatMoney(el.pending_points) }}</td>
+          <td class="pending_achievements" v-if="mode === 'pending_achievements'">{{ el.pending_achievements }}</td>
           <td class="money" v-if="isTreasureMode">{{ el.treasure_total }}</td>
-          <td class="money" v-if="!isTreasureMode && mode !== 'pending_xp'">{{ formatMoney(el.prognobaks) }}</td>
-          <td class="money" v-if="!isTreasureMode && mode !== 'pending_xp'">{{ formatMoney(el.rublius) }}</td>
+          <td class="money" v-if="!isTreasureMode && mode !== 'pending_xp' && mode !== 'pending_achievements'">{{ formatMoney(el.prognobaks) }}</td>
+          <td class="money" v-if="!isTreasureMode && mode !== 'pending_xp' && mode !== 'pending_achievements'">{{ formatMoney(el.rublius) }}</td>
         </tr>
         </tbody>
       </table>
@@ -233,13 +264,14 @@ import BulkActionProgress from '@/components/game/BulkActionProgress.vue';
 import { DEFAULT_AVATAR_URL } from '@/utils/defaultAvatar';
 
 const PAGE_SIZE = 50;
-const WEALTH_MODES = ['rich', 'poor', 'pending_xp', 'treasure_rich'];
+const WEALTH_MODES = ['rich', 'poor', 'pending_xp', 'pending_achievements', 'treasure_rich'];
 const BULK_TITLES = {
   prognobaks_chests: 'Сундуки за 50 прогнобаксов',
   claim_xp: 'Сбор опыта',
   rublius_chests: 'Сундуки за 5 рублиусов',
   premium_1d: 'Премиум 1 сутки',
   grant_loans: 'Займы 50 прогнобаксов',
+  claim_achievements: 'Сбор ачивок',
 };
 
 export default {
@@ -278,7 +310,11 @@ export default {
       return !!this.authData?.token;
     },
     showRowAdminActions() {
-      return this.canImpersonate && (this.showLevelColumn || this.mode === 'pending_xp');
+      return this.canImpersonate && (
+        this.showLevelColumn
+        || this.mode === 'pending_xp'
+        || this.mode === 'pending_achievements'
+      );
     },
     showLevelColumn() {
       return this.mode === 'rich' || this.mode === 'poor';
@@ -302,6 +338,9 @@ export default {
       if (this.mode === 'pending_xp') {
         return 'xp';
       }
+      if (this.mode === 'pending_achievements') {
+        return 'achievement';
+      }
       if (this.mode === 'treasure_rich') {
         return 'chest_wc2026';
       }
@@ -315,6 +354,9 @@ export default {
       if (this.mode === 'pending_xp') {
         return 'Незабранный опыт';
       }
+      if (this.mode === 'pending_achievements') {
+        return 'Незабранные ачивки';
+      }
       if (this.mode === 'treasure_rich') {
         return 'Сокровищницы';
       }
@@ -324,6 +366,9 @@ export default {
     emptyText() {
       if (this.mode === 'pending_xp') {
         return 'Нет незабранного опыта';
+      }
+      if (this.mode === 'pending_achievements') {
+        return 'Нет незабранных наград за ачивки';
       }
       if (this.mode === 'poor') {
         return 'Нет участников с кошельком';
@@ -337,6 +382,9 @@ export default {
     hintText() {
       if (this.mode === 'pending_xp') {
         return 'Дверь — войти и нажать «Получить опыт» на матчах';
+      }
+      if (this.mode === 'pending_achievements') {
+        return 'Количество ачивок с незабранной наградой · сортировка по убыванию';
       }
       if (this.mode === 'poor') {
         return 'Σ = прогнобаксы · 💎 отдельно · сортировка по возрастанию';
@@ -462,6 +510,7 @@ export default {
         rublius_chests: 'Купить всем (с рублиусами) сундук за 5 💎?',
         premium_1d: 'Купить всем (с рублиусами) премиум на 1 сутки за 3 💎?',
         grant_loans: 'Выдать займ 50 прогнобаксов всем, у кого на кошельке меньше 50? Банк — с максимальной ликвидностью.',
+        claim_achievements: 'Забрать все доступные награды за ачивки у всех игроков?',
       };
 
       if (!window.confirm(prompts[bulkAction] || 'Выполнить массовое действие?')) {
@@ -664,6 +713,38 @@ export default {
 
     hasPendingXp(row) {
       return Number(row?.pending_points ?? 0) > 0 || Number(row?.pending_count ?? 0) > 0;
+    },
+
+    hasPendingAchievements(row) {
+      return Number(row?.pending_achievements ?? 0) > 0;
+    },
+
+    async claimAchievementsForUser(row) {
+      const userId = row?.user?.id;
+      if (!userId || !this.authData?.token || this.rowBusy(userId, 'achievements')) {
+        return;
+      }
+
+      this.rowAction = { userId, action: 'achievements' };
+      try {
+        const result = await apiActions.game.moderatorBulkRunOne(
+          this.authData.token,
+          'claim_achievements',
+          userId,
+        );
+        if (result?.status === 'success' || result?.status === 'skipped') {
+          const isSelf = Number(userId) === Number(this.userInfo?.ID);
+          if (isSelf) {
+            await this.refreshGameInfo();
+          }
+          await this.loadRating();
+          await this.loadGameBank();
+        }
+      } catch (e) {
+        console.log('claimAchievementsForUser error', e);
+      } finally {
+        this.rowAction = null;
+      }
     },
 
     canBuyPrognobaks(row) {
@@ -913,7 +994,7 @@ export default {
     vertical-align: middle;
   }
 
-  .money, .total, .pending_xp, .pending_count {
+  .money, .total, .pending_xp, .pending_count, .pending_achievements {
     text-align: right;
     white-space: nowrap;
   }
@@ -994,6 +1075,11 @@ export default {
       }
 
       &.xp_btn {
+        color: @yellow;
+        font-weight: 700;
+      }
+
+      &.ach_btn {
         color: @yellow;
         font-weight: 700;
       }

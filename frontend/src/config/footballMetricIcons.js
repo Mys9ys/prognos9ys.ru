@@ -18,6 +18,17 @@ export const FOOTBALL_METRIC_ICONS = {
   total_all: require('@/assets/icons/metrics/metric_total_all.png'),
 };
 
+/** @type {Record<string, string>} */
+export const ACHIEVEMENT_EXTRA_ICONS = {
+  welcome: require('@/assets/icons/achievements/ach_welcome.png'),
+  luck: require('@/assets/icons/achievements/ach_luck.png'),
+  chm2026: require('@/assets/icons/achievements/ach_chm2026.png'),
+  prodigy: require('@/assets/icons/achievements/ach_prodigy.png'),
+  scoreboard: require('@/assets/icons/achievements/ach_scoreboard.png'),
+  wow_red: require('@/assets/icons/achievements/ach_wow_red.png'),
+  wow_pen: require('@/assets/icons/achievements/ach_wow_pen.png'),
+};
+
 const PROGNOSIS_FIELD = {
   1: 'score',
   18: 'outcome',
@@ -102,7 +113,42 @@ export function getFootballMetricIconSrc(context, fieldId) {
   return key ? FOOTBALL_METRIC_ICONS[key] : null;
 }
 
-/** @param {FootballMetricKey} key */
+/** @param {string} key */
 export function getFootballMetricIconByKey(key) {
   return FOOTBALL_METRIC_ICONS[key] || null;
 }
+
+/** @param {string} key */
+export function getAchievementIconSrc(key) {
+  if (!key) {
+    return null;
+  }
+  return FOOTBALL_METRIC_ICONS[key] || ACHIEVEMENT_EXTRA_ICONS[key] || null;
+}
+
+/**
+ * Справочник ачивок: ключ иконки → metric_*.png или achievements/*.png.
+ *
+ * @type {Record<string, { icon: string, iconFile: string, stat: string, levels: number, description: string }>}
+ */
+export const ACHIEVEMENT_CATALOG_REF = {
+  welcome: { icon: 'welcome', iconFile: 'ach_welcome.png', stat: 'football_prognosis', levels: 1, description: '1 футбольный прогноз' },
+  prognosis: { icon: 'total_all', iconFile: 'metric_total_all.png', stat: 'football_prognosis', levels: 5, description: '5 / 10 / 50 / 100 / 500 прогнозов' },
+  chm2026: { icon: 'chm2026', iconFile: 'ach_chm2026.png', stat: 'chm_prognosis', levels: 3, description: '10 / 50 / 100 прогнозов на ЧМ-2026' },
+  great_prediction: { icon: 'rating_prodigy', iconFile: 'metric_rating_prodigy.png', stat: 'score_30_39', levels: 5, description: '3 / 7 / 20 / 50 / 100 прогнозов по 30–39 баллов' },
+  prodigy: { icon: 'prodigy', iconFile: 'ach_prodigy.png', stat: 'score_40_plus', levels: 5, description: '1 / 3 / 5 / 10 / 25 прогнозов по 40+ баллов' },
+  better_luck: { icon: 'luck', iconFile: 'ach_luck.png', stat: 'score_0', levels: 5, description: '3 / 7 / 20 / 50 / 100 прогнозов с 0 баллов' },
+  metric_exact_score: { icon: 'scoreboard', iconFile: 'ach_scoreboard.png', stat: 'metric_exact_score', levels: 5, description: '5 / 10 / 50 / 100 / 500 угаданных счетов матча' },
+  metric_outcome: { icon: 'outcome', iconFile: 'metric_outcome.png', stat: 'metric_outcome', levels: 5, description: '5 / 10 / 50 / 100 / 500 угаданных исходов матча' },
+  metric_total_goals: { icon: 'sum', iconFile: 'metric_sum.png', stat: 'metric_total_goals', levels: 5, description: '5 / 10 / 50 / 100 / 500 угаданных сумм голов' },
+  metric_goal_diff: { icon: 'diff', iconFile: 'metric_diff.png', stat: 'metric_goal_diff', levels: 5, description: '5 / 10 / 50 / 100 / 500 угаданных разниц голов' },
+  metric_corners: { icon: 'corners', iconFile: 'metric_corners.png', stat: 'metric_corners', levels: 5, description: '20 / 50 / 100 / 250 / 500 баллов за угловые' },
+  metric_yellow: { icon: 'yellow', iconFile: 'metric_yellow.png', stat: 'metric_yellow', levels: 5, description: '20 / 50 / 100 / 250 / 500 баллов за жёлтые' },
+  metric_possession: { icon: 'possession', iconFile: 'metric_possession.png', stat: 'metric_possession', levels: 5, description: '20 / 50 / 100 / 250 / 500 баллов за % владения' },
+  rare_red: { icon: 'red', iconFile: 'metric_red.png', stat: 'rare_red', levels: 5, description: '5 / 10 / 25 / 50 / 100 фактов «красная» (ДА)' },
+  rare_penalty: { icon: 'penalty', iconFile: 'metric_penalty.png', stat: 'rare_penalty', levels: 5, description: '5 / 10 / 25 / 50 / 100 фактов «пенальти» (ДА)' },
+  wow_red: { icon: 'wow_red', iconFile: 'ach_wow_red.png', stat: 'wow_red', levels: 5, description: '1 / 3 / 5 / 10 / 20 точных кол-в красных (>1)' },
+  wow_pen: { icon: 'wow_pen', iconFile: 'ach_wow_pen.png', stat: 'wow_pen', levels: 5, description: '1 / 3 / 5 / 10 / 20 точных кол-в пенальти (>1)' },
+  metric_extra_time: { icon: 'extra_time', iconFile: 'metric_extra_time.png', stat: 'metric_extra_time', levels: 5, description: '5 / 10 / 20 / 50 / 100 фактов доп. времени' },
+  metric_shootout: { icon: 'shootout', iconFile: 'metric_shootout.png', stat: 'metric_shootout', levels: 5, description: '5 / 10 / 20 / 50 / 100 серий пенальти' },
+};

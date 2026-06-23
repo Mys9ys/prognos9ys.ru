@@ -102,6 +102,8 @@ class GameProfileService
                     'premium_scrolls_1d' => 0,
                     'premium_scrolls_3d' => 0,
                     'premium_scrolls_5d' => 0,
+                    'pennant_site' => 0,
+                    'pennant_chm2026' => 0,
                 ],
                 'bank' => [
                     'has_bank' => false,

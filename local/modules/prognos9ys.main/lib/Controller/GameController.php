@@ -52,6 +52,7 @@ class GameController extends BaseController
             'forceCloseDeposit' => $this->getDefaultConfigureForPostToken(),
             'closeBank' => $this->getDefaultConfigureForPostToken(),
             'getAchievements' => $this->getDefaultConfigureForPostToken(),
+            'claimAchievement' => $this->getDefaultConfigureForPostToken(),
             'moderatorBulkAction' => $this->getDefaultConfigureForPostToken(),
             'moderatorBulkCandidates' => $this->getDefaultConfigureForPostToken(),
             'moderatorBulkRunOne' => $this->getDefaultConfigureForPostToken(),

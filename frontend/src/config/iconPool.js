@@ -5,6 +5,7 @@ const GAME_ICONS = {
   prognobak: require('@/assets/icons/game/prognobak.png'),
   rublius: require('@/assets/icons/game/rublius.png'),
   chest_wc2026: require('@/assets/icons/game/chest-wc2026.png'),
+  chest_achievement: require('@/assets/icons/game/chest-achievement.png'),
   chest_xp: require('@/assets/icons/game/chest_xp.png'),
   bank: require('@/assets/icons/game/bank.png'),
   football: require('@/assets/icons/game/football.png'),
@@ -18,6 +19,9 @@ const GAME_ICONS = {
   wealth: require('@/assets/icons/game/wealth.png'),
   poverty: require('@/assets/icons/game/poverty.png'),
   xp: require('@/assets/icons/game/xp.png'),
+  pennant_site: require('@/assets/icons/pennants/pennant_site.png'),
+  pennant_chm2026: require('@/assets/icons/pennants/pennant_chm2026.png'),
+  premium_scroll_1d: require('@/assets/icons/inventory/premium_scroll_1d.png'),
 };
 
 const POOLS = {
@@ -41,6 +45,7 @@ export const GAME_ICON_NAMES = {
   PROGNOBAK: 'prognobak',
   RUBLIUS: 'rublius',
   CHEST_WC2026: 'chest_wc2026',
+  CHEST_ACHIEVEMENT: 'chest_achievement',
   CHEST_XP: 'chest_xp',
   BANK: 'bank',
   FOOTBALL: 'football',
@@ -53,6 +58,9 @@ export const GAME_ICON_NAMES = {
   WEALTH: 'wealth',
   POVERTY: 'poverty',
   XP: 'xp',
+  PENNANT_SITE: 'pennant_site',
+  PENNANT_CHM2026: 'pennant_chm2026',
+  PREMIUM_SCROLL_1D: 'premium_scroll_1d',
   /** @deprecated use achievement */
   TROPHY: 'achievement',
 };

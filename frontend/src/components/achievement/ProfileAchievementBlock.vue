@@ -1,60 +1,73 @@
 <template>
   <div class="achievement_block">
+    <div class="ach_tabs">
+      <button
+        type="button"
+        class="ach_tab"
+        :class="{ active: activeTab === 'general' }"
+        @click="activeTab = 'general'"
+      >
+        Общее
+        <span v-if="generalCount" class="ach_tab_count">({{ generalCount }})</span>
+      </button>
+      <button
+        type="button"
+        class="ach_tab"
+        :class="{ active: activeTab === 'football' }"
+        @click="activeTab = 'football'"
+      >
+        Футбол
+        <span v-if="footballCount" class="ach_tab_count">({{ footballCount }})</span>
+      </button>
+    </div>
+
     <div class="msg error" v-if="error">{{ error }}</div>
     <div class="loading" v-if="loading">Загрузка…</div>
-    <div class="groups" v-if="loaded">
-      <div class="group" v-for="group in groups" :key="group.id">
-        <div class="group_title">{{ group.title }}</div>
-        <div class="grid">
-          <div
-            class="item"
-            v-for="item in group.items"
-            :key="item.code"
-            :class="{ claimable: item.next_claimable_threshold > 0, locked: item.max_unlocked_threshold <= 0 }"
-          >
-            <div class="icon">{{ item.icon || '🏅' }}</div>
-            <div class="name">{{ item.title }}</div>
-            <div class="desc">{{ item.description }}</div>
-            <div class="progress">
-              {{ item.progress }} / {{ nextTarget(item) }}
-            </div>
-            <div class="levels" v-if="item.levels && item.levels.length">
-              <span
-                class="lvl"
-                v-for="lvl in item.levels"
-                :key="lvl.threshold"
-                :class="{ ok: item.progress >= lvl.threshold, claimed: item.claimed_threshold >= lvl.threshold }"
-              />
-            </div>
-            <button
-              v-if="item.next_claimable_threshold > 0"
-              class="btn_claim"
-              :disabled="claimingCode === item.code"
-              @click="claim(item.code)"
-            >
-              Забрать
-            </button>
-          </div>
-        </div>
+
+    <div v-if="loaded">
+      <div class="empty_text" v-if="!filteredItems.length">
+        {{ activeTab === 'general' ? 'Пока нет общих ачивок' : 'Пока нет футбольных ачивок' }}
+      </div>
+      <div class="grid" v-else>
+        <AchievementCard
+          v-for="item in filteredItems"
+          :key="item.code"
+          :title="item.title"
+          :icon="item.icon || '🏅'"
+          :progress="item.progress"
+          :target="nextTarget(item)"
+          :rank-index="rankIndex(item)"
+          :level-thresholds="levelThresholds(item)"
+          :claimed-threshold="item.claimed_threshold || 0"
+          :claimable="item.next_claimable_threshold > 0"
+          :locked="item.max_unlocked_threshold <= 0"
+          :all-claimed="isAllClaimed(item)"
+          :claiming="claimingCode === item.code"
+          @claim="claim(item.code)"
+        />
       </div>
     </div>
+
+    <AchievementRewardToast
+      :visible="rewardToast.visible"
+      :title="rewardToast.title"
+      :threshold="rewardToast.threshold"
+      :reward="rewardToast.reward"
+      @close="closeRewardToast"
+    />
   </div>
 </template>
 
 <script>
 import { apiActions } from '@/api/bitrixClient';
 import { mapState } from 'vuex';
-
-const GROUP_TITLES = {
-  welcome: 'Старт',
-  prognosis: 'Прогнозы',
-  chm: 'ЧМ-2026',
-  quality: 'Качество',
-  luck: 'Удача',
-};
+import AchievementCard from '@/components/achievement/AchievementCard.vue';
+import AchievementRewardToast from '@/components/achievement/AchievementRewardToast.vue';
+import { hasAchievementReward } from '@/utils/formatAchievementReward';
 
 export default {
   name: 'ProfileAchievementBlock',
+  components: { AchievementCard, AchievementRewardToast },
   data() {
     return {
       loading: false,
@@ -62,42 +75,98 @@ export default {
       error: '',
       items: [],
       claimingCode: '',
+      activeTab: 'general',
+      rewardToast: {
+        visible: false,
+        title: '',
+        threshold: 0,
+        reward: {},
+      },
     };
   },
   computed: {
     ...mapState('auth', ['authData']),
-    groups() {
-      const map = {};
-      this.items.forEach((item) => {
-        const id = item.group || 'other';
-        if (!map[id]) {
-          map[id] = {
-            id,
-            title: GROUP_TITLES[id] || id,
-            items: [],
-          };
-        }
-        map[id].items.push(item);
-      });
-
-      return Object.values(map);
+    generalItems() {
+      return this.items.filter((item) => item.group === 'welcome');
+    },
+    footballItems() {
+      return this.items.filter((item) => item.group !== 'welcome');
+    },
+    generalCount() {
+      return this.generalItems.length;
+    },
+    footballCount() {
+      return this.footballItems.length;
+    },
+    filteredItems() {
+      return this.activeTab === 'general' ? this.generalItems : this.footballItems;
     },
   },
   created() {
     this.load();
   },
   methods: {
+    levelThresholds(item) {
+      return (item.levels || []).map((l) => l.threshold);
+    },
     nextTarget(item) {
+      const levels = item.levels || [];
+      const claimed = item.claimed_threshold || 0;
+
       if (item.next_claimable_threshold > 0) {
         return item.next_claimable_threshold;
       }
-      // следующий порог после текущего прогресса (или последний)
-      const levels = item.levels || [];
+
       for (let i = 0; i < levels.length; i++) {
         const t = levels[i].threshold;
-        if (item.progress < t) return t;
+        if (t > claimed && item.progress < t) {
+          return t;
+        }
       }
+
+      for (let i = 0; i < levels.length; i++) {
+        const t = levels[i].threshold;
+        if (item.progress < t) {
+          return t;
+        }
+      }
+
       return levels.length ? levels[levels.length - 1].threshold : 1;
+    },
+    rankIndex(item) {
+      const levels = item.levels || [];
+      if (!levels.length) {
+        return 0;
+      }
+      if (item.next_claimable_threshold > 0) {
+        const idx = levels.findIndex((l) => l.threshold === item.next_claimable_threshold);
+        if (idx >= 0) {
+          return idx;
+        }
+      }
+      let claimedIdx = 0;
+      levels.forEach((l, i) => {
+        if (item.claimed_threshold >= l.threshold) {
+          claimedIdx = i;
+        }
+      });
+      if (item.claimed_threshold > 0) {
+        return claimedIdx;
+      }
+      for (let i = 0; i < levels.length; i++) {
+        if (item.progress < levels[i].threshold) {
+          return i;
+        }
+      }
+      return levels.length - 1;
+    },
+    isAllClaimed(item) {
+      const levels = item.levels || [];
+      if (!levels.length) {
+        return false;
+      }
+      const last = levels[levels.length - 1].threshold;
+      return item.claimed_threshold >= last;
     },
     async load() {
       if (!this.authData?.token) {
@@ -110,6 +179,9 @@ export default {
         const data = await apiActions.game.getAchievements(this.authData.token);
         this.items = data.items || [];
         this.loaded = true;
+        if (!this.generalCount && this.footballCount) {
+          this.activeTab = 'football';
+        }
       } catch (e) {
         this.error = e.message || 'Не удалось загрузить ачивки';
       } finally {
@@ -122,6 +194,7 @@ export default {
       }
       this.error = '';
       this.claimingCode = code;
+      const itemBefore = this.items.find((item) => item.code === code);
       try {
         const data = await apiActions.game.claimAchievement(this.authData.token, code);
         this.items = data.achievements?.items || this.items;
@@ -131,11 +204,40 @@ export default {
             game_info: data.game,
           });
         }
+        this.showRewardToast(data.claimed, itemBefore);
       } catch (e) {
         this.error = e.message || 'Не удалось забрать награду';
       } finally {
         this.claimingCode = '';
       }
+    },
+    showRewardToast(claimed, itemBefore) {
+      if (!claimed) {
+        return;
+      }
+
+      const reward = claimed.reward || {};
+      if (!hasAchievementReward(reward)) {
+        return;
+      }
+
+      const title = itemBefore?.title
+        || this.items.find((item) => item.code === claimed.code)?.title
+        || claimed.code
+        || '';
+
+      this.rewardToast = {
+        visible: true,
+        title,
+        threshold: Number(claimed.threshold || 0),
+        reward,
+      };
+    },
+    closeRewardToast() {
+      this.rewardToast = {
+        ...this.rewardToast,
+        visible: false,
+      };
     },
   },
 };
@@ -149,92 +251,46 @@ export default {
   padding: 4px 0 12px;
 }
 
-.loading {
+.ach_tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.ach_tab {
+  background: @darkbg;
+  color: @colorText;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &.active {
+    background: @orange;
+    color: #fff;
+  }
+}
+
+.ach_tab_count {
+  font-weight: 400;
+  opacity: 0.9;
+}
+
+.loading,
+.empty_text {
   font-size: 13px;
   color: @colorBlur;
   text-align: center;
   padding: 12px;
 }
 
-.group {
-  margin-bottom: 12px;
-}
-
-.group_title {
-  font-size: 13px;
-  color: @orange;
-  margin-bottom: 6px;
-}
-
 .grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.item {
-  width: calc(50% - 4px);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 10px 8px;
-  border-radius: 5px;
-  .shadow_inset;
-  position: relative;
-
-  &.claimable { background: fade(@orange, 14%); }
-  &.locked { opacity: 0.6; }
-}
-
-.icon {
-  font-size: 22px;
-  line-height: 1;
-  text-align: left;
-}
-
-.name {
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.desc {
-  font-size: 12px;
-  color: @colorBlur;
-  margin-top: 2px;
-}
-
-.progress {
-  font-size: 11px;
-  color: @orange;
-  margin-top: 4px;
-}
-
-.levels {
-  display: flex;
-  gap: 3px;
-  margin-top: 2px;
-}
-
-.lvl {
-  width: 10px;
-  height: 4px;
-  border-radius: 2px;
-  background: rgba(255,255,255,0.12);
-  &.ok { background: fade(@orange, 55%); }
-  &.claimed { background: @orange; }
-}
-
-.btn_claim {
-  margin-top: 6px;
-  padding: 6px 8px;
-  border-radius: 4px;
-  border: 0;
-  background: @orange;
-  color: #111;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  &:disabled { opacity: 0.6; cursor: default; }
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px 8px;
 }
 
 .msg.error {
