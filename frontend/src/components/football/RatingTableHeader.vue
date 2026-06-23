@@ -83,7 +83,7 @@ export default {
 
 .left_badge {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   gap: 4px;
   flex-shrink: 0;
 }
@@ -111,8 +111,11 @@ export default {
 }
 
 .icon {
-  width: 42px;
-  min-width: 42px;
+  height: min(100%, 52px);
+  max-height: 52px;
+  width: auto;
+  aspect-ratio: 1 / 1;
+  min-width: 0;
   border-radius: 6px;
   display: flex;
   align-items: center;
