@@ -32,6 +32,8 @@ require_once $docRoot . '/bitrix/modules/main/include/prolog_before.php';
 \Bitrix\Main\Loader::includeModule('prognos9ys.main');
 require_once $docRoot . '/local/classes/main/Prognos9ysAuthClass.php';
 
+use Bitrix\Main\UserTable;
+
 $argv = $argv ?? [];
 $dryRun = in_array('--dry-run', $argv, true);
 $skipProg = in_array('--skip-prognosis', $argv, true);
@@ -44,6 +46,10 @@ $people = wc_fans_roster_people();
 echo ($dryRun ? '[DRY RUN] ' : '[LIVE] ') . 'accounts=' . count($people) . "\n\n";
 
 $match = null;
+if (!$dryRun) {
+    $ava = resolveWcSeedAvatar($docRoot);
+    echo 'Avatar: ' . $ava['source'] . "\n";
+}
 if (!$dryRun && !$skipProg) {
     $match = loadWcFanMatch(WC_FANS_EVENT_ID, WC_FANS_MATCH_NUMBER);
     if ($match) {
@@ -188,12 +194,8 @@ function loadWcFanMatch(int $eventId, int $matchNumber): ?array
  */
 function registerWcFanPerson(string $nick, string $mail, string $pass, string $docRoot): array
 {
-    $avaPath = $docRoot . WC_FANS_DEFAULT_AVA;
-    if (!is_file($avaPath)) {
-        throw new RuntimeException('Default avatar not found: ' . WC_FANS_DEFAULT_AVA);
-    }
+    $avatar = resolveWcSeedAvatar($docRoot);
 
-    $arImage = CFile::MakeFileArray($avaPath);
     $user = new CUser();
     $fields = [
         'NAME' => $nick,
@@ -204,8 +206,10 @@ function registerWcFanPerson(string $nick, string $mail, string $pass, string $d
         'GROUP_ID' => [3, 4],
         'PASSWORD' => $pass,
         'CONFIRM_PASSWORD' => $pass,
-        'PERSONAL_PHOTO' => $arImage,
     ];
+    if ($avatar['file']) {
+        $fields['PERSONAL_PHOTO'] = $avatar['file'];
+    }
 
     $id = (int)$user->Add($fields);
     if ($user->LAST_ERROR) {
@@ -228,6 +232,63 @@ function registerWcFanPerson(string $nick, string $mail, string $pass, string $d
     }
 
     return ['status' => 'ok'];
+}
+
+/**
+ * Дефолтная аватарка из upload может отсутствовать на бою — берём запасные варианты.
+ *
+ * @return array{file: ?array, source: string}
+ */
+function resolveWcSeedAvatar(string $docRoot): array
+{
+    static $resolved = null;
+    if ($resolved !== null) {
+        return $resolved;
+    }
+
+    $candidates = [
+        WC_FANS_DEFAULT_AVA,
+        '/local/components/prognos9ys/header.block/templates/.default/assets/img/ava.jpg',
+    ];
+
+    foreach ($candidates as $rel) {
+        $path = $docRoot . $rel;
+        if (is_file($path)) {
+            $resolved = ['file' => CFile::MakeFileArray($path), 'source' => $rel];
+
+            return $resolved;
+        }
+    }
+
+    $row = UserTable::getList([
+        'select' => ['PERSONAL_PHOTO'],
+        'filter' => [
+            '=ACTIVE' => 'Y',
+            '>PERSONAL_PHOTO' => 0,
+            '%EMAIL' => '@prognos9ys.ru',
+        ],
+        'order' => ['ID' => 'DESC'],
+        'limit' => 1,
+    ])->fetch();
+
+    if (!empty($row['PERSONAL_PHOTO'])) {
+        $file = CFile::GetFileArray((int)$row['PERSONAL_PHOTO']);
+        if ($file && !empty($file['SRC'])) {
+            $path = $docRoot . $file['SRC'];
+            if (is_file($path)) {
+                $resolved = [
+                    'file' => CFile::MakeFileArray($path),
+                    'source' => 'borrowed ' . $file['SRC'],
+                ];
+
+                return $resolved;
+            }
+        }
+    }
+
+    $resolved = ['file' => null, 'source' => 'none (без аватарки)'];
+
+    return $resolved;
 }
 
 function loginWcFanUser(string $mail, string $pass): string
