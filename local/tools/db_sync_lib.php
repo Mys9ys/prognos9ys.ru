@@ -136,7 +136,26 @@ function dbSyncDiscoverOspanelMysqlBin(): ?string
         return null;
     }
 
-    rsort($found);
+    usort($found, static function (string $a, string $b): int {
+        $score = static function (string $path): int {
+            if (stripos($path, 'MySQL-8.0') !== false) {
+                return 100;
+            }
+            if (stripos($path, 'MySQL-8.4') !== false) {
+                return 90;
+            }
+            if (stripos($path, 'MySQL-') !== false) {
+                return 80;
+            }
+            if (stripos($path, 'MariaDB-') !== false) {
+                return 10;
+            }
+
+            return 0;
+        };
+
+        return $score($b) <=> $score($a);
+    });
 
     return $found[0];
 }
@@ -214,7 +233,8 @@ function dbSyncFindMysqlBinary(string $name, ?string $mysqlBinDir = null): strin
 function dbSyncResolveMysqlBinaryPath(string $name, ?string $mysqlBinDir = null): ?string
 {
     if ($mysqlBinDir !== null && $mysqlBinDir !== '') {
-        $candidate = rtrim($mysqlBinDir, '/\\') . DIRECTORY_SEPARATOR . $name;
+        $candidate = rtrim(str_replace('/', DIRECTORY_SEPARATOR, $mysqlBinDir), DIRECTORY_SEPARATOR)
+            . DIRECTORY_SEPARATOR . $name;
         if (DIRECTORY_SEPARATOR === '\\') {
             $candidate .= '.exe';
         }
@@ -235,6 +255,44 @@ function dbSyncResolveMysqlBinaryPath(string $name, ?string $mysqlBinDir = null)
     }
 
     return null;
+}
+
+/**
+ * @param array{host:string,port:int,database:string,login:string,password:string} $db
+ * @return array{0:resource,1:array<int, resource>}
+ */
+function dbSyncStartMysqlClient(array $db, ?string $mysqlBinDir, ?string $database = null): array
+{
+    $mysqlPath = dbSyncResolveMysqlBinaryPath('mysql', $mysqlBinDir);
+    if ($mysqlPath === null) {
+        throw new RuntimeException('mysql client not found');
+    }
+
+    $cmd = [
+        $mysqlPath,
+        '--host=' . $db['host'],
+        '--port=' . (string)(int)$db['port'],
+        '--user=' . $db['login'],
+    ];
+    if ($db['password'] !== '') {
+        $cmd[] = '--password=' . $db['password'];
+    }
+    if ($database !== null && $database !== '') {
+        $cmd[] = $database;
+    }
+
+    $descriptors = [
+        0 => ['pipe', 'r'],
+        1 => ['pipe', 'w'],
+        2 => ['pipe', 'w'],
+    ];
+
+    $process = proc_open($cmd, $descriptors, $pipes, null, null, ['bypass_shell' => true]);
+    if (!is_resource($process)) {
+        throw new RuntimeException('Не удалось запустить mysql client');
+    }
+
+    return [$process, $pipes];
 }
 
 function dbSyncRunCommand(string $command, bool $dryRun = false): int
@@ -313,25 +371,7 @@ function dbSyncImportSqlFile(array $db, string $sqlFile, ?string $mysqlBinDir, b
         throw new RuntimeException('mysql client not found');
     }
 
-    $command = escapeshellarg($mysqlPath)
-        . ' --host=' . escapeshellarg($db['host'])
-        . ' --port=' . (int)$db['port']
-        . ' --user=' . escapeshellarg($db['login']);
-    if ($db['password'] !== '') {
-        $command .= ' --password=' . escapeshellarg($db['password']);
-    }
-    $command .= ' ' . escapeshellarg($db['database']);
-
-    $descriptors = [
-        0 => ['pipe', 'r'],
-        1 => ['pipe', 'w'],
-        2 => ['pipe', 'w'],
-    ];
-
-    $process = proc_open($command, $descriptors, $pipes);
-    if (!is_resource($process)) {
-        throw new RuntimeException('Не удалось запустить mysql client');
-    }
+    [$process, $pipes] = dbSyncStartMysqlClient($db, $mysqlBinDir, $db['database']);
 
     $isGzip = preg_match('/\.gz$/i', $sqlFile) === 1;
     if ($isGzip) {
