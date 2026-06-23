@@ -9,7 +9,7 @@ declare(strict_types=1);
  *   php7.4 local/tools/prod_db_dump.php --output=/tmp/prognos9ys.sql.gz
  *
  * Результат: .osp/backup/db/prognos9ys_YYYYMMDD_HHMMSS.sql.gz
- * Скачать на Windows: scp mys9ys9ka@crown:~/prognos9ys.ru/public_html/.osp/backup/db/*.sql.gz .osp\backup\db\
+ * Скачать на Windows: см. local\tools\download_prod_db.bat
  */
 
 require_once __DIR__ . '/db_sync_lib.php';
@@ -20,6 +20,7 @@ $outputArg = dbSyncCliArg($argv, '--output=');
 
 $docRoot = dbSyncDocRoot();
 $db = dbSyncReadBitrixDbConfig($docRoot);
+$env = dbSyncReadEnvConfig($docRoot);
 $backupDir = dbSyncBackupDir($docRoot);
 
 $timestamp = date('Ymd_His');
@@ -62,7 +63,9 @@ if (!is_file($output)) {
 
 $size = filesize($output);
 echo "OK: " . dbSyncFormatBytes((int)$size) . "\n";
+$remoteRel = '.osp/backup/db/' . basename($output);
 echo "Скачать на локалку:\n";
-echo "  scp mys9ys9ka@crown:~/prognos9ys.ru/public_html/.osp/backup/db/" . basename($output) . " .osp\\backup\\db\\\n";
+echo '  ' . dbSyncBuildScpDownloadHint($env, $remoteRel, '.osp\\backup\\db\\' . basename($output)) . "\n";
+echo "Или: local\\tools\\download_prod_db.bat\n";
 echo "Импорт:\n";
-echo "  local\\tools\\local_db_import.bat .osp\\backup\\db\\" . basename($output) . " --confirm --sanitize\n";
+echo '  local\\tools\\local_db_import.bat .osp\\backup\\db\\' . basename($output) . " --confirm --sanitize\n";

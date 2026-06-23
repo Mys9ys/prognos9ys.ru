@@ -58,7 +58,9 @@ function dbSyncBackupDir(string $docRoot): string
  *   prod_host:string,
  *   local_host:string,
  *   local_scheme:string,
- *   mysql_bin:?string
+ *   mysql_bin:?string,
+ *   prod_ssh_user:string,
+ *   prod_ssh_host:string
  * }
  */
 function dbSyncReadEnvConfig(string $docRoot): array
@@ -68,6 +70,8 @@ function dbSyncReadEnvConfig(string $docRoot): array
         'local_host' => 'prognos9ys',
         'local_scheme' => 'http',
         'mysql_bin' => dbSyncDiscoverOspanelMysqlBin(),
+        'prod_ssh_user' => 'mys9ys9ka',
+        'prod_ssh_host' => 'mys9ys9ka.beget.tech',
     ];
 
     $iniPath = rtrim($docRoot, '/\\') . '/.osp/env.ini';
@@ -90,6 +94,8 @@ function dbSyncReadEnvConfig(string $docRoot): array
         'local_host' => (string)($section['DB_SYNC_LOCAL_HOST'] ?? $defaults['local_host']),
         'local_scheme' => (string)($section['DB_SYNC_LOCAL_SCHEME'] ?? $defaults['local_scheme']),
         'mysql_bin' => isset($section['MYSQL_BIN']) ? (string)$section['MYSQL_BIN'] : $defaults['mysql_bin'],
+        'prod_ssh_user' => (string)($section['PROD_SSH_USER'] ?? $defaults['prod_ssh_user']),
+        'prod_ssh_host' => (string)($section['PROD_SSH_HOST'] ?? $defaults['prod_ssh_host']),
     ];
 }
 
@@ -445,6 +451,22 @@ function dbSyncClearBitrixCache(string $docRoot, bool $dryRun): void
         }
         dbSyncDeleteDirContents($dir);
     }
+}
+
+function dbSyncProdRemotePath(string $relativePath): string
+{
+    return '~/prognos9ys.ru/public_html/' . ltrim(str_replace('\\', '/', $relativePath), '/');
+}
+
+/**
+ * @param array{prod_ssh_user:string,prod_ssh_host:string} $env
+ */
+function dbSyncBuildScpDownloadHint(array $env, string $remoteRelativePath, string $localRelativePath): string
+{
+    $remote = dbSyncProdRemotePath($remoteRelativePath);
+    $userHost = $env['prod_ssh_user'] . '@' . $env['prod_ssh_host'];
+
+    return 'scp ' . $userHost . ':' . $remote . ' ' . str_replace('/', '\\', $localRelativePath);
 }
 
 function dbSyncDeleteDirContents(string $dir): void
