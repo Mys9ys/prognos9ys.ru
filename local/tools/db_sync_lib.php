@@ -105,10 +105,24 @@ function dbSyncDiscoverOspanelMysqlBin(): ?string
         return null;
     }
 
-    $patterns = [
-        'C:/OSPanel/modules/database/MySQL-*/bin',
-        'D:/OSPanel/modules/database/MySQL-*/bin',
-    ];
+    $roots = [];
+    $docRoot = dbSyncDocRoot();
+    $ospanelFromProject = realpath($docRoot . '/../..');
+    if ($ospanelFromProject !== false && is_dir($ospanelFromProject . '/modules')) {
+        $roots[] = str_replace('\\', '/', $ospanelFromProject);
+    }
+    foreach (['D:/OSPanel', 'C:/OSPanel'] as $root) {
+        if (is_dir($root . '/modules')) {
+            $roots[] = $root;
+        }
+    }
+
+    $patterns = [];
+    foreach (array_unique($roots) as $root) {
+        $patterns[] = $root . '/modules/MySQL-*/bin';
+        $patterns[] = $root . '/modules/MariaDB-*/bin';
+        $patterns[] = $root . '/modules/database/MySQL-*/bin';
+    }
 
     $found = [];
     foreach ($patterns as $pattern) {
