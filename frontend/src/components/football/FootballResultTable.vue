@@ -6,11 +6,11 @@
   <table class="table table-dark table-hover football_table_box">
     <thead>
     <tr>
-      <th class="pr_table_col"
-          v-for="(icon, index) in icons" :key="index"
-          :class="[index == 6 ? 'yellow_t' : '', index == 7 ? 'red_t' : '']"
+      <th class="pr_table_col metric_th"
+          v-for="col in headerColumns" :key="col.index"
+          :class="col.className"
       >
-        {{icon}}
+        <FootballMetricIcon context="resultTable" :field-id="col.index" :size="16" badge />
       </th>
     </tr>
     </thead>
@@ -54,8 +54,11 @@
 </template>
 
 <script>
+import FootballMetricIcon from '@/components/football/FootballMetricIcon.vue';
+
 export default {
   name: "FootballResultTable",
+  components: { FootballMetricIcon },
   props: {
     match: {
       type: Object
@@ -63,20 +66,20 @@ export default {
   },
   data() {
     return {
-      icons: {
-        1: '0-0',
-        2: '✓',  // result
-        3: 'Δ',
-        4: 'Σ',
-        5: '🡘',
-        6: '▮',
-        7: '▮',
-        8: '🡬',
-        9: '◒',
-        10: '+◔',
-        11: '+◒',
-        12: 'all',
-      },
+      headerColumns: [
+        { index: 1 },
+        { index: 2 },
+        { index: 3 },
+        { index: 4 },
+        { index: 5 },
+        { index: 6, className: 'yellow_t' },
+        { index: 7, className: 'red_t' },
+        { index: 8 },
+        { index: 9 },
+        { index: 10 },
+        { index: 11 },
+        { index: 12 },
+      ],
 
       selectors: {
         1: 'goal_score',
@@ -136,7 +139,7 @@ export default {
   border-radius: 5px;
 
   th, td {
-    padding: 2px;
+    padding: 1px;
     font-size: 11px;
   }
 
@@ -173,6 +176,11 @@ export default {
 
 .red_t {
   color: @maxred;
+}
+
+.metric_th {
+  text-align: center;
+  vertical-align: middle;
 }
 .header_line{
   background: @DarkColorBG;

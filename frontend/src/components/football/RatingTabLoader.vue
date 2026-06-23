@@ -9,7 +9,7 @@
         <span class="place place_3">3</span>
       </div>
       <div class="loader_icon" :class="iconClass">
-        <slot>{{ glyph }}</slot>
+        <FootballMetricIcon context="rating" :field-id="iconKey" :size="28" badge />
       </div>
     </div>
 
@@ -28,6 +28,8 @@
 </template>
 
 <script>
+import FootballMetricIcon from '@/components/football/FootballMetricIcon.vue';
+
 const PHRASES = {
   1: ['Сводим общий зачёт…', 'Суммируем все категории…', 'Корона почти готова…'],
   2: ['Считаем точные счёта…', 'Сверяем голы…', 'Таблица 0:0 оживает…'],
@@ -46,14 +48,11 @@ const PHRASES = {
 
 export default {
   name: 'RatingTabLoader',
+  components: { FootballMetricIcon },
   props: {
     iconKey: {
       type: [String, Number],
       default: 1,
-    },
-    glyph: {
-      type: String,
-      default: '♛',
     },
     title: {
       type: String,
@@ -181,22 +180,10 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
-  color: @colorText;
   border-radius: 50%;
-  background: fade(@darkbg, 60%);
-  box-shadow: 0 0 0 3px fade(@YesWrite, 25%), 0 0 18px fade(@YesWrite2, 35%);
+  background: transparent;
+  box-shadow: none;
   animation: icon_pulse 1.4s ease-in-out infinite;
-
-  &.icon_yellow {
-    color: @maxYellow;
-    box-shadow: 0 0 0 3px fade(@maxYellow, 20%), 0 0 16px fade(@maxYellow, 30%);
-  }
-
-  &.icon_red {
-    color: @maxred;
-    box-shadow: 0 0 0 3px fade(@maxred, 20%), 0 0 16px fade(@maxred, 30%);
-  }
 }
 
 .loader_title {

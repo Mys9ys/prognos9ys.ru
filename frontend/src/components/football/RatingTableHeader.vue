@@ -6,7 +6,9 @@
         <span class="place place_1">1</span>
         <span class="place place_3">3</span>
       </div>
-      <div class="icon" :class="iconClass">{{ glyph }}</div>
+      <div class="icon" :class="iconClass">
+        <FootballMetricIcon context="rating" :field-id="iconKey" size="100%" badge />
+      </div>
     </div>
 
     <div class="right_controls">
@@ -21,11 +23,13 @@
 </template>
 
 <script>
+import FootballMetricIcon from '@/components/football/FootballMetricIcon.vue';
+
 export default {
   name: 'RatingTableHeader',
+  components: { FootballMetricIcon },
   props: {
     iconKey: { type: [String, Number], default: 1 },
-    glyph: { type: String, default: '♛' },
     title: { type: String, default: 'Рейтинг' },
     matchNumbers: { type: Array, default: () => [] },
     modelValue: { type: [String, Number], default: '' },
@@ -69,18 +73,18 @@ export default {
 
 .rating_table_header {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: 8px;
   background: @DarkColorBG;
   border-radius: 5px;
-  padding: 6px;
+  padding: 4px;
   margin-top: 4px;
 }
 
 .left_badge {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  align-items: stretch;
+  gap: 4px;
   flex-shrink: 0;
 }
 
@@ -107,19 +111,26 @@ export default {
 }
 
 .icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
+  width: 42px;
+  min-width: 42px;
+  border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
-  color: @colorText;
-  background: fade(@darkbg, 60%);
-  box-shadow: 0 0 0 2px fade(@YesWrite, 20%);
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: hidden;
+  :deep(.football_metric_badge) {
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    border-radius: 6px;
+  }
 
-  &.icon_yellow { color: @maxYellow; box-shadow: 0 0 0 2px fade(@maxYellow, 20%); }
-  &.icon_red { color: @maxred; box-shadow: 0 0 0 2px fade(@maxred, 20%); }
+  &.icon_yellow { box-shadow: none; }
+  &.icon_red { box-shadow: none; }
 }
 
 .right_controls {
@@ -132,10 +143,14 @@ export default {
 
 .title {
   .shadow_inset;
-  padding: 6px 8px;
+  padding: 5px 8px;
   font-weight: 700;
-  font-size: 12px;
+  font-size: clamp(10px, 2.5vw, 12px);
+  line-height: 1.2;
   color: @colorText;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .match_select {
@@ -145,10 +160,13 @@ export default {
   outline: none;
   background: transparent;
   color: @pearl;
-  font-size: 12px;
-  padding: 6px 8px;
+  font-size: 11px;
+  padding: 5px 8px;
   border-radius: 5px;
   font-family: 'Roboto', sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 
   option {
     color: @darkbg;

@@ -4,24 +4,29 @@
   <div class="rating_wrapper">
     <div class="rating_header">
       <div class="rating_title_cell"
-           :class="{'yellow': index == 21, 'red': index == 22, 'activeCell': activeCell == index}"
-           v-for="(icon, index) in icons"
-           @click="activeCell = index"
-           :key="index">{{ icon }}
+           :class="{ activeCell: activeCell == tabId }"
+           v-for="tabId in metricTabs"
+           @click="activeCell = tabId"
+           :key="tabId">
+        <FootballMetricIcon
+          context="rating"
+          :field-id="tabId"
+          :size="22"
+          badge
+          :active="activeCell == tabId"
+        />
       </div>
     </div>
 
-    <FootballRatingBody class="rating_body" :class="{'active_body':activeCell == index}" v-for="(icon, index) in icons"
-                        :key="index"
-                        v-show="activeCell == index"
-                        :arRating="footballRating[relation[index]]"
-                        :icon="index"
-                        :glyph="icon"
-                        :loading="isTabLoading(index)"
-                        :has-data="hasTabData(index)"
+    <FootballRatingBody class="rating_body" :class="{'active_body':activeCell == tabId}" v-for="tabId in metricTabs"
+                        :key="'body-' + tabId"
+                        v-show="activeCell == tabId"
+                        :arRating="footballRating[relation[tabId]]"
+                        :icon="tabId"
+                        :loading="isTabLoading(tabId)"
+                        :has-data="hasTabData(tabId)"
                         :match-titles="footballRatingMeta?.match_titles || {}"
-    >{{ icon }}
-    </FootballRatingBody>
+    />
 
   </div>
 </template>
@@ -30,6 +35,7 @@
 
 import {mapActions, mapState} from "vuex";
 import FootballRatingBody from "@/components/football/FootballRatingBody";
+import FootballMetricIcon from "@/components/football/FootballMetricIcon.vue";
 import PreLoader from "@/components/main/PreLoader";
 
 
@@ -38,7 +44,8 @@ export default {
   emits: ['loaded'],
   components: {
     PreLoader,
-    FootballRatingBody
+    FootballRatingBody,
+    FootballMetricIcon,
   },
   props: {
     eventId: {
@@ -55,6 +62,7 @@ export default {
       tabLoading: false,
       activeCell: 1,
       loadedSelectors: {},
+      metricTabs: [1, 2, 18, 28, 19, 32, 21, 22, 20, 23, 45, 46, 100],
       relation: {
         1: 'all',
         2: 'score',
@@ -69,22 +77,6 @@ export default {
         45: 'otime',
         46: 'spenalty',
         100: 'best',
-      },
-
-      icons: {
-        1: '♛',
-        2: '0-0',
-        18: '✓',  // result
-        28: 'Δ',
-        19: 'Σ',
-        32: '🡘',
-        21: '▮',
-        22: '▮',
-        20: '🡬',
-        23: '◒',
-        45: '+◔',
-        46: '+◒',
-        100: '♚',
       },
 
       description: {
@@ -194,30 +186,32 @@ export default {
 
 .rating_header {
   background: @DarkColorBG;
-  padding: 4px;
+  padding: 2px;
   display: flex;
   flex-direction: row;
   justify-content: space-between;
-  gap: 3px;
+  gap: 2px;
   border-radius: 5px;
   margin-top: 12px;
 
   .rating_title_cell {
-    min-width: 23px;
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 24px;
+    height: 22px;
+    padding: 0;
     cursor: pointer;
-    .shadow_inset;
-    color: @colorText;
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    background: transparent;
+    box-shadow: none;
 
-    &.yellow {
-      color: @maxYellow;
-    }
-
-    &.red {
-      color: @maxred;
-    }
-
-    &.activeCell {
-      background: @colorBlur;
+    :deep(.football_metric_badge) {
+      width: 100%;
+      height: 100%;
+      min-width: 0;
+      min-height: 0;
     }
   }
 }

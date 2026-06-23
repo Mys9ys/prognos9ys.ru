@@ -2,7 +2,6 @@
   <div class="body_wrapper">
     <RatingTableHeader
         :icon-key="icon"
-        :glyph="glyph"
         :title="title[icon]"
         :match-numbers="matchNumbers"
         v-model="selectedMatch"
@@ -16,7 +15,6 @@
     <RatingTabLoader
         v-else-if="loading || !hasData"
         :icon-key="icon"
-        :glyph="glyph"
         :title="title[icon]"
     />
     <div v-else class="empty_state">Данных пока нет</div>
@@ -39,10 +37,6 @@ export default {
     },
     icon: {
       type: [String, Number]
-    },
-    glyph: {
-      type: String,
-      default: '♛',
     },
     loading: {
       type: Boolean,

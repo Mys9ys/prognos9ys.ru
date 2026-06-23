@@ -3,18 +3,26 @@
     <table class="table table-dark table-hover om_table_box">
       <thead>
       <tr>
-        <th class="pr_table_col">{{ m_icons[1] }}</th>
-        <th class="pr_table_col">{{ m_icons[18] }}</th>
-        <th class="pr_table_col">{{ m_icons[19] }}</th>
-        <th class="pr_table_col">{{ m_icons[28] }}</th>
-        <th class="pr_table_col">{{ m_icons[32] }}</th>
-        <th class="pr_table_col yellow_t">{{ m_icons[21] }}</th>
-        <th class="pr_table_col red_t">{{ m_icons[22] }}</th>
-        <th class="pr_table_col">{{ m_icons[20] }}</th>
-        <th class="pr_table_col">{{ m_icons[23] }}</th>
-        <th class="pr_table_col">{{ m_icons[45] }}</th>
-        <th class="pr_table_col">{{ m_icons[46] }}</th>
-        <th class="pr_table_col">all</th>
+        <th
+          v-for="col in headerColumns"
+          :key="col.fieldId || col.metric"
+          class="pr_table_col metric_th"
+          :class="col.className"
+        >
+          <FootballMetricIcon
+            v-if="col.fieldId"
+            context="prognosis"
+            :field-id="col.fieldId"
+            :size="16"
+            badge
+          />
+          <FootballMetricIcon
+            v-else
+            metric="total_all"
+            :size="16"
+            badge
+          />
+        </th>
 
       </tr>
       </thead>
@@ -81,10 +89,11 @@
 </template>
 
 <script>
-import {mapState} from "vuex";
+import FootballMetricIcon from '@/components/football/FootballMetricIcon.vue';
 
 export default {
   name: "MatchTable",
+  components: { FootballMetricIcon },
 
   props: {
     info:{
@@ -92,10 +101,23 @@ export default {
     }
   },
 
-  computed: {
-    ...mapState({
-      m_icons: state => state.icons.m_icons,    
-    })
+  data() {
+    return {
+      headerColumns: [
+        { fieldId: 1 },
+        { fieldId: 18 },
+        { fieldId: 19 },
+        { fieldId: 28 },
+        { fieldId: 32 },
+        { fieldId: 21, className: 'yellow_t' },
+        { fieldId: 22, className: 'red_t' },
+        { fieldId: 20 },
+        { fieldId: 23 },
+        { fieldId: 45 },
+        { fieldId: 46 },
+        { metric: 'total_all' },
+      ],
+    };
   },
 }
 </script>
@@ -107,7 +129,7 @@ export default {
   border-radius: 5px;
 
   th, td {
-    padding: 2px;
+    padding: 1px;
     font-size: 11px;
   }
 
@@ -132,6 +154,11 @@ export default {
 
 .red_t {
   color: @maxred;
+}
+
+.metric_th {
+  text-align: center;
+  vertical-align: middle;
 }
 .desc_block{
   background: @DarkColorBG;

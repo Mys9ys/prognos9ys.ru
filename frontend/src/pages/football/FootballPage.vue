@@ -81,7 +81,7 @@
           </div>
           <div class="part_block">
             <div class="title_block">
-              <div class="item icon">{{ icons[1] }}</div>
+              <div class="item icon"><FootballMetricIcon context="prognosis" :field-id="1" badge :size="22" /></div>
               <div class="item title">{{ title[1] }}:</div>
             </div>
             <div class="value_block">
@@ -131,7 +131,7 @@
             <div class="prognosis_dash_line"></div>
             <div class="part_block">
               <div class="title_block block_absolute">
-                <div class="item icon">{{ icons[18] }}</div>
+                <div class="item icon"><FootballMetricIcon context="prognosis" :field-id="18" badge :size="22" /></div>
                 <div class="item title">{{ title[18] }}:</div>
               </div>
               <div class="value_block">
@@ -146,7 +146,7 @@
 
             <div class="part_block">
               <div class="title_block block_absolute">
-                <div class="item icon">{{ icons[28] }}</div>
+                <div class="item icon"><FootballMetricIcon context="prognosis" :field-id="28" badge :size="22" /></div>
                 <div class="item title">{{ title[28] }}:</div>
               </div>
               <div class="value_block">
@@ -160,7 +160,7 @@
 
             <div class="part_block">
               <div class="title_block block_absolute">
-                <div class="item icon">{{ icons[19] }}</div>
+                <div class="item icon"><FootballMetricIcon context="prognosis" :field-id="19" badge :size="22" /></div>
                 <div class="item title">{{ title[19] }}:</div>
               </div>
               <div class="value_block">
@@ -176,7 +176,7 @@
 
           <div class="part_block">
             <div class="title_block">
-              <div class="item icon">{{ icons[32] }}</div>
+              <div class="item icon"><FootballMetricIcon context="prognosis" :field-id="32" badge :size="22" /></div>
               <div class="item title">{{ title[32] }}:</div>
             </div>
             <div class="value_block">
@@ -193,7 +193,7 @@
           <div class="prognosis_dash_line"></div>
           <div class="part_block yellow">
             <div class="title_block block_absolute">
-              <div class="item icon">{{ icons[21] }}</div>
+              <div class="item icon"><FootballMetricIcon context="prognosis" :field-id="21" badge :size="22" /></div>
               <div class="item title">{{ title[21] }}:</div>
             </div>
             <div class="value_block">
@@ -209,7 +209,7 @@
           <div class="prognosis_dash_line"></div>
           <div class="part_block red">
             <div class="title_block block_absolute">
-              <div class="item icon">{{ icons[22] }}</div>
+              <div class="item icon"><FootballMetricIcon context="prognosis" :field-id="22" badge :size="22" /></div>
               <div class="item title">{{ title[22] }}:</div>
             </div>
             <div class="value_block">
@@ -225,7 +225,7 @@
           <div class="prognosis_dash_line"></div>
           <div class="part_block">
             <div class="title_block block_absolute">
-              <div class="item icon">{{ icons[20] }}</div>
+              <div class="item icon"><FootballMetricIcon context="prognosis" :field-id="20" badge :size="22" /></div>
               <div class="item title">{{ title[20] }}:</div>
             </div>
             <div class="value_block">
@@ -242,7 +242,7 @@
           <div class="prognosis_dash_line"></div>
           <div class="part_block">
             <div class="title_block block_absolute">
-              <div class="item icon">{{ icons[23] }}</div>
+              <div class="item icon"><FootballMetricIcon context="prognosis" :field-id="23" badge :size="22" /></div>
               <div class="item title">{{ title[23] }}:</div>
             </div>
             <div class="value_block">
@@ -261,7 +261,7 @@
           <div class="play_off_block" v-if="matchR.stage==='Плей-офф'">
             <div class="part_block">
               <div class="title_block block_absolute">
-                <div class="item icon">{{ icons[45] }}</div>
+                <div class="item icon"><FootballMetricIcon context="prognosis" :field-id="45" badge :size="22" /></div>
                 <div class="item title">{{ title[45] }}:</div>
               </div>
               <div class="value_block">
@@ -276,7 +276,7 @@
 
             <div class="part_block">
               <div class="title_block block_absolute">
-                <div class="item icon">{{ icons[46] }}</div>
+                <div class="item icon"><FootballMetricIcon context="prognosis" :field-id="46" badge :size="22" /></div>
                 <div class="item title">{{ title[46] }}:</div>
               </div>
               <div class="value_block">
@@ -358,6 +358,7 @@ import ActionFailure from "@/components/main/ActionFailure";
 import FootballResultTable from "@/components/football/FootballResultTable";
 import TeamFormDots from "@/components/football/TeamFormDots";
 import AppIcon from "@/components/ui/AppIcon.vue";
+import FootballMetricIcon from "@/components/football/FootballMetricIcon.vue";
 import {authRoute, registerRoute} from "@/utils/authRedirect";
 
 
@@ -371,7 +372,8 @@ export default {
     SendSuccess,
     FootballResultTable,
     TeamFormDots,
-    AppIcon
+    AppIcon,
+    FootballMetricIcon,
   },
 
   data() {
@@ -413,20 +415,6 @@ export default {
         46: '', // m_spenalty
 
         29: '', // m_offside
-      },
-
-      icons: {
-        1: '0-0',
-        18: '✓',  // result
-        28: 'Δ',
-        19: 'Σ',
-        32: '🡘',
-        21: '▮',
-        22: '▮',
-        20: '🡬',
-        23: '◒',
-        45: '+◔',
-        46: '+◒',
       },
 
       title: {
@@ -929,7 +917,10 @@ export default {
         font-weight: 700;
       }
       .icon{
-        min-width: 24px;
+        min-width: 22px;
+        padding: 0;
+        box-shadow: none;
+        background: transparent;
         .flex_center;
       }
     }

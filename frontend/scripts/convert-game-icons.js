@@ -20,11 +20,30 @@ const pairs = [
   { src: 'mob_app/img/prognosis_ps.png', dst: 'frontend/src/assets/icons/game/prognosis.png' },
 ];
 
+const metricPairs = [
+  { src: 'local/tools/assets/metrics/ps/metric_score.png', dst: 'frontend/src/assets/icons/metrics/metric_score.png', size: '128' },
+  { src: 'local/tools/assets/metrics/ps/metric_outcome.png', dst: 'frontend/src/assets/icons/metrics/metric_outcome.png', size: '128' },
+  { src: 'local/tools/assets/metrics/ps/metric_sum.png', dst: 'frontend/src/assets/icons/metrics/metric_sum.png', size: '128' },
+  { src: 'local/tools/assets/metrics/ps/metric_diff.png', dst: 'frontend/src/assets/icons/metrics/metric_diff.png', size: '128' },
+  { src: 'local/tools/assets/metrics/ps/metric_possession.png', dst: 'frontend/src/assets/icons/metrics/metric_possession.png', size: '128' },
+  { src: 'local/tools/assets/metrics/ps/metric_corners.png', dst: 'frontend/src/assets/icons/metrics/metric_corners.png', size: '128' },
+  { src: 'local/tools/assets/metrics/ps/metric_yellow.png', dst: 'frontend/src/assets/icons/metrics/metric_yellow.png', size: '128' },
+  { src: 'local/tools/assets/metrics/ps/metric_red.png', dst: 'frontend/src/assets/icons/metrics/metric_red.png', size: '128' },
+  { src: 'local/tools/assets/metrics/ps/metric_penalty.png', dst: 'frontend/src/assets/icons/metrics/metric_penalty.png', size: '128' },
+  { src: 'local/tools/assets/metrics/ps/metric_extra_time.png', dst: 'frontend/src/assets/icons/metrics/metric_extra_time.png', size: '128' },
+  { src: 'local/tools/assets/metrics/ps/metric_shootout.png', dst: 'frontend/src/assets/icons/metrics/metric_shootout.png', size: '128' },
+  { src: 'local/tools/assets/metrics/ps/metric_rating_all.png', dst: 'frontend/src/assets/icons/metrics/metric_rating_all.png', size: '128' },
+  { src: 'local/tools/assets/metrics/ps/metric_rating_prodigy.png', dst: 'frontend/src/assets/icons/metrics/metric_rating_prodigy.png', size: '128' },
+  { src: 'local/tools/assets/metrics/ps/metric_total_all.png', dst: 'frontend/src/assets/icons/metrics/metric_total_all.png', size: '128' },
+];
+
+const allPairs = [...pairs, ...metricPairs];
+
 const root = path.join(__dirname, '..', '..');
 const size = '256';
 
-for (const item of pairs) {
+for (const item of allPairs) {
   const src = path.resolve(root, item.src);
   const dst = path.resolve(root, item.dst);
-  execFileSync(process.execPath, [script, src, dst, size], { stdio: 'inherit' });
+  execFileSync(process.execPath, [script, src, dst, item.size || size], { stdio: 'inherit' });
 }
