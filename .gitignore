@@ -10,3 +10,8 @@
 /frontend/node_modules/
 /frontend/dist/
 /mob_app/ajax/_logs/
+
+# Дампы БД с боя (не коммитить)
+.osp/backup/db/*
+!.osp/backup/db/.gitkeep
+local/tools/output/db_*.sql.gz
