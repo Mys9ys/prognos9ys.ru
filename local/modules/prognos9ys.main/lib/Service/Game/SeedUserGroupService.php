@@ -43,7 +43,7 @@ class SeedUserGroupService
             return true;
         }
 
-        return (bool)preg_match('/^(gk|coach|cs2p_|cs2c_)/i', $login);
+        return (bool)preg_match('/^(gk|coach|fanm|fanf|ruler|cs2p_|cs2c_)/i', $login);
     }
 
     public static function addUserToTestGroup(int $userId, int $groupId = self::TEST_GROUP_ID): bool
