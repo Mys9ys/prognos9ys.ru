@@ -144,7 +144,7 @@ if ($credentials !== []) {
 function parseCliArg(array $argv, string $prefix): ?string
 {
     foreach ($argv as $arg) {
-        if (str_starts_with($arg, $prefix)) {
+        if (strpos($arg, $prefix) === 0) {
             return trim(substr($arg, strlen($prefix)));
         }
     }
