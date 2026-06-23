@@ -37,6 +37,7 @@ class WealthRatingService
             'pending_xp',
             'pending_achievements',
             'treasure_rich',
+            'rublius_rich',
         ], true) ? $wealthSort : 'rich';
 
         if ($wealthSort === 'pending_xp') {
@@ -49,6 +50,10 @@ class WealthRatingService
 
         if ($wealthSort === 'treasure_rich') {
             return $this->getTreasureRating($limit, $offset);
+        }
+
+        if ($wealthSort === 'rublius_rich') {
+            return $this->getRubliusRating($limit, $offset);
         }
 
         return $this->getWealthRating($limit, $offset, $wealthSort === 'poor');
@@ -399,6 +404,102 @@ class WealthRatingService
         return [
             'status' => 'ok',
             'wealth_sort' => 'treasure_rich',
+            'total' => $total,
+            'limit' => $limit,
+            'offset' => $offset,
+            'ratings' => $ratings,
+        ];
+    }
+
+    private function getRubliusRating(int $limit, int $offset): array
+    {
+        $wallets = $this->repository->getAllWallets();
+        if (!$wallets) {
+            return [
+                'status' => 'ok',
+                'wealth_sort' => 'rublius_rich',
+                'total' => 0,
+                'limit' => $limit,
+                'offset' => $offset,
+                'ratings' => [],
+            ];
+        }
+
+        $levelMap = $this->buildLevelMap();
+        $pendingMap = $this->buildPendingMap();
+
+        $prepared = [];
+        foreach ($wallets as $wallet) {
+            $userId = (int)($wallet['user_id'] ?? 0);
+            if ($userId <= 0) {
+                continue;
+            }
+
+            $rublius = round((float)($wallet['rublius'] ?? 0), 1);
+            if ($rublius <= 0) {
+                continue;
+            }
+
+            $prepared[] = [
+                'user_id' => $userId,
+                'prognobaks' => $wallet['prognobaks'],
+                'rublius' => $rublius,
+                'total' => $this->calcTotalWealth($wallet['prognobaks'], $rublius),
+            ];
+        }
+
+        usort($prepared, static function (array $a, array $b): int {
+            if ($a['rublius'] === $b['rublius']) {
+                return $a['user_id'] <=> $b['user_id'];
+            }
+
+            return $b['rublius'] <=> $a['rublius'];
+        });
+
+        $total = count($prepared);
+        $users = $this->loadUsers(array_column($prepared, 'user_id'));
+
+        $ratings = [];
+        $place = 0;
+        $prevRublius = null;
+
+        foreach ($prepared as $index => $row) {
+            if ($index < $offset) {
+                if ($prevRublius === null || $row['rublius'] !== $prevRublius) {
+                    $place = $index + 1;
+                }
+                $prevRublius = $row['rublius'];
+                continue;
+            }
+
+            if ($index >= $offset + $limit) {
+                break;
+            }
+
+            if ($prevRublius === null || $row['rublius'] !== $prevRublius) {
+                $place = $index + 1;
+            }
+
+            $userId = (int)$row['user_id'];
+            $extras = $this->buildRowExtras($userId, $pendingMap);
+            $ratings[] = array_merge([
+                'place' => $place,
+                'user' => $this->resolveUser($users, $userId),
+                'prognobaks' => $row['prognobaks'],
+                'rublius' => $row['rublius'],
+                'level' => $levelMap[$userId] ?? 0,
+                'total' => $row['total'],
+                'score' => $row['rublius'],
+            ], [
+                'shop_offers' => $extras['shop_offers'],
+            ]);
+
+            $prevRublius = $row['rublius'];
+        }
+
+        return [
+            'status' => 'ok',
+            'wealth_sort' => 'rublius_rich',
             'total' => $total,
             'limit' => $limit,
             'offset' => $offset,

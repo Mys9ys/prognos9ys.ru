@@ -114,6 +114,12 @@
             :class="{ active: mode === 'pending_achievements' }"
             @click="setMode('pending_achievements')"
         ><span class="filter_icon_back"><AppIcon name="achievement" :size="14" /></span> Есть ачивки</button>
+        <button
+            type="button"
+            class="filter_btn"
+            :class="{ active: mode === 'rublius_rich' }"
+            @click="setMode('rublius_rich')"
+        ><span class="filter_icon_back"><AppIcon name="rublius" :size="14" /></span> Рублиусы</button>
       </div>
     </div>
 
@@ -130,8 +136,9 @@
           <th v-if="mode === 'pending_xp'"><AppIcon name="xp" :size="14" /></th>
           <th v-if="mode === 'pending_achievements'"><AppIcon name="achievement" :size="14" /></th>
           <th v-if="isTreasureMode"><AppIcon name="chest_wc2026" :size="16" /></th>
-          <th v-if="!isTreasureMode && mode !== 'pending_xp' && mode !== 'pending_achievements'"><AppIcon name="prognobak" :size="16" /></th>
-          <th v-if="!isTreasureMode && mode !== 'pending_xp' && mode !== 'pending_achievements'"><AppIcon name="rublius" :size="16" /></th>
+          <th v-if="isRubliusMode"><AppIcon name="rublius" :size="16" /></th>
+          <th v-if="!isTreasureMode && !isRubliusMode && mode !== 'pending_xp' && mode !== 'pending_achievements'"><AppIcon name="prognobak" :size="16" /></th>
+          <th v-if="!isTreasureMode && !isRubliusMode && mode !== 'pending_xp' && mode !== 'pending_achievements'"><AppIcon name="rublius" :size="16" /></th>
         </tr>
         </thead>
         <tbody>
@@ -219,8 +226,9 @@
           <td class="pending_xp" v-if="mode === 'pending_xp'">+{{ formatMoney(el.pending_points) }}</td>
           <td class="pending_achievements" v-if="mode === 'pending_achievements'">{{ el.pending_achievements }}</td>
           <td class="money" v-if="isTreasureMode">{{ el.treasure_total }}</td>
-          <td class="money" v-if="!isTreasureMode && mode !== 'pending_xp' && mode !== 'pending_achievements'">{{ formatMoney(el.prognobaks) }}</td>
-          <td class="money" v-if="!isTreasureMode && mode !== 'pending_xp' && mode !== 'pending_achievements'">{{ formatMoney(el.rublius) }}</td>
+          <td class="money rublius_score" v-if="isRubliusMode">{{ formatMoney(el.rublius) }}</td>
+          <td class="money" v-if="!isTreasureMode && !isRubliusMode && mode !== 'pending_xp' && mode !== 'pending_achievements'">{{ formatMoney(el.prognobaks) }}</td>
+          <td class="money" v-if="!isTreasureMode && !isRubliusMode && mode !== 'pending_xp' && mode !== 'pending_achievements'">{{ formatMoney(el.rublius) }}</td>
         </tr>
         </tbody>
       </table>
@@ -264,7 +272,7 @@ import BulkActionProgress from '@/components/game/BulkActionProgress.vue';
 import { DEFAULT_AVATAR_URL } from '@/utils/defaultAvatar';
 
 const PAGE_SIZE = 50;
-const WEALTH_MODES = ['rich', 'poor', 'pending_xp', 'pending_achievements', 'treasure_rich'];
+const WEALTH_MODES = ['rich', 'poor', 'pending_xp', 'pending_achievements', 'treasure_rich', 'rublius_rich'];
 const BULK_TITLES = {
   prognobaks_chests: 'Сундуки за 50 прогнобаксов',
   claim_xp: 'Сбор опыта',
@@ -317,10 +325,13 @@ export default {
       );
     },
     showLevelColumn() {
-      return this.mode === 'rich' || this.mode === 'poor';
+      return this.mode === 'rich' || this.mode === 'poor' || this.mode === 'rublius_rich';
     },
     isTreasureMode() {
       return this.mode === 'treasure_rich';
+    },
+    isRubliusMode() {
+      return this.mode === 'rublius_rich';
     },
     canImpersonate() {
       const role = this.userInfo?.role;
@@ -344,6 +355,9 @@ export default {
       if (this.mode === 'treasure_rich') {
         return 'chest_wc2026';
       }
+      if (this.mode === 'rublius_rich') {
+        return 'rublius';
+      }
 
       return 'wealth';
     },
@@ -359,6 +373,9 @@ export default {
       }
       if (this.mode === 'treasure_rich') {
         return 'Сокровищницы';
+      }
+      if (this.mode === 'rublius_rich') {
+        return 'Рублиусы';
       }
 
       return 'Самые богатые';
@@ -376,6 +393,9 @@ export default {
       if (this.mode === 'treasure_rich') {
         return 'Пока никто не накопил сокровища';
       }
+      if (this.mode === 'rublius_rich') {
+        return 'Пока никто не накопил рублиусы';
+      }
 
       return 'Пока никто не накопил капитал';
     },
@@ -391,6 +411,9 @@ export default {
       }
       if (this.mode === 'treasure_rich') {
         return '🎁 = сумма закрытых сундучков · сортировка по убыванию';
+      }
+      if (this.mode === 'rublius_rich') {
+        return '💎 на кошельке · сортировка по убыванию';
       }
 
       if (this.canImpersonate) {
@@ -994,7 +1017,7 @@ export default {
     vertical-align: middle;
   }
 
-  .money, .total, .pending_xp, .pending_count, .pending_achievements {
+  .money, .total, .pending_xp, .pending_count, .pending_achievements, .rublius_score {
     text-align: right;
     white-space: nowrap;
   }
