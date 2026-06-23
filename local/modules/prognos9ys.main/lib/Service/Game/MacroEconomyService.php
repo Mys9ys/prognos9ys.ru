@@ -1,0 +1,67 @@
+<?php
+
+namespace Prognos9ys\Main\Service\Game;
+
+use Bitrix\Main\UserTable;
+use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
+
+class MacroEconomyService
+{
+    private GameEconomyRepository $repository;
+
+    public function __construct(?GameEconomyRepository $repository = null)
+    {
+        $this->repository = $repository ?? new GameEconomyRepository();
+    }
+
+    public function getSummary(): array
+    {
+        $wallets = $this->repository->sumWalletBalances();
+        $userBanks = $this->repository->sumActiveUserBankBalances();
+        $parimutuel = $this->repository->getGameBankByCode(GameEconomyConfig::GAME_BANK_CODE_FOOTBALL_PARIMUTUEL);
+        $treasury = $this->repository->getGameBankByCode(GameEconomyConfig::GAME_BANK_CODE_STATE_TREASURY);
+
+        $parimutuelP = round((float)($parimutuel['UF_PROGNOBAKS'] ?? 0), 1);
+        $treasuryP = round((float)($treasury['UF_PROGNOBAKS'] ?? 0), 1);
+        $treasuryR = round((float)($treasury['UF_RUBLIUS'] ?? 0), 1);
+
+        $handsP = round((float)($wallets['prognobaks'] ?? 0), 1);
+        $handsR = round((float)($wallets['rublius'] ?? 0), 1);
+        $banksP = round((float)($userBanks['prognobaks'] ?? 0) + $parimutuelP, 1);
+        $banksR = round((float)($userBanks['rublius'] ?? 0), 1);
+
+        $totalP = round($handsP + $banksP + $treasuryP, 1);
+        $totalR = round($handsR + $banksR + $treasuryR, 1);
+
+        $users = $this->countRegisteredUsers();
+        $avgP = $users > 0 ? round($totalP / $users, 1) : 0.0;
+        $avgR = $users > 0 ? round($totalR / $users, 1) : 0.0;
+
+        return [
+            'registered_users' => $users,
+            'prognobaks' => [
+                'total' => $totalP,
+                'hands' => $handsP,
+                'banks' => $banksP,
+                'treasury' => $treasuryP,
+                'avg_per_user' => $avgP,
+                'parimutuel' => $parimutuelP,
+                'user_banks' => round((float)($userBanks['prognobaks'] ?? 0), 1),
+            ],
+            'rublius' => [
+                'total' => $totalR,
+                'hands' => $handsR,
+                'banks' => $banksR,
+                'treasury' => $treasuryR,
+                'avg_per_user' => $avgR,
+            ],
+        ];
+    }
+
+    private function countRegisteredUsers(): int
+    {
+        return (int)UserTable::getCount([
+            '=ACTIVE' => 'Y',
+        ]);
+    }
+}

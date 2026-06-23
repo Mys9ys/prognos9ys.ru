@@ -23,6 +23,35 @@
       <p class="hint">Поступления из лавки казны и процентов по гос. вкладам. Покупки сундуков — на странице «Рейтинги».</p>
     </div>
 
+    <div class="section" v-if="macro">
+      <div class="section_title">Макроэкономика</div>
+      <p class="hint macro_users">Зарегистрировано пользователей: <strong>{{ macro.registered_users }}</strong></p>
+
+      <div class="macro_block">
+        <div class="macro_currency_title">
+          <AppIcon name="prognobak" :size="14" />
+          Прогнобаксы
+        </div>
+        <div class="macro_row" v-for="row in prognobakRows" :key="row.key">
+          <span>{{ row.label }}</span>
+          <span class="macro_value">{{ formatMoney(macro.prognobaks[row.key]) }}</span>
+        </div>
+      </div>
+
+      <div class="macro_block">
+        <div class="macro_currency_title">
+          <AppIcon name="rublius" :size="14" />
+          Рублиусы
+        </div>
+        <div class="macro_row" v-for="row in rubliusRows" :key="row.key">
+          <span>{{ row.label }}</span>
+          <span class="macro_value">{{ formatMoney(macro.rublius[row.key]) }}</span>
+        </div>
+      </div>
+
+      <p class="hint">«В банках» — частные банки игроков и пул ставок ЧМ. Среднее = общая масса ÷ число аккаунтов.</p>
+    </div>
+
     <div class="section" v-if="contractEvents.length">
       <div class="section_title">Гос. вклад поддержки</div>
       <p class="hint">
@@ -84,6 +113,7 @@ export default {
       treasuryLoading: false,
       actionLoading: false,
       treasury: null,
+      macro: null,
       banks: [],
       govDeposits: [],
       selectedGovBankId: 0,
@@ -107,6 +137,24 @@ export default {
     },
     canOpenGovDeposit() {
       return Number(this.treasury?.prognobaks ?? 0) >= 500;
+    },
+    prognobakRows() {
+      return [
+        { key: 'total', label: 'Всего' },
+        { key: 'hands', label: 'На руках' },
+        { key: 'banks', label: 'В банках' },
+        { key: 'treasury', label: 'В казне' },
+        { key: 'avg_per_user', label: 'Среднее на пользователя' },
+      ];
+    },
+    rubliusRows() {
+      return [
+        { key: 'total', label: 'Всего' },
+        { key: 'hands', label: 'На руках' },
+        { key: 'banks', label: 'В банках' },
+        { key: 'treasury', label: 'В казне' },
+        { key: 'avg_per_user', label: 'Среднее на пользователя' },
+      ];
     },
   },
   watch: {
@@ -174,6 +222,7 @@ export default {
         const data = await apiActions.game.getTreasury(token);
         if (data?.status === 'ok') {
           this.treasury = data.treasury || null;
+          this.macro = data.macro || null;
         } else {
           this.error = data?.message || 'Не удалось загрузить казну';
         }
@@ -304,6 +353,42 @@ export default {
   align-items: center;
   gap: 4px;
   font-weight: 600;
+}
+
+.macro_users {
+  margin-bottom: 8px;
+
+  strong {
+    color: @yellow;
+  }
+}
+
+.macro_block {
+  margin-bottom: 10px;
+}
+
+.macro_currency_title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: @colorText;
+  margin-bottom: 4px;
+}
+
+.macro_row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: @colorBlur;
+  padding: 2px 0;
+
+  .macro_value {
+    color: @colorText;
+    font-weight: 600;
+  }
 }
 
 .hint {

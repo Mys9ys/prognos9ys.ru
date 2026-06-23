@@ -15,6 +15,7 @@ use Prognos9ys\Main\Service\Game\GameEconomyConfig;
 use Prognos9ys\Main\Service\Game\GameProfileService;
 use Prognos9ys\Main\Service\Game\GovSupportDepositService;
 use Prognos9ys\Main\Service\Game\ModeratorBulkActionsService;
+use Prognos9ys\Main\Service\Game\MacroEconomyService;
 use Prognos9ys\Main\Service\Game\TreasuryService;
 use Prognos9ys\Main\Service\Game\TreasuryShopService;
 use Prognos9ys\Main\Service\Game\UserBankService;
@@ -147,6 +148,7 @@ class GameController extends BaseController
         return [
             'status' => 'ok',
             'treasury' => (new TreasuryService())->getSummary(),
+            'macro' => (new MacroEconomyService())->getSummary(),
         ];
     }
 

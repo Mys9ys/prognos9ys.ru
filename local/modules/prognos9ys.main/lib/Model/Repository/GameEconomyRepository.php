@@ -265,6 +265,51 @@ class GameEconomyRepository
         }, $grouped));
     }
 
+    /**
+     * @return array{prognobaks:float,rublius:float}
+     */
+    public function sumWalletBalances(): array
+    {
+        $dataClass = $this->getWalletDataClass();
+        $prognobaks = 0.0;
+        $rublius = 0.0;
+        $response = $dataClass::getList([
+            'select' => ['UF_PROGNOBAKS', 'UF_RUBLIUS'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $prognobaks += round((float)($row['UF_PROGNOBAKS'] ?? 0), 1);
+            $rublius += round((float)($row['UF_RUBLIUS'] ?? 0), 1);
+        }
+
+        return [
+            'prognobaks' => round($prognobaks, 1),
+            'rublius' => round($rublius, 1),
+        ];
+    }
+
+    /**
+     * @return array{prognobaks:float,rublius:float}
+     */
+    public function sumActiveUserBankBalances(): array
+    {
+        $dataClass = $this->getUserBankDataClass();
+        $prognobaks = 0.0;
+        $response = $dataClass::getList([
+            'filter' => ['=UF_ACTIVE' => GameEconomyConfig::USER_BANK_STATUS_ACTIVE],
+            'select' => ['UF_RESERVED', 'UF_LIQUID'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $prognobaks += round((float)($row['UF_RESERVED'] ?? 0) + (float)($row['UF_LIQUID'] ?? 0), 1);
+        }
+
+        return [
+            'prognobaks' => round($prognobaks, 1),
+            'rublius' => 0.0,
+        ];
+    }
+
     public function addWallet(array $fields): int
     {
         $dataClass = $this->getWalletDataClass();
