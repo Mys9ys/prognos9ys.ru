@@ -3,6 +3,7 @@
 namespace Prognos9ys\Main\Service\Football;
 
 use Prognos9ys\Main\Service\Game\BetService;
+use Prognos9ys\Main\Service\Game\GameEconomyConfig;
 
 class FootballPrognosisService
 {
@@ -10,7 +11,13 @@ class FootballPrognosisService
     {
         $normalizedFields = [];
         foreach ($fields as $key => $value) {
-            $normalizedFields[(int)$key] = $value;
+            $normalizedFields[is_numeric($key) ? (int)$key : $key] = $value;
+        }
+
+        if ($withBet !== null) {
+            $normalizedFields[GameEconomyConfig::PROGNOSIS_PROP_BET_ENABLED] = $withBet
+                ? GameEconomyConfig::PROGNOSIS_BET_ENABLED_YES
+                : GameEconomyConfig::PROGNOSIS_BET_ENABLED_NO;
         }
 
         $handler = new \FootballSendPrognosis([
@@ -32,6 +39,11 @@ class FootballPrognosisService
 
                     if ($resolvedWithBet) {
                         $betService->upsertBetFromPrognosis($userId, $normalizedFields);
+                    } else {
+                        $matchId = (int)($normalizedFields[17] ?? 0);
+                        if ($matchId > 0) {
+                            $betService->cancelPendingBet($userId, $matchId);
+                        }
                     }
                 } catch (\Throwable $exception) {
                     // Не блокируем сохранение прогноза, если ставка не проставилась.

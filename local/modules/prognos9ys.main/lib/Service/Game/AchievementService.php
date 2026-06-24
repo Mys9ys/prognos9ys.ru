@@ -271,6 +271,10 @@ class AchievementService
 
     private function logClaimEvent(int $userId, string $event, array $payload): void
     {
+        if (!GameEconomyConfig::isAchievementClaimDebugEnabled()) {
+            return;
+        }
+
         error_log(sprintf(
             '[AchievementClaim] user=%d event=%s %s',
             $userId,

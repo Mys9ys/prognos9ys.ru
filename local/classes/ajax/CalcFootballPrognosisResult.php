@@ -390,17 +390,41 @@ class CalcFootballPrognosisResult
 
         $matchId = (int)$this->data['matchId'];
 
+        // Ставки — в первую очередь (админ ждёт лог; ачивки проверяются при открытии профиля).
+        try {
+            $betService = new \Prognos9ys\Main\Service\Game\BetService();
+            $deleted = $betService->resetMatchBetsForRecalc($matchId);
+            $backfill = $betService->backfillBetsFromPrognosis($matchId);
+            $participation = $betService->collectMatchParticipationStats($matchId);
+            $settle = $betService->settleMatch($matchId);
+            (new \Prognos9ys\Main\Service\Game\BankSettlementService())->onMatchSettled($matchId);
+            try {
+                (new \Prognos9ys\Main\Service\Game\MatchEconomySettlementService())->markFromCalc($matchId);
+            } catch (\Throwable $exception) {
+                $this->logGameEconomyError('markMatchEconomySettled', $matchId, $exception);
+            }
+            $this->applySettlementLogToResult($matchId, $deleted, $backfill, $participation, $settle);
+            error_log(sprintf(
+                'CalcFootballPrognosisResult [betSettlement] match=%d %s',
+                $matchId,
+                json_encode([
+                    'deleted' => $deleted,
+                    'backfill' => $backfill,
+                    'participation' => $participation,
+                    'settle' => $settle,
+                ], JSON_UNESCAPED_UNICODE)
+            ));
+        } catch (\Throwable $exception) {
+            $this->logGameEconomyError('betSettlement', $matchId, $exception);
+        }
+
         try {
             (new \Prognos9ys\Main\Service\Game\ExperienceService())->syncPendingForMatch($matchId);
         } catch (\Throwable $exception) {
             $this->logGameEconomyError('syncPendingForMatch', $matchId, $exception);
         }
 
-        try {
-            (new \Prognos9ys\Main\Service\Game\AchievementService())->syncAfterMatch($matchId, false);
-        } catch (\Throwable $exception) {
-            $this->logGameEconomyError('syncAchievementsAfterMatch', $matchId, $exception);
-        }
+        // syncAfterMatch убран: ~500× collectStats давало 504 на локалке/бою при большом туре.
 
         $eventId = 0;
         if (Loader::includeModule('iblock')) {
@@ -420,30 +444,114 @@ class CalcFootballPrognosisResult
                 $this->logGameEconomyError('clearEventCache', $matchId, $exception);
             }
         }
+    }
 
-        try {
-            $betService = new \Prognos9ys\Main\Service\Game\BetService();
-            $deleted = $betService->resetMatchBetsForRecalc($matchId);
-            $backfill = $betService->backfillBetsFromPrognosis($matchId);
-            $settle = $betService->settleMatch($matchId);
-            (new \Prognos9ys\Main\Service\Game\BankSettlementService())->onMatchSettled($matchId);
-            try {
-                (new \Prognos9ys\Main\Service\Game\MatchEconomySettlementService())->markFromCalc($matchId);
-            } catch (\Throwable $exception) {
-                $this->logGameEconomyError('markMatchEconomySettled', $matchId, $exception);
-            }
-            error_log(sprintf(
-                'CalcFootballPrognosisResult [betSettlement] match=%d %s',
-                $matchId,
-                json_encode([
-                    'deleted' => $deleted,
-                    'backfill' => $backfill,
-                    'settle' => $settle,
-                ], JSON_UNESCAPED_UNICODE)
-            ));
-        } catch (\Throwable $exception) {
-            $this->logGameEconomyError('betSettlement', $matchId, $exception);
+    /**
+     * @param array<string, mixed> $backfill
+     * @param array<string, mixed> $participation
+     * @param array<string, mixed> $settle
+     */
+    protected function applySettlementLogToResult(
+        int $matchId,
+        int $reset,
+        array $backfill,
+        array $participation,
+        array $settle
+    ): void
+    {
+        $prognosisCount = is_array($this->arResults) ? count($this->arResults) : 0;
+        if ($prognosisCount === 0 && !empty($this->arMiddleResult['prognosis']) && is_array($this->arMiddleResult['prognosis'])) {
+            $prognosisCount = count($this->arMiddleResult['prognosis']);
         }
+
+        $matchNumber = (int)($this->arMiddleResult['result']['PROPERTY_NUMBER_VALUE'] ?? 0);
+        $label = $matchNumber > 0 ? 'матч №' . $matchNumber : 'матч ID ' . $matchId;
+
+        $lines = [];
+        $lines[] = ['text' => 'Пересчёт: ' . $label, 'status' => 'ok'];
+        $lines[] = ['text' => 'Прогнозов обработано: ' . $prognosisCount, 'status' => 'ok'];
+
+        if ($reset > 0) {
+            $lines[] = ['text' => 'Сброшено рассчитанных ставок: ' . $reset, 'status' => 'skip'];
+        }
+
+        $optOut = (int)($participation['opt_out'] ?? 0);
+        $lines[] = ['text' => 'Отказ от денежной ставки: ' . $optOut, 'status' => $optOut > 0 ? 'skip' : 'ok'];
+
+        $skippedAfford = (int)($participation['skipped_afford'] ?? 0);
+        $lines[] = [
+            'text' => 'Не хватило 🪙 на ставку: ' . $skippedAfford,
+            'status' => $skippedAfford > 0 ? 'skip' : 'ok',
+        ];
+
+        $bfCreated = (int)($backfill['created'] ?? 0);
+        if ($bfCreated > 0) {
+            $lines[] = ['text' => 'Добавлено ставок (боты/legacy): ' . $bfCreated, 'status' => 'ok'];
+        }
+
+        $bfExists = (int)($backfill['skipped_exists'] ?? 0);
+        if ($bfExists > 0) {
+            $lines[] = ['text' => 'Ставка уже была (backfill): ' . $bfExists, 'status' => 'skip'];
+        }
+
+        $bfOutcome = (int)($backfill['skipped_outcome'] ?? 0);
+        if ($bfOutcome > 0) {
+            $lines[] = ['text' => 'Без исхода в прогнозе: ' . $bfOutcome, 'status' => 'skip'];
+        }
+
+        $official = (string)($settle['official_outcome'] ?? '');
+        if ($official !== '') {
+            $lines[] = ['text' => 'Исход матча: ' . $official, 'status' => 'ok'];
+        }
+
+        $accepted = (int)($participation['accepted'] ?? $settle['pending'] ?? 0);
+        $winners = (int)($settle['winners'] ?? 0);
+        $losers = (int)($settle['losers'] ?? 0);
+        $pool = round((float)($settle['pool'] ?? 0), 1);
+        $totalPayout = round((float)($settle['total_payout'] ?? 0), 1);
+        $maxPayout = round((float)($settle['max_winner_payout'] ?? 0), 1);
+        $leftover = round((float)($settle['parimutuel_leftover'] ?? 0), 1);
+
+        $lines[] = ['text' => 'Ставки приняты: ' . $accepted, 'status' => $accepted > 0 ? 'ok' : 'skip'];
+
+        if ($accepted > 0) {
+            $lines[] = ['text' => 'Призовой фонд: ' . $pool . ' 🪙', 'status' => 'ok'];
+            $lines[] = ['text' => 'Проигравших: ' . $losers, 'status' => 'ok'];
+            $lines[] = ['text' => 'Победителей: ' . $winners, 'status' => $winners > 0 ? 'ok' : 'skip'];
+            $lines[] = ['text' => 'Сумма выигрышей: ' . $totalPayout . ' 🪙', 'status' => $winners > 0 ? 'ok' : 'skip'];
+            if ($winners > 0) {
+                $lines[] = ['text' => 'Макс. выплата одному: ' . $maxPayout . ' 🪙', 'status' => 'ok'];
+            }
+            if ($leftover > 0) {
+                $lines[] = ['text' => 'Остаток в пул parimutuel: ' . $leftover . ' 🪙', 'status' => 'skip'];
+            }
+        }
+
+        $lines[] = ['text' => 'Готово', 'status' => 'ok'];
+
+        if (!is_array($this->arResult)) {
+            $this->arResult = [];
+        }
+
+        if (($this->arResult['status'] ?? '') === '') {
+            $this->arResult['status'] = 'ok';
+        }
+
+        $this->arResult['settlement_log'] = [
+            'lines' => $lines,
+            'summary' => [
+                'prognosis_count' => $prognosisCount,
+                'opt_out' => $optOut,
+                'skipped_afford' => $skippedAfford,
+                'accepted' => $accepted,
+                'pool' => $pool,
+                'total_payout' => $totalPayout,
+                'max_winner_payout' => $maxPayout,
+                'winners' => $winners,
+                'losers' => $losers,
+                'official_outcome' => $official,
+            ],
+        ];
     }
 
     protected function setResult($status, $mes, $info = '')

@@ -208,18 +208,28 @@
     </div>
 
     <div class="error_message" v-if="error">{{ error }}</div>
+
+    <BulkActionProgress
+      :visible="calcLogVisible"
+      :title="calcLogTitle"
+      :lines="calcLogLines"
+      :done="calcLogDone"
+      @close="calcLogVisible = false"
+    />
 </template>
 
 <script>
 import {mapActions, mapState} from "vuex";
 import PreLoader from "@/components/main/PreLoader";
 import FootballMetricIcon from "@/components/football/FootballMetricIcon.vue";
+import BulkActionProgress from '@/components/game/BulkActionProgress.vue';
 
 export default {
   name: "FootballAdminSetResult",
   components: {
     PreLoader,
     FootballMetricIcon,
+    BulkActionProgress,
   },
   props: {
     id: {
@@ -237,6 +247,11 @@ export default {
 
       loader: false,
       error: '',
+
+      calcLogVisible: false,
+      calcLogTitle: 'Пересчёт матча',
+      calcLogLines: [],
+      calcLogDone: false,
 
       data: {        
         7: this.result.goal_home ?? 0, // goals_home
@@ -418,28 +433,81 @@ export default {
     },
 
     async sendAndCalc() {
-      this.loader = true
       this.error = ''
       this.prepareQuery()
+      this.beginCalcLog('Сохранить и пересчитать', 'Сохранение результата…')
 
-      await this.sendFootballResult()
-      await this.calcFootballResult()
-
-      this.loader = false
+      try {
+        await this.sendFootballResult()
+        this.pushCalcLogLine('Результат сохранён', 'ok')
+        this.pushCalcLogLine('Пересчёт прогнозов и ставок… (до ~1 мин)', 'pending')
+        const data = await this.calcFootballResult()
+        this.finishCalcLog(data)
+      } catch (e) {
+        this.failCalcLog(e?.message || 'Ошибка пересчёта')
+      }
     },
 
-    async calcResult(){
-      this.loader = true
+    async calcResult() {
       this.error = ''
 
       this.queryEvent.userToken = this.token
       this.queryEvent.role = this.role
       this.queryEvent.matchId = this.id
 
-      await this.calcFootballResult()
+      this.beginCalcLog('Только пересчитать', 'Пересчёт прогнозов и ставок… (до ~1 мин)')
 
-      this.loader = false
-    }
+      try {
+        const data = await this.calcFootballResult()
+        this.finishCalcLog(data)
+      } catch (e) {
+        this.failCalcLog(e?.message || 'Ошибка пересчёта')
+      }
+    },
+
+    beginCalcLog(title, pendingText) {
+      this.calcLogTitle = title
+      this.calcLogLines = [{ text: pendingText, status: 'pending' }]
+      this.calcLogDone = false
+      this.calcLogVisible = true
+    },
+
+    pushCalcLogLine(text, status = 'ok') {
+      this.calcLogLines.push({ text, status })
+    },
+
+    finishCalcLog(data) {
+      const log = data?.settlement_log
+      const lines = Array.isArray(log?.lines) ? log.lines : []
+
+      if (lines.length) {
+        this.calcLogLines = this.calcLogLines.filter(line => line.status !== 'pending')
+        this.calcLogLines.push(...lines)
+      } else if (data?.status === 'ok') {
+        this.replacePendingCalcLine('Пересчёт выполнен (детали ставок недоступны)', 'ok')
+      } else {
+        this.replacePendingCalcLine(data?.mes || 'Ошибка пересчёта', 'fail')
+      }
+
+      this.calcLogDone = true
+      this.calcLogVisible = true
+    },
+
+    failCalcLog(message) {
+      this.error = message
+      this.replacePendingCalcLine(message, 'fail')
+      this.calcLogDone = true
+      this.calcLogVisible = true
+    },
+
+    replacePendingCalcLine(text, status) {
+      const pendingIndex = this.calcLogLines.findIndex(line => line.status === 'pending')
+      if (pendingIndex >= 0) {
+        this.calcLogLines.splice(pendingIndex, 1, { text, status })
+        return
+      }
+      this.calcLogLines.push({ text, status })
+    },
   },
 
   computed: {

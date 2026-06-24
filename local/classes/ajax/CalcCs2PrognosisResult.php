@@ -222,8 +222,10 @@ class CalcCs2PrognosisResult extends CalcFootballPrognosisResult
             $betService = new \Prognos9ys\Main\Service\Game\BetService();
             $deleted = $betService->resetMatchBetsForRecalc($matchId);
             $backfill = $betService->backfillBetsFromPrognosis($matchId);
+            $participation = $betService->collectMatchParticipationStats($matchId);
             $settle = $betService->settleMatch($matchId);
             (new \Prognos9ys\Main\Service\Game\BankSettlementService())->onMatchSettled($matchId);
+            $this->applySettlementLogToResult($matchId, $deleted, $backfill, $participation, $settle);
             error_log(sprintf(
                 'CalcCs2PrognosisResult [betSettlement] match=%d %s',
                 $matchId,

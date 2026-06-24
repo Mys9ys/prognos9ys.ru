@@ -3,6 +3,7 @@
 namespace Prognos9ys\Main\Service\Cs2;
 
 use Prognos9ys\Main\Service\Game\BetService;
+use Prognos9ys\Main\Service\Game\GameEconomyConfig;
 
 class Cs2PrognosisService
 {
@@ -11,6 +12,12 @@ class Cs2PrognosisService
         $normalizedFields = [];
         foreach ($fields as $key => $value) {
             $normalizedFields[is_numeric($key) ? (int)$key : $key] = $value;
+        }
+
+        if ($withBet !== null) {
+            $normalizedFields[GameEconomyConfig::PROGNOSIS_PROP_BET_ENABLED] = $withBet
+                ? GameEconomyConfig::PROGNOSIS_BET_ENABLED_YES
+                : GameEconomyConfig::PROGNOSIS_BET_ENABLED_NO;
         }
 
         if ($mapScoresJson) {
@@ -42,6 +49,11 @@ class Cs2PrognosisService
                         $betFields[17] = $betFields[17] ?? $fields['match_id'] ?? null;
                         $betFields[18] = $betFields[18] ?? $fields['result'] ?? null;
                         $betService->upsertBetFromPrognosis($userId, $betFields);
+                    } else {
+                        $matchId = (int)($normalizedFields[17] ?? $fields['match_id'] ?? 0);
+                        if ($matchId > 0) {
+                            $betService->cancelPendingBet($userId, $matchId);
+                        }
                     }
                 } catch (\Throwable $exception) {
                 }

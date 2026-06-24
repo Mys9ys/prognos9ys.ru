@@ -123,8 +123,11 @@ export const adminModule = {
                     }
                 }
 
+                return response.data
+
             } catch (e) {
                 console.log('error', e)
+                throw e
             }
         },
 
@@ -155,8 +158,11 @@ export const adminModule = {
                 } else {
                     commit('setError', response.data.mes || 'что то пошло не так');
                 }
+
+                return response.data;
             } catch (e) {
                 commit('setError', e.message || 'Ошибка пересчёта');
+                throw e;
             }
         },
 

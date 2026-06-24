@@ -84,6 +84,26 @@ class BetService
         ]);
     }
 
+    /**
+     * Снять добровольную ставку до расчёта матча (галочка «Ставка» выключена).
+     */
+    public function cancelPendingBet(int $userId, int $matchId): bool
+    {
+        if ($userId <= 0 || $matchId <= 0) {
+            return false;
+        }
+
+        $existing = $this->repository->getMatchBet($userId, $matchId);
+        if (!$existing || ($existing['UF_STATUS'] ?? '') !== GameEconomyConfig::BET_STATUS_PENDING) {
+            return false;
+        }
+
+        $this->reverseBetWalletEffects($existing, $matchId);
+        $this->repository->deleteMatchBet((int)$existing['ID']);
+
+        return true;
+    }
+
     public function canUserAffordStake(int $userId): bool
     {
         if ($userId <= 0) {
@@ -250,10 +270,13 @@ class BetService
             }
         }
 
+        $report['pool'] = $pool;
+
         $now = new DateTime();
         $distributed = 0.0;
         $totalPayout = 0.0;
         $winnersCount = count($winners);
+        $maxWinnerPayout = 0.0;
 
         if ($winnersCount > 0 && $winnerStakeSum > 0) {
             foreach ($winners as $index => $winner) {
@@ -267,6 +290,7 @@ class BetService
 
                 $payout = max(0.0, $payout);
                 $totalPayout = round($totalPayout + $payout, 1);
+                $maxWinnerPayout = max($maxWinnerPayout, $payout);
 
                 $this->walletService->credit(
                     (int)$winner['UF_USER_ID'],
@@ -309,13 +333,15 @@ class BetService
 
         $report['winners'] = $winnersCount;
         $report['total_payout'] = $totalPayout;
+        $report['max_winner_payout'] = round($maxWinnerPayout, 1);
+        $report['parimutuel_leftover'] = max(0.0, $leftover);
 
         return $report;
     }
 
     /**
-     * Удалить все ставки матча перед повторным пересчётом.
-     * Сначала откатывает списания/выплаты по кошельку, чтобы пересчёт был идемпотентным.
+     * Перед повторным расчётом матча: откатить только уже рассчитанные ставки.
+     * Pending-ставки (по галочке игрока) не трогаем.
      */
     public function resetMatchBetsForRecalc(int $matchId): int
     {
@@ -323,15 +349,35 @@ class BetService
             return 0;
         }
 
+        $this->reverseParimutuelLeftoverForMatch($matchId);
+
+        $reset = 0;
+        $now = new DateTime();
+
         foreach ($this->repository->getMatchBetsByMatch($matchId) as $bet) {
+            $status = (string)($bet['UF_STATUS'] ?? '');
+            if ($status === GameEconomyConfig::BET_STATUS_PENDING) {
+                continue;
+            }
+
             $this->reverseBetWalletEffects($bet, $matchId);
+            $this->repository->updateMatchBet((int)$bet['ID'], [
+                'UF_STATUS' => GameEconomyConfig::BET_STATUS_PENDING,
+                'UF_PAYOUT' => 0,
+                'UF_SETTLED_AT' => null,
+                'UF_UPDATED_AT' => $now,
+            ]);
+            $reset++;
         }
 
-        return $this->repository->deleteMatchBetsByMatch($matchId);
+        return $reset;
     }
 
     /**
-     * @return array{created:int,skipped_afford:int,skipped_outcome:int,skipped_exists:int,errors:int}
+     * Добрать ставки перед расчётом матча: боты и legacy-прогнозы без bet_enabled=N.
+     * Живые игроки с галочкой уже имеют pending-ставку; снявшие галочку — пропуск.
+     *
+     * @return array{created:int,skipped_afford:int,skipped_outcome:int,skipped_exists:int,skipped_opt_out:int,errors:int}
      */
     public function backfillBetsFromPrognosis(int $matchId): array
     {
@@ -340,6 +386,7 @@ class BetService
             'skipped_afford' => 0,
             'skipped_outcome' => 0,
             'skipped_exists' => 0,
+            'skipped_opt_out' => 0,
             'errors' => 0,
         ];
 
@@ -380,6 +427,7 @@ class BetService
                 'PROPERTY_goal_guest',
                 'PROPERTY_events',
                 'PROPERTY_number',
+                'PROPERTY_bet_enabled',
             ]
         );
 
@@ -392,8 +440,10 @@ class BetService
             }
 
             try {
-                $this->walletService->grantStarterPackIfMissing($userId);
-                $this->walletService->ensureWallet($userId);
+                if (!$this->isPrognosisBetEnabledForBackfill($row)) {
+                    $stats['skipped_opt_out']++;
+                    continue;
+                }
 
                 if ($this->repository->getMatchBet($userId, $matchId)) {
                     $stats['skipped_exists']++;
@@ -405,6 +455,9 @@ class BetService
                     $stats['skipped_outcome']++;
                     continue;
                 }
+
+                $this->walletService->ensureWallet($userId);
+                $this->walletService->grantStarterPackIfMissing($userId);
 
                 if (!$this->canUserAffordStake($userId)) {
                     $stats['skipped_afford']++;
@@ -439,6 +492,107 @@ class BetService
         }
 
         return $stats;
+    }
+
+    /**
+     * Участие в ставке по прогнозам матча (после backfill, до settle).
+     *
+     * @return array{opt_out:int,skipped_afford:int,accepted:int}
+     */
+    public function collectMatchParticipationStats(int $matchId): array
+    {
+        $stats = [
+            'opt_out' => 0,
+            'skipped_afford' => 0,
+            'accepted' => 0,
+        ];
+
+        if ($matchId <= 0 || !Loader::includeModule('iblock')) {
+            return $stats;
+        }
+
+        $matchRow = $this->loadMatchRow($matchId);
+        if (!$matchRow) {
+            return $stats;
+        }
+
+        $eventId = (int)$matchRow['PROPERTY_EVENTS_VALUE'];
+        $matchNumber = (int)$matchRow['PROPERTY_NUMBER_VALUE'];
+
+        if (!$this->scopeService->isMatchInScope($eventId, $matchNumber)) {
+            return $stats;
+        }
+
+        $prognosisIbId = $this->resolvePrognosisIblockIdForMatch($matchRow);
+        if ($prognosisIbId <= 0) {
+            return $stats;
+        }
+
+        $rs = \CIBlockElement::GetList(
+            [],
+            $this->buildPrognosisFilter($prognosisIbId, $matchId, $eventId, $matchNumber),
+            false,
+            false,
+            [
+                'ID',
+                'PROPERTY_user_id',
+                'PROPERTY_result',
+                'PROPERTY_diff',
+                'PROPERTY_maps_home',
+                'PROPERTY_maps_guest',
+                'PROPERTY_goal_home',
+                'PROPERTY_goal_guest',
+                'PROPERTY_bet_enabled',
+            ]
+        );
+
+        while ($row = $rs->GetNext()) {
+            $userId = (int)($row['PROPERTY_USER_ID_VALUE'] ?? 0);
+            if ($userId <= 0) {
+                continue;
+            }
+
+            if (!$this->isPrognosisBetEnabledForBackfill($row)) {
+                $stats['opt_out']++;
+                continue;
+            }
+
+            if ($this->repository->getMatchBet($userId, $matchId)) {
+                continue;
+            }
+
+            if ($this->resolvePrognosisOutcome($row) === null) {
+                continue;
+            }
+
+            $this->walletService->ensureWallet($userId);
+
+            if (!$this->canUserAffordStake($userId)) {
+                $stats['skipped_afford']++;
+            }
+        }
+
+        $stats['accepted'] = count($this->repository->getPendingMatchBetsByMatch($matchId));
+
+        return $stats;
+    }
+
+    /**
+     * @param array<string, mixed> $prognosisRow
+     */
+    private function isPrognosisBetEnabledForBackfill(array $prognosisRow): bool
+    {
+        $raw = $prognosisRow['PROPERTY_BET_ENABLED_VALUE']
+            ?? $prognosisRow['PROPERTY_bet_enabled_VALUE']
+            ?? null;
+
+        if ($raw === null || $raw === '') {
+            return true;
+        }
+
+        $normalized = mb_strtolower(trim((string)$raw));
+
+        return !in_array($normalized, ['n', 'no', '0', 'false', 'нет'], true);
     }
 
     /**
@@ -710,5 +864,43 @@ class BetService
         $this->repository->updateGameBank((int)$bank['ID'], [
             'UF_PROGNOBAKS' => $newAmount,
         ]);
+    }
+
+    private function subtractFromBank(string $code, float $amount): void
+    {
+        if ($amount <= 0) {
+            return;
+        }
+
+        $bank = $this->repository->ensureGameBank($code);
+        $current = round((float)($bank['UF_PROGNOBAKS'] ?? 0), 1);
+        $newAmount = max(0.0, round($current - $amount, 1));
+
+        $this->repository->updateGameBank((int)$bank['ID'], [
+            'UF_PROGNOBAKS' => $newAmount,
+        ]);
+    }
+
+    private function reverseParimutuelLeftoverForMatch(int $matchId): void
+    {
+        $pool = 0.0;
+        $totalPayout = 0.0;
+
+        foreach ($this->repository->getMatchBetsByMatch($matchId) as $bet) {
+            $status = (string)($bet['UF_STATUS'] ?? '');
+            if ($status === GameEconomyConfig::BET_STATUS_PENDING) {
+                continue;
+            }
+
+            $pool = round($pool + (float)($bet['UF_STAKE'] ?? 0), 1);
+            if ($status === GameEconomyConfig::BET_STATUS_WON) {
+                $totalPayout = round($totalPayout + (float)($bet['UF_PAYOUT'] ?? 0), 1);
+            }
+        }
+
+        $leftover = round($pool - $totalPayout, 1);
+        if ($leftover > 0) {
+            $this->subtractFromBank(GameEconomyConfig::GAME_BANK_CODE_FOOTBALL_PARIMUTUEL, $leftover);
+        }
     }
 }

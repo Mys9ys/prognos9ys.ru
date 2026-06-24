@@ -1430,6 +1430,15 @@ class GameEconomyRepository
         return $deleted;
     }
 
+    public function deleteMatchBet(int $id): void
+    {
+        if ($id <= 0) {
+            return;
+        }
+
+        $this->getMatchBetDataClass()::delete($id);
+    }
+
     public function deleteAllMatchBets(): int
     {
         $dataClass = $this->getMatchBetDataClass();

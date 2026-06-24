@@ -18,6 +18,10 @@ class GameEconomyConfig
     public const BET_STATUS_LOST = 'lost';
     public const BET_STATUS_REFUNDED = 'refunded';
     public const BET_STAKE_PROGNOBAKS = 10.0;
+    /** Свойство прогноза: явный отказ от ставки (галочка снята). Пусто = бот/legacy → backfill при расчёте. */
+    public const PROGNOSIS_PROP_BET_ENABLED = 'bet_enabled';
+    public const PROGNOSIS_BET_ENABLED_YES = 'Y';
+    public const PROGNOSIS_BET_ENABLED_NO = 'N';
     public const GAME_BANK_CODE_FOOTBALL_PARIMUTUEL = 'football_parimutuel';
     public const GAME_BANK_CODE_STATE_TREASURY = 'state_treasury';
 
@@ -87,6 +91,14 @@ class GameEconomyConfig
     public const TEST_MATCH_NUMBER_MIN = 0;
     public const TEST_MATCH_NUMBER_MAX = 0;
     public const TEST_ONLY_MATCH_NUMBER = 0;
+
+    /** Подробный error_log в AchievementService (тяжёлый на больших турах). */
+    public const ACHIEVEMENT_CLAIM_DEBUG = false;
+
+    public static function isAchievementClaimDebugEnabled(): bool
+    {
+        return self::ACHIEVEMENT_CLAIM_DEBUG;
+    }
 
     public static function isTestMatchNumberLimitEnabled(): bool
     {
