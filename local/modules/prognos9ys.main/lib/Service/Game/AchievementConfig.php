@@ -10,6 +10,7 @@ class AchievementConfig
     public const GROUP_QUALITY = 'quality';
     public const GROUP_LUCK = 'luck';
     public const GROUP_METRICS = 'metrics';
+    public const GROUP_ECONOMY = 'economy';
 
     /**
      * @return array<string, array{
@@ -303,6 +304,64 @@ class AchievementConfig
                     ['threshold' => 20, 'reward' => ['rublius' => 8.0, 'chests' => 1]],
                     ['threshold' => 50, 'reward' => ['rublius' => 15.0, 'chests' => 2]],
                     ['threshold' => 100, 'reward' => ['rublius' => 30.0, 'chests' => 3]],
+                ],
+            ],
+
+            // 12. Экономика
+            'rich_bettor' => [
+                'title' => 'Типстер',
+                'description' => 'Сумма выигрышей в прогнобаксах (ставки ЧМ)',
+                'group' => self::GROUP_ECONOMY,
+                'icon' => 'tipster',
+                'stat' => 'bet_winnings_prognobaks',
+                'levels' => [
+                    ['threshold' => 100, 'reward' => ['rublius' => 1.0]],
+                    ['threshold' => 200, 'reward' => ['rublius' => 2.0]],
+                    ['threshold' => 500, 'reward' => ['chests' => 1]],
+                    ['threshold' => 1000, 'reward' => ['chests' => 2]],
+                    ['threshold' => 2000, 'reward' => ['chests' => 3]],
+                ],
+            ],
+            'chest_pioneer' => [
+                'title' => 'Сундучивен',
+                'description' => 'Открыто сундуков',
+                'group' => self::GROUP_ECONOMY,
+                'icon' => 'chest_opener',
+                'stat' => 'chests_opened',
+                'levels' => [
+                    ['threshold' => 5, 'reward' => ['rublius' => 1.0]],
+                    ['threshold' => 10, 'reward' => ['rublius' => 2.0]],
+                    ['threshold' => 25, 'reward' => ['chests' => 1]],
+                    ['threshold' => 50, 'reward' => ['chests' => 2]],
+                    ['threshold' => 100, 'reward' => ['chests' => 3]],
+                ],
+            ],
+            'rublius_trader' => [
+                'title' => 'Скрудж',
+                'description' => 'Заработано рублиусов',
+                'group' => self::GROUP_ECONOMY,
+                'icon' => 'scrooge',
+                'stat' => 'rublius_earned',
+                'levels' => [
+                    ['threshold' => 50, 'reward' => ['rublius' => 1.0]],
+                    ['threshold' => 100, 'reward' => ['rublius' => 2.0]],
+                    ['threshold' => 250, 'reward' => ['chests' => 1]],
+                    ['threshold' => 500, 'reward' => ['chests' => 2]],
+                    ['threshold' => 1000, 'reward' => ['chests' => 3]],
+                ],
+            ],
+            'chest_collector' => [
+                'title' => 'Целый склад',
+                'description' => 'Получено сундуков (матчи, уровень, ачивки — без покупки)',
+                'group' => self::GROUP_ECONOMY,
+                'icon' => 'chest_warehouse',
+                'stat' => 'chests_earned',
+                'levels' => [
+                    ['threshold' => 25, 'reward' => ['rublius' => 1.0]],
+                    ['threshold' => 50, 'reward' => ['rublius' => 2.0]],
+                    ['threshold' => 100, 'reward' => ['chests' => 1]],
+                    ['threshold' => 250, 'reward' => ['chests' => 2]],
+                    ['threshold' => 500, 'reward' => ['chests' => 3]],
                 ],
             ],
         ];

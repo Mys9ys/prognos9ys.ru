@@ -8,6 +8,7 @@ use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
 class TreasureService
 {
     public const CHEST_STATUS_CLOSED = 'closed';
+    public const CHEST_STATUS_OPENED = 'opened';
     public const CHEST_STATUS_INVENTORY = 'inventory';
     public const CHEST_TYPE_MATCH = 'match';
     public const CHEST_TYPE_LEVEL = 'level';

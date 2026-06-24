@@ -6,6 +6,7 @@ use Bitrix\Highloadblock\HighloadBlockTable;
 use Bitrix\Main\Loader;
 use Prognos9ys\Main\Service\Game\GameEconomyConfig;
 use Prognos9ys\Main\Service\Game\GameEconomyHlInstaller;
+use Prognos9ys\Main\Service\Game\TreasureService;
 
 class GameEconomyRepository
 {
@@ -1233,6 +1234,111 @@ class GameEconomyRepository
         }
 
         return $map;
+    }
+
+    public function sumMatchBetPayoutPrognobaksForUser(int $userId): float
+    {
+        if ($userId <= 0) {
+            return 0.0;
+        }
+
+        $dataClass = $this->getMatchBetDataClass();
+        $total = 0.0;
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '=UF_STATUS' => GameEconomyConfig::BET_STATUS_WON,
+            ],
+            'select' => ['UF_PAYOUT'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $total += (float)($row['UF_PAYOUT'] ?? 0);
+        }
+
+        return round($total, 1);
+    }
+
+    public function sumRubliusEarnedForUser(int $userId): float
+    {
+        if ($userId <= 0) {
+            return 0.0;
+        }
+
+        $dataClass = $this->getWalletTxDataClass();
+        $total = 0.0;
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '=UF_CURRENCY' => GameEconomyConfig::CURRENCY_RUBLIUS,
+                '>UF_AMOUNT' => 0,
+                '!UF_REASON' => 'registration_bonus',
+            ],
+            'select' => ['UF_AMOUNT'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $total += (float)($row['UF_AMOUNT'] ?? 0);
+        }
+
+        return round($total, 1);
+    }
+
+    public function sumOpenedTreasureChestsForUser(int $userId): int
+    {
+        if ($userId <= 0) {
+            return 0;
+        }
+
+        $dataClass = $this->getTreasureChestDataClass();
+        $total = 0;
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '=UF_STATUS' => TreasureService::CHEST_STATUS_OPENED,
+                '@UF_TYPE' => [
+                    TreasureService::CHEST_TYPE_MATCH,
+                    TreasureService::CHEST_TYPE_LEVEL,
+                    TreasureService::CHEST_TYPE_ACHIEVEMENT,
+                    TreasureService::CHEST_TYPE_SHOP_WC26,
+                ],
+            ],
+            'select' => ['UF_COUNT'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $total += (int)($row['UF_COUNT'] ?? 0);
+        }
+
+        return $total;
+    }
+
+    /** Сундуки, выданные за матчи / уровень / ачивки (без лавки). */
+    public function sumEarnedTreasureChestsForUser(int $userId): int
+    {
+        if ($userId <= 0) {
+            return 0;
+        }
+
+        $dataClass = $this->getTreasureChestDataClass();
+        $total = 0;
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '@UF_TYPE' => [
+                    TreasureService::CHEST_TYPE_MATCH,
+                    TreasureService::CHEST_TYPE_LEVEL,
+                    TreasureService::CHEST_TYPE_ACHIEVEMENT,
+                ],
+            ],
+            'select' => ['UF_COUNT'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $total += (int)($row['UF_COUNT'] ?? 0);
+        }
+
+        return $total;
     }
 
     /**

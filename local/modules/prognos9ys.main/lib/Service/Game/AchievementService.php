@@ -323,7 +323,7 @@ class AchievementService
         if ($targetThreshold <= 0) {
             throw new \RuntimeException('Пока нечего забирать');
         }
-        if (!$reward) {
+        if ($reward === null) {
             throw new \RuntimeException('Награда для этого уровня будет добавлена позже');
         }
 
@@ -338,6 +338,8 @@ class AchievementService
             'chests' => 0,
             'pennant' => null,
         ];
+
+        $reward = is_array($reward) ? $reward : [];
 
         $rublius = (float)($reward['rublius'] ?? 0);
         if ($rublius > 0) {
@@ -389,6 +391,10 @@ class AchievementService
             'score_30_39' => $scores['score_30_39'],
             'score_40_plus' => $scores['score_40_plus'],
             'score_0' => $scores['score_0'],
+            'bet_winnings_prognobaks' => (int)round($this->repository->sumMatchBetPayoutPrognobaksForUser($userId)),
+            'chests_opened' => $this->repository->sumOpenedTreasureChestsForUser($userId),
+            'chests_earned' => $this->repository->sumEarnedTreasureChestsForUser($userId),
+            'rublius_earned' => (int)round($this->repository->sumRubliusEarnedForUser($userId)),
         ], $metrics);
     }
 
