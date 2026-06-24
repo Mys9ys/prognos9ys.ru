@@ -22,6 +22,8 @@ class GameEconomyHlInstaller
     public const TABLE_BANK_LOAN = 'prognos9ys_bank_loan';
     public const TABLE_TREASURY_SHOP_WAVE = 'prognos9ys_treasury_shop_wave';
     public const TABLE_MATCH_ECONOMY_SETTLE = 'prognos9ys_match_economy_settle';
+    public const TABLE_LOOT_ITEM = 'prognos9ys_loot_item';
+    public const TABLE_CHEST_OPEN_LOG = 'prognos9ys_chest_open_log';
 
     public function install(): array
     {
@@ -252,6 +254,44 @@ class GameEconomyHlInstaller
 
         return [
             'match_economy_settle_hl_id' => $hlId,
+        ];
+    }
+
+    /**
+     * HL предметов из сундуков (банки XP, сертификаты, паки) + журнал открытий.
+     */
+    public function upgradeChestOpeningHl(): array
+    {
+        if (!Loader::includeModule('highloadblock')) {
+            throw new \RuntimeException('Модуль highloadblock не установлен');
+        }
+
+        $lootItemHlId = $this->ensureHlBlock('Prognos9ysLootItem', self::TABLE_LOOT_ITEM, [
+            'UF_USER_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_EVENT_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_ITEM_CODE' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_CATEGORY' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_COUNT' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_SEALED' => ['USER_TYPE_ID' => 'string'],
+            'UF_CREATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+            'UF_UPDATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+        ]);
+
+        $openLogHlId = $this->ensureHlBlock('Prognos9ysChestOpenLog', self::TABLE_CHEST_OPEN_LOG, [
+            'UF_USER_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_EVENT_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_CHEST_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_CHEST_TYPE' => ['USER_TYPE_ID' => 'string'],
+            'UF_MATCH_ID' => ['USER_TYPE_ID' => 'integer'],
+            'UF_MATCH_NUMBER' => ['USER_TYPE_ID' => 'integer'],
+            'UF_ROUND' => ['USER_TYPE_ID' => 'integer'],
+            'UF_LOOT_JSON' => ['USER_TYPE_ID' => 'string'],
+            'UF_CREATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+        ]);
+
+        return [
+            'loot_item_hl_id' => $lootItemHlId,
+            'chest_open_log_hl_id' => $openLogHlId,
         ];
     }
 

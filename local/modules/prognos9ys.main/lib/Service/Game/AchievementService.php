@@ -360,7 +360,21 @@ class AchievementService
 
         $chests = (int)($reward['chests'] ?? 0);
         if ($chests > 0) {
-            $granted = $this->treasureService->grantAchievementChests($userId, $code, $targetThreshold, $chests);
+            if (AchievementConfig::grantsWc26Chest($code)) {
+                $granted = $this->treasureService->grantWc26AchievementChests(
+                    $userId,
+                    $code,
+                    $targetThreshold,
+                    $chests
+                );
+            } else {
+                $granted = $this->treasureService->grantAchievementChests(
+                    $userId,
+                    $code,
+                    $targetThreshold,
+                    $chests
+                );
+            }
             $given['chests'] = $granted ? $chests : 0;
         }
 
@@ -386,11 +400,12 @@ class AchievementService
     private function collectStats(int $userId): array
     {
         $wc26Prognosis = $this->countWc26Prognosis($userId);
+        $footballPrognosis = $this->countFootballPrognosis($userId);
         $scores = $this->countScoreBuckets($userId);
         $metrics = $this->countMetricStats($userId);
 
         return array_merge([
-            'football_prognosis' => $wc26Prognosis,
+            'football_prognosis' => $footballPrognosis,
             'chm_prognosis' => $wc26Prognosis,
             'score_30_39' => $scores['score_30_39'],
             'score_40_plus' => $scores['score_40_plus'],
@@ -435,6 +450,33 @@ class AchievementService
             ],
             []
         );
+    }
+
+    /** Прогнозы на все футбольные события в игровой экономике (с 10.06.2026). */
+    private function countFootballPrognosis(int $userId): int
+    {
+        $prognosisIbId = $this->getPrognosisIblockId();
+        $eventIds = $this->scopeService->getEligibleEventIds();
+        if ($prognosisIbId <= 0 || !$eventIds) {
+            return 0;
+        }
+
+        $filter = [
+            'IBLOCK_ID' => $prognosisIbId,
+            'PROPERTY_user_id' => $userId,
+        ];
+
+        if (count($eventIds) === 1) {
+            $filter['PROPERTY_events'] = $eventIds[0];
+        } else {
+            $or = ['LOGIC' => 'OR'];
+            foreach ($eventIds as $eventId) {
+                $or[] = ['PROPERTY_events' => $eventId];
+            }
+            $filter[] = $or;
+        }
+
+        return (int)\CIBlockElement::GetList([], $filter, []);
     }
 
     /**

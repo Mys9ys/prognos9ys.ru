@@ -33,11 +33,13 @@
           v-for="item in filteredItems"
           :key="item.code"
           :title="item.title"
+          :description="item.description || ''"
           :icon="item.icon || '🏅'"
           :progress="item.progress"
           :target="nextTarget(item)"
           :rank-index="rankIndex(item)"
           :level-thresholds="levelThresholds(item)"
+          :levels="item.levels || []"
           :claimed-threshold="item.claimed_threshold || 0"
           :claimable="item.next_claimable_threshold > 0"
           :locked="item.max_unlocked_threshold <= 0"
@@ -99,13 +101,35 @@ export default {
       return this.footballItems.length;
     },
     filteredItems() {
-      return this.activeTab === 'general' ? this.generalItems : this.footballItems;
+      const list = this.activeTab === 'general' ? this.generalItems : this.footballItems;
+      return this.sortAchievementItems(list);
     },
   },
   created() {
     this.load();
   },
   methods: {
+    achievementSortRank(item) {
+      if (item.next_claimable_threshold > 0) {
+        return 0;
+      }
+      if (this.isAllClaimed(item)) {
+        return 2;
+      }
+      return 1;
+    },
+    sortAchievementItems(items) {
+      return items
+        .map((item, index) => ({ item, index }))
+        .sort((a, b) => {
+          const rankDiff = this.achievementSortRank(a.item) - this.achievementSortRank(b.item);
+          if (rankDiff !== 0) {
+            return rankDiff;
+          }
+          return a.index - b.index;
+        })
+        .map(({ item }) => item);
+    },
     levelThresholds(item) {
       return (item.levels || []).map((l) => l.threshold);
     },
@@ -291,6 +315,7 @@ export default {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px 8px;
+  overflow: visible;
 }
 
 .msg.error {

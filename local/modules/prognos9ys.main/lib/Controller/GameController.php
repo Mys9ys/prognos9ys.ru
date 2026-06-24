@@ -9,6 +9,8 @@ use Prognos9ys\Main\Service\Game\BankContractLifecycleService;
 use Prognos9ys\Main\Service\Game\BankDepositService;
 use Prognos9ys\Main\Service\Game\BankLoanService;
 use Prognos9ys\Main\Service\Game\BankOperationsService;
+use Prognos9ys\Main\Service\Game\ChestOpenLogService;
+use Prognos9ys\Main\Service\Game\ChestOpenService;
 use Prognos9ys\Main\Service\Game\ExperienceService;
 use Prognos9ys\Main\Service\Game\GameBankService;
 use Prognos9ys\Main\Service\Game\GameEconomyConfig;
@@ -53,6 +55,9 @@ class GameController extends BaseController
             'closeBank' => $this->getDefaultConfigureForPostToken(),
             'getAchievements' => $this->getDefaultConfigureForPostToken(),
             'claimAchievement' => $this->getDefaultConfigureForPostToken(),
+            'openWc26Chests' => $this->getDefaultConfigureForPostToken(),
+            'getChestOpenLogMeta' => $this->getDefaultConfigureForPostToken(),
+            'getChestOpenLogs' => $this->getDefaultConfigureForPostToken(),
             'moderatorBulkAction' => $this->getDefaultConfigureForPostToken(),
             'moderatorBulkCandidates' => $this->getDefaultConfigureForPostToken(),
             'moderatorBulkRunOne' => $this->getDefaultConfigureForPostToken(),
@@ -516,6 +521,53 @@ class GameController extends BaseController
             'achievements' => $service->getForUser($userId),
             'game' => (new GameProfileService())->getSummary($userId),
         ];
+    }
+
+    public function openWc26ChestsAction(int $openAll = 0): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        try {
+            $result = (new ChestOpenService())->openWc26Chests($userId, $openAll > 0);
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok'], $result, [
+            'game' => (new GameProfileService())->getSummary($userId),
+        ]);
+    }
+
+    public function getChestOpenLogMetaAction(): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        return array_merge(['status' => 'ok'], (new ChestOpenLogService())->getMetaForUser($userId));
+    }
+
+    public function getChestOpenLogsAction(
+        int $eventId = 0,
+        string $groupKey = 'all',
+        int $offset = 0,
+        int $limit = 25
+    ): array {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        return array_merge(
+            ['status' => 'ok'],
+            (new ChestOpenLogService())->getEntries($userId, $eventId, $groupKey, $offset, $limit)
+        );
     }
 
     private function resolveTargetUserId(int $actorId, int $targetUserId): int

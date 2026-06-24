@@ -73,11 +73,21 @@
               type="button"
               class="bulk_btn"
               :disabled="bulkLoading"
-              title="Займ 50 прогнобаксов — у кого меньше 50, из банка с max ликвидностью"
-              @click="runBulk('grant_loans')"
+              title="Займ 50 прогнобаксов — у кого меньше 20 (на ставки по текущим матчам)"
+              @click="runBulk('grant_loans_bet')"
           >
             <AppIcon name="bank" :size="12" />
-            <span>Займ 50</span>
+            <span>50&lt;20</span>
+          </button>
+          <button
+              type="button"
+              class="bulk_btn"
+              :disabled="bulkLoading"
+              title="Займ 50 прогнобаксов — у кого меньше 50 (на сундук в лавке)"
+              @click="runBulk('grant_loans_shop')"
+          >
+            <AppIcon name="bank" :size="12" />
+            <span>50&lt;50</span>
           </button>
         </div>
         <div class="bulk_msg ok" v-if="bulkMessage">{{ bulkMessage }}</div>
@@ -278,7 +288,8 @@ const BULK_TITLES = {
   claim_xp: 'Сбор опыта',
   rublius_chests: 'Сундуки за 5 рублиусов',
   premium_1d: 'Премиум 1 сутки',
-  grant_loans: 'Займы 50 прогнобаксов',
+  grant_loans_bet: 'Займы 50 (<20 🪙)',
+  grant_loans_shop: 'Займы 50 (<50 🪙)',
   claim_achievements: 'Сбор ачивок',
 };
 
@@ -532,7 +543,8 @@ export default {
         claim_xp: 'Забрать незабранный опыт у всех игроков?',
         rublius_chests: 'Купить всем (с рублиусами) сундук за 5 💎?',
         premium_1d: 'Купить всем (с рублиусами) премиум на 1 сутки за 3 💎?',
-        grant_loans: 'Выдать займ 50 прогнобаксов всем, у кого на кошельке меньше 50? Банк — с максимальной ликвидностью.',
+        grant_loans_bet: 'Выдать займ 50 прогнобаксов всем, у кого на кошельке меньше 20? (для ставок на текущие матчи). Банк — с максимальной ликвидностью.',
+        grant_loans_shop: 'Выдать займ 50 прогнобаксов всем, у кого на кошельке меньше 50? (для покупки сундука в лавке). Банк — с максимальной ликвидностью.',
         claim_achievements: 'Забрать все доступные награды за ачивки у всех игроков?',
       };
 

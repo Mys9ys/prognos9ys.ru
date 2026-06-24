@@ -181,23 +181,9 @@ class ModeratorBulkActionsService
                     ['claimed_points' => $points, 'claimed_count' => $count]
                 );
 
-            case 'grant_loans':
-                $amount = GameEconomyConfig::LOAN_MIN_AMOUNT_PROGNOBAKS;
-                $bank = $this->findBestBankForLoan($userId, $amount);
-                if (!$bank) {
-                    return $this->oneResult($bulkAction, $userId, 'skipped', 'Нет банка с ликвидностью');
-                }
-
-                $this->loanService->takeLoan($userId, (int)$bank['ID'], $amount);
-                $ownerId = (int)($bank['UF_OWNER_ID'] ?? 0);
-
-                return $this->oneResult(
-                    $bulkAction,
-                    $userId,
-                    'success',
-                    'Займ 50 🪙 (банк #' . (int)$bank['ID'] . ')',
-                    ['bank_id' => (int)$bank['ID'], 'bank_owner_id' => $ownerId]
-                );
+            case 'grant_loans_bet':
+            case 'grant_loans_shop':
+                return $this->executeGrantLoan($bulkAction, $userId);
 
             case 'claim_achievements':
                 $granted = $this->achievementService->claimAllAvailable($userId);
@@ -273,18 +259,22 @@ class ModeratorBulkActionsService
 
                 return ['eligible' => true, 'hint' => '+' . $points . ' XP'];
 
-            case 'grant_loans':
-                if ($wallet['prognobaks'] >= GameEconomyConfig::LOAN_MIN_AMOUNT_PROGNOBAKS) {
-                    return ['eligible' => false, 'skip_reason' => 'Достаточно средств'];
-                }
-                if ($this->hasActiveLoan($userId)) {
-                    return ['eligible' => false, 'skip_reason' => 'Уже есть займ'];
+            case 'grant_loans_bet':
+            case 'grant_loans_shop':
+                $walletMax = $this->getBulkLoanWalletMax($bulkAction);
+                if ($wallet['prognobaks'] >= $walletMax) {
+                    return [
+                        'eligible' => false,
+                        'skip_reason' => 'Достаточно средств (≥' . (int)$walletMax . ' 🪙)',
+                    ];
                 }
                 if (!$this->findBestBankForLoan($userId, GameEconomyConfig::LOAN_MIN_AMOUNT_PROGNOBAKS)) {
                     return ['eligible' => false, 'skip_reason' => 'Нет банка'];
                 }
 
-                return ['eligible' => true, 'hint' => 'Займ 50 🪙'];
+                $purpose = $bulkAction === 'grant_loans_bet' ? 'ставки' : 'лавка';
+
+                return ['eligible' => true, 'hint' => 'Займ 50 🪙 (' . $purpose . ', <' . (int)$walletMax . ')'];
 
             case 'claim_achievements':
                 $claimable = $this->achievementService->getClaimableItems($userId);
@@ -318,18 +308,6 @@ class ModeratorBulkActionsService
         }
 
         return $best;
-    }
-
-    private function hasActiveLoan(int $userId): bool
-    {
-        foreach ($this->repository->getLoansByUserId($userId) as $loan) {
-            $status = (string)($loan['UF_STATUS'] ?? '');
-            if ($status !== GameEconomyConfig::CONTRACT_STATUS_CLOSED) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**
@@ -367,11 +345,48 @@ class ModeratorBulkActionsService
             'claim_xp',
             'rublius_chests',
             'premium_1d',
-            'grant_loans',
+            'grant_loans_bet',
+            'grant_loans_shop',
             'claim_achievements',
         ], true)) {
             throw new \InvalidArgumentException('Неизвестное массовое действие');
         }
+    }
+
+    /**
+     * @return array{action:string,user_id:int,status:string,message:string,detail?:array<string,mixed>}
+     */
+    private function executeGrantLoan(string $bulkAction, int $userId): array
+    {
+        $amount = GameEconomyConfig::LOAN_MIN_AMOUNT_PROGNOBAKS;
+        $bank = $this->findBestBankForLoan($userId, $amount);
+        if (!$bank) {
+            return $this->oneResult($bulkAction, $userId, 'skipped', 'Нет банка с ликвидностью');
+        }
+
+        $this->loanService->takeLoan($userId, (int)$bank['ID'], $amount);
+        $ownerId = (int)($bank['UF_OWNER_ID'] ?? 0);
+        $purpose = $bulkAction === 'grant_loans_bet' ? 'ставки' : 'лавка';
+
+        return $this->oneResult(
+            $bulkAction,
+            $userId,
+            'success',
+            'Займ 50 🪙 (' . $purpose . ', банк #' . (int)$bank['ID'] . ')',
+            ['bank_id' => (int)$bank['ID'], 'bank_owner_id' => $ownerId]
+        );
+    }
+
+    private function getBulkLoanWalletMax(string $bulkAction): float
+    {
+        if ($bulkAction === 'grant_loans_bet') {
+            return GameEconomyConfig::MODERATOR_BULK_LOAN_BET_WALLET_MAX;
+        }
+        if ($bulkAction === 'grant_loans_shop') {
+            return GameEconomyConfig::MODERATOR_BULK_LOAN_SHOP_WALLET_MAX;
+        }
+
+        throw new \InvalidArgumentException('Неизвестное массовое действие займа');
     }
 
     /**

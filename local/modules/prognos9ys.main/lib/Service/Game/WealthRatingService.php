@@ -327,6 +327,7 @@ class WealthRatingService
             ];
         }
 
+        (new TreasureService())->migrateChm2026AchievementChestTypes();
         $treasureMap = $this->repository->getClosedTreasureChestTotalsMapForAllUsers();
         $levelMap = $this->buildLevelMap();
 

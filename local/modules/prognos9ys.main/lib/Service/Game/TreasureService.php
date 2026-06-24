@@ -13,6 +13,7 @@ class TreasureService
     public const CHEST_TYPE_MATCH = 'match';
     public const CHEST_TYPE_LEVEL = 'level';
     public const CHEST_TYPE_ACHIEVEMENT = 'achievement';
+    public const CHEST_TYPE_WC26_ACHIEVEMENT = 'wc26_achievement';
     public const CHEST_TYPE_SHOP_WC26 = 'shop_wc26';
     public const CHEST_TYPE_PREMIUM_SCROLL = 'premium_scroll';
     public const CHEST_TYPE_PENNANT = 'pennant';
@@ -22,6 +23,41 @@ class TreasureService
         'site' => -3000001,
         'chm2026' => -3000002,
     ];
+
+    /** Пороги ачивки «ЧМ2026», за которые выдаются сундуки пула ЧМ-26. */
+    private const CHM2026_CHEST_THRESHOLDS = [10, 50, 100];
+
+    /** Старый баг: crc32()+abs давал коллизию на INT32_MIN, все ачивочные сундуки в одной строке. */
+    public const LEGACY_COLLIDED_SYNTHETIC_MATCH_ID = -2147483648;
+
+    /**
+     * Стабильный synthetic match_id для награды ачивки (без переполнения crc32).
+     */
+    public static function achievementSyntheticMatchId(string $code, int $threshold): int
+    {
+        $unsigned = (int)sprintf('%u', crc32($code . ':' . $threshold));
+        $bucket = $unsigned % 2000000000;
+
+        return -($bucket + 1);
+    }
+
+    /**
+     * @return int[]
+     */
+    public static function getChm2026AchievementSyntheticMatchIds(): array
+    {
+        $ids = [];
+        foreach (self::CHM2026_CHEST_THRESHOLDS as $threshold) {
+            $ids[] = self::achievementSyntheticMatchId('chm2026', $threshold);
+        }
+
+        return $ids;
+    }
+
+    public static function isChm2026AchievementSyntheticMatchId(int $matchId): bool
+    {
+        return in_array($matchId, self::getChm2026AchievementSyntheticMatchIds(), true);
+    }
 
     private GameEconomyRepository $repository;
     private GameEventScopeService $scopeService;
@@ -87,16 +123,23 @@ class TreasureService
 
     public function getTreasureSummary(int $userId): array
     {
+        $this->migrateChm2026ChestsForUser($userId);
         $breakdown = $this->repository->getTreasureChestBreakdownForUser($userId);
         $premiumScrolls = $this->repository->getPremiumScrollBreakdownForUser($userId);
         $pennants = $this->repository->getPennantInventoryCountsForUser($userId);
+        $eventId = $this->scopeService->getAnchorEventId();
+        $wc26Openable = $eventId > 0
+            ? $this->repository->countOpenableWc26ChestUnits($userId, $eventId)
+            : 0;
 
         return [
             'closed_chests' => $breakdown['total'],
             'match_chests' => $breakdown['match'],
             'level_chests' => $breakdown['level'],
             'achievement_chests' => $breakdown['achievement'],
+            'wc26_achievement_chests' => $breakdown['wc26_achievement'],
             'shop_chests' => $breakdown['shop'],
+            'wc26_openable_chests' => $wc26Openable,
             'premium_scrolls' => $this->repository->getPremiumScrollCountForUser($userId),
             'premium_scrolls_1d' => $premiumScrolls[1] ?? 0,
             'premium_scrolls_3d' => $premiumScrolls[3] ?? 0,
@@ -160,6 +203,396 @@ class TreasureService
     }
 
     /**
+     * Сундук ЧМ-26 за ачивку «ЧМ2026» (тот же пул лута, что матч/лавка).
+     */
+    public function grantWc26AchievementChests(int $userId, string $achievementCode, int $threshold, int $count): bool
+    {
+        if ($userId <= 0 || $achievementCode === '' || $threshold <= 0 || $count <= 0) {
+            return false;
+        }
+
+        $syntheticMatchId = self::achievementSyntheticMatchId($achievementCode, $threshold);
+        $existing = $this->repository->getTreasureChestByType(
+            $userId,
+            $syntheticMatchId,
+            self::CHEST_TYPE_WC26_ACHIEVEMENT
+        );
+        if ($existing) {
+            return false;
+        }
+
+        $legacy = $this->repository->getTreasureChestByType($userId, $syntheticMatchId, self::CHEST_TYPE_ACHIEVEMENT);
+        if ($legacy && $achievementCode === 'chm2026') {
+            $this->repository->updateTreasureChest((int)$legacy['ID'], [
+                'UF_TYPE' => self::CHEST_TYPE_WC26_ACHIEVEMENT,
+                'UF_COUNT' => max((int)($legacy['UF_COUNT'] ?? 0), $count),
+                'UF_UPDATED_AT' => new DateTime(),
+            ]);
+
+            return true;
+        }
+
+        $now = new DateTime();
+        $eventId = $this->scopeService->getAnchorEventId();
+
+        $this->repository->addTreasureChest([
+            'UF_USER_ID' => $userId,
+            'UF_MATCH_ID' => $syntheticMatchId,
+            'UF_EVENT_ID' => $eventId > 0 ? $eventId : GameEconomyConfig::ANCHOR_EVENT_ID,
+            'UF_COUNT' => $count,
+            'UF_STATUS' => self::CHEST_STATUS_CLOSED,
+            'UF_TYPE' => self::CHEST_TYPE_WC26_ACHIEVEMENT,
+            'UF_CREATED_AT' => $now,
+            'UF_UPDATED_AT' => $now,
+        ]);
+
+        return true;
+    }
+
+    /**
+     * Переклассифицировать сундуки ачивки «ЧМ2026» (UF_TYPE achievement → wc26_achievement).
+     */
+    public function migrateChm2026AchievementChestTypes(): int
+    {
+        $updated = $this->migrateAllCollidedAchievementChestRows();
+
+        $dataClass = $this->repository->getTreasureChestDataClass();
+        $userIds = [];
+        $response = $dataClass::getList([
+            'select' => ['ID', 'UF_USER_ID', 'UF_MATCH_ID', 'UF_TYPE', 'UF_STATUS'],
+        ]);
+
+        $now = new DateTime();
+        while ($row = $response->fetch()) {
+            if (!$this->shouldReclassifyRowAsChm2026Wc26($row)) {
+                continue;
+            }
+
+            $this->repository->updateTreasureChest((int)$row['ID'], [
+                'UF_TYPE' => self::CHEST_TYPE_WC26_ACHIEVEMENT,
+                'UF_UPDATED_AT' => $now,
+            ]);
+            $updated++;
+
+            $userId = (int)($row['UF_USER_ID'] ?? 0);
+            if ($userId > 0) {
+                $userIds[$userId] = true;
+            }
+        }
+
+        foreach (array_keys($userIds) as $userId) {
+            $updated += $this->reconcileChm2026ChestsFromClaims($userId);
+        }
+
+        return $updated;
+    }
+
+    public function migrateChm2026ChestsForUser(int $userId): int
+    {
+        if ($userId <= 0) {
+            return 0;
+        }
+
+        return $this->migrateCollidedAchievementChestRowsForUser($userId)
+            + $this->repairLegacyMatchChestTypesForUser($userId)
+            + $this->reclassifyChm2026ChestRowsForUser($userId)
+            + $this->reconcileChm2026ChestsFromClaims($userId);
+    }
+
+    private function repairLegacyMatchChestTypesForUser(int $userId): int
+    {
+        if ($userId <= 0) {
+            return 0;
+        }
+
+        $dataClass = $this->repository->getTreasureChestDataClass();
+        $updated = 0;
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '=UF_STATUS' => self::CHEST_STATUS_CLOSED,
+                '>UF_MATCH_ID' => 0,
+            ],
+            'select' => ['ID', 'UF_TYPE', 'UF_MATCH_ID'],
+        ]);
+
+        $now = new DateTime();
+        while ($row = $response->fetch()) {
+            if ((string)($row['UF_TYPE'] ?? '') !== '') {
+                continue;
+            }
+
+            $this->repository->updateTreasureChest((int)$row['ID'], [
+                'UF_TYPE' => self::CHEST_TYPE_MATCH,
+                'UF_UPDATED_AT' => $now,
+            ]);
+            $updated++;
+        }
+
+        return $updated;
+    }
+
+    public function migrateAllCollidedAchievementChestRows(): int
+    {
+        $dataClass = $this->repository->getTreasureChestDataClass();
+        $userIds = [];
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_MATCH_ID' => self::LEGACY_COLLIDED_SYNTHETIC_MATCH_ID,
+                '=UF_TYPE' => self::CHEST_TYPE_ACHIEVEMENT,
+                '=UF_STATUS' => self::CHEST_STATUS_CLOSED,
+            ],
+            'select' => ['UF_USER_ID'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $userId = (int)($row['UF_USER_ID'] ?? 0);
+            if ($userId > 0) {
+                $userIds[$userId] = true;
+            }
+        }
+
+        $updated = 0;
+        foreach (array_keys($userIds) as $userId) {
+            $updated += $this->migrateCollidedAchievementChestRowsForUser($userId);
+        }
+
+        return $updated;
+    }
+
+    public function migrateCollidedAchievementChestRowsForUser(int $userId): int
+    {
+        if ($userId <= 0) {
+            return 0;
+        }
+
+        $dataClass = $this->repository->getTreasureChestDataClass();
+        $collided = [];
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '=UF_MATCH_ID' => self::LEGACY_COLLIDED_SYNTHETIC_MATCH_ID,
+                '=UF_TYPE' => self::CHEST_TYPE_ACHIEVEMENT,
+                '=UF_STATUS' => self::CHEST_STATUS_CLOSED,
+            ],
+            'select' => ['ID', 'UF_COUNT'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $collided[] = $row;
+        }
+
+        if (!$collided) {
+            return 0;
+        }
+
+        $expected = $this->buildExpectedAchievementChestGrantsFromClaims($userId);
+        if (!$expected) {
+            return 0;
+        }
+
+        foreach ($collided as $row) {
+            $dataClass::delete((int)$row['ID']);
+        }
+
+        $created = 0;
+        $now = new DateTime();
+        $eventId = $this->scopeService->getAnchorEventId();
+
+        foreach ($expected as $item) {
+            $matchId = self::achievementSyntheticMatchId($item['code'], $item['threshold']);
+            $type = !empty($item['wc26'])
+                ? self::CHEST_TYPE_WC26_ACHIEVEMENT
+                : self::CHEST_TYPE_ACHIEVEMENT;
+
+            $existing = $this->repository->getTreasureChestByType($userId, $matchId, $type);
+            if ($existing) {
+                continue;
+            }
+
+            $legacy = $this->repository->getTreasureChest($userId, $matchId);
+            if ($legacy) {
+                $this->repository->updateTreasureChest((int)$legacy['ID'], [
+                    'UF_TYPE' => $type,
+                    'UF_COUNT' => (int)$item['count'],
+                    'UF_STATUS' => self::CHEST_STATUS_CLOSED,
+                    'UF_UPDATED_AT' => $now,
+                ]);
+                $created++;
+                continue;
+            }
+
+            $this->repository->addTreasureChest([
+                'UF_USER_ID' => $userId,
+                'UF_MATCH_ID' => $matchId,
+                'UF_EVENT_ID' => $eventId > 0 ? $eventId : GameEconomyConfig::ANCHOR_EVENT_ID,
+                'UF_COUNT' => (int)$item['count'],
+                'UF_STATUS' => self::CHEST_STATUS_CLOSED,
+                'UF_TYPE' => $type,
+                'UF_CREATED_AT' => $now,
+                'UF_UPDATED_AT' => $now,
+            ]);
+            $created++;
+        }
+
+        return count($collided) + $created;
+    }
+
+    /**
+     * @return array<int, array{code:string,threshold:int,count:int,wc26:bool}>
+     */
+    private function buildExpectedAchievementChestGrantsFromClaims(int $userId): array
+    {
+        $claimMap = $this->repository->getAchievementClaimMapForUser($userId);
+        $grants = [];
+
+        foreach (AchievementConfig::getCatalog() as $code => $definition) {
+            $claimed = (int)($claimMap[$code]['claimed_threshold'] ?? 0);
+            if ($claimed <= 0) {
+                continue;
+            }
+
+            foreach ((array)($definition['levels'] ?? []) as $level) {
+                $threshold = (int)($level['threshold'] ?? 0);
+                if ($threshold <= 0 || $threshold > $claimed) {
+                    continue;
+                }
+
+                $count = (int)($level['reward']['chests'] ?? 0);
+                if ($count <= 0) {
+                    continue;
+                }
+
+                $grants[] = [
+                    'code' => (string)$code,
+                    'threshold' => $threshold,
+                    'count' => $count,
+                    'wc26' => AchievementConfig::grantsWc26Chest((string)$code),
+                ];
+            }
+        }
+
+        return $grants;
+    }
+
+    private function reclassifyChm2026ChestRowsForUser(int $userId): int
+    {
+        $dataClass = $this->repository->getTreasureChestDataClass();
+        $updated = 0;
+        $response = $dataClass::getList([
+            'filter' => ['=UF_USER_ID' => $userId],
+            'select' => ['ID', 'UF_MATCH_ID', 'UF_TYPE', 'UF_STATUS'],
+        ]);
+
+        $now = new DateTime();
+        while ($row = $response->fetch()) {
+            if (!$this->shouldReclassifyRowAsChm2026Wc26($row)) {
+                continue;
+            }
+
+            $this->repository->updateTreasureChest((int)$row['ID'], [
+                'UF_TYPE' => self::CHEST_TYPE_WC26_ACHIEVEMENT,
+                'UF_UPDATED_AT' => $now,
+            ]);
+            $updated++;
+        }
+
+        return $updated;
+    }
+
+    private function reconcileChm2026ChestsFromClaims(int $userId): int
+    {
+        $claimMap = $this->repository->getAchievementClaimMapForUser($userId);
+        $claimedThreshold = (int)($claimMap['chm2026']['claimed_threshold'] ?? 0);
+        if ($claimedThreshold <= 0) {
+            return 0;
+        }
+
+        $levels = AchievementConfig::getCatalog()['chm2026']['levels'] ?? [];
+        $updated = 0;
+        $now = new DateTime();
+
+        foreach ($levels as $level) {
+            $threshold = (int)($level['threshold'] ?? 0);
+            if ($threshold <= 0 || $threshold > $claimedThreshold) {
+                continue;
+            }
+            if ((int)($level['reward']['chests'] ?? 0) <= 0) {
+                continue;
+            }
+
+            $matchId = self::achievementSyntheticMatchId('chm2026', $threshold);
+            $row = $this->repository->getTreasureChest($userId, $matchId);
+            if (!$row) {
+                continue;
+            }
+            if ((string)($row['UF_TYPE'] ?? '') === self::CHEST_TYPE_WC26_ACHIEVEMENT) {
+                continue;
+            }
+
+            $this->repository->updateTreasureChest((int)$row['ID'], [
+                'UF_TYPE' => self::CHEST_TYPE_WC26_ACHIEVEMENT,
+                'UF_UPDATED_AT' => $now,
+            ]);
+            $updated++;
+        }
+
+        return $updated;
+    }
+
+    private function shouldReclassifyRowAsChm2026Wc26(array $row): bool
+    {
+        $type = (string)($row['UF_TYPE'] ?? '');
+        if ($type === self::CHEST_TYPE_WC26_ACHIEVEMENT) {
+            return false;
+        }
+        if (in_array($type, [self::CHEST_TYPE_PENNANT, self::CHEST_TYPE_PREMIUM_SCROLL], true)) {
+            return false;
+        }
+
+        $status = (string)($row['UF_STATUS'] ?? '');
+        if ($status !== self::CHEST_STATUS_CLOSED) {
+            return false;
+        }
+
+        return self::isChm2026AchievementSyntheticMatchId((int)($row['UF_MATCH_ID'] ?? 0));
+    }
+
+    public static function describeSyntheticMatchId(int $matchId): ?string
+    {
+        if ($matchId === 0) {
+            return null;
+        }
+
+        if ($matchId === self::LEGACY_COLLIDED_SYNTHETIC_MATCH_ID) {
+            return 'legacy_collision';
+        }
+
+        foreach (AchievementConfig::getCatalog() as $code => $definition) {
+            foreach ((array)($definition['levels'] ?? []) as $level) {
+                $threshold = (int)($level['threshold'] ?? 0);
+                if ($threshold <= 0) {
+                    continue;
+                }
+
+                $syntheticId = self::achievementSyntheticMatchId($code, $threshold);
+                if ($syntheticId === $matchId) {
+                    return $code . ':' . $threshold;
+                }
+            }
+        }
+
+        if ($matchId > 0) {
+            return 'match:' . $matchId;
+        }
+        if ($matchId < 0 && $matchId >= -500) {
+            return 'level:' . abs($matchId);
+        }
+
+        return 'synthetic:' . $matchId;
+    }
+
+    /**
      * Закрытый сундучок за ачивку (идемпотентно, ключ: user + syntheticMatchId + UF_TYPE=achievement).
      */
     public function grantAchievementChests(int $userId, string $achievementCode, int $threshold, int $count): bool
@@ -168,7 +601,11 @@ class TreasureService
             return false;
         }
 
-        $syntheticMatchId = -abs((int)crc32($achievementCode . ':' . $threshold));
+        if (AchievementConfig::grantsWc26Chest($achievementCode)) {
+            return $this->grantWc26AchievementChests($userId, $achievementCode, $threshold, $count);
+        }
+
+        $syntheticMatchId = self::achievementSyntheticMatchId($achievementCode, $threshold);
         $existing = $this->repository->getTreasureChestByType($userId, $syntheticMatchId, self::CHEST_TYPE_ACHIEVEMENT);
         if ($existing) {
             return false;

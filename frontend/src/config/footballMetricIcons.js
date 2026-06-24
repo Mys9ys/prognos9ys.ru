@@ -155,8 +155,8 @@ export const ACHIEVEMENT_CATALOG_REF = {
   wow_pen: { icon: 'wow_pen', iconFile: 'ach_wow_pen.png', stat: 'wow_pen', levels: 5, description: '1 / 3 / 5 / 10 / 20 точных кол-в пенальти (>1)' },
   metric_extra_time: { icon: 'extra_time', iconFile: 'metric_extra_time.png', stat: 'metric_extra_time', levels: 5, description: '5 / 10 / 20 / 50 / 100 фактов доп. времени' },
   metric_shootout: { icon: 'shootout', iconFile: 'metric_shootout.png', stat: 'metric_shootout', levels: 5, description: '5 / 10 / 20 / 50 / 100 серий пенальти' },
-  rich_bettor: { icon: 'tipster', iconFile: 'ach_tipster.png', stat: 'bet_winnings_prognobaks', levels: 5, description: '100 / 200 / 500 / 1000 / 2000 🪙 выигрышей' },
-  chest_pioneer: { icon: 'chest_opener', iconFile: 'ach_chest_opener.png', stat: 'chests_opened', levels: 5, description: '5 / 10 / 25 / 50 / 100 открытых сундуков' },
-  rublius_trader: { icon: 'scrooge', iconFile: 'ach_scrooge.png', stat: 'rublius_earned', levels: 5, description: '50 / 100 / 250 / 500 / 1000 💎 заработано' },
-  chest_collector: { icon: 'chest_warehouse', iconFile: 'ach_chest_warehouse.png', stat: 'chests_earned', levels: 5, description: '25 / 50 / 100 / 250 / 500 сундуков (без лавки)' },
+  rich_bettor: { icon: 'tipster', iconFile: 'ach_tipster.png', stat: 'bet_winnings_prognobaks', levels: 5, description: 'Выигрыши со ставок, прогнобаксы' },
+  chest_pioneer: { icon: 'chest_opener', iconFile: 'ach_chest_opener.png', stat: 'chests_opened', levels: 5, description: 'Открытые сундуки (любой тип)' },
+  rublius_trader: { icon: 'scrooge', iconFile: 'ach_scrooge.png', stat: 'rublius_earned', levels: 5, description: 'Заработанные рублиусы' },
+  chest_collector: { icon: 'chest_warehouse', iconFile: 'ach_chest_warehouse.png', stat: 'chests_earned', levels: 5, description: 'Полученные сундуки (без лавки)' },
 };

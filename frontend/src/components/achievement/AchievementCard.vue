@@ -19,19 +19,55 @@
           <span class="ach_progress_val">{{ displayProgress }}/{{ target }}</span>
         </div>
 
-        <div v-if="levelCount > 1" class="ach_dashes">
+        <div
+          v-if="levelCount > 1"
+          class="ach_dashes"
+          @mouseleave="hoveredDash = -1"
+        >
           <span
-            v-for="(lvl, idx) in levelCount"
+            v-for="(lvl, idx) in levels"
             :key="idx"
-            class="ach_dash"
-            :class="dashClasses(idx)"
-          />
+            class="ach_dash_wrap"
+            @mouseenter="hoveredDash = idx"
+          >
+            <span
+              class="ach_dash"
+              :class="dashClasses(idx)"
+            />
+          </span>
+          <div
+            v-if="hoveredDash >= 0"
+            class="ach_dash_tip"
+            role="tooltip"
+          >
+            {{ dashRewardTip(hoveredDash) }}
+          </div>
         </div>
-        <div v-else class="ach_dashes ach_dashes--single">
-          <span class="ach_dash ach_dash--full" />
+        <div
+          v-else-if="levelCount === 1"
+          class="ach_dashes ach_dashes--single"
+          @mouseleave="hoveredDash = -1"
+        >
+          <span
+            class="ach_dash_wrap ach_dash_wrap--full"
+            @mouseenter="hoveredDash = 0"
+          >
+            <span class="ach_dash ach_dash--full" :class="dashClasses(0)" />
+          </span>
+          <div
+            v-if="hoveredDash === 0"
+            class="ach_dash_tip"
+            role="tooltip"
+          >
+            {{ dashRewardTip(0) }}
+          </div>
         </div>
 
-        <div class="ach_title" :title="displayTitle">{{ displayTitle }}</div>
+        <div v-if="description" class="ach_title_wrap">
+          <div class="ach_title">{{ displayTitle }}</div>
+          <div class="ach_title_tip" role="tooltip">{{ description }}</div>
+        </div>
+        <div v-else class="ach_title">{{ displayTitle }}</div>
 
         <div class="ach_spark ach_spark_bottom" aria-hidden="true" />
       </div>
@@ -40,29 +76,33 @@
     <button
       type="button"
       class="ach_claim_btn"
-      :class="{ active: claimable }"
+      :class="{ active: claimable, done: allClaimed }"
       :disabled="!claimable || claiming"
       @click.stop="onClaimClick"
     >
-      Забрать
+      {{ claimButtonLabel }}
     </button>
   </div>
 </template>
 
 <script>
 import { getAchievementIconSrc } from '@/config/footballMetricIcons';
+import { formatAchievementRewardText } from '@/utils/formatAchievementReward';
 
 const RANKS = ['bronze', 'silver', 'gold', 'platinum', 'mythic'];
+const RANK_LABELS = ['Бронза', 'Серебро', 'Золото', 'Платина', 'Мифик'];
 
 export default {
   name: 'AchievementCard',
   props: {
     title: { type: String, default: '' },
+    description: { type: String, default: '' },
     icon: { type: String, default: '🏅' },
     progress: { type: Number, default: 0 },
     target: { type: Number, default: 1 },
     rankIndex: { type: Number, default: 0 },
     levelThresholds: { type: Array, default: () => [] },
+    levels: { type: Array, default: () => [] },
     claimedThreshold: { type: Number, default: 0 },
     claimable: { type: Boolean, default: false },
     locked: { type: Boolean, default: false },
@@ -70,13 +110,18 @@ export default {
     claiming: { type: Boolean, default: false },
   },
   emits: ['claim'],
+  data() {
+    return {
+      hoveredDash: -1,
+    };
+  },
   computed: {
     rankClass() {
       const idx = Math.max(0, Math.min(this.rankIndex, RANKS.length - 1));
       return `rank_${RANKS[idx]}`;
     },
     levelCount() {
-      return this.levelThresholds.length;
+      return this.levels.length || this.levelThresholds.length;
     },
     displayTitle() {
       return String(this.title || '')
@@ -100,15 +145,41 @@ export default {
       }
       return getAchievementIconSrc(key) || null;
     },
+    claimButtonLabel() {
+      if (this.allClaimed) {
+        return 'Получено';
+      }
+      return 'Забрать';
+    },
   },
   methods: {
+    thresholdAt(idx) {
+      const fromLevel = this.levels[idx]?.threshold;
+      if (fromLevel !== undefined && fromLevel !== null) {
+        return Number(fromLevel) || 0;
+      }
+      return Number(this.levelThresholds[idx]) || 0;
+    },
     dashClasses(idx) {
+      const threshold = this.thresholdAt(idx);
       const rank = RANKS[Math.min(idx, RANKS.length - 1)];
       return {
         [`dash_${rank}`]: true,
-        ok: this.progress >= this.levelThresholds[idx],
-        claimed: this.claimedThreshold >= this.levelThresholds[idx],
+        ok: this.progress >= threshold,
+        claimed: this.claimedThreshold >= threshold,
       };
+    },
+    dashRewardTip(idx) {
+      const threshold = this.thresholdAt(idx);
+      const level = this.levels[idx] || {};
+      const rewardText = formatAchievementRewardText(level.reward);
+      const rankLabel = RANK_LABELS[Math.min(idx, RANK_LABELS.length - 1)] || '';
+      const head = threshold > 0 ? `${rankLabel} · ${threshold}` : rankLabel;
+
+      if (!rewardText) {
+        return head;
+      }
+      return `${head}: ${rewardText}`;
     },
     onClaimClick() {
       if (this.claimable && !this.claiming) {
@@ -142,6 +213,7 @@ export default {
   gap: 6px;
   min-width: 0;
   padding: 0 0 4px;
+  overflow: visible;
 }
 
 .ach_plaque_wrap {
@@ -192,7 +264,8 @@ export default {
     opacity: 0.6;
   }
 
-  .ach_title {
+  .ach_title,
+  .ach_title_wrap .ach_title {
     opacity: 0.65;
   }
 }
@@ -208,8 +281,8 @@ export default {
 
 .ach_spark {
   flex-shrink: 0;
-  width: 10px;
-  height: 10px;
+  width: 5px;
+  height: 5px;
   pointer-events: none;
 
   &::before {
@@ -219,8 +292,8 @@ export default {
     height: 100%;
     background: linear-gradient(145deg, @ach-gold-hi, @ach-gold-lo);
     transform: rotate(45deg);
-    border: 1px solid fade(@ach-gold-hi, 90%);
-    box-shadow: 0 0 6px fade(@ach-gold, 75%);
+    border: 1px solid fade(@ach-gold-hi, 70%);
+    box-shadow: 0 0 3px fade(@ach-gold, 55%);
   }
 }
 
@@ -284,15 +357,60 @@ export default {
 }
 
 .ach_dashes {
+  position: relative;
   display: flex;
   gap: 3px;
   width: 100%;
   align-items: center;
+  z-index: 3;
+
+  &:hover {
+    z-index: 24;
+  }
+}
+
+.ach_dash_wrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: 4px 0;
+  margin: -4px 0;
+  cursor: help;
+
+  &--full {
+    width: 100%;
+  }
+}
+
+.ach_dash_tip {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 2px);
+  z-index: 30;
+  box-sizing: border-box;
+  padding: 5px 6px;
+  border-radius: 6px;
+  border: 1px solid fade(@ach-gold, 55%);
+  background: fade(@ach-bg-deep, 96%);
+  color: fade(@ach-gold-hi, 92%);
+  font-size: 9px;
+  font-weight: 500;
+  line-height: 1.35;
+  text-align: center;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
 }
 
 .ach_dashes--single {
   .ach_dash--full {
     flex: 1;
+    width: 100%;
     height: 3px;
     border-radius: 2px;
     background: linear-gradient(90deg, transparent, var(--rank-color), transparent);
@@ -302,6 +420,7 @@ export default {
 
 .ach_dash {
   flex: 1;
+  width: 100%;
   height: 3px;
   border-radius: 2px;
   background: fade(@ach-gold-lo, 28%);
@@ -322,6 +441,21 @@ export default {
   }
 }
 
+.ach_title_wrap {
+  position: relative;
+  width: 100%;
+  z-index: 2;
+
+  &:hover {
+    z-index: 25;
+  }
+
+  &:hover .ach_title_tip,
+  &:focus-within .ach_title_tip {
+    display: block;
+  }
+}
+
 .ach_title {
   width: 100%;
   font-size: 10px;
@@ -333,6 +467,48 @@ export default {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.ach_title_wrap .ach_title {
+  cursor: help;
+  text-decoration: underline dotted fade(@ach-gold-hi, 45%);
+  text-underline-offset: 2px;
+}
+
+.ach_title_tip {
+  display: none;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 6px);
+  z-index: 30;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid fade(@ach-gold, 55%);
+  background: fade(@ach-bg-deep, 96%);
+  color: fade(@ach-gold-hi, 92%);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.35;
+  text-align: center;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: fade(@ach-gold, 55%);
+  }
 }
 
 .ach_claim_btn {
@@ -357,6 +533,13 @@ export default {
       opacity: 0.65;
       cursor: default;
     }
+  }
+
+  &.done {
+    color: fade(@ach-gold-hi, 72%);
+    background: fade(@ach-bg-deep, 88%);
+    border: 1px solid fade(@ach-gold-lo, 45%);
+    cursor: default;
   }
 }
 

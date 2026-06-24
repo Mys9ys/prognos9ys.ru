@@ -52,3 +52,37 @@ export function buildAchievementRewardBits(reward) {
 export function hasAchievementReward(reward) {
   return buildAchievementRewardBits(reward).length > 0;
 }
+
+function chestLabel(count) {
+  const n = Number(count) || 0;
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) {
+    return 'сундук';
+  }
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
+    return 'сундука';
+  }
+  return 'сундуков';
+}
+
+/** Краткая подпись награды для тултипа уровня ачивки. */
+export function formatAchievementRewardText(reward) {
+  const bits = buildAchievementRewardBits(reward);
+  if (!bits.length) {
+    return '';
+  }
+
+  return bits.map((bit) => {
+    if (bit.key === 'rublius') {
+      return `+${bit.amount} руб.`;
+    }
+    if (bit.key === 'chests') {
+      return `+${bit.amount} ${chestLabel(bit.amount)}`;
+    }
+    if (bit.label) {
+      return bit.label;
+    }
+    return '';
+  }).filter(Boolean).join(', ');
+}

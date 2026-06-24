@@ -310,8 +310,8 @@ class AchievementConfig
             // 12. Экономика
             'rich_bettor' => [
                 'title' => 'Типстер',
-                'description' => 'Сумма выигрышей в прогнобаксах (ставки ЧМ)',
-                'group' => self::GROUP_ECONOMY,
+                'description' => 'Выигрыши со ставок на исход — в прогнобаксах (любые соревнования)',
+                'group' => self::GROUP_WELCOME,
                 'icon' => 'tipster',
                 'stat' => 'bet_winnings_prognobaks',
                 'levels' => [
@@ -324,8 +324,8 @@ class AchievementConfig
             ],
             'chest_pioneer' => [
                 'title' => 'Сундучивен',
-                'description' => 'Открыто сундуков',
-                'group' => self::GROUP_ECONOMY,
+                'description' => 'Откройте сундуки в инвентаре (любой тип)',
+                'group' => self::GROUP_WELCOME,
                 'icon' => 'chest_opener',
                 'stat' => 'chests_opened',
                 'levels' => [
@@ -338,8 +338,8 @@ class AchievementConfig
             ],
             'rublius_trader' => [
                 'title' => 'Скрудж',
-                'description' => 'Заработано рублиусов',
-                'group' => self::GROUP_ECONOMY,
+                'description' => 'Заработанные рублиусы — любые источники, кроме стартового бонуса',
+                'group' => self::GROUP_WELCOME,
                 'icon' => 'scrooge',
                 'stat' => 'rublius_earned',
                 'levels' => [
@@ -352,8 +352,8 @@ class AchievementConfig
             ],
             'chest_collector' => [
                 'title' => 'Целый склад',
-                'description' => 'Получено сундуков (матчи, уровень, ачивки — без покупки)',
-                'group' => self::GROUP_ECONOMY,
+                'description' => 'Полученные сундуки за матчи, уровень и ачивки (не покупка в лавке)',
+                'group' => self::GROUP_WELCOME,
                 'icon' => 'chest_warehouse',
                 'stat' => 'chests_earned',
                 'levels' => [
@@ -365,5 +365,13 @@ class AchievementConfig
                 ],
             ],
         ];
+    }
+
+    /**
+     * Ачивки, награда за которые — сундук пула ЧМ-26 (не классический ачивочный).
+     */
+    public static function grantsWc26Chest(string $code): bool
+    {
+        return $code === 'chm2026';
     }
 }

@@ -279,6 +279,24 @@ export const apiActions = {
             'prognos9ys:main.GameController.claimAchievement',
             { userToken, code }
         ),
+        openWc26Chests: (userToken, openAll = false) => runBitrixAction(
+            'prognos9ys:main.GameController.openWc26Chests',
+            { userToken, openAll: openAll ? 1 : 0 }
+        ),
+        getChestOpenLogMeta: (userToken) => runBitrixAction(
+            'prognos9ys:main.GameController.getChestOpenLogMeta',
+            { userToken }
+        ),
+        getChestOpenLogs: (userToken, eventId = 0, groupKey = 'all', offset = 0, limit = 25) => runBitrixAction(
+            'prognos9ys:main.GameController.getChestOpenLogs',
+            {
+                userToken,
+                eventId: eventId || undefined,
+                groupKey: groupKey || 'all',
+                offset,
+                limit,
+            }
+        ),
     },
     impersonation: {
         searchUsers: (userToken, query) => runBitrixAction(

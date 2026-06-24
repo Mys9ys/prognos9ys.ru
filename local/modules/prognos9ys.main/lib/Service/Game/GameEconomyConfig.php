@@ -49,6 +49,10 @@ class GameEconomyConfig
     public const BANK_MIN_CAPITAL_PROGNOBAKS = 200.0;
     public const DEPOSIT_MIN_AMOUNT_PROGNOBAKS = 100.0;
     public const LOAN_MIN_AMOUNT_PROGNOBAKS = 50.0;
+    /** Массовый займ модератора: кошелёк ниже порога — выдаём 50 🪙 на ставки. */
+    public const MODERATOR_BULK_LOAN_BET_WALLET_MAX = 20.0;
+    /** Массовый займ модератора: кошелёк ниже цены сундука в лавке. */
+    public const MODERATOR_BULK_LOAN_SHOP_WALLET_MAX = self::TREASURY_SHOP_CHEST_PROGNOBAKS_PRICE;
     public const BANK_TERM_MATCHES = 5;
     /** @deprecated use BANK_TERM_MATCHES */
     public const LOAN_TERM_MATCHES = 5;

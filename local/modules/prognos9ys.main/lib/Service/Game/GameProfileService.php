@@ -2,6 +2,8 @@
 
 namespace Prognos9ys\Main\Service\Game;
 
+use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
+
 class GameProfileService
 {
     private WalletService $walletService;
@@ -10,6 +12,7 @@ class GameProfileService
     private UserBankService $bankService;
     private BankDepositService $depositService;
     private BankLoanService $loanService;
+    private GameEconomyRepository $repository;
 
     public function __construct(
         ?WalletService $walletService = null,
@@ -17,7 +20,8 @@ class GameProfileService
         ?TreasureService $treasureService = null,
         ?UserBankService $bankService = null,
         ?BankDepositService $depositService = null,
-        ?BankLoanService $loanService = null
+        ?BankLoanService $loanService = null,
+        ?GameEconomyRepository $repository = null
     ) {
         $this->walletService = $walletService ?? new WalletService();
         $this->progressService = $progressService ?? new UserProgressService();
@@ -25,6 +29,7 @@ class GameProfileService
         $this->bankService = $bankService ?? new UserBankService();
         $this->depositService = $depositService ?? new BankDepositService();
         $this->loanService = $loanService ?? new BankLoanService();
+        $this->repository = $repository ?? new GameEconomyRepository();
     }
 
     public function getSummary(int $userId, bool $includeBankDetails = true): array
@@ -76,11 +81,16 @@ class GameProfileService
                     >= GameEconomyConfig::BANK_OPEN_MIN_WALLET_PROGNOBAKS;
             }
 
+            $anchorEventId = (new GameEventScopeService())->getAnchorEventId();
+
             return [
                 'wallet' => $this->walletService->getWalletSummary($userId),
                 'progress' => $this->progressService->getSummary($userId),
                 'pending_xp' => (new ExperienceService())->getPendingSummaryForUser($userId),
                 'treasure' => $this->treasureService->getTreasureSummary($userId),
+                'inventory_items' => $anchorEventId > 0
+                    ? $this->repository->getLootItemStacksForUser($userId, $anchorEventId)
+                    : [],
                 'bank' => $bankBlock,
             ];
         } catch (\Throwable $exception) {
@@ -97,7 +107,9 @@ class GameProfileService
                     'match_chests' => 0,
                     'level_chests' => 0,
                     'achievement_chests' => 0,
+                    'wc26_achievement_chests' => 0,
                     'shop_chests' => 0,
+                    'wc26_openable_chests' => 0,
                     'premium_scrolls' => 0,
                     'premium_scrolls_1d' => 0,
                     'premium_scrolls_3d' => 0,
@@ -105,6 +117,7 @@ class GameProfileService
                     'pennant_site' => 0,
                     'pennant_chm2026' => 0,
                 ],
+                'inventory_items' => [],
                 'bank' => [
                     'has_bank' => false,
                     'my_bank' => null,

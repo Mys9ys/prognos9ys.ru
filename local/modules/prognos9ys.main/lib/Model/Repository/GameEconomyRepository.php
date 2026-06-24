@@ -4,6 +4,7 @@ namespace Prognos9ys\Main\Model\Repository;
 
 use Bitrix\Highloadblock\HighloadBlockTable;
 use Bitrix\Main\Loader;
+use Prognos9ys\Main\Service\Game\ChestLootConfig;
 use Prognos9ys\Main\Service\Game\GameEconomyConfig;
 use Prognos9ys\Main\Service\Game\GameEconomyHlInstaller;
 use Prognos9ys\Main\Service\Game\TreasureService;
@@ -21,6 +22,8 @@ class GameEconomyRepository
     private ?string $achievementClaimDataClass = null;
     private ?string $treasuryShopWaveDataClass = null;
     private ?string $matchEconomySettleDataClass = null;
+    private ?string $lootItemDataClass = null;
+    private ?string $chestOpenLogDataClass = null;
 
     public function getWalletDataClass(): string
     {
@@ -75,6 +78,16 @@ class GameEconomyRepository
     public function getMatchEconomySettleDataClass(): string
     {
         return $this->matchEconomySettleDataClass ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_MATCH_ECONOMY_SETTLE);
+    }
+
+    public function getLootItemDataClass(): string
+    {
+        return $this->lootItemDataClass ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_LOOT_ITEM);
+    }
+
+    public function getChestOpenLogDataClass(): string
+    {
+        return $this->chestOpenLogDataClass ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_CHEST_OPEN_LOG);
     }
 
     public function hasMatchEconomySettlement(int $matchId): bool
@@ -897,6 +910,21 @@ class GameEconomyRepository
         return $row ?: null;
     }
 
+    public function getTreasureChestById(int $id): ?array
+    {
+        if ($id <= 0) {
+            return null;
+        }
+
+        $dataClass = $this->getTreasureChestDataClass();
+        $row = $dataClass::getList([
+            'filter' => ['=ID' => $id],
+            'limit' => 1,
+        ])->fetch();
+
+        return $row ?: null;
+    }
+
     public function addTreasureChest(array $fields): int
     {
         $dataClass = $this->getTreasureChestDataClass();
@@ -1043,7 +1071,7 @@ class GameEconomyRepository
     }
 
     /**
-     * @return array{total:int,match:int,level:int,achievement:int,shop:int}
+     * @return array{total:int,match:int,level:int,achievement:int,shop:int,wc26_achievement:int}
      */
     public function getTreasureChestBreakdownForUser(int $userId): array
     {
@@ -1054,6 +1082,7 @@ class GameEconomyRepository
                 'level' => 0,
                 'achievement' => 0,
                 'shop' => 0,
+                'wc26_achievement' => 0,
             ];
         }
 
@@ -1064,6 +1093,7 @@ class GameEconomyRepository
             'level' => 0,
             'achievement' => 0,
             'shop' => 0,
+            'wc26_achievement' => 0,
         ];
 
         $response = $dataClass::getList([
@@ -1071,7 +1101,7 @@ class GameEconomyRepository
                 '=UF_USER_ID' => $userId,
                 '=UF_STATUS' => 'closed',
             ],
-            'select' => ['UF_COUNT', 'UF_TYPE', 'UF_MATCH_ID'],
+            'select' => ['ID', 'UF_COUNT', 'UF_TYPE', 'UF_MATCH_ID'],
         ]);
 
         while ($row = $response->fetch()) {
@@ -1080,12 +1110,29 @@ class GameEconomyRepository
                 continue;
             }
 
-            $breakdown['total'] += $count;
             $type = (string)($row['UF_TYPE'] ?? '');
             $matchId = (int)($row['UF_MATCH_ID'] ?? 0);
 
+            if (
+                $type === TreasureService::CHEST_TYPE_ACHIEVEMENT
+                && TreasureService::isChm2026AchievementSyntheticMatchId($matchId)
+            ) {
+                $this->updateTreasureChest((int)$row['ID'], [
+                    'UF_TYPE' => TreasureService::CHEST_TYPE_WC26_ACHIEVEMENT,
+                    'UF_UPDATED_AT' => new \Bitrix\Main\Type\DateTime(),
+                ]);
+                $type = TreasureService::CHEST_TYPE_WC26_ACHIEVEMENT;
+            }
+
+            $breakdown['total'] += $count;
+
             if ($type === 'shop_wc26') {
                 $breakdown['shop'] += $count;
+                continue;
+            }
+
+            if ($type === TreasureService::CHEST_TYPE_WC26_ACHIEVEMENT) {
+                $breakdown['wc26_achievement'] += $count;
                 continue;
             }
 
@@ -1103,6 +1150,328 @@ class GameEconomyRepository
         }
 
         return $breakdown;
+    }
+
+    /**
+     * @param string[] $types
+     */
+    public function countOpenableWc26ChestUnits(int $userId, int $eventId, array $types = []): int
+    {
+        if ($userId <= 0 || $eventId <= 0) {
+            return 0;
+        }
+
+        if (!$types) {
+            $types = ChestLootConfig::WC26_OPENABLE_CHEST_TYPES;
+        }
+
+        $dataClass = $this->getTreasureChestDataClass();
+        $total = 0;
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '=UF_EVENT_ID' => $eventId,
+                '=UF_STATUS' => TreasureService::CHEST_STATUS_CLOSED,
+                '@UF_TYPE' => $types,
+                '>UF_COUNT' => 0,
+            ],
+            'select' => ['UF_COUNT'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $total += (int)($row['UF_COUNT'] ?? 0);
+        }
+
+        return $total;
+    }
+
+    /**
+     * @param string[] $types
+     * @return array<string, mixed>|null
+     */
+    public function consumeOneOpenableWc26ChestUnit(int $userId, int $eventId, array $types = []): ?array
+    {
+        if ($userId <= 0 || $eventId <= 0) {
+            return null;
+        }
+
+        if (!$types) {
+            $types = ChestLootConfig::WC26_OPENABLE_CHEST_TYPES;
+        }
+
+        $dataClass = $this->getTreasureChestDataClass();
+        $row = $dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '=UF_EVENT_ID' => $eventId,
+                '=UF_STATUS' => TreasureService::CHEST_STATUS_CLOSED,
+                '@UF_TYPE' => $types,
+                '>UF_COUNT' => 0,
+            ],
+            'order' => ['UF_CREATED_AT' => 'ASC', 'ID' => 'ASC'],
+            'limit' => 1,
+        ])->fetch();
+
+        if (!$row) {
+            return null;
+        }
+
+        $count = (int)($row['UF_COUNT'] ?? 0);
+        if ($count <= 0) {
+            return null;
+        }
+
+        $now = new \Bitrix\Main\Type\DateTime();
+        $newCount = $count - 1;
+        $fields = [
+            'UF_COUNT' => $newCount,
+            'UF_UPDATED_AT' => $now,
+        ];
+
+        if ($newCount <= 0) {
+            $fields['UF_STATUS'] = TreasureService::CHEST_STATUS_OPENED;
+            $fields['UF_COUNT'] = 0;
+        }
+
+        $this->updateTreasureChest((int)$row['ID'], $fields);
+
+        $row['UF_COUNT'] = $fields['UF_COUNT'];
+        $row['UF_STATUS'] = $fields['UF_STATUS'] ?? $row['UF_STATUS'];
+
+        return $row;
+    }
+
+    public function incrementLootItem(
+        int $userId,
+        int $eventId,
+        string $itemCode,
+        string $category,
+        int $count = 1,
+        string $sealed = 'N'
+    ): void {
+        if ($userId <= 0 || $eventId <= 0 || $itemCode === '' || $count <= 0) {
+            return;
+        }
+
+        $dataClass = $this->getLootItemDataClass();
+        $existing = $dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '=UF_EVENT_ID' => $eventId,
+                '=UF_ITEM_CODE' => $itemCode,
+            ],
+            'limit' => 1,
+        ])->fetch();
+
+        $now = new \Bitrix\Main\Type\DateTime();
+
+        if ($existing) {
+            $dataClass::update((int)$existing['ID'], [
+                'UF_COUNT' => (int)($existing['UF_COUNT'] ?? 0) + $count,
+                'UF_CATEGORY' => $category,
+                'UF_SEALED' => $sealed,
+                'UF_UPDATED_AT' => $now,
+            ]);
+
+            return;
+        }
+
+        $result = $dataClass::add([
+            'UF_USER_ID' => $userId,
+            'UF_EVENT_ID' => $eventId,
+            'UF_ITEM_CODE' => $itemCode,
+            'UF_CATEGORY' => $category,
+            'UF_COUNT' => $count,
+            'UF_SEALED' => $sealed,
+            'UF_CREATED_AT' => $now,
+            'UF_UPDATED_AT' => $now,
+        ]);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+    }
+
+    /**
+     * @return array<int, array{code:string,category:string,count:int,sealed:bool,event_id:int,type_caption:string,label:string}>
+     */
+    public function getLootItemStacksForUser(int $userId, int $eventId = 0): array
+    {
+        if ($userId <= 0) {
+            return [];
+        }
+
+        $filter = [
+            '=UF_USER_ID' => $userId,
+            '>UF_COUNT' => 0,
+        ];
+
+        if ($eventId > 0) {
+            $filter['=UF_EVENT_ID'] = $eventId;
+        }
+
+        $dataClass = $this->getLootItemDataClass();
+        $items = [];
+        $response = $dataClass::getList([
+            'filter' => $filter,
+            'select' => ['UF_ITEM_CODE', 'UF_CATEGORY', 'UF_COUNT', 'UF_SEALED', 'UF_EVENT_ID'],
+            'order' => ['UF_CATEGORY' => 'ASC', 'UF_ITEM_CODE' => 'ASC'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $code = (string)($row['UF_ITEM_CODE'] ?? '');
+            if ($code === '') {
+                continue;
+            }
+
+            $category = (string)($row['UF_CATEGORY'] ?? '');
+            $typeCaption = $category === ChestLootConfig::CATEGORY_PACK
+                ? ChestLootConfig::getPackTypeCaption($code)
+                : ($category === ChestLootConfig::CATEGORY_XP_BANK ? 'XP' : ($category === ChestLootConfig::CATEGORY_CERT ? 'Серт' : 'Лут'));
+
+            $items[] = [
+                'code' => $code,
+                'category' => $category,
+                'count' => (int)($row['UF_COUNT'] ?? 0),
+                'sealed' => (string)($row['UF_SEALED'] ?? '') === 'Y',
+                'event_id' => (int)($row['UF_EVENT_ID'] ?? 0),
+                'type_caption' => $typeCaption,
+                'label' => ChestLootConfig::getLabel($code),
+            ];
+        }
+
+        return $items;
+    }
+
+    public function addChestOpenLog(array $fields): int
+    {
+        $dataClass = $this->getChestOpenLogDataClass();
+        $result = $dataClass::add($fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+
+        return (int)$result->getId();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function getChestOpenLogRowsForUser(int $userId, int $limit = 5000): array
+    {
+        if ($userId <= 0) {
+            return [];
+        }
+
+        $dataClass = $this->getChestOpenLogDataClass();
+        $rows = [];
+        $response = $dataClass::getList([
+            'filter' => ['=UF_USER_ID' => $userId],
+            'select' => [
+                'ID',
+                'UF_EVENT_ID',
+                'UF_CHEST_ID',
+                'UF_CHEST_TYPE',
+                'UF_MATCH_ID',
+                'UF_MATCH_NUMBER',
+                'UF_ROUND',
+                'UF_LOOT_JSON',
+                'UF_CREATED_AT',
+            ],
+            'order' => ['UF_CREATED_AT' => 'DESC', 'ID' => 'DESC'],
+            'limit' => max(1, min($limit, 5000)),
+        ]);
+
+        while ($row = $response->fetch()) {
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @return array{items: array<int, array<string, mixed>>, total: int}
+     */
+    public function getChestOpenLogPageForUser(
+        int $userId,
+        int $eventId = 0,
+        string $groupKey = 'all',
+        int $offset = 0,
+        int $limit = 30
+    ): array {
+        if ($userId <= 0) {
+            return ['items' => [], 'total' => 0];
+        }
+
+        $filter = ['=UF_USER_ID' => $userId];
+        if ($eventId > 0) {
+            $filter['=UF_EVENT_ID'] = $eventId;
+        }
+
+        $groupFilter = $this->buildChestOpenLogGroupFilter($groupKey);
+        if ($groupFilter) {
+            $filter = array_merge($filter, $groupFilter);
+        }
+
+        $dataClass = $this->getChestOpenLogDataClass();
+        $total = (int)$dataClass::getCount($filter);
+        $limit = max(1, min($limit, 50));
+        $offset = max(0, $offset);
+
+        $items = [];
+        $response = $dataClass::getList([
+            'filter' => $filter,
+            'select' => ['*'],
+            'order' => ['UF_CREATED_AT' => 'DESC', 'ID' => 'DESC'],
+            'limit' => $limit,
+            'offset' => $offset,
+        ]);
+
+        while ($row = $response->fetch()) {
+            $items[] = $row;
+        }
+
+        return [
+            'items' => $items,
+            'total' => $total,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildChestOpenLogGroupFilter(string $groupKey): array
+    {
+        $groupKey = trim($groupKey);
+        if ($groupKey === '' || $groupKey === 'all') {
+            return [];
+        }
+
+        if ($groupKey === TreasureService::CHEST_TYPE_WC26_ACHIEVEMENT) {
+            return ['=UF_CHEST_TYPE' => TreasureService::CHEST_TYPE_WC26_ACHIEVEMENT];
+        }
+
+        if ($groupKey === TreasureService::CHEST_TYPE_ACHIEVEMENT) {
+            return ['=UF_CHEST_TYPE' => TreasureService::CHEST_TYPE_ACHIEVEMENT];
+        }
+
+        if ($groupKey === TreasureService::CHEST_TYPE_SHOP_WC26) {
+            return ['=UF_CHEST_TYPE' => TreasureService::CHEST_TYPE_SHOP_WC26];
+        }
+
+        if ($groupKey === TreasureService::CHEST_TYPE_MATCH) {
+            return ['=UF_CHEST_TYPE' => TreasureService::CHEST_TYPE_MATCH];
+        }
+
+        if (preg_match('/^round_(\d+)$/', $groupKey, $matches)) {
+            return [
+                '=UF_CHEST_TYPE' => TreasureService::CHEST_TYPE_MATCH,
+                '=UF_ROUND' => (int)$matches[1],
+            ];
+        }
+
+        return [];
     }
 
     public function getPremiumScrollCountForUser(int $userId): int
@@ -1215,13 +1584,22 @@ class GameEconomyRepository
     public function getClosedTreasureChestTotalsMapForAllUsers(): array
     {
         $dataClass = $this->getTreasureChestDataClass();
+        $chestTypes = [
+            TreasureService::CHEST_TYPE_MATCH,
+            TreasureService::CHEST_TYPE_LEVEL,
+            TreasureService::CHEST_TYPE_ACHIEVEMENT,
+            TreasureService::CHEST_TYPE_WC26_ACHIEVEMENT,
+            TreasureService::CHEST_TYPE_SHOP_WC26,
+            '',
+        ];
 
         $map = [];
         $response = $dataClass::getList([
             'filter' => [
-                '=UF_STATUS' => 'closed',
+                '=UF_STATUS' => TreasureService::CHEST_STATUS_CLOSED,
+                '@UF_TYPE' => $chestTypes,
             ],
-            'select' => ['UF_USER_ID', 'UF_COUNT'],
+            'select' => ['UF_USER_ID', 'UF_COUNT', 'UF_TYPE', 'UF_MATCH_ID'],
         ]);
 
         while ($row = $response->fetch()) {
@@ -1230,7 +1608,28 @@ class GameEconomyRepository
                 continue;
             }
 
-            $map[$userId] = (int)($map[$userId] ?? 0) + (int)($row['UF_COUNT'] ?? 0);
+            $count = (int)($row['UF_COUNT'] ?? 0);
+            if ($count <= 0) {
+                continue;
+            }
+
+            $type = (string)($row['UF_TYPE'] ?? '');
+            $matchId = (int)($row['UF_MATCH_ID'] ?? 0);
+            if (
+                $type === TreasureService::CHEST_TYPE_PREMIUM_SCROLL
+                || $type === TreasureService::CHEST_TYPE_PENNANT
+            ) {
+                continue;
+            }
+
+            if (
+                $type === TreasureService::CHEST_TYPE_ACHIEVEMENT
+                && TreasureService::isChm2026AchievementSyntheticMatchId($matchId)
+            ) {
+                // Учитываем в рейтинге сундуков, даже если тип ещё не мигрирован.
+            }
+
+            $map[$userId] = (int)($map[$userId] ?? 0) + $count;
         }
 
         return $map;
@@ -1284,61 +1683,58 @@ class GameEconomyRepository
         return round($total, 1);
     }
 
+    /** Сколько сундуков пользователь открыл (по журналу открытий). */
     public function sumOpenedTreasureChestsForUser(int $userId): int
     {
         if ($userId <= 0) {
             return 0;
         }
 
-        $dataClass = $this->getTreasureChestDataClass();
-        $total = 0;
-        $response = $dataClass::getList([
-            'filter' => [
-                '=UF_USER_ID' => $userId,
-                '=UF_STATUS' => TreasureService::CHEST_STATUS_OPENED,
-                '@UF_TYPE' => [
-                    TreasureService::CHEST_TYPE_MATCH,
-                    TreasureService::CHEST_TYPE_LEVEL,
-                    TreasureService::CHEST_TYPE_ACHIEVEMENT,
-                    TreasureService::CHEST_TYPE_SHOP_WC26,
-                ],
-            ],
-            'select' => ['UF_COUNT'],
-        ]);
+        $dataClass = $this->getChestOpenLogDataClass();
 
-        while ($row = $response->fetch()) {
-            $total += (int)($row['UF_COUNT'] ?? 0);
-        }
-
-        return $total;
+        return (int)$dataClass::getCount(['=UF_USER_ID' => $userId]);
     }
 
-    /** Сундуки, выданные за матчи / уровень / ачивки (без лавки). */
+    /**
+     * Сколько сундуков получено за игру (матчи, уровень, ачивки) — без лавки и биржи.
+     * Накопительный счёт: не уменьшается при открытии.
+     */
     public function sumEarnedTreasureChestsForUser(int $userId): int
     {
         if ($userId <= 0) {
             return 0;
         }
 
+        $earnedTypes = [
+            TreasureService::CHEST_TYPE_MATCH,
+            TreasureService::CHEST_TYPE_LEVEL,
+            TreasureService::CHEST_TYPE_ACHIEVEMENT,
+            TreasureService::CHEST_TYPE_WC26_ACHIEVEMENT,
+        ];
+
         $dataClass = $this->getTreasureChestDataClass();
-        $total = 0;
+        $closedTotal = 0;
         $response = $dataClass::getList([
             'filter' => [
                 '=UF_USER_ID' => $userId,
-                '@UF_TYPE' => [
-                    TreasureService::CHEST_TYPE_MATCH,
-                    TreasureService::CHEST_TYPE_LEVEL,
-                    TreasureService::CHEST_TYPE_ACHIEVEMENT,
-                ],
+                '=UF_STATUS' => TreasureService::CHEST_STATUS_CLOSED,
+                '@UF_TYPE' => $earnedTypes,
+                '>UF_COUNT' => 0,
             ],
             'select' => ['UF_COUNT'],
         ]);
 
         while ($row = $response->fetch()) {
-            $total += (int)($row['UF_COUNT'] ?? 0);
+            $closedTotal += (int)($row['UF_COUNT'] ?? 0);
         }
 
-        return $total;
+        $logDataClass = $this->getChestOpenLogDataClass();
+        $openedEarned = (int)$logDataClass::getCount([
+            '=UF_USER_ID' => $userId,
+            '!UF_CHEST_TYPE' => TreasureService::CHEST_TYPE_SHOP_WC26,
+        ]);
+
+        return $closedTotal + $openedEarned;
     }
 
     /**
