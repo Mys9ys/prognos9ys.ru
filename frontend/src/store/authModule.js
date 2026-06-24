@@ -32,7 +32,19 @@ export const authModule = {
         },
 
     }),
-    getters: {},
+    getters: {
+        canImpersonate(state) {
+            if (state.impersonation.active && state.impersonation.originalToken) {
+                return true;
+            }
+
+            const role = state.userInfo?.role;
+
+            return !!state.userInfo?.can_impersonate
+                || role === 'admin'
+                || role === 'super_moder';
+        },
+    },
     mutations: {
         setAuthData(state, authData) {
             state.authData = authData

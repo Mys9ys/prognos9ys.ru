@@ -116,6 +116,14 @@ export default {
       }
       this.loadRating(this.eventId, selector, false, true);
     },
+    authToken(token, prevToken) {
+      if (!token || token === prevToken) {
+        return;
+      }
+      this.thisLoader = true;
+      this.resetLoadedSelectors();
+      this.loadRating(this.eventId, this.relation[this.activeCell] || 'all');
+    },
   },
 
   methods: {
@@ -175,7 +183,7 @@ export default {
       ratingData: state => state.rating.ratingData,
       footballRating: state => state.rating.footballRating,
       footballRatingMeta: state => state.rating.footballRatingMeta,
-
+      authToken: state => state.auth.authData.token,
     })
   },
 }

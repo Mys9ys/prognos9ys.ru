@@ -32,7 +32,7 @@
 </template>
 
 <script>
-import { mapActions, mapState } from 'vuex'
+import { mapActions, mapGetters, mapState } from 'vuex'
 
 export default {
   name: 'ImpersonationPanel',
@@ -46,16 +46,11 @@ export default {
     }
   },
   computed: {
+    ...mapGetters('auth', ['canImpersonate']),
     ...mapState({
       impersonation: state => state.auth.impersonation,
       userInfo: state => state.auth.userInfo,
     }),
-    canImpersonate() {
-      const role = this.userInfo?.role
-      return !!this.userInfo?.can_impersonate
-          || role === 'admin'
-          || role === 'super_moder'
-    },
   },
   methods: {
     ...mapActions({
@@ -90,7 +85,7 @@ export default {
       this.error = ''
       try {
         await this.impersonateStart(user.id)
-        this.$router.push('/').then(() => { this.$router.go() })
+        this.$router.push('/ratings')
       } catch (e) {
         this.error = e.message || 'Не удалось войти'
       }

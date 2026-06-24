@@ -4,6 +4,7 @@
       <span class="title">
         <AppIcon name="chest_wc2026" :size="18" />
         Лавка казны
+        <span class="new_badge" v-if="newOffersCount > 0 && !expanded">{{ newOffersCount }}</span>
       </span>
       <span class="toggle">{{ expanded ? '−' : '+' }}</span>
     </div>
@@ -61,15 +62,26 @@ import { mapActions, mapState } from 'vuex';
 import PreLoader from '@/components/main/PreLoader';
 import AppIcon from '@/components/ui/AppIcon.vue';
 import { apiActions } from '@/api/bitrixClient';
+import { countNewTreasuryOffers, treasuryShopMatchesEvent } from '@/utils/treasuryShopUtils';
 
 const FIRST_MILESTONE = 40;
 
 export default {
   name: 'TreasuryShopBlock',
   components: { PreLoader, AppIcon },
+  props: {
+    eventId: {
+      type: [String, Number],
+      default: null,
+    },
+    defaultExpanded: {
+      type: Boolean,
+      default: false,
+    },
+  },
   data() {
     return {
-      expanded: true,
+      expanded: this.defaultExpanded,
       loading: false,
       buying: false,
       loaded: false,
@@ -82,7 +94,18 @@ export default {
   computed: {
     ...mapState('auth', ['authData', 'userInfo']),
     visible() {
-      return !!this.authData?.token;
+      if (!this.authData?.token) {
+        return false;
+      }
+
+      if (this.eventId == null || this.eventId === '') {
+        return true;
+      }
+
+      return this.loaded && treasuryShopMatchesEvent(this.shop, this.eventId);
+    },
+    newOffersCount() {
+      return countNewTreasuryOffers(this.shop);
     },
     offers() {
       const raw = this.shop?.offers || {};
@@ -209,6 +232,19 @@ export default {
     display: inline-flex;
     align-items: center;
     gap: 6px;
+  }
+
+  .new_badge {
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: @orange;
+    color: @DarkColorBG;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
   }
 
   .toggle {

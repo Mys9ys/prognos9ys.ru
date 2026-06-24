@@ -56,7 +56,7 @@
 </template>
 
 <script>
-import { mapActions, mapState } from 'vuex';
+import { mapActions, mapGetters, mapState } from 'vuex';
 import AppIcon from '@/components/ui/AppIcon.vue';
 import { DEFAULT_AVATAR_URL } from '@/utils/defaultAvatar';
 
@@ -93,6 +93,7 @@ export default {
     };
   },
   computed: {
+    ...mapGetters('auth', ['canImpersonate']),
     ...mapState('auth', ['userInfo']),
     title() {
       if (this.contract.label) {
@@ -117,12 +118,6 @@ export default {
       }
       return this.defaultAvatar;
     },
-    canImpersonate() {
-      const role = this.userInfo?.role;
-      return !!this.userInfo?.can_impersonate
-        || role === 'admin'
-        || role === 'super_moder';
-    },
   },
   methods: {
     ...mapActions('auth', ['impersonateStart']),
@@ -132,7 +127,6 @@ export default {
     async loginAsUser(userId) {
       try {
         await this.impersonateStart(userId);
-        this.$router.push('/').then(() => { this.$router.go(); });
       } catch (e) {
         console.log('loginAsUser error', e);
       }

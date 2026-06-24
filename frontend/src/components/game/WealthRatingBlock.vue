@@ -274,7 +274,7 @@
 </template>
 
 <script>
-import { mapActions, mapState } from 'vuex';
+import { mapActions, mapGetters, mapState } from 'vuex';
 import PreLoader from '@/components/main/PreLoader';
 import AppIcon from '@/components/ui/AppIcon.vue';
 import { apiActions } from '@/api/bitrixClient';
@@ -321,6 +321,7 @@ export default {
     };
   },
   computed: {
+    ...mapGetters('auth', ['canImpersonate']),
     ...mapState({
       userInfo: state => state.auth.userInfo,
       authData: state => state.auth.authData,
@@ -343,12 +344,6 @@ export default {
     },
     isRubliusMode() {
       return this.mode === 'rublius_rich';
-    },
-    canImpersonate() {
-      const role = this.userInfo?.role;
-      return !!this.userInfo?.can_impersonate
-          || role === 'admin'
-          || role === 'super_moder';
     },
     isModerator() {
       return this.canImpersonate;
@@ -461,9 +456,12 @@ export default {
         this.applyRouteState(true);
       },
     },
-    'userInfo.token'(token) {
-      if (token) {
+    'authData.token'(token, prevToken) {
+      if (token && token !== prevToken) {
         this.loadGameBank();
+        if (this.ratingLoaded) {
+          this.loadRating();
+        }
       }
     },
   },
@@ -838,7 +836,6 @@ export default {
     async loginAsUser(userId) {
       try {
         await this.impersonateStart(userId);
-        this.$router.push('/').then(() => { this.$router.go(); });
       } catch (e) {
         console.log('loginAsUser error', e);
       }

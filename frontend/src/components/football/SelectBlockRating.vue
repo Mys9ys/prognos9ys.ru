@@ -58,7 +58,7 @@
 </template>
 
 <script>
-import { mapActions, mapState } from 'vuex'
+import { mapActions, mapGetters, mapState } from 'vuex'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import { DEFAULT_AVATAR_URL } from '@/utils/defaultAvatar'
 
@@ -83,15 +83,10 @@ export default {
   },
 
   computed: {
+    ...mapGetters('auth', ['canImpersonate']),
     ...mapState({
       userInfo: state => state.auth.userInfo,
     }),
-    canImpersonate() {
-      const role = this.userInfo?.role
-      return !!this.userInfo?.can_impersonate
-          || role === 'admin'
-          || role === 'super_moder'
-    },
   },
 
   // mounted() {
@@ -113,7 +108,6 @@ export default {
       this.impersonateError = ''
       try {
         await this.impersonateStart(userId)
-        this.$router.push('/').then(() => { this.$router.go() })
       } catch (e) {
         this.impersonateError = e.message || 'Не удалось войти'
         console.log('loginAsUser error', e)

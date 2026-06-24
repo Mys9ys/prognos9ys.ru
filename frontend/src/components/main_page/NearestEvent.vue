@@ -49,6 +49,9 @@
                         </div>
                         <div class="event_btn" @click="$router.push('/'+event +'/' +event_id)">
                           <span class="text">Список</span>
+                          <span class="shop_badge" v-if="treasuryBadgeForEvent(event_id)">
+                            {{ treasuryBadgeForEvent(event_id) }}
+                          </span>
                           <img class="arrow" src="@/assets/icon/pagination/right.svg" alt="">
                         </div>
                       </div>
@@ -82,6 +85,8 @@ import {mapActions, mapState} from "vuex";
 import EventRace from "@/components/race/EventRace";
 import EventMatch from "@/components/football/EventMatch";
 import MainPageLoader from "@/components/main_page/MainPageLoader";
+import { apiActions } from "@/api/bitrixClient";
+import { countNewTreasuryOffers, treasuryShopMatchesEvent } from "@/utils/treasuryShopUtils";
 
 export default {
   name: "NearestEvent",
@@ -93,6 +98,7 @@ export default {
   data() {
     return {
       active: 'today',
+      treasuryShop: null,
       arr: {
         'yesterday': {'name': 'Вчера', 'count': 0, 'set': 0},
         'today': {'name': 'Сегодня', 'count': 0, 'set': 0},
@@ -105,6 +111,7 @@ export default {
 
   mounted() {
     this.getNearestFootball()
+    this.loadTreasuryShop()
   },
 
   methods: {
@@ -130,7 +137,31 @@ export default {
           }
         })
       }
-    }
+    },
+
+    async loadTreasuryShop() {
+      if (!this.token) {
+        this.treasuryShop = null;
+        return;
+      }
+
+      try {
+        const data = await apiActions.game.getTreasuryShop(this.token);
+        if (data?.status === 'ok') {
+          this.treasuryShop = data.shop || null;
+        }
+      } catch (e) {
+        this.treasuryShop = null;
+      }
+    },
+
+    treasuryBadgeForEvent(eventId) {
+      if (!treasuryShopMatchesEvent(this.treasuryShop, eventId)) {
+        return 0;
+      }
+
+      return countNewTreasuryOffers(this.treasuryShop);
+    },
 
   },
 
@@ -314,12 +345,28 @@ export default {
             display: flex;
             flex-direction: row;
             justify-content: space-between;
+            align-items: center;
             gap: 3px;
             font-size: 12px;
             color: @colorText;
             .shadow_template;
             padding: 2px;
             border-radius: 5px;
+            position: relative;
+
+            .shop_badge {
+              min-width: 16px;
+              height: 16px;
+              padding: 0 4px;
+              border-radius: 8px;
+              background: @orange;
+              color: @DarkColorBG;
+              font-size: 10px;
+              font-weight: 700;
+              line-height: 16px;
+              text-align: center;
+            }
+
             .text{
               width: 80%;
             }

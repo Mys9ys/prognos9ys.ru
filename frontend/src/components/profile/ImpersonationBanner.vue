@@ -28,7 +28,7 @@ export default {
     async stopImpersonation() {
       try {
         await this.impersonateStop()
-        this.$router.push('/profile').then(() => { this.$router.go() })
+        this.$router.push('/ratings').then(() => { this.$router.go() })
       } catch (e) {
         console.log('impersonateStop error', e)
       }
