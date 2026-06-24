@@ -56,6 +56,7 @@ class GameController extends BaseController
             'getAchievements' => $this->getDefaultConfigureForPostToken(),
             'claimAchievement' => $this->getDefaultConfigureForPostToken(),
             'openWc26Chests' => $this->getDefaultConfigureForPostToken(),
+            'openChests' => $this->getDefaultConfigureForPostToken(),
             'getChestOpenLogMeta' => $this->getDefaultConfigureForPostToken(),
             'getChestOpenLogs' => $this->getDefaultConfigureForPostToken(),
             'moderatorBulkAction' => $this->getDefaultConfigureForPostToken(),
@@ -525,13 +526,27 @@ class GameController extends BaseController
 
     public function openWc26ChestsAction(int $openAll = 0): array
     {
+        return $this->openChestsAction(ChestOpenService::POOL_WC26, $openAll);
+    }
+
+    public function openChestsAction(string $pool, int $openAll = 0): array
+    {
         $userId = TokenAuthService::getCurrentUserId();
         if (!$userId) {
             throw new ApiException('Пользователь не авторизован', 401);
         }
 
         try {
-            $result = (new ChestOpenService())->openWc26Chests($userId, $openAll > 0);
+            $service = new ChestOpenService();
+            if ($pool === ChestOpenService::POOL_WC26) {
+                $result = $service->openWc26Chests($userId, $openAll > 0);
+            } elseif ($pool === ChestOpenService::POOL_LEVEL) {
+                $result = $service->openLevelChests($userId, $openAll > 0);
+            } elseif ($pool === ChestOpenService::POOL_ACHIEVEMENT) {
+                $result = $service->openAchievementChests($userId, $openAll > 0);
+            } else {
+                throw new ApiException('Неизвестный пул сундуков', 400);
+            }
         } catch (\InvalidArgumentException $e) {
             throw new ApiException($e->getMessage(), 400);
         } catch (\RuntimeException $e) {

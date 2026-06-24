@@ -1249,7 +1249,7 @@ class GameEconomyRepository
         int $count = 1,
         string $sealed = 'N'
     ): void {
-        if ($userId <= 0 || $eventId <= 0 || $itemCode === '' || $count <= 0) {
+        if ($userId <= 0 || $eventId < 0 || $itemCode === '' || $count <= 0) {
             return;
         }
 
@@ -1308,6 +1308,8 @@ class GameEconomyRepository
 
         if ($eventId > 0) {
             $filter['=UF_EVENT_ID'] = $eventId;
+        } else {
+            $filter['=UF_EVENT_ID'] = 0;
         }
 
         $dataClass = $this->getLootItemDataClass();
@@ -1454,6 +1456,10 @@ class GameEconomyRepository
 
         if ($groupKey === TreasureService::CHEST_TYPE_ACHIEVEMENT) {
             return ['=UF_CHEST_TYPE' => TreasureService::CHEST_TYPE_ACHIEVEMENT];
+        }
+
+        if ($groupKey === TreasureService::CHEST_TYPE_LEVEL) {
+            return ['=UF_CHEST_TYPE' => TreasureService::CHEST_TYPE_LEVEL];
         }
 
         if ($groupKey === TreasureService::CHEST_TYPE_SHOP_WC26) {

@@ -7,6 +7,10 @@ use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
 
 class ChestOpenService
 {
+    public const POOL_WC26 = 'wc26';
+    public const POOL_LEVEL = 'level';
+    public const POOL_ACHIEVEMENT = 'achievement';
+
     private const MAX_OPEN_ALL = 30;
 
     private GameEconomyRepository $repository;
@@ -22,6 +26,21 @@ class ChestOpenService
         $this->logService = new ChestOpenLogService($this->repository, $this->scopeService);
     }
 
+    public function openWc26Chests(int $userId, bool $openAll): array
+    {
+        return $this->openChests($userId, self::POOL_WC26, $openAll);
+    }
+
+    public function openLevelChests(int $userId, bool $openAll): array
+    {
+        return $this->openChests($userId, self::POOL_LEVEL, $openAll);
+    }
+
+    public function openAchievementChests(int $userId, bool $openAll): array
+    {
+        return $this->openChests($userId, self::POOL_ACHIEVEMENT, $openAll);
+    }
+
     /**
      * @return array{
      *   opens: array<int, array>,
@@ -29,20 +48,21 @@ class ChestOpenService
      *   lines: array<int, array{text:string,status:string}>,
      * }
      */
-    public function openWc26Chests(int $userId, bool $openAll): array
+    public function openChests(int $userId, string $pool, bool $openAll): array
     {
         if ($userId <= 0) {
             throw new \InvalidArgumentException('Некорректный пользователь');
         }
 
+        $config = $this->resolvePoolConfig($pool);
         $eventId = $this->scopeService->getAnchorEventId();
         if ($eventId <= 0) {
             throw new \RuntimeException('Событие ЧМ-26 не найдено');
         }
 
-        $available = $this->repository->countOpenableWc26ChestUnits($userId, $eventId);
+        $available = $this->repository->countOpenableWc26ChestUnits($userId, $eventId, $config['types']);
         if ($available <= 0) {
-            throw new \RuntimeException('Нет закрытых сундуков ЧМ-26');
+            throw new \RuntimeException($config['empty_error']);
         }
 
         $toOpen = $openAll ? min($available, self::MAX_OPEN_ALL) : 1;
@@ -55,18 +75,14 @@ class ChestOpenService
         ];
 
         for ($i = 0; $i < $toOpen; $i++) {
-            $chest = $this->repository->consumeOneOpenableWc26ChestUnit(
-                $userId,
-                $eventId,
-                ChestLootConfig::WC26_OPENABLE_CHEST_TYPES
-            );
+            $chest = $this->repository->consumeOneOpenableWc26ChestUnit($userId, $eventId, $config['types']);
 
             if (!$chest) {
                 break;
             }
 
-            $loot = $this->rollLoot();
-            $this->applyLoot($userId, $eventId, (int)$chest['ID'], $loot);
+            $loot = $this->rollLoot($config['generic_block3']);
+            $this->applyLoot($userId, $config['loot_event_id'], (int)$chest['ID'], $loot);
             $persistMeta = $this->logService->extractPersistFieldsFromChest($chest);
             $this->repository->addChestOpenLog(array_merge([
                 'UF_USER_ID' => $userId,
@@ -96,13 +112,49 @@ class ChestOpenService
             'opens' => $opens,
             'summary' => $summary,
             'lines' => $this->buildSessionLines($opens, $summary),
+            'pool' => $pool,
         ];
+    }
+
+    /**
+     * @return array{types:string[],loot_event_id:int,generic_block3:bool,empty_error:string}
+     */
+    private function resolvePoolConfig(string $pool): array
+    {
+        if ($pool === self::POOL_WC26) {
+            return [
+                'types' => ChestLootConfig::WC26_OPENABLE_CHEST_TYPES,
+                'loot_event_id' => $this->scopeService->getAnchorEventId(),
+                'generic_block3' => false,
+                'empty_error' => 'Нет закрытых сундуков ЧМ-26',
+            ];
+        }
+
+        if ($pool === self::POOL_LEVEL) {
+            return [
+                'types' => [TreasureService::CHEST_TYPE_LEVEL],
+                'loot_event_id' => ChestLootConfig::LOOT_EVENT_GLOBAL,
+                'generic_block3' => true,
+                'empty_error' => 'Нет сундуков за уровень',
+            ];
+        }
+
+        if ($pool === self::POOL_ACHIEVEMENT) {
+            return [
+                'types' => [TreasureService::CHEST_TYPE_ACHIEVEMENT],
+                'loot_event_id' => ChestLootConfig::LOOT_EVENT_GLOBAL,
+                'generic_block3' => true,
+                'empty_error' => 'Нет сундуков за ачивки',
+            ];
+        }
+
+        throw new \InvalidArgumentException('Неизвестный пул сундуков');
     }
 
     /**
      * @return array{block1:array|null,block2:array|null,block3:array|null}
      */
-    private function rollLoot(): array
+    private function rollLoot(bool $genericBlock3): array
     {
         $block1 = ChestLootConfig::rollFromTable(ChestLootConfig::getBlock1Table());
 
@@ -113,7 +165,10 @@ class ChestOpenService
 
         $block3 = null;
         if (random_int(1, 100) <= ChestLootConfig::BLOCK3_CHANCE_PERCENT) {
-            $block3 = ChestLootConfig::rollFromTable(ChestLootConfig::getBlock3Table());
+            $block3Table = $genericBlock3
+                ? ChestLootConfig::getGenericBlock3Table()
+                : ChestLootConfig::getWc26Block3Table();
+            $block3 = ChestLootConfig::rollFromTable($block3Table);
         }
 
         return [

@@ -82,15 +82,19 @@ class GameProfileService
             }
 
             $anchorEventId = (new GameEventScopeService())->getAnchorEventId();
+            $inventoryItems = array_merge(
+                $this->repository->getLootItemStacksForUser($userId, ChestLootConfig::LOOT_EVENT_GLOBAL),
+                $anchorEventId > 0
+                    ? $this->repository->getLootItemStacksForUser($userId, $anchorEventId)
+                    : []
+            );
 
             return [
                 'wallet' => $this->walletService->getWalletSummary($userId),
                 'progress' => $this->progressService->getSummary($userId),
                 'pending_xp' => (new ExperienceService())->getPendingSummaryForUser($userId),
                 'treasure' => $this->treasureService->getTreasureSummary($userId),
-                'inventory_items' => $anchorEventId > 0
-                    ? $this->repository->getLootItemStacksForUser($userId, $anchorEventId)
-                    : [],
+                'inventory_items' => $inventoryItems,
                 'bank' => $bankBlock,
             ];
         } catch (\Throwable $exception) {

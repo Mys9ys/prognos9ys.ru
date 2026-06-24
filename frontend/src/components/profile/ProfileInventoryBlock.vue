@@ -17,7 +17,7 @@
         v-for="item in displayItems"
         :key="item.id"
         class="inventory_slot"
-        :class="{ openable: item.openable && wc26Openable > 0 }"
+        :class="{ openable: item.openable && item.count > 0 }"
         :title="item.label"
         @mouseenter="onSlotEnter(item)"
         @mouseleave="onSlotLeave"
@@ -30,20 +30,20 @@
         <span class="slot_caption">{{ item.caption }}</span>
 
         <div
-          v-if="item.openable && wc26Openable > 0 && hoveredSlotId === item.id"
+          v-if="item.openable && item.count > 0 && hoveredSlotId === item.id"
           class="slot_actions"
         >
-          <button type="button" class="slot_action_btn" :disabled="opening" @click.stop="openChests(false)">
+          <button type="button" class="slot_action_btn" :disabled="opening" @click.stop="openChests(item.pool, false)">
             Открыть
           </button>
           <button
-            v-if="wc26Openable > 1"
+            v-if="item.count > 1"
             type="button"
             class="slot_action_btn slot_action_btn_all"
             :disabled="opening"
-            @click.stop="openChests(true)"
+            @click.stop="openChests(item.pool, true)"
           >
-            Все ({{ Math.min(wc26Openable, 30) }})
+            Все ({{ Math.min(item.count, 30) }})
           </button>
         </div>
       </div>
@@ -79,8 +79,8 @@ import ChestOpenLogModal from '@/components/profile/ChestOpenLogModal.vue';
 import { apiActions } from '@/api/bitrixClient';
 
 const OTHER_INVENTORY_SLOTS = [
-  { id: 'achievement', field: 'achievement_chests', icon: 'chest_achievement', caption: 'Ачивка', label: 'Сундуки за ачивки (открытие скоро)' },
-  { id: 'level', field: 'level_chests', icon: 'chest_xp', caption: 'Уровень', label: 'Сундуки за уровень (открытие скоро)' },
+  { id: 'achievement', field: 'achievement_chests', icon: 'chest_achievement', caption: 'Ачивка', label: 'Сундуки за ачивки', openable: true, pool: 'achievement' },
+  { id: 'level', field: 'level_chests', icon: 'chest_xp', caption: 'Уровень', label: 'Сундуки за уровень', openable: true, pool: 'level' },
   { id: 'premium_1d', field: 'premium_scrolls_1d', icon: 'premium_scroll_1d', caption: '1д', label: 'Свиток премиума (1 сутки)' },
   { id: 'premium_3d', field: 'premium_scrolls_3d', emoji: '📜', caption: '3д', label: 'Свиток премиума (3 суток)' },
   { id: 'premium_5d', field: 'premium_scrolls_5d', emoji: '📜', caption: '5д', label: 'Свиток премиума (5 суток)' },
@@ -150,6 +150,7 @@ export default {
           caption: 'ЧМ-26',
           label: this.buildWc26Tooltip(),
           openable: true,
+          pool: 'wc26',
         });
       }
 
@@ -262,22 +263,33 @@ export default {
       this.openProgressTotal = 0;
     },
 
-    async openChests(openAll) {
-      if (!this.authData?.token || this.opening || this.wc26Openable <= 0) {
+    async openChests(pool, openAll) {
+      if (!this.authData?.token || this.opening || !pool) {
         return;
       }
+
+      const slot = this.chestSlots.find((item) => item.pool === pool);
+      if (!slot || slot.count <= 0) {
+        return;
+      }
+
+      const titles = {
+        wc26: openAll ? 'Открытие сундуков ЧМ-26' : 'Открытие сундука ЧМ-26',
+        level: openAll ? 'Открытие сундуков за уровень' : 'Открытие сундука за уровень',
+        achievement: openAll ? 'Открытие сундуков за ачивки' : 'Открытие сундука за ачивки',
+      };
 
       this.opening = true;
       this.hoveredSlotId = null;
       this.openModalVisible = true;
       this.openModalDone = false;
-      this.openModalTitle = openAll ? 'Открытие сундуков ЧМ-26' : 'Открытие сундука ЧМ-26';
+      this.openModalTitle = titles[pool] || 'Открытие сундука';
       this.openLines = [{ text: 'Крутим барабан…', status: 'pending' }];
       this.openProgressCurrent = 0;
-      this.openProgressTotal = openAll ? Math.min(this.wc26Openable, 30) : 1;
+      this.openProgressTotal = openAll ? Math.min(slot.count, 30) : 1;
 
       try {
-        const data = await apiActions.game.openWc26Chests(this.authData.token, openAll);
+        const data = await apiActions.game.openChests(this.authData.token, pool, openAll);
 
         if (data?.status === 'ok') {
           this.openLines = Array.isArray(data.lines) ? data.lines : [];

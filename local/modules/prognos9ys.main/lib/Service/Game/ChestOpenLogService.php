@@ -254,6 +254,7 @@ class ChestOpenLogService
             TreasureService::CHEST_TYPE_WC26_ACHIEVEMENT,
             TreasureService::CHEST_TYPE_SHOP_WC26,
             TreasureService::CHEST_TYPE_MATCH,
+            TreasureService::CHEST_TYPE_LEVEL,
         ], true)) {
             return $chestType;
         }
@@ -282,6 +283,10 @@ class ChestOpenLogService
             return 'Ачивки';
         }
 
+        if ($chestType === TreasureService::CHEST_TYPE_LEVEL) {
+            return 'Уровень';
+        }
+
         if ($chestType === TreasureService::CHEST_TYPE_SHOP_WC26) {
             return 'Лавка';
         }
@@ -293,6 +298,7 @@ class ChestOpenLogService
     {
         $map = [
             TreasureService::CHEST_TYPE_MATCH => 'Матч',
+            TreasureService::CHEST_TYPE_LEVEL => 'Уровень',
             TreasureService::CHEST_TYPE_ACHIEVEMENT => 'Ачивка',
             TreasureService::CHEST_TYPE_WC26_ACHIEVEMENT => 'Ачивка ЧМ-26',
             TreasureService::CHEST_TYPE_SHOP_WC26 => 'Лавка',
@@ -406,6 +412,9 @@ class ChestOpenLogService
             }
             if ($key === TreasureService::CHEST_TYPE_ACHIEVEMENT) {
                 return 200;
+            }
+            if ($key === TreasureService::CHEST_TYPE_LEVEL) {
+                return 195;
             }
             if ($key === TreasureService::CHEST_TYPE_SHOP_WC26) {
                 return 210;

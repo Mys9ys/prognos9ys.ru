@@ -3,7 +3,7 @@
 namespace Prognos9ys\Main\Service\Game;
 
 /**
- * Таблицы лута сундука ЧМ-26 (match / shop / ачивка ЧМ2026 — один пул).
+ * Таблицы лута сундуков: ЧМ-26 (match / shop / ачивка ЧМ2026) и generic (level / ачивки).
  */
 class ChestLootConfig
 {
@@ -14,11 +14,20 @@ class ChestLootConfig
     public const CATEGORY_CERT = 'cert';
     public const CATEGORY_PACK = 'pack';
 
+    /** Лут без привязки к событию (паки level / классические ачивки). */
+    public const LOOT_EVENT_GLOBAL = 0;
+
     /** @var string[] */
     public const WC26_OPENABLE_CHEST_TYPES = [
         TreasureService::CHEST_TYPE_MATCH,
         TreasureService::CHEST_TYPE_SHOP_WC26,
         TreasureService::CHEST_TYPE_WC26_ACHIEVEMENT,
+    ];
+
+    /** @var string[] */
+    public const GENERIC_OPENABLE_CHEST_TYPES = [
+        TreasureService::CHEST_TYPE_LEVEL,
+        TreasureService::CHEST_TYPE_ACHIEVEMENT,
     ];
 
     /**
@@ -56,6 +65,14 @@ class ChestLootConfig
      */
     public static function getBlock3Table(): array
     {
+        return self::getWc26Block3Table();
+    }
+
+    /**
+     * @return array<int, array{code:string,weight:int,kind:string,category:string,label:string}>
+     */
+    public static function getWc26Block3Table(): array
+    {
         return [
             ['code' => 'pack_pennant_wc26', 'weight' => 5000, 'kind' => 'item', 'category' => self::CATEGORY_PACK, 'label' => 'Пак ЧМ-26: вымпел'],
             ['code' => 'pack_scarf_wc26', 'weight' => 3000, 'kind' => 'item', 'category' => self::CATEGORY_PACK, 'label' => 'Пак ЧМ-26: шарф'],
@@ -69,9 +86,34 @@ class ChestLootConfig
         ];
     }
 
+    /**
+     * Паки без привязки к событию (level / классические ачивки).
+     *
+     * @return array<int, array{code:string,weight:int,kind:string,category:string,label:string}>
+     */
+    public static function getGenericBlock3Table(): array
+    {
+        return [
+            ['code' => 'pack_pennant', 'weight' => 5000, 'kind' => 'item', 'category' => self::CATEGORY_PACK, 'label' => 'Пак: вымпел'],
+            ['code' => 'pack_scarf', 'weight' => 3000, 'kind' => 'item', 'category' => self::CATEGORY_PACK, 'label' => 'Пак: шарф'],
+            ['code' => 'pack_coach_action', 'weight' => 143, 'kind' => 'item', 'category' => self::CATEGORY_PACK, 'label' => 'Пак: действие тренера'],
+            ['code' => 'pack_field_action', 'weight' => 143, 'kind' => 'item', 'category' => self::CATEGORY_PACK, 'label' => 'Пак: действие на поле'],
+            ['code' => 'pack_formation', 'weight' => 143, 'kind' => 'item', 'category' => self::CATEGORY_PACK, 'label' => 'Пак: расстановка'],
+            ['code' => 'pack_coach', 'weight' => 143, 'kind' => 'item', 'category' => self::CATEGORY_PACK, 'label' => 'Пак: тренер'],
+            ['code' => 'pack_player', 'weight' => 286, 'kind' => 'item', 'category' => self::CATEGORY_PACK, 'label' => 'Пак: игрок'],
+            ['code' => 'pack_team', 'weight' => 571, 'kind' => 'item', 'category' => self::CATEGORY_PACK, 'label' => 'Пак: команда'],
+            ['code' => 'pack_actions', 'weight' => 571, 'kind' => 'item', 'category' => self::CATEGORY_PACK, 'label' => 'Пак: действия'],
+        ];
+    }
+
     public static function getLabel(string $code): string
     {
-        foreach ([self::getBlock1Table(), self::getBlock2Table(), self::getBlock3Table()] as $table) {
+        foreach ([
+            self::getBlock1Table(),
+            self::getBlock2Table(),
+            self::getWc26Block3Table(),
+            self::getGenericBlock3Table(),
+        ] as $table) {
             foreach ($table as $row) {
                 if (($row['code'] ?? '') === $code) {
                     return (string)($row['label'] ?? $code);
@@ -153,7 +195,7 @@ class ChestLootConfig
 
     public static function getItemCategory(string $code): string
     {
-        foreach ([self::getBlock2Table(), self::getBlock3Table()] as $table) {
+        foreach ([self::getBlock2Table(), self::getWc26Block3Table(), self::getGenericBlock3Table()] as $table) {
             foreach ($table as $row) {
                 if (($row['code'] ?? '') === $code) {
                     return (string)($row['category'] ?? self::CATEGORY_PACK);

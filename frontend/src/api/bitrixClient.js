@@ -288,6 +288,10 @@ export const apiActions = {
             'prognos9ys:main.GameController.openWc26Chests',
             { userToken, openAll: openAll ? 1 : 0 }
         ),
+        openChests: (userToken, pool, openAll = false) => runBitrixAction(
+            'prognos9ys:main.GameController.openChests',
+            { userToken, pool, openAll: openAll ? 1 : 0 }
+        ),
         getChestOpenLogMeta: (userToken) => runBitrixAction(
             'prognos9ys:main.GameController.getChestOpenLogMeta',
             { userToken }
