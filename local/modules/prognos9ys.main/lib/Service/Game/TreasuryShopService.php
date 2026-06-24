@@ -32,20 +32,92 @@ class TreasuryShopService
         $eventId = $this->scopeService->getAnchorEventId();
         $currentTour = $this->scopeService->getLastSettledMatchForEvent($eventId)['number'];
         $activeMilestone = $this->resolveActiveMilestone($userId, $currentTour);
+        $shopOpen = $currentTour >= GameEconomyConfig::TREASURY_SHOP_FIRST_MILESTONE;
 
         return [
             'event_id' => $eventId,
             'current_tour' => $currentTour,
-            'shop_open' => $currentTour >= GameEconomyConfig::TREASURY_SHOP_FIRST_MILESTONE,
+            'shop_open' => $shopOpen,
             'active_milestone' => $activeMilestone,
-            'offers' => $activeMilestone > 0
-                ? $this->buildOffers($userId, $activeMilestone, $currentTour)
+            'offers' => $shopOpen
+                ? $this->buildMergedOffers($userId, $currentTour)
                 : [],
             'next_milestone' => $this->nextMilestoneAfter($activeMilestone, $currentTour),
         ];
     }
 
-    public function buyChest(int $userId, string $currency): array
+    /**
+     * После пересчёта матча с этапом лавки (40, 50, 60…) создаёт записи волн для игроков.
+     *
+     * @return array{
+     *   is_milestone:bool,
+     *   milestone:int,
+     *   eligible:int,
+     *   waves_created:int,
+     *   waves_existing:int,
+     *   log_text:string
+     * }
+     */
+    public function provisionWavesForSettledMatch(int $matchId, bool $dryRun = false): array
+    {
+        $empty = [
+            'is_milestone' => false,
+            'milestone' => 0,
+            'eligible' => 0,
+            'waves_created' => 0,
+            'waves_existing' => 0,
+            'log_text' => '',
+        ];
+
+        if ($matchId <= 0) {
+            return $empty;
+        }
+
+        $eventId = $this->scopeService->getEventIdForMatch($matchId);
+        $matchNumber = $this->scopeService->getMatchNumber($matchId);
+        $anchorEventId = $this->scopeService->getAnchorEventId();
+
+        if ($eventId !== $anchorEventId || $matchNumber <= 0) {
+            return $empty;
+        }
+
+        if (!$this->isTreasuryShopMilestone($matchNumber)) {
+            return $empty;
+        }
+
+        $userIds = $this->resolveUserIdsForMilestoneProvision($matchNumber);
+        $created = 0;
+        $existing = 0;
+
+        foreach ($userIds as $userId) {
+            if ($this->repository->getTreasuryShopWave($userId, $matchNumber)) {
+                $existing++;
+                continue;
+            }
+
+            if ($dryRun) {
+                $created++;
+                continue;
+            }
+
+            $this->ensureWaveRow($userId, $matchNumber);
+            $created++;
+        }
+
+        $eligible = count($userIds);
+        $logText = $this->buildProvisionLogText($matchNumber, $eligible, $created, $existing);
+
+        return [
+            'is_milestone' => true,
+            'milestone' => $matchNumber,
+            'eligible' => $eligible,
+            'waves_created' => $created,
+            'waves_existing' => $existing,
+            'log_text' => $logText,
+        ];
+    }
+
+    public function buyChest(int $userId, string $currency, int $milestone = 0): array
     {
         if (!in_array($currency, [
             GameEconomyConfig::CURRENCY_PROGNOBAKS,
@@ -55,18 +127,15 @@ class TreasuryShopService
         }
 
         $state = $this->getShopState($userId);
-        $milestone = (int)($state['active_milestone'] ?? 0);
-
-        if ($milestone <= 0) {
+        if (!($state['shop_open'] ?? false)) {
             throw new \RuntimeException('Лавка пока недоступна');
         }
 
-        $offers = $state['offers'] ?? [];
-        $offerKey = $currency === GameEconomyConfig::CURRENCY_PROGNOBAKS
+        $baseKey = $currency === GameEconomyConfig::CURRENCY_PROGNOBAKS
             ? 'prognobaks_chest'
             : 'rublius_chest';
 
-        $offer = $offers[$offerKey] ?? null;
+        $offer = $this->findOffer($state['offers'] ?? [], $baseKey, $milestone);
         if (!$offer || !($offer['available'] ?? false)) {
             throw new \RuntimeException('Предложение недоступно');
         }
@@ -75,6 +144,7 @@ class TreasuryShopService
             throw new \RuntimeException('Сундук уже куплен');
         }
 
+        $milestone = (int)($offer['milestone'] ?? 0);
         $price = (float)($offer['price'] ?? 0);
         $wave = $this->ensureWaveRow($userId, $milestone);
         $waveId = (int)$wave['ID'];
@@ -112,16 +182,15 @@ class TreasuryShopService
         ];
     }
 
-    public function buyPremium(int $userId, string $offerKey = 'premium_1d'): array
+    public function buyPremium(int $userId, string $offerKey = 'premium_1d', int $milestone = 0): array
     {
         $state = $this->getShopState($userId);
-        $milestone = (int)($state['active_milestone'] ?? 0);
-
-        if ($milestone <= 0) {
+        if (!($state['shop_open'] ?? false)) {
             throw new \RuntimeException('Лавка пока недоступна');
         }
 
-        $offer = ($state['offers'] ?? [])[$offerKey] ?? null;
+        $baseKey = $this->normalizePremiumOfferKey($offerKey);
+        $offer = $this->findOffer($state['offers'] ?? [], $baseKey, $milestone, $offerKey);
         if (!$offer || !($offer['available'] ?? false)) {
             throw new \RuntimeException('Предложение недоступно');
         }
@@ -133,6 +202,7 @@ class TreasuryShopService
         $currency = GameEconomyConfig::CURRENCY_RUBLIUS;
         $price = (float)($offer['price'] ?? 0);
         $days = (int)($offer['days'] ?? 1);
+        $milestone = (int)($offer['milestone'] ?? 0);
         $wave = $this->ensureWaveRow($userId, $milestone);
         $waveId = (int)$wave['ID'];
 
@@ -148,7 +218,7 @@ class TreasuryShopService
             $this->treasuryService->credit($currency, $price, 'treasury_shop_wave', $waveId);
         }
 
-        $boughtField = $this->getPremiumBoughtField($offerKey);
+        $boughtField = $this->getPremiumBoughtField($baseKey);
         $this->repository->updateTreasuryShopWave($waveId, [
             $boughtField => true,
             'UF_UPDATED_AT' => new DateTime(),
@@ -185,20 +255,17 @@ class TreasuryShopService
     {
         $state = $this->getShopState($userId);
         $offers = $state['offers'] ?? [];
-        $prognobaks = $offers['prognobaks_chest'] ?? [];
-        $rublius = $offers['rublius_chest'] ?? [];
-        $premium = $offers['premium_1d'] ?? [];
         $milestone = (int)($state['active_milestone'] ?? 0);
-        $shopOpen = (bool)($state['shop_open'] ?? false) && $milestone > 0;
+        $shopOpen = (bool)($state['shop_open'] ?? false);
 
         return [
             'active_milestone' => $milestone,
-            'prognobaks_bought' => (bool)($prognobaks['bought'] ?? false),
-            'rublius_bought' => (bool)($rublius['bought'] ?? false),
-            'premium_bought' => (bool)($premium['bought'] ?? false),
-            'prognobaks_available' => $shopOpen && (bool)($prognobaks['available'] ?? false),
-            'rublius_available' => $shopOpen && (bool)($rublius['available'] ?? false),
-            'premium_available' => $shopOpen && (bool)($premium['available'] ?? false),
+            'prognobaks_bought' => !$shopOpen || !$this->hasAvailableOffer($offers, 'prognobaks_chest'),
+            'rublius_bought' => !$shopOpen || !$this->hasAvailableOffer($offers, 'rublius_chest'),
+            'premium_bought' => !$shopOpen || !$this->hasAvailableOffer($offers, 'premium_1d'),
+            'prognobaks_available' => $shopOpen && $this->hasAvailableOffer($offers, 'prognobaks_chest'),
+            'rublius_available' => $shopOpen && $this->hasAvailableOffer($offers, 'rublius_chest'),
+            'premium_available' => $shopOpen && $this->hasAvailableOffer($offers, 'premium_1d'),
         ];
     }
 
@@ -209,47 +276,51 @@ class TreasuryShopService
         }
 
         $milestones = GameEconomyConfig::getTreasuryShopMilestonesUpTo($currentTour);
-        if (!$milestones) {
-            return 0;
-        }
 
-        $chainOk = true;
-        $active = 0;
+        return $milestones ? (int)end($milestones) : 0;
+    }
+
+    /**
+     * Все незакупленные позиции по всем открытым волнам (40, 50…).
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private function buildMergedOffers(int $userId, int $currentTour): array
+    {
+        $offers = [];
+        $milestones = GameEconomyConfig::getTreasuryShopMilestonesUpTo($currentTour);
+        $showWaveInLabel = count($milestones) > 1;
 
         foreach ($milestones as $milestone) {
-            if (!$chainOk) {
-                break;
+            $wave = $this->ensureWaveRow($userId, (int)$milestone);
+
+            foreach ($this->buildWaveOffers($wave, (int)$milestone) as $baseKey => $offer) {
+                $offer['base_key'] = $baseKey;
+                $offer['milestone'] = (int)$milestone;
+                $offer['key'] = 'm' . $milestone . '_' . $baseKey;
+
+                if ($showWaveInLabel) {
+                    $offer['label'] = trim((string)($offer['label'] ?? ''))
+                        . ' · тур ' . $milestone;
+                }
+
+                $offers[$offer['key']] = $offer;
             }
-
-            $active = $milestone;
-
-            if ($milestone === GameEconomyConfig::TREASURY_SHOP_FIRST_MILESTONE) {
-                continue;
-            }
-
-            $prev = $milestone - GameEconomyConfig::TREASURY_SHOP_MILESTONE_STEP;
-            $prevWave = $this->repository->getTreasuryShopWave($userId, $prev);
-            $chainOk = $prevWave
-                && $this->isTruthy($prevWave['UF_PROGNOBAKS_BOUGHT'] ?? false)
-                && $this->isTruthy($prevWave['UF_RUBLIUS_BOUGHT'] ?? false);
         }
 
-        return $chainOk ? $active : 0;
+        return $offers;
     }
 
     /**
      * @return array<string, array<string, mixed>>
      */
-    private function buildOffers(int $userId, int $milestone, int $currentTour): array
-    {
-        $wave = $this->ensureWaveRow($userId, $milestone);
+    private function buildWaveOffers(array $wave, int $milestone): array
         $pBought = $this->isTruthy($wave['UF_PROGNOBAKS_BOUGHT'] ?? false);
         $rBought = $this->isTruthy($wave['UF_RUBLIUS_BOUGHT'] ?? false);
         $premium1dBought = $this->isTruthy($wave['UF_PREMIUM_BOUGHT'] ?? false);
 
         return [
             'prognobaks_chest' => [
-                'key' => 'prognobaks_chest',
                 'label' => 'Сундук ЧМ-26',
                 'price' => GameEconomyConfig::TREASURY_SHOP_CHEST_PROGNOBAKS_PRICE,
                 'currency' => GameEconomyConfig::CURRENCY_PROGNOBAKS,
@@ -257,7 +328,6 @@ class TreasuryShopService
                 'available' => !$pBought,
             ],
             'rublius_chest' => [
-                'key' => 'rublius_chest',
                 'label' => 'Сундук ЧМ-26',
                 'price' => GameEconomyConfig::TREASURY_SHOP_CHEST_RUBLIUS_PRICE,
                 'currency' => GameEconomyConfig::CURRENCY_RUBLIUS,
@@ -265,7 +335,6 @@ class TreasuryShopService
                 'available' => !$rBought,
             ],
             'premium_1d' => [
-                'key' => 'premium_1d',
                 'label' => 'Премиум 1 сутки',
                 'days' => 1,
                 'emoji' => '📜',
@@ -275,6 +344,55 @@ class TreasuryShopService
                 'available' => !$premium1dBought,
             ],
         ];
+    }
+
+    /**
+     * @param array<string, array<string, mixed>> $offers
+     */
+    private function findOffer(array $offers, string $baseKey, int $milestone = 0, string $offerKey = ''): ?array
+    {
+        if ($offerKey !== '' && isset($offers[$offerKey])) {
+            return $offers[$offerKey];
+        }
+
+        foreach ($offers as $offer) {
+            if (($offer['base_key'] ?? '') !== $baseKey) {
+                continue;
+            }
+
+            if ($milestone > 0 && (int)($offer['milestone'] ?? 0) !== $milestone) {
+                continue;
+            }
+
+            if ($offer['available'] ?? false) {
+                return $offer;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string, array<string, mixed>> $offers
+     */
+    private function hasAvailableOffer(array $offers, string $baseKey): bool
+    {
+        foreach ($offers as $offer) {
+            if (($offer['base_key'] ?? '') === $baseKey && ($offer['available'] ?? false)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function normalizePremiumOfferKey(string $offerKey): string
+    {
+        if (preg_match('/^m\d+_(premium(?:_\dd)?)$/', $offerKey, $matches)) {
+            return $matches[1];
+        }
+
+        return $offerKey;
     }
 
     private function getPremiumBoughtField(string $offerKey): string
@@ -482,5 +600,53 @@ class TreasuryShopService
         if ($grantType === 'premium') {
             $this->treasureService->grantPremiumScroll($userId, $milestone, 1);
         }
+    }
+
+    private function isTreasuryShopMilestone(int $matchNumber): bool
+    {
+        if ($matchNumber < GameEconomyConfig::TREASURY_SHOP_FIRST_MILESTONE) {
+            return false;
+        }
+
+        if ($matchNumber > 200) {
+            return false;
+        }
+
+        return ($matchNumber - GameEconomyConfig::TREASURY_SHOP_FIRST_MILESTONE)
+            % GameEconomyConfig::TREASURY_SHOP_MILESTONE_STEP === 0;
+    }
+
+    /**
+     * @return int[]
+     */
+    private function resolveUserIdsForMilestoneProvision(int $milestone): array
+    {
+        return $this->repository->getDistinctWalletUserIds();
+    }
+
+    private function buildProvisionLogText(int $milestone, int $eligible, int $created, int $existing): string
+    {
+        if ($milestone === GameEconomyConfig::TREASURY_SHOP_FIRST_MILESTONE) {
+            if ($eligible <= 0) {
+                return 'Лавка ЧМ-26: открыта волна ' . $milestone . ' (нет кошельков игроков)';
+            }
+
+            return 'Лавка ЧМ-26: открыта волна ' . $milestone
+                . ' — записей ' . ($created + $existing)
+                . ' (новых ' . $created . ')';
+        }
+
+        if ($eligible <= 0) {
+            return 'Лавка ЧМ-26: волна ' . $milestone . ' — без пополнения (нет кошельков игроков)';
+        }
+
+        if ($created > 0) {
+            return 'Лавка ЧМ-26 пополнена: волна ' . $milestone
+                . ' — ' . $eligible . ' игроков, новых записей ' . $created
+                . ($existing > 0 ? ', уже было ' . $existing : '');
+        }
+
+        return 'Лавка ЧМ-26 пополнена: волна ' . $milestone
+            . ' — ' . $eligible . ' игроков (записи уже были)';
     }
 }

@@ -389,6 +389,10 @@ class CalcFootballPrognosisResult
         }
 
         $matchId = (int)$this->data['matchId'];
+        $treasuryShopProvision = [
+            'is_milestone' => false,
+            'log_text' => '',
+        ];
 
         // Ставки — в первую очередь (админ ждёт лог; ачивки проверяются при открытии профиля).
         try {
@@ -403,7 +407,13 @@ class CalcFootballPrognosisResult
             } catch (\Throwable $exception) {
                 $this->logGameEconomyError('markMatchEconomySettled', $matchId, $exception);
             }
-            $this->applySettlementLogToResult($matchId, $deleted, $backfill, $participation, $settle);
+            try {
+                $treasuryShopProvision = (new \Prognos9ys\Main\Service\Game\TreasuryShopService())
+                    ->provisionWavesForSettledMatch($matchId);
+            } catch (\Throwable $exception) {
+                $this->logGameEconomyError('treasuryShopProvision', $matchId, $exception);
+            }
+            $this->applySettlementLogToResult($matchId, $deleted, $backfill, $participation, $settle, $treasuryShopProvision);
             error_log(sprintf(
                 'CalcFootballPrognosisResult [betSettlement] match=%d %s',
                 $matchId,
@@ -456,7 +466,8 @@ class CalcFootballPrognosisResult
         int $reset,
         array $backfill,
         array $participation,
-        array $settle
+        array $settle,
+        array $treasuryShopProvision = []
     ): void
     {
         $prognosisCount = is_array($this->arResults) ? count($this->arResults) : 0;
@@ -525,6 +536,16 @@ class CalcFootballPrognosisResult
             if ($leftover > 0) {
                 $lines[] = ['text' => 'Остаток в пул parimutuel: ' . $leftover . ' 🪙', 'status' => 'skip'];
             }
+        }
+
+        $treasuryLog = trim((string)($treasuryShopProvision['log_text'] ?? ''));
+        if ($treasuryLog !== '') {
+            $eligible = (int)($treasuryShopProvision['eligible'] ?? 0);
+            $created = (int)($treasuryShopProvision['waves_created'] ?? 0);
+            $lines[] = [
+                'text' => $treasuryLog,
+                'status' => ($eligible > 0 && $created >= 0) ? 'ok' : 'skip',
+            ];
         }
 
         $lines[] = ['text' => 'Готово', 'status' => 'ok'];

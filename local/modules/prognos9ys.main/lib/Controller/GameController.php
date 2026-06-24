@@ -172,7 +172,7 @@ class GameController extends BaseController
         ];
     }
 
-    public function buyTreasuryChestAction(string $currency, int $targetUserId = 0): array
+    public function buyTreasuryChestAction(string $currency, int $targetUserId = 0, int $milestone = 0): array
     {
         $actorId = TokenAuthService::getCurrentUserId();
 
@@ -181,7 +181,7 @@ class GameController extends BaseController
         }
 
         $userId = $this->resolveTargetUserId($actorId, $targetUserId);
-        $result = (new TreasuryShopService())->buyChest($userId, $currency);
+        $result = (new TreasuryShopService())->buyChest($userId, $currency, $milestone);
 
         $response = array_merge(['status' => 'ok', 'target_user_id' => $userId], $result);
         $response['wallet'] = (new WalletService())->getWalletSummary($userId);
@@ -193,7 +193,7 @@ class GameController extends BaseController
         return $response;
     }
 
-    public function buyTreasuryPremiumAction(string $offerKey = 'premium_1d', int $targetUserId = 0): array
+    public function buyTreasuryPremiumAction(string $offerKey = 'premium_1d', int $targetUserId = 0, int $milestone = 0): array
     {
         $actorId = TokenAuthService::getCurrentUserId();
 
@@ -202,7 +202,7 @@ class GameController extends BaseController
         }
 
         $userId = $this->resolveTargetUserId($actorId, $targetUserId);
-        $result = (new TreasuryShopService())->buyPremium($userId, $offerKey);
+        $result = (new TreasuryShopService())->buyPremium($userId, $offerKey, $milestone);
 
         $response = array_merge(['status' => 'ok', 'target_user_id' => $userId], $result);
         $response['wallet'] = (new WalletService())->getWalletSummary($userId);

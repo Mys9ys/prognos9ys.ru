@@ -195,13 +195,18 @@ export const apiActions = {
             'prognos9ys:main.GameController.getTreasuryShop',
             { userToken }
         ),
-        buyTreasuryChest: (userToken, currency, targetUserId = 0) => runBitrixAction(
+        buyTreasuryChest: (userToken, currency, targetUserId = 0, milestone = 0) => runBitrixAction(
             'prognos9ys:main.GameController.buyTreasuryChest',
-            { userToken, currency, targetUserId: targetUserId || undefined }
+            { userToken, currency, targetUserId: targetUserId || undefined, milestone: milestone || undefined }
         ),
-        buyTreasuryPremium: (userToken, offerKey = 'premium_1d', targetUserId = 0) => runBitrixAction(
+        buyTreasuryPremium: (userToken, offerKey = 'premium_1d', targetUserId = 0, milestone = 0) => runBitrixAction(
             'prognos9ys:main.GameController.buyTreasuryPremium',
-            { userToken, offerKey, targetUserId: targetUserId || undefined }
+            {
+                userToken,
+                offerKey,
+                targetUserId: targetUserId || undefined,
+                milestone: milestone || undefined,
+            }
         ),
         createGovSupportDeposit: (userToken, bankId, eventId = 0) => runBitrixAction(
             'prognos9ys:main.GameController.createGovSupportDeposit',

@@ -1921,6 +1921,70 @@ class GameEconomyRepository
         return $row ?: null;
     }
 
+    /**
+     * Пользователи с волной лавки на этапе, у которых выкуплены оба сундука (🪙 + 💎).
+     *
+     * @return int[]
+     */
+    public function getUserIdsWithCompletedTreasuryShopMilestone(int $milestone): array
+    {
+        if ($milestone <= 0) {
+            return [];
+        }
+
+        $dataClass = $this->getTreasuryShopWaveDataClass();
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_MILESTONE' => $milestone,
+            ],
+            'select' => ['UF_USER_ID', 'UF_PROGNOBAKS_BOUGHT', 'UF_RUBLIUS_BOUGHT'],
+            'order' => ['UF_USER_ID' => 'ASC'],
+        ]);
+
+        $userIds = [];
+        while ($row = $response->fetch()) {
+            $pBought = $row['UF_PROGNOBAKS_BOUGHT'] ?? false;
+            $rBought = $row['UF_RUBLIUS_BOUGHT'] ?? false;
+            if (!$this->isTreasuryShopTruthy($pBought) || !$this->isTreasuryShopTruthy($rBought)) {
+                continue;
+            }
+
+            $userId = (int)($row['UF_USER_ID'] ?? 0);
+            if ($userId > 0) {
+                $userIds[$userId] = $userId;
+            }
+        }
+
+        return array_values($userIds);
+    }
+
+    /**
+     * @return int[]
+     */
+    public function getDistinctWalletUserIds(): array
+    {
+        $dataClass = $this->getWalletDataClass();
+        $response = $dataClass::getList([
+            'select' => ['UF_USER_ID'],
+            'order' => ['UF_USER_ID' => 'ASC'],
+        ]);
+
+        $userIds = [];
+        while ($row = $response->fetch()) {
+            $userId = (int)($row['UF_USER_ID'] ?? 0);
+            if ($userId > 0) {
+                $userIds[$userId] = $userId;
+            }
+        }
+
+        return array_values($userIds);
+    }
+
+    private function isTreasuryShopTruthy($value): bool
+    {
+        return $value === true || $value === 1 || $value === '1' || $value === 'Y';
+    }
+
     public function getTreasuryShopWaveById(int $id): ?array
     {
         if ($id <= 0) {

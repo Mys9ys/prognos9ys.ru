@@ -24,8 +24,8 @@
           Лавка откроется с {{ firstMilestone }}-го матча с результатом.
         </div>
 
-        <div class="shop_closed" v-else-if="shop && !shop.active_milestone">
-          Нет активных предложений. Выкупите оба сундука на прошлой волне, чтобы открылась следующая.
+        <div class="shop_closed" v-else-if="shop && !hasOffers">
+          Сейчас нет доступных предложений — всё выкуплено на открытых этапах.
         </div>
 
         <div class="offers" v-else-if="shop && offers.length">
@@ -50,7 +50,7 @@
         </div>
 
         <div class="shop_hint" v-if="shop?.next_milestone">
-          Следующая волна — с {{ shop.next_milestone }} матча с результатом (если выкупите оба сундука).
+          Следующая волна — с {{ shop.next_milestone }} матча с результатом.
         </div>
       </template>
     </div>
@@ -62,7 +62,7 @@ import { mapActions, mapState } from 'vuex';
 import PreLoader from '@/components/main/PreLoader';
 import AppIcon from '@/components/ui/AppIcon.vue';
 import { apiActions } from '@/api/bitrixClient';
-import { countNewTreasuryOffers, treasuryShopMatchesEvent } from '@/utils/treasuryShopUtils';
+import { countNewTreasuryOffers, listTreasuryOffers, treasuryShopMatchesEvent } from '@/utils/treasuryShopUtils';
 
 const FIRST_MILESTONE = 40;
 
@@ -102,20 +102,20 @@ export default {
         return true;
       }
 
-      return this.loaded && treasuryShopMatchesEvent(this.shop, this.eventId);
+      if (!this.loaded) {
+        return true;
+      }
+
+      return treasuryShopMatchesEvent(this.shop, this.eventId);
+    },
+    hasOffers() {
+      return this.offers.some((offer) => offer?.available && !offer?.bought);
     },
     newOffersCount() {
       return countNewTreasuryOffers(this.shop);
     },
     offers() {
-      const raw = this.shop?.offers || {};
-      const keys = [
-        'prognobaks_chest',
-        'rublius_chest',
-        'premium_1d',
-      ];
-
-      return keys.map((key) => raw[key]).filter(Boolean);
+      return listTreasuryOffers(this.shop);
     },
   },
   watch: {
@@ -165,7 +165,8 @@ export default {
     },
 
     isPremiumOffer(offer) {
-      return String(offer?.key || '').startsWith('premium');
+      const key = String(offer?.base_key || offer?.key || '');
+      return key === 'premium_1d' || key.endsWith('_premium_1d') || key.includes('premium');
     },
 
     async onBuy(offer) {
@@ -178,8 +179,18 @@ export default {
       this.message = '';
       try {
         const data = this.isPremiumOffer(offer)
-          ? await apiActions.game.buyTreasuryPremium(this.authData.token, offer.key)
-          : await apiActions.game.buyTreasuryChest(this.authData.token, offer.currency);
+          ? await apiActions.game.buyTreasuryPremium(
+            this.authData.token,
+            offer.key,
+            0,
+            offer.milestone || 0,
+          )
+          : await apiActions.game.buyTreasuryChest(
+            this.authData.token,
+            offer.currency,
+            0,
+            offer.milestone || 0,
+          );
 
         if (data?.status === 'ok') {
           this.shop = data.shop || this.shop;
