@@ -315,6 +315,7 @@ class TreasuryShopService
      * @return array<string, array<string, mixed>>
      */
     private function buildWaveOffers(array $wave, int $milestone): array
+    {
         $pBought = $this->isTruthy($wave['UF_PROGNOBAKS_BOUGHT'] ?? false);
         $rBought = $this->isTruthy($wave['UF_RUBLIUS_BOUGHT'] ?? false);
         $premium1dBought = $this->isTruthy($wave['UF_PREMIUM_BOUGHT'] ?? false);
