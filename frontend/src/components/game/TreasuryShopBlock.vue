@@ -24,8 +24,8 @@
           Лавка откроется с {{ firstMilestone }}-го матча с результатом.
         </div>
 
-        <div class="shop_closed" v-else-if="shop && !hasOffers">
-          Сейчас нет доступных предложений — всё выкуплено на открытых этапах.
+        <div class="shop_closed" v-else-if="shop && offers.length === 0">
+          Сейчас нет предложений на открытых этапах.
         </div>
 
         <div class="offers" v-else-if="shop && offers.length">
@@ -34,7 +34,7 @@
               :key="offer.key"
               type="button"
               class="offer_btn"
-              :class="{ bought: offer.bought, disabled: !offer.available }"
+              :class="{ bought: offer.bought, disabled: offer.bought || !offer.available }"
               :disabled="buying || offer.bought || !offer.available"
               @click="onBuy(offer)"
           >
@@ -107,9 +107,6 @@ export default {
       }
 
       return treasuryShopMatchesEvent(this.shop, this.eventId);
-    },
-    hasOffers() {
-      return this.offers.some((offer) => offer?.available && !offer?.bought);
     },
     newOffersCount() {
       return countNewTreasuryOffers(this.shop);
@@ -308,14 +305,32 @@ export default {
   color: @colorText;
   cursor: pointer;
 
+  &.bought,
+  &.disabled {
+    border-color: @colorBlur;
+    opacity: 0.42;
+    cursor: default;
+    pointer-events: none;
+    background: rgba(0, 0, 0, 0.12);
+    filter: grayscale(0.35);
+
+    .offer_title,
+    .offer_state {
+      color: fade(@colorBlur, 80%);
+    }
+
+    .offer_price {
+      color: @colorBlur;
+      font-weight: 500;
+    }
+  }
+
   &.bought {
-    border-color: @YesWrite;
-    opacity: 0.65;
+    border-color: fade(@YesWrite, 45%);
   }
 
   &.disabled:not(.bought) {
     opacity: 0.45;
-    cursor: not-allowed;
   }
 
   .offer_emoji {

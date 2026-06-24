@@ -1,6 +1,7 @@
 <template>
   <PreLoader v-if="elLoader"></PreLoader>
   <PageHeader class="header">Таблица</PageHeader>
+  <TreasuryShopBlock :event-id="eventId" />
   <div class="title_wrapper" v-if="tableData.info">
     <div class="logo" >
       <img :src="url + tableData.info.img" alt="">
@@ -112,6 +113,7 @@ import PageHeader from "@/components/main/PageHeader";
 import {mapActions, mapState} from "vuex";
 import PreLoader from "@/components/main/PreLoader";
 import EventMatch from "@/components/football/EventMatch";
+import TreasuryShopBlock from "@/components/game/TreasuryShopBlock";
 
 export default {
   name: "FootballTable",
@@ -119,6 +121,7 @@ export default {
     PageHeader,
     PreLoader,
     EventMatch,
+    TreasuryShopBlock,
   },
   data() {
     return {
@@ -188,6 +191,9 @@ export default {
     thirdPlaces() {
       const places = this.tableData?.thirdPlaces;
       return Array.isArray(places) ? places : Object.values(places || {});
+    },
+    eventId() {
+      return this.$route.params.event;
     },
   },
 }

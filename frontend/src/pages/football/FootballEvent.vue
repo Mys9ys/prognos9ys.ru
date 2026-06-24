@@ -2,7 +2,6 @@
   <PreLoader v-if="loading"></PreLoader>
   <div v-else class="event_wrapper">
     <PageHeader class="header">Соревнование</PageHeader>
-    <TreasuryShopBlock :event-id="eventId" />
     <SectionMatches
         v-for="(arrSection, index) in arMatches"
         :arMatches="arrSection"
@@ -17,15 +16,13 @@ import PageHeader from "@/components/main/PageHeader";
 import {mapActions, mapState} from "vuex";
 import PreLoader from "@/components/main/PreLoader";
 import SectionMatches from "@/components/football/SectionMatches";
-import TreasuryShopBlock from "@/components/game/TreasuryShopBlock";
 
 export default {
   name: "FBEvent",
   components: {
     PageHeader,
     PreLoader,
-    SectionMatches,
-    TreasuryShopBlock,
+    SectionMatches
   },
   data() {
     return {
@@ -54,10 +51,7 @@ export default {
       queryEvent: state => state.football.queryEvent,
       token: state => state.auth.authData.token,
       arMatches: state => state.football.matches,
-    }),
-    eventId() {
-      return this.$route.params.event;
-    },
+    })
   },
 }
 </script>
