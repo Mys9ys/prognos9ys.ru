@@ -3,6 +3,8 @@
 namespace Prognos9ys\Main\Service\Game;
 
 use Bitrix\Main\Type\DateTime;
+use Bitrix\Main\UserTable;
+use Prognos9ys\Main\Service\Auth\ImpersonationService;
 use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
 
 class GovSupportDepositService
@@ -129,7 +131,7 @@ class GovSupportDepositService
             throw new \RuntimeException('Вклад не найден');
         }
 
-        if ((int)($deposit['UF_USER_ID'] ?? 0) !== $userId) {
+        if (!$this->canManageGovDeposit($userId, $deposit)) {
             throw new \RuntimeException('Нет доступа к этому вкладу');
         }
 
@@ -186,7 +188,7 @@ class GovSupportDepositService
             throw new \RuntimeException('Вклад не найден');
         }
 
-        if ((int)($deposit['UF_USER_ID'] ?? 0) !== $userId) {
+        if (!$this->canManageGovDeposit($userId, $deposit)) {
             throw new \RuntimeException('Нет доступа к этому вкладу');
         }
 
@@ -220,11 +222,19 @@ class GovSupportDepositService
         return self::formatContract($this->repository->getBankDepositById($depositId));
     }
 
-    public function getMyContracts(int $userId): array
+    public function getContractsForViewer(int $userId, bool $seeAll = false): array
     {
+        $rows = $seeAll
+            ? $this->repository->getActiveGovSupportDeposits()
+            : $this->repository->getDepositsByUserId($userId);
+
         $items = [];
-        foreach ($this->repository->getDepositsByUserId($userId) as $row) {
-            if (!$this->isGovSupportDeposit($row)) {
+        foreach ($rows as $row) {
+            if (!$seeAll && !$this->isGovSupportDeposit($row)) {
+                continue;
+            }
+
+            if ($seeAll && !$this->isGovSupportDeposit($row)) {
                 continue;
             }
 
@@ -232,10 +242,17 @@ class GovSupportDepositService
                 continue;
             }
 
-            $items[] = self::formatContract($row);
+            $item = self::formatContract($row);
+            $item['opened_by'] = $this->resolveModeratorBrief((int)($row['UF_USER_ID'] ?? 0));
+            $items[] = $item;
         }
 
         return $items;
+    }
+
+    public function getMyContracts(int $userId): array
+    {
+        return $this->getContractsForViewer($userId, false);
     }
 
     public function hasActiveGovDeposit(int $userId): bool
@@ -295,6 +312,11 @@ class GovSupportDepositService
 
     private static function forceCloseBlockMessage(string $reason): string
     {
+        return self::getForceCloseBlockMessage($reason);
+    }
+
+    public static function getForceCloseBlockMessage(string $reason): string
+    {
         switch ($reason) {
             case 'bank_liquid_moved':
                 return 'Досрочное изъятие недоступно: в банке нет свободной ликвидности';
@@ -308,18 +330,152 @@ class GovSupportDepositService
         }
     }
 
-    public static function formatContract(array $row): array
+    public static function getOwnerReturnBlockMessage(string $reason): string
+    {
+        if ($reason === 'bank_liquid_moved') {
+            return 'В банке нет свободной ликвидности для возврата вклада';
+        }
+
+        return self::getForceCloseBlockMessage($reason);
+    }
+
+    /**
+     * @return array{can_return:bool,early:bool,reason?:string}
+     */
+    public static function evaluateOwnerReturnEligibility(
+        array $row,
+        ?GameEconomyRepository $repository = null
+    ): array {
+        $repository = $repository ?? new GameEconomyRepository();
+        $status = (string)($row['UF_STATUS'] ?? '');
+
+        if ($status === GameEconomyConfig::CONTRACT_STATUS_CLOSED) {
+            return ['can_return' => false, 'early' => false, 'reason' => 'closed'];
+        }
+
+        $principal = round((float)($row['UF_PRINCIPAL'] ?? 0), 1);
+        $bankId = (int)($row['UF_BANK_ID'] ?? 0);
+        $bank = $repository->getUserBankById($bankId);
+        if (!$bank) {
+            return ['can_return' => false, 'early' => false, 'reason' => 'bank_not_found'];
+        }
+
+        $liquid = round((float)($bank['UF_LIQUID'] ?? 0), 1);
+        if ($liquid < $principal) {
+            return ['can_return' => false, 'early' => false, 'reason' => 'bank_liquid_moved'];
+        }
+
+        if ($status === GameEconomyConfig::CONTRACT_STATUS_INTEREST_PAID) {
+            return ['can_return' => true, 'early' => false];
+        }
+
+        $forceClose = self::evaluateForceCloseEligibility($row, $repository);
+        if (!empty($forceClose['can_force_close'])) {
+            return ['can_return' => true, 'early' => true];
+        }
+
+        return [
+            'can_return' => false,
+            'early' => false,
+            'reason' => (string)($forceClose['reason'] ?? 'not_active'),
+        ];
+    }
+
+    public static function formatContract(array $row, ?GameEconomyRepository $repository = null): array
     {
         $formatted = BankDepositService::formatContract($row);
         $formatted['contract_type'] = GameEconomyConfig::CONTRACT_TYPE_GOV_SUPPORT;
         $formatted['interest_amount'] = GameEconomyConfig::calculateGovSupportInterest(
             round((float)($row['UF_PRINCIPAL'] ?? 0), 1)
         );
-        $formatted['can_close'] = ($row['UF_STATUS'] ?? '') === GameEconomyConfig::CONTRACT_STATUS_INTEREST_PAID;
-        $forceClose = self::evaluateForceCloseEligibility($row);
-        $formatted['can_force_close'] = (bool)($forceClose['can_force_close'] ?? false);
+        $returnCheck = self::evaluateOwnerReturnEligibility($row, $repository);
+        $formatted['can_close'] = !empty($returnCheck['can_return']) && empty($returnCheck['early']);
+        $formatted['can_force_close'] = !empty($returnCheck['can_return']) && !empty($returnCheck['early']);
+        if (!empty($returnCheck['can_return'])) {
+            $formatted['owner_return_hint'] = !empty($returnCheck['early']) ? 'досрочно, без процентов' : '';
+        } else {
+            $formatted['owner_return_hint'] = self::getOwnerReturnBlockMessage($returnCheck['reason'] ?? '');
+        }
         $formatted['label'] = 'Гос. вклад поддержки';
+        $formatted['is_gov_support'] = true;
+        $status = (string)($row['UF_STATUS'] ?? '');
+        $interestAmount = (float)($formatted['interest_amount'] ?? 0);
+        $formatted['interest_paid'] = in_array($status, [
+            GameEconomyConfig::CONTRACT_STATUS_INTEREST_PAID,
+            GameEconomyConfig::CONTRACT_STATUS_CLOSED,
+        ], true);
+        if ($formatted['interest_paid'] && $interestAmount > 0) {
+            $formatted['interest_status_label'] = 'Проценты выплачены в казну: ' . $interestAmount . ' 🪙';
+        } elseif ($interestAmount > 0) {
+            $formatted['interest_status_label'] = 'Проценты после 5 туров: ' . $interestAmount . ' 🪙';
+        } else {
+            $formatted['interest_status_label'] = '';
+        }
 
         return $formatted;
+    }
+
+    private function canManageGovDeposit(int $actorId, array $deposit): bool
+    {
+        if ($actorId <= 0) {
+            return false;
+        }
+
+        if ((int)($deposit['UF_USER_ID'] ?? 0) === $actorId) {
+            return true;
+        }
+
+        if ($this->isBankOwnerOfDeposit($actorId, $deposit)) {
+            return true;
+        }
+
+        return (new ImpersonationService())->canImpersonate($actorId);
+    }
+
+    private function isBankOwnerOfDeposit(int $userId, array $deposit): bool
+    {
+        if ($userId <= 0) {
+            return false;
+        }
+
+        $bankId = (int)($deposit['UF_BANK_ID'] ?? 0);
+        if ($bankId <= 0) {
+            return false;
+        }
+
+        $bank = $this->repository->getUserBankById($bankId);
+
+        return $bank && (int)($bank['UF_OWNER_ID'] ?? 0) === $userId;
+    }
+
+    private function resolveModeratorBrief(int $userId): array
+    {
+        if ($userId <= 0) {
+            return ['id' => 0, 'name' => '', 'ava' => ''];
+        }
+
+        $row = UserTable::getList([
+            'filter' => ['=ID' => $userId],
+            'select' => ['ID', 'LOGIN', 'NAME', 'LAST_NAME', 'PERSONAL_PHOTO'],
+            'limit' => 1,
+        ])->fetch();
+
+        if (!$row) {
+            return ['id' => $userId, 'name' => 'user#' . $userId, 'ava' => ''];
+        }
+
+        $name = trim(($row['NAME'] ?? '') . ' ' . ($row['LAST_NAME'] ?? ''));
+        if ($name === '') {
+            $name = (string)($row['LOGIN'] ?? ('user#' . $userId));
+        }
+
+        $photoId = (int)($row['PERSONAL_PHOTO'] ?? 0);
+        $ava = $photoId > 0 ? (string)\CFile::GetPath($photoId) : '';
+
+        return [
+            'id' => $userId,
+            'name' => $name,
+            'ava' => $ava,
+        ];
     }
 }

@@ -594,7 +594,7 @@ class AchievementService
             false,
             [
                 'ID',
-                'PROPERTY_goals',
+                'PROPERTY_score',
                 'PROPERTY_result',
                 'PROPERTY_diff',
                 'PROPERTY_sum',
@@ -609,7 +609,8 @@ class AchievementService
         );
 
         while ($row = $res->Fetch()) {
-            $goals = (float)($row['PROPERTY_GOALS_VALUE'] ?? 0);
+            // В iblock result (id=33) точный счёт хранится в свойстве CODE=score, не goals.
+            $exactScore = (float)($row['PROPERTY_SCORE_VALUE'] ?? 0);
             $outcome = (float)($row['PROPERTY_RESULT_VALUE'] ?? 0);
             $diff = (float)($row['PROPERTY_DIFF_VALUE'] ?? 0);
             $sum = (float)($row['PROPERTY_SUM_VALUE'] ?? 0);
@@ -621,7 +622,7 @@ class AchievementService
             $otime = (float)($row['PROPERTY_OTIME_VALUE'] ?? 0);
             $spenalty = (float)($row['PROPERTY_SPENALTY_VALUE'] ?? 0);
 
-            if ($goals >= 10) {
+            if ($exactScore >= 10) {
                 $stats['metric_exact_score']++;
             }
             if ($outcome >= 5) {

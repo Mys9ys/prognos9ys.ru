@@ -1,117 +1,67 @@
 <template>
   <div class="bank_block" v-if="visible">
-    <div class="bank_header" @click="expanded = !expanded">
-      <span class="title"><AppIcon name="bank" :size="18" /> Банки и кредиты</span>
-      <span class="toggle">{{ expanded ? '−' : '+' }}</span>
+    <div class="msg error" v-if="error">{{ error }}</div>
+    <div class="msg ok" v-if="message">{{ message }}</div>
+
+    <div class="main_tabs">
+      <button
+        v-for="tab in mainTabs"
+        :key="tab.id"
+        type="button"
+        class="main_tab"
+        :class="{ active: activeMainTab === tab.id }"
+        @click="activeMainTab = tab.id"
+      >{{ tab.label }}</button>
     </div>
 
-    <div class="bank_body" v-if="expanded">
-      <div class="msg error" v-if="error">{{ error }}</div>
-      <div class="msg ok" v-if="message">{{ message }}</div>
-
-      <div class="event_pick" v-if="contractEvents.length > 1">
+    <div class="tab_panel">
+      <div class="event_pick" v-if="showEventPick && contractEvents.length > 1">
         <div class="event_pick_label">Соревнование для контракта</div>
         <select v-model.number="selectedEventId" class="event_select">
           <option v-for="ev in contractEvents" :key="ev.id" :value="ev.id">{{ ev.name }}</option>
         </select>
         <div class="hint">Срок 5 матчей считается только по турам выбранного турнира.</div>
       </div>
-      <div class="meta event_single" v-else-if="contractEvents.length === 1">
+      <div class="meta event_single" v-else-if="showEventPick && contractEvents.length === 1">
         Соревнование: {{ contractEvents[0].name }}
       </div>
 
-      <div class="section" v-if="myBank">
-        <div class="section_title">Мой банк</div>
-        <div class="row"><span>Резерв (свои)</span><span>{{ myBank.reserved }} <AppIcon name="prognobak" :size="14" /></span></div>
-        <div class="row"><span>Ликвидность (вклады)</span><span>{{ myBank.liquid }} <AppIcon name="prognobak" :size="14" /></span></div>
-        <div class="row"><span>Доступно для займов</span><span>{{ myBank.loanable }} <AppIcon name="prognobak" :size="14" /></span></div>
-        <div class="row"><span>Контракты</span><span>{{ myBank.active_contracts }}</span></div>
-        <div class="lifetime_stats" v-if="myBank.lifetime">
-          <div class="row lifetime_row">
-            <span>Заработано на займах</span>
-            <span class="lifetime_in">
-              +{{ formatAmount(myBank.lifetime.total_loan_interest_earned) }}
-              <AppIcon name="prognobak" :size="14" />
-            </span>
-          </div>
-          <div class="row lifetime_row">
-            <span>Возврат тела вкладов</span>
-            <span class="lifetime_neutral">
-              {{ formatAmount(myBank.lifetime.total_deposit_principal_returned) }}
-              <AppIcon name="prognobak" :size="14" />
-            </span>
-          </div>
-          <div class="row lifetime_row">
-            <span>Проценты по вкладам</span>
-            <span class="lifetime_out">
-              {{ formatAmount(myBank.lifetime.total_deposit_interest_paid) }}
-              <AppIcon name="prognobak" :size="14" />
-            </span>
-          </div>
+      <template v-if="activeMainTab === 'banks'">
+        <div class="section" v-if="canOpen && !myBank">
+          <div class="section_title">Открыть банк</div>
+          <p class="hint">Нужно ≥250 <AppIcon name="prognobak" :size="14" /> на кошельке, 200 замораживаются в резерве.</p>
+          <button class="btn" :disabled="loading" @click="onOpenBank">Открыть банк (200 <AppIcon name="prognobak" :size="14" />)</button>
         </div>
-        <div class="bank_contracts_block" v-if="myBank.active_contracts > 0">
-          <div class="subsection_title">Контракты в банке</div>
-          <div class="ops_tabs">
-            <button
-              type="button"
-              class="ops_tab"
-              :class="{ active: activeBankContractTab === 'deposits' }"
-              @click="activeBankContractTab = 'deposits'"
-            >Вклады ({{ bankDepositsCount }})</button>
-            <button
-              type="button"
-              class="ops_tab"
-              :class="{ active: activeBankContractTab === 'loans' }"
-              @click="activeBankContractTab = 'loans'"
-            >Займы ({{ bankLoansCount }})</button>
-          </div>
-          <template v-if="activeBankContractTab === 'deposits'">
-            <div v-if="!bankDepositsCount" class="hint">Нет активных вкладов</div>
-            <BankContractCard
-              v-for="d in myBank.deposits"
-              :key="'bd' + d.id"
-              :contract="d"
-              kind="deposit"
-              show-client
-            />
-          </template>
-          <template v-else>
-            <div v-if="!bankLoansCount" class="hint">Нет активных займов</div>
-            <BankContractCard
-              v-for="l in myBank.loans"
-              :key="'bl' + l.id"
-              :contract="l"
-              kind="loan"
-              show-client
-            />
-          </template>
-        </div>
-        <button
-          class="btn danger"
-          v-if="myBank.active_contracts === 0"
-          :disabled="loading"
-          @click="onCloseBank"
-        >Закрыть банк</button>
-        <div class="owner_deposit_block" v-if="contractEvents.length">
-          <div class="hint">Вклад в свой банк пополняет ликвидность для выдачи займов (сумма как у всех — {{ depositAmount }} <AppIcon name="prognobak" :size="14" />).</div>
-          <button class="btn small" :disabled="loading" @click="onCreateDeposit(myBank.id)">
-            Вклад в свой банк {{ depositAmount }} <AppIcon name="prognobak" :size="14" />
-          </button>
-        </div>
-      </div>
 
-      <div class="section" v-else-if="canOpen">
-        <div class="section_title">Открыть банк</div>
-        <p class="hint">Нужно ≥250 <AppIcon name="prognobak" :size="14" /> на кошельке, 200 замораживаются в резерве.</p>
-        <button class="btn" :disabled="loading" @click="onOpenBank">Открыть банк (200 <AppIcon name="prognobak" :size="14" />)</button>
-      </div>
-
-      <div class="section section_collapsible">
-        <div class="section_title section_title_toggle" @click="toggleOperations">
-          <span>Операции</span>
-          <span class="toggle">{{ operationsExpanded ? '−' : '+' }}</span>
+        <div class="section">
+          <div class="section_title">Каталог банков</div>
+          <button class="btn secondary" :disabled="loading" @click="loadBanks">Обновить список</button>
+          <div class="bank_card" v-for="b in banks" :key="b.id">
+            <div class="row">
+              <span>{{ b.owner_name }}</span>
+              <span>займ: {{ b.loanable ?? (b.reserved + b.liquid) }} <AppIcon name="prognobak" :size="14" /></span>
+            </div>
+            <div class="meta">Резерв {{ b.reserved }} · вклады {{ b.liquid }} · +{{ b.deposit_rate_percent }}% / +{{ b.loan_rate_percent }}% за {{ b.term_matches }} матчей</div>
+            <div class="actions">
+              <button class="btn small" :disabled="loading" @click="onCreateDeposit(b.id)">
+                Вклад {{ depositAmount }} <AppIcon name="prognobak" :size="14" />
+              </button>
+              <button
+                v-if="!myBank || myBank.id !== b.id"
+                class="btn small"
+                :disabled="loading"
+                @click="onTakeLoan(b.id)"
+              >
+                Займ {{ loanAmount }} <AppIcon name="prognobak" :size="14" />
+              </button>
+            </div>
+          </div>
         </div>
-        <template v-if="operationsExpanded">
+      </template>
+
+      <template v-else-if="activeMainTab === 'operations'">
+        <div class="section">
+          <div class="section_title">Операции</div>
           <div class="ops_tabs">
             <button
               v-for="tab in operationTabs"
@@ -142,78 +92,137 @@
               </span>
             </div>
           </div>
-        </template>
-      </div>
+        </div>
 
-      <div class="section">
-        <div class="section_title">Мои контракты</div>
-        <div v-if="!myContractsCount" class="hint">Нет активных вкладов и займов</div>
-        <template v-else>
-          <div class="ops_tabs">
-            <button
-              type="button"
-              class="ops_tab"
-              :class="{ active: activeMyContractTab === 'deposits' }"
-              @click="activeMyContractTab = 'deposits'"
-            >Вклады ({{ myDepositsCount }})</button>
-            <button
-              type="button"
-              class="ops_tab"
-              :class="{ active: activeMyContractTab === 'loans' }"
-              @click="activeMyContractTab = 'loans'"
-            >Займы ({{ myLoansCount }})</button>
-          </div>
-          <template v-if="activeMyContractTab === 'deposits'">
-            <div v-if="!myDepositsCount" class="hint">Нет активных вкладов</div>
-            <BankContractCard
-              v-for="d in contracts.deposits"
-              :key="'d' + d.id"
-              :contract="d"
-              kind="deposit"
-              show-cancel
-              show-force-close
-              @cancel="onCancelDeposit"
-              @force-close="onForceCloseDeposit"
-            />
-          </template>
+        <div class="section">
+          <div class="section_title">Мои контракты</div>
+          <div v-if="!myContractsCount" class="hint">Нет активных вкладов и займов</div>
           <template v-else>
-            <div v-if="!myLoansCount" class="hint">Нет активных займов</div>
-            <BankContractCard
-              v-for="l in contracts.loans"
-              :key="'l' + l.id"
-              :contract="l"
-              kind="loan"
-              show-cancel
-              @cancel="onCancelLoan"
-            />
+            <div class="ops_tabs">
+              <button
+                type="button"
+                class="ops_tab"
+                :class="{ active: activeMyContractTab === 'deposits' }"
+                @click="activeMyContractTab = 'deposits'"
+              >Вклады ({{ myDepositsCount }})</button>
+              <button
+                type="button"
+                class="ops_tab"
+                :class="{ active: activeMyContractTab === 'loans' }"
+                @click="activeMyContractTab = 'loans'"
+              >Займы ({{ myLoansCount }})</button>
+            </div>
+            <template v-if="activeMyContractTab === 'deposits'">
+              <div v-if="!myDepositsCount" class="hint">Нет активных вкладов</div>
+              <BankContractCard
+                v-for="d in contracts.deposits"
+                :key="'d' + d.id"
+                :contract="d"
+                kind="deposit"
+                show-cancel
+                show-force-close
+                @cancel="onCancelDeposit"
+                @force-close="onForceCloseDeposit"
+              />
+            </template>
+            <template v-else>
+              <div v-if="!myLoansCount" class="hint">Нет активных займов</div>
+              <BankContractCard
+                v-for="l in contracts.loans"
+                :key="'l' + l.id"
+                :contract="l"
+                kind="loan"
+                show-cancel
+                @cancel="onCancelLoan"
+              />
+            </template>
           </template>
-        </template>
-      </div>
+        </div>
+      </template>
 
-      <div class="section">
-        <div class="section_title">Каталог банков</div>
-        <button class="btn secondary" :disabled="loading" @click="loadBanks">Обновить список</button>
-        <div class="bank_card" v-for="b in banks" :key="b.id">
-          <div class="row">
-            <span>{{ b.owner_name }}</span>
-            <span>займ: {{ b.loanable ?? (b.reserved + b.liquid) }} <AppIcon name="prognobak" :size="14" /></span>
+      <template v-else-if="activeMainTab === 'my_bank' && myBank">
+        <div class="section">
+          <div class="section_title">Мой банк</div>
+          <div class="row"><span>Резерв (свои)</span><span>{{ myBank.reserved }} <AppIcon name="prognobak" :size="14" /></span></div>
+          <div class="row"><span>Ликвидность (вклады)</span><span>{{ myBank.liquid }} <AppIcon name="prognobak" :size="14" /></span></div>
+          <div class="row"><span>Доступно для займов</span><span>{{ myBank.loanable }} <AppIcon name="prognobak" :size="14" /></span></div>
+          <div class="row"><span>Контракты</span><span>{{ myBank.active_contracts }}</span></div>
+          <div class="lifetime_stats" v-if="myBank.lifetime">
+            <div class="row lifetime_row">
+              <span>Заработано на займах</span>
+              <span class="lifetime_in">
+                +{{ formatAmount(myBank.lifetime.total_loan_interest_earned) }}
+                <AppIcon name="prognobak" :size="14" />
+              </span>
+            </div>
+            <div class="row lifetime_row">
+              <span>Возврат тела вкладов</span>
+              <span class="lifetime_neutral">
+                {{ formatAmount(myBank.lifetime.total_deposit_principal_returned) }}
+                <AppIcon name="prognobak" :size="14" />
+              </span>
+            </div>
+            <div class="row lifetime_row">
+              <span>Проценты по вкладам</span>
+              <span class="lifetime_out">
+                {{ formatAmount(myBank.lifetime.total_deposit_interest_paid) }}
+                <AppIcon name="prognobak" :size="14" />
+              </span>
+            </div>
           </div>
-          <div class="meta">Резерв {{ b.reserved }} · вклады {{ b.liquid }} · +{{ b.deposit_rate_percent }}% / +{{ b.loan_rate_percent }}% за {{ b.term_matches }} матчей</div>
-          <div class="actions">
-            <button class="btn small" :disabled="loading" @click="onCreateDeposit(b.id)">
-              Вклад {{ depositAmount }} <AppIcon name="prognobak" :size="14" />
-            </button>
-            <button
-              v-if="!myBank || myBank.id !== b.id"
-              class="btn small"
-              :disabled="loading"
-              @click="onTakeLoan(b.id)"
-            >
-              Займ {{ loanAmount }} <AppIcon name="prognobak" :size="14" />
+          <div class="bank_contracts_block" v-if="myBank.active_contracts > 0">
+            <div class="subsection_title">Контракты в банке</div>
+            <div class="ops_tabs">
+              <button
+                type="button"
+                class="ops_tab"
+                :class="{ active: activeBankContractTab === 'deposits' }"
+                @click="activeBankContractTab = 'deposits'"
+              >Вклады ({{ bankDepositsCount }})</button>
+              <button
+                type="button"
+                class="ops_tab"
+                :class="{ active: activeBankContractTab === 'loans' }"
+                @click="activeBankContractTab = 'loans'"
+              >Займы ({{ bankLoansCount }})</button>
+            </div>
+            <template v-if="activeBankContractTab === 'deposits'">
+              <div v-if="!bankDepositsCount" class="hint">Нет активных вкладов</div>
+              <BankContractCard
+                v-for="d in myBank.deposits"
+                :key="'bd' + d.id"
+                :contract="d"
+                kind="deposit"
+                show-client
+                show-gov-return
+                @gov-return="onGovReturnInBank"
+              />
+            </template>
+            <template v-else>
+              <div v-if="!bankLoansCount" class="hint">Нет активных займов</div>
+              <BankContractCard
+                v-for="l in myBank.loans"
+                :key="'bl' + l.id"
+                :contract="l"
+                kind="loan"
+                show-client
+              />
+            </template>
+          </div>
+          <button
+            class="btn danger"
+            v-if="myBank.active_contracts === 0"
+            :disabled="loading"
+            @click="onCloseBank"
+          >Закрыть банк</button>
+          <div class="owner_deposit_block" v-if="contractEvents.length">
+            <div class="hint">Вклад в свой банк пополняет ликвидность для выдачи займов (сумма как у всех — {{ depositAmount }} <AppIcon name="prognobak" :size="14" />).</div>
+            <button class="btn small" :disabled="loading" @click="onCreateDeposit(myBank.id)">
+              Вклад в свой банк {{ depositAmount }} <AppIcon name="prognobak" :size="14" />
             </button>
           </div>
         </div>
-      </div>
+      </template>
     </div>
   </div>
 </template>
@@ -237,15 +246,14 @@ export default {
   },
   data() {
     return {
-      expanded: false,
-      operationsExpanded: false,
-      operationsLoaded: false,
+      activeMainTab: 'banks',
       loading: false,
       error: '',
       message: '',
       banks: [],
       contracts: { deposits: [], loans: [] },
       operations: [],
+      operationsLoaded: false,
       activeOpsTab: 'all',
       activeBankContractTab: 'deposits',
       activeMyContractTab: 'deposits',
@@ -260,6 +268,19 @@ export default {
   },
   computed: {
     ...mapState('auth', ['authData']),
+    mainTabs() {
+      const tabs = [
+        { id: 'banks', label: 'Банки' },
+        { id: 'operations', label: 'Операции' },
+      ];
+      if (this.myBank) {
+        tabs.push({ id: 'my_bank', label: 'Мой банк' });
+      }
+      return tabs;
+    },
+    showEventPick() {
+      return this.activeMainTab === 'banks' || this.activeMainTab === 'my_bank';
+    },
     filteredOperations() {
       if (this.activeOpsTab === 'all') {
         return this.operations;
@@ -317,23 +338,21 @@ export default {
         }
       },
     },
-    expanded(val) {
-      if (val) {
-        this.refresh();
+    activeMainTab(val) {
+      if (val === 'operations' && !this.operationsLoaded) {
+        this.loadOperations();
       }
+    },
+    myBank(val) {
+      if (!val && this.activeMainTab === 'my_bank') {
+        this.activeMainTab = 'banks';
+      }
+      this.syncBankContractTab();
     },
     game: {
       deep: true,
       handler() {
-        if (this.expanded) {
-          this.loadContracts();
-          this.syncBankContractTab();
-        }
-      },
-    },
-    myBank: {
-      deep: true,
-      handler() {
+        this.loadContracts();
         this.syncBankContractTab();
       },
     },
@@ -343,6 +362,9 @@ export default {
         this.syncMyContractTab();
       },
     },
+  },
+  mounted() {
+    this.refresh();
   },
   methods: {
     ...mapActions('game', [
@@ -356,6 +378,7 @@ export default {
       'cancelLoan',
       'cancelDeposit',
       'forceCloseDeposit',
+      'closeGovSupportDeposit',
     ]),
     ...mapActions('auth', ['refreshGameInfo']),
     formatSignedAmount(amount) {
@@ -369,7 +392,7 @@ export default {
     async refresh() {
       this.error = '';
       const tasks = [this.loadBanks(), this.loadContracts()];
-      if (this.operationsExpanded) {
+      if (this.activeMainTab === 'operations') {
         tasks.push(this.loadOperations());
       }
       await Promise.all(tasks);
@@ -388,12 +411,6 @@ export default {
         this.activeMyContractTab = 'loans';
       } else if (this.activeMyContractTab === 'loans' && !this.myLoansCount && this.myDepositsCount) {
         this.activeMyContractTab = 'deposits';
-      }
-    },
-    async toggleOperations() {
-      this.operationsExpanded = !this.operationsExpanded;
-      if (this.operationsExpanded && !this.operationsLoaded) {
-        await this.loadOperations();
       }
     },
     async loadBanks() {
@@ -433,6 +450,7 @@ export default {
         this.message = 'Банк открыт';
         await this.refreshGameInfo();
         await this.refresh();
+        this.activeMainTab = 'my_bank';
       } catch (e) {
         this.error = e.message || 'Ошибка открытия банка';
       } finally {
@@ -469,6 +487,37 @@ export default {
         this.loading = false;
       }
     },
+    async onGovReturnInBank(contract) {
+      if (!contract?.id) {
+        return;
+      }
+
+      const early = contract.can_force_close && !contract.can_close;
+      const msg = early
+        ? 'Досрочно вернуть гос. вклад в казну? Проценты не поступят.'
+        : 'Вернуть гос. вклад в казну?';
+      if (!window.confirm(msg)) {
+        return;
+      }
+
+      this.loading = true;
+      this.error = '';
+      this.message = '';
+      try {
+        if (contract.can_close) {
+          await this.closeGovSupportDeposit(contract.id);
+        } else {
+          await this.forceCloseDeposit(contract.id);
+        }
+        this.message = 'Гос. вклад возвращён в казну';
+        await this.refreshGameInfo();
+        await this.refresh();
+      } catch (e) {
+        this.error = e.message || 'Не удалось вернуть гос. вклад';
+      } finally {
+        this.loading = false;
+      }
+    },
     async onCloseBank() {
       this.loading = true;
       this.error = '';
@@ -477,6 +526,7 @@ export default {
         this.message = 'Банк закрыт';
         await this.refreshGameInfo();
         await this.refresh();
+        this.activeMainTab = 'banks';
       } catch (e) {
         this.error = e.message || 'Не удалось закрыть банк';
       } finally {
@@ -544,31 +594,33 @@ export default {
 @import "src/assets/css/variables.less";
 
 .bank_block {
-  background: @DarkColorBG;
   color: @colorText;
-  border-radius: 5px;
-  margin: 8px 0;
   text-align: left;
 }
 
-.bank_header {
+.main_tabs {
   display: flex;
-  justify-content: space-between;
-  padding: 10px 12px;
-  cursor: pointer;
-  .shadow_inset;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
 
-  .title {
-    font-size: 14px;
-    font-weight: 500;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
+.main_tab {
+  background: @darkbg;
+  color: @colorText;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 7px 12px;
+  font-size: 12px;
+  cursor: pointer;
+
+  &.active {
+    background: @orange;
+    color: #fff;
   }
 }
 
-.bank_body {
-  padding: 8px 12px 12px;
+.tab_panel {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -584,30 +636,6 @@ export default {
   font-size: 13px;
   color: @orange;
   margin-bottom: 6px;
-}
-
-.section_title_toggle {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0;
-  cursor: pointer;
-  user-select: none;
-
-  .toggle {
-    color: @colorBlur;
-    font-size: 16px;
-    line-height: 1;
-  }
-}
-
-.section_collapsible {
-  .ops_tabs,
-  .btn.secondary,
-  .hint,
-  .operation {
-    margin-top: 8px;
-  }
 }
 
 .bank_contracts_block {
@@ -709,7 +737,7 @@ export default {
   margin-bottom: 8px;
 }
 
-.contract, .bank_card, .operation {
+.bank_card, .operation {
   margin-top: 6px;
   padding: 6px;
   background: @darkbg;
@@ -811,6 +839,7 @@ export default {
   font-size: 12px;
   padding: 6px;
   border-radius: 4px;
+  margin-bottom: 8px;
 
   &.error {
     background: rgba(200, 60, 60, 0.2);

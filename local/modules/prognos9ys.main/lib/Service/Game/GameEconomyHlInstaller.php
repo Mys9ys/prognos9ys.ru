@@ -24,6 +24,9 @@ class GameEconomyHlInstaller
     public const TABLE_MATCH_ECONOMY_SETTLE = 'prognos9ys_match_economy_settle';
     public const TABLE_LOOT_ITEM = 'prognos9ys_loot_item';
     public const TABLE_CHEST_OPEN_LOG = 'prognos9ys_chest_open_log';
+    public const TABLE_EXCHANGE_LISTING = 'prognos9ys_exchange_listing';
+    public const TABLE_EXCHANGE_TRADE = 'prognos9ys_exchange_trade';
+    public const TABLE_EXCHANGE_NOMINAL = 'prognos9ys_exchange_nominal';
 
     public function install(): array
     {
@@ -292,6 +295,65 @@ class GameEconomyHlInstaller
         return [
             'loot_item_hl_id' => $lootItemHlId,
             'chest_open_log_hl_id' => $openLogHlId,
+        ];
+    }
+
+    /**
+     * HL биржи: лоты, сделки, текущие номиналы SKU.
+     */
+    public function upgradeExchangeHl(): array
+    {
+        if (!Loader::includeModule('highloadblock')) {
+            throw new \RuntimeException('Модуль highloadblock не установлен');
+        }
+
+        $listingHlId = $this->ensureHlBlock('Prognos9ysExchangeListing', self::TABLE_EXCHANGE_LISTING, [
+            'UF_SELLER_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_ITEM_KIND' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_ITEM_CODE' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_ITEM_CATEGORY' => ['USER_TYPE_ID' => 'string'],
+            'UF_EVENT_ID' => ['USER_TYPE_ID' => 'integer'],
+            'UF_TEAM_CODE' => ['USER_TYPE_ID' => 'string'],
+            'UF_QTY_TOTAL' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_QTY_REMAINING' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_PRICE_PER_UNIT' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
+            'UF_NOMINAL_SNAPSHOT' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
+            'UF_STATUS' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_ESCROW_REF_TYPE' => ['USER_TYPE_ID' => 'string'],
+            'UF_ESCROW_REF_ID' => ['USER_TYPE_ID' => 'integer'],
+            'UF_EXPIRES_AT' => ['USER_TYPE_ID' => 'datetime'],
+            'UF_CREATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+            'UF_UPDATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+        ]);
+
+        $tradeHlId = $this->ensureHlBlock('Prognos9ysExchangeTrade', self::TABLE_EXCHANGE_TRADE, [
+            'UF_LISTING_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_SELLER_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_BUYER_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_ITEM_KIND' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_ITEM_CODE' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_ITEM_CATEGORY' => ['USER_TYPE_ID' => 'string'],
+            'UF_EVENT_ID' => ['USER_TYPE_ID' => 'integer'],
+            'UF_TEAM_CODE' => ['USER_TYPE_ID' => 'string'],
+            'UF_QTY' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_PRICE_PER_UNIT' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
+            'UF_TOTAL_PRICE' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
+            'UF_COMMISSION' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
+            'UF_SELLER_NET' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
+            'UF_CREATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+        ]);
+
+        $nominalHlId = $this->ensureHlBlock('Prognos9ysExchangeNominal', self::TABLE_EXCHANGE_NOMINAL, [
+            'UF_ITEM_KEY' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_NOMINAL' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
+            'UF_BASE_NOMINAL' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
+            'UF_UPDATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+        ]);
+
+        return [
+            'exchange_listing_hl_id' => $listingHlId,
+            'exchange_trade_hl_id' => $tradeHlId,
+            'exchange_nominal_hl_id' => $nominalHlId,
         ];
     }
 

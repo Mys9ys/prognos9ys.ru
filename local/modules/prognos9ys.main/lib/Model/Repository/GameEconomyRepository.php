@@ -5,8 +5,10 @@ namespace Prognos9ys\Main\Model\Repository;
 use Bitrix\Highloadblock\HighloadBlockTable;
 use Bitrix\Main\Loader;
 use Prognos9ys\Main\Service\Game\ChestLootConfig;
+use Prognos9ys\Main\Service\Game\ExchangeConfig;
 use Prognos9ys\Main\Service\Game\GameEconomyConfig;
 use Prognos9ys\Main\Service\Game\GameEconomyHlInstaller;
+use Prognos9ys\Main\Service\Game\GameEventScopeService;
 use Prognos9ys\Main\Service\Game\TreasureService;
 
 class GameEconomyRepository
@@ -24,6 +26,9 @@ class GameEconomyRepository
     private ?string $matchEconomySettleDataClass = null;
     private ?string $lootItemDataClass = null;
     private ?string $chestOpenLogDataClass = null;
+    private ?string $exchangeListingDataClass = null;
+    private ?string $exchangeTradeDataClass = null;
+    private ?string $exchangeNominalDataClass = null;
 
     public function getWalletDataClass(): string
     {
@@ -88,6 +93,21 @@ class GameEconomyRepository
     public function getChestOpenLogDataClass(): string
     {
         return $this->chestOpenLogDataClass ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_CHEST_OPEN_LOG);
+    }
+
+    public function getExchangeListingDataClass(): string
+    {
+        return $this->exchangeListingDataClass ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_EXCHANGE_LISTING);
+    }
+
+    public function getExchangeTradeDataClass(): string
+    {
+        return $this->exchangeTradeDataClass ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_EXCHANGE_TRADE);
+    }
+
+    public function getExchangeNominalDataClass(): string
+    {
+        return $this->exchangeNominalDataClass ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_EXCHANGE_NOMINAL);
     }
 
     public function hasMatchEconomySettlement(int $matchId): bool
@@ -1991,6 +2011,123 @@ class GameEconomyRepository
         return $value === true || $value === 1 || $value === '1' || $value === 'Y';
     }
 
+    /**
+     * Сводка покупок в лавке казны (по флагам волн).
+     *
+     * @return array{
+     *   prognobaks_chests:int,
+     *   rublius_chests:int,
+     *   premium_1d:int,
+     *   prognobaks_volume:float,
+     *   rublius_volume:float
+     * }
+     */
+    public function sumTreasuryShopPurchaseTotals(): array
+    {
+        $dataClass = $this->getTreasuryShopWaveDataClass();
+        $prognobaksChests = 0;
+        $rubliusChests = 0;
+        $premium1d = 0;
+
+        $response = $dataClass::getList([
+            'select' => ['UF_PROGNOBAKS_BOUGHT', 'UF_RUBLIUS_BOUGHT', 'UF_PREMIUM_BOUGHT'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            if ($this->isTreasuryShopTruthy($row['UF_PROGNOBAKS_BOUGHT'] ?? false)) {
+                $prognobaksChests++;
+            }
+            if ($this->isTreasuryShopTruthy($row['UF_RUBLIUS_BOUGHT'] ?? false)) {
+                $rubliusChests++;
+            }
+            if ($this->isTreasuryShopTruthy($row['UF_PREMIUM_BOUGHT'] ?? false)) {
+                $premium1d++;
+            }
+        }
+
+        $prognobaksVolume = round(
+            $prognobaksChests * GameEconomyConfig::TREASURY_SHOP_CHEST_PROGNOBAKS_PRICE,
+            1
+        );
+        $rubliusVolume = round(
+            $rubliusChests * GameEconomyConfig::TREASURY_SHOP_CHEST_RUBLIUS_PRICE
+            + $premium1d * GameEconomyConfig::TREASURY_SHOP_PREMIUM_1D_RUBLIUS_PRICE,
+            1
+        );
+
+        return [
+            'prognobaks_chests' => $prognobaksChests,
+            'rublius_chests' => $rubliusChests,
+            'premium_1d' => $premium1d,
+            'prognobaks_volume' => $prognobaksVolume,
+            'rublius_volume' => $rubliusVolume,
+        ];
+    }
+
+    /**
+     * @param string[] $reasons
+     */
+    public function sumWalletTxAmountByReasons(array $reasons, ?string $currency = null, string $direction = 'credit'): float
+    {
+        if (!$reasons) {
+            return 0.0;
+        }
+
+        $filter = ['@UF_REASON' => $reasons];
+        if ($currency !== null && $currency !== '') {
+            $filter['=UF_CURRENCY'] = $currency;
+        }
+        if ($direction === 'credit') {
+            $filter['>UF_AMOUNT'] = 0;
+        } else {
+            $filter['<UF_AMOUNT'] = 0;
+        }
+
+        $dataClass = $this->getWalletTxDataClass();
+        $total = 0.0;
+        $response = $dataClass::getList([
+            'filter' => $filter,
+            'select' => ['UF_AMOUNT'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $total += (float)($row['UF_AMOUNT'] ?? 0);
+        }
+
+        return round(abs($total), 1);
+    }
+
+    /**
+     * @return array{active_count:int,principal_in_banks:float}
+     */
+    public function sumGovSupportDepositStats(): array
+    {
+        $dataClass = $this->getBankDepositDataClass();
+        $activeCount = 0;
+        $principal = 0.0;
+
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_CONTRACT_TYPE' => GameEconomyConfig::CONTRACT_TYPE_GOV_SUPPORT,
+                '@UF_STATUS' => [
+                    GameEconomyConfig::CONTRACT_STATUS_ACTIVE,
+                    GameEconomyConfig::CONTRACT_STATUS_INTEREST_PAID,
+                ],
+            ],
+            'select' => ['UF_PRINCIPAL'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $activeCount++;
+            $principal += (float)($row['UF_PRINCIPAL'] ?? 0);
+        }
+
+        return [
+            'active_count' => $activeCount,
+            'principal_in_banks' => round($principal, 1),
+        ];
+    }
+
     public function getTreasuryShopWaveById(int $id): ?array
     {
         if ($id <= 0) {
@@ -2265,8 +2402,24 @@ class GameEconomyRepository
             '@UF_STATUS' => [
                 GameEconomyConfig::CONTRACT_STATUS_ACTIVE,
                 GameEconomyConfig::CONTRACT_STATUS_EXTENDED,
+                GameEconomyConfig::CONTRACT_STATUS_INTEREST_PAID,
             ],
         ]);
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function getActiveGovSupportDeposits(): array
+    {
+        return $this->getDepositsByFilter([
+            '=UF_CONTRACT_TYPE' => GameEconomyConfig::CONTRACT_TYPE_GOV_SUPPORT,
+            '@UF_STATUS' => [
+                GameEconomyConfig::CONTRACT_STATUS_ACTIVE,
+                GameEconomyConfig::CONTRACT_STATUS_EXTENDED,
+                GameEconomyConfig::CONTRACT_STATUS_INTEREST_PAID,
+            ],
+        ], ['ID' => 'DESC']);
     }
 
     public function getDepositsByBankId(int $bankId): array
@@ -2418,6 +2571,571 @@ class GameEconomyRepository
         }
     }
 
+    public function countClosedChestUnitsByType(int $userId, string $chestType): int
+    {
+        if ($userId <= 0 || $chestType === '') {
+            return 0;
+        }
+
+        $dataClass = $this->getTreasureChestDataClass();
+        $total = 0;
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '=UF_STATUS' => TreasureService::CHEST_STATUS_CLOSED,
+                '=UF_TYPE' => $chestType,
+                '>UF_COUNT' => 0,
+            ],
+            'select' => ['UF_COUNT'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $total += (int)($row['UF_COUNT'] ?? 0);
+        }
+
+        return $total;
+    }
+
+    public function consumeClosedChestUnitsByType(int $userId, string $chestType, int $qty): void
+    {
+        if ($qty <= 0) {
+            return;
+        }
+
+        $remaining = $qty;
+        $dataClass = $this->getTreasureChestDataClass();
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '=UF_STATUS' => TreasureService::CHEST_STATUS_CLOSED,
+                '=UF_TYPE' => $chestType,
+                '>UF_COUNT' => 0,
+            ],
+            'order' => ['UF_CREATED_AT' => 'ASC', 'ID' => 'ASC'],
+        ]);
+
+        while ($remaining > 0 && ($row = $response->fetch())) {
+            $count = (int)($row['UF_COUNT'] ?? 0);
+            if ($count <= 0) {
+                continue;
+            }
+
+            $take = min($count, $remaining);
+            $newCount = $count - $take;
+            $now = new \Bitrix\Main\Type\DateTime();
+            $fields = [
+                'UF_COUNT' => $newCount,
+                'UF_UPDATED_AT' => $now,
+            ];
+
+            if ($newCount <= 0) {
+                $fields['UF_STATUS'] = TreasureService::CHEST_STATUS_OPENED;
+                $fields['UF_COUNT'] = 0;
+            }
+
+            $this->updateTreasureChest((int)$row['ID'], $fields);
+            $remaining -= $take;
+        }
+
+        if ($remaining > 0) {
+            throw new \RuntimeException('Не удалось списать сундуки');
+        }
+    }
+
+    public function grantClosedChestUnits(int $userId, string $chestType, int $qty): void
+    {
+        if ($userId <= 0 || $chestType === '' || $qty <= 0) {
+            return;
+        }
+
+        $syntheticMatchId = -4000000 - (abs(crc32($chestType)) % 500000);
+        $existing = $this->getTreasureChestByType($userId, $syntheticMatchId, $chestType);
+        $now = new \Bitrix\Main\Type\DateTime();
+        $eventId = (new GameEventScopeService())->getAnchorEventId();
+
+        if ($existing && (string)($existing['UF_STATUS'] ?? '') === TreasureService::CHEST_STATUS_CLOSED) {
+            $this->updateTreasureChest((int)$existing['ID'], [
+                'UF_COUNT' => (int)($existing['UF_COUNT'] ?? 0) + $qty,
+                'UF_UPDATED_AT' => $now,
+            ]);
+
+            return;
+        }
+
+        $this->addTreasureChest([
+            'UF_USER_ID' => $userId,
+            'UF_MATCH_ID' => $syntheticMatchId,
+            'UF_EVENT_ID' => $eventId > 0 ? $eventId : GameEconomyConfig::ANCHOR_EVENT_ID,
+            'UF_COUNT' => $qty,
+            'UF_STATUS' => TreasureService::CHEST_STATUS_CLOSED,
+            'UF_TYPE' => $chestType,
+            'UF_CREATED_AT' => $now,
+            'UF_UPDATED_AT' => $now,
+        ]);
+    }
+
+    public function consumePremiumScrollUnits(int $userId, int $days, int $qty): void
+    {
+        if ($qty <= 0) {
+            return;
+        }
+
+        $remaining = $qty;
+        $dataClass = $this->getTreasureChestDataClass();
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '=UF_TYPE' => TreasureService::CHEST_TYPE_PREMIUM_SCROLL,
+                '=UF_STATUS' => TreasureService::CHEST_STATUS_INVENTORY,
+                '>UF_COUNT' => 0,
+            ],
+            'order' => ['UF_CREATED_AT' => 'ASC', 'ID' => 'ASC'],
+        ]);
+
+        while ($remaining > 0 && ($row = $response->fetch())) {
+            if ($this->resolvePremiumScrollDays((int)($row['UF_MATCH_ID'] ?? 0)) !== $days) {
+                continue;
+            }
+
+            $count = (int)($row['UF_COUNT'] ?? 0);
+            if ($count <= 0) {
+                continue;
+            }
+
+            $take = min($count, $remaining);
+            $newCount = $count - $take;
+            $now = new \Bitrix\Main\Type\DateTime();
+            $fields = [
+                'UF_COUNT' => max(0, $newCount),
+                'UF_UPDATED_AT' => $now,
+            ];
+
+            if ($newCount <= 0) {
+                $fields['UF_STATUS'] = TreasureService::CHEST_STATUS_OPENED;
+                $fields['UF_COUNT'] = 0;
+            }
+
+            $this->updateTreasureChest((int)$row['ID'], $fields);
+            $remaining -= $take;
+        }
+
+        if ($remaining > 0) {
+            throw new \RuntimeException('Не удалось списать свитки');
+        }
+    }
+
+    public function grantPremiumScrollUnits(int $userId, int $days, int $qty): void
+    {
+        if ($userId <= 0 || $qty <= 0 || !in_array($days, [1, 3, 5], true)) {
+            return;
+        }
+
+        $syntheticMatchId = -5000000 - $days;
+        $existing = $this->getTreasureChestByType(
+            $userId,
+            $syntheticMatchId,
+            TreasureService::CHEST_TYPE_PREMIUM_SCROLL
+        );
+        $now = new \Bitrix\Main\Type\DateTime();
+        $eventId = (new GameEventScopeService())->getAnchorEventId();
+
+        if ($existing && (string)($existing['UF_STATUS'] ?? '') === TreasureService::CHEST_STATUS_INVENTORY) {
+            $this->updateTreasureChest((int)$existing['ID'], [
+                'UF_COUNT' => (int)($existing['UF_COUNT'] ?? 0) + $qty,
+                'UF_UPDATED_AT' => $now,
+            ]);
+
+            return;
+        }
+
+        $this->addTreasureChest([
+            'UF_USER_ID' => $userId,
+            'UF_MATCH_ID' => $syntheticMatchId,
+            'UF_EVENT_ID' => $eventId > 0 ? $eventId : GameEconomyConfig::ANCHOR_EVENT_ID,
+            'UF_COUNT' => $qty,
+            'UF_STATUS' => TreasureService::CHEST_STATUS_INVENTORY,
+            'UF_TYPE' => TreasureService::CHEST_TYPE_PREMIUM_SCROLL,
+            'UF_CREATED_AT' => $now,
+            'UF_UPDATED_AT' => $now,
+        ]);
+    }
+
+    public function consumePennantUnits(int $userId, string $pennantCode, int $qty): void
+    {
+        if ($qty <= 0) {
+            return;
+        }
+
+        $matchId = $this->resolvePennantSyntheticMatchIdPublic($pennantCode);
+        $row = $this->getTreasureChestByType($userId, $matchId, TreasureService::CHEST_TYPE_PENNANT);
+
+        if (!$row) {
+            throw new \RuntimeException('Нет вымпелов');
+        }
+
+        $count = (int)($row['UF_COUNT'] ?? 0);
+        if ($count < $qty) {
+            throw new \RuntimeException('Недостаточно вымпелов');
+        }
+
+        $newCount = $count - $qty;
+        $now = new \Bitrix\Main\Type\DateTime();
+        $fields = [
+            'UF_COUNT' => max(0, $newCount),
+            'UF_UPDATED_AT' => $now,
+        ];
+
+        if ($newCount <= 0) {
+            $fields['UF_STATUS'] = TreasureService::CHEST_STATUS_OPENED;
+            $fields['UF_COUNT'] = 0;
+        }
+
+        $this->updateTreasureChest((int)$row['ID'], $fields);
+    }
+
+    public function grantPennantUnits(int $userId, string $pennantCode, int $qty): void
+    {
+        if ($userId <= 0 || $pennantCode === '' || $qty <= 0) {
+            return;
+        }
+
+        $matchId = $this->resolvePennantSyntheticMatchIdPublic($pennantCode);
+        $existing = $this->getTreasureChestByType($userId, $matchId, TreasureService::CHEST_TYPE_PENNANT);
+        $now = new \Bitrix\Main\Type\DateTime();
+        $eventId = (new GameEventScopeService())->getAnchorEventId();
+
+        if ($existing && (string)($existing['UF_STATUS'] ?? '') === TreasureService::CHEST_STATUS_INVENTORY) {
+            $this->updateTreasureChest((int)$existing['ID'], [
+                'UF_COUNT' => (int)($existing['UF_COUNT'] ?? 0) + $qty,
+                'UF_UPDATED_AT' => $now,
+            ]);
+
+            return;
+        }
+
+        $this->addTreasureChest([
+            'UF_USER_ID' => $userId,
+            'UF_MATCH_ID' => $matchId,
+            'UF_EVENT_ID' => $eventId > 0 ? $eventId : GameEconomyConfig::ANCHOR_EVENT_ID,
+            'UF_COUNT' => $qty,
+            'UF_STATUS' => TreasureService::CHEST_STATUS_INVENTORY,
+            'UF_TYPE' => TreasureService::CHEST_TYPE_PENNANT,
+            'UF_CREATED_AT' => $now,
+            'UF_UPDATED_AT' => $now,
+        ]);
+    }
+
+    public function resolvePennantSyntheticMatchIdPublic(string $pennantCode): int
+    {
+        $map = [
+            'site' => -3000001,
+            'chm2026' => -3000002,
+        ];
+
+        return $map[$pennantCode] ?? -3000099;
+    }
+
+    public function getLootItemCount(
+        int $userId,
+        int $eventId,
+        string $itemCode,
+        string $category = ''
+    ): int {
+        if ($userId <= 0 || $itemCode === '') {
+            return 0;
+        }
+
+        $filter = [
+            '=UF_USER_ID' => $userId,
+            '=UF_EVENT_ID' => $eventId,
+            '=UF_ITEM_CODE' => $itemCode,
+            '>UF_COUNT' => 0,
+        ];
+
+        if ($category !== '') {
+            $filter['=UF_CATEGORY'] = $category;
+        }
+
+        $dataClass = $this->getLootItemDataClass();
+        $row = $dataClass::getList([
+            'filter' => $filter,
+            'select' => ['UF_COUNT'],
+            'limit' => 1,
+        ])->fetch();
+
+        return (int)($row['UF_COUNT'] ?? 0);
+    }
+
+    public function decrementLootItem(int $userId, int $eventId, string $itemCode, int $qty): void
+    {
+        if ($userId <= 0 || $itemCode === '' || $qty <= 0) {
+            return;
+        }
+
+        $dataClass = $this->getLootItemDataClass();
+        $row = $dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '=UF_EVENT_ID' => $eventId,
+                '=UF_ITEM_CODE' => $itemCode,
+                '>UF_COUNT' => 0,
+            ],
+            'limit' => 1,
+        ])->fetch();
+
+        if (!$row) {
+            throw new \RuntimeException('Нет предмета в инвентаре');
+        }
+
+        $count = (int)($row['UF_COUNT'] ?? 0);
+        if ($count < $qty) {
+            throw new \RuntimeException('Недостаточно предметов');
+        }
+
+        $now = new \Bitrix\Main\Type\DateTime();
+        $newCount = $count - $qty;
+
+        if ($newCount <= 0) {
+            $dataClass::delete((int)$row['ID']);
+        } else {
+            $dataClass::update((int)$row['ID'], [
+                'UF_COUNT' => $newCount,
+                'UF_UPDATED_AT' => $now,
+            ]);
+        }
+    }
+
+    public function countActiveExchangeListingsForUser(int $userId): int
+    {
+        if ($userId <= 0) {
+            return 0;
+        }
+
+        $dataClass = $this->getExchangeListingDataClass();
+
+        return (int)$dataClass::getCount([
+            '=UF_SELLER_ID' => $userId,
+            '=UF_STATUS' => ExchangeConfig::STATUS_ACTIVE,
+            '>UF_QTY_REMAINING' => 0,
+        ]);
+    }
+
+    public function addExchangeListing(array $fields): int
+    {
+        $dataClass = $this->getExchangeListingDataClass();
+        $result = $dataClass::add($fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+
+        return (int)$result->getId();
+    }
+
+    public function updateExchangeListing(int $id, array $fields): void
+    {
+        $dataClass = $this->getExchangeListingDataClass();
+        $result = $dataClass::update($id, $fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+    }
+
+    public function getExchangeListingById(int $id): ?array
+    {
+        if ($id <= 0) {
+            return null;
+        }
+
+        $dataClass = $this->getExchangeListingDataClass();
+
+        return $dataClass::getList([
+            'filter' => ['=ID' => $id],
+            'limit' => 1,
+        ])->fetch() ?: null;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function findActiveExchangeListingsForSku(
+        string $kind,
+        string $code,
+        string $category = '',
+        int $eventId = -1,
+        string $teamCode = ''
+    ): array {
+        $filter = [
+            '=UF_STATUS' => ExchangeConfig::STATUS_ACTIVE,
+            '>UF_QTY_REMAINING' => 0,
+            '=UF_ITEM_KIND' => $kind,
+            '=UF_ITEM_CODE' => $code,
+        ];
+
+        if ($category !== '') {
+            $filter['=UF_ITEM_CATEGORY'] = $category;
+        }
+
+        if ($eventId >= 0) {
+            $filter['=UF_EVENT_ID'] = $eventId;
+        }
+
+        if ($teamCode !== '') {
+            $filter['=UF_TEAM_CODE'] = $teamCode;
+        }
+
+        $dataClass = $this->getExchangeListingDataClass();
+        $rows = [];
+        $response = $dataClass::getList([
+            'filter' => $filter,
+            'order' => ['UF_PRICE_PER_UNIT' => 'ASC', 'UF_EXPIRES_AT' => 'ASC', 'ID' => 'ASC'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @return array{items: array<int, array<string, mixed>>, total: int}
+     */
+    public function getExchangeCatalogPage(int $offset, int $limit, string $kind = ''): array
+    {
+        $filter = [
+            '=UF_STATUS' => ExchangeConfig::STATUS_ACTIVE,
+            '>UF_QTY_REMAINING' => 0,
+        ];
+
+        if ($kind !== '') {
+            $filter['=UF_ITEM_KIND'] = $kind;
+        }
+
+        $dataClass = $this->getExchangeListingDataClass();
+        $total = (int)$dataClass::getCount($filter);
+        $limit = max(1, min($limit, 50));
+        $offset = max(0, $offset);
+
+        $items = [];
+        $response = $dataClass::getList([
+            'filter' => $filter,
+            'order' => ['UF_PRICE_PER_UNIT' => 'ASC', 'UF_CREATED_AT' => 'DESC'],
+            'limit' => $limit,
+            'offset' => $offset,
+        ]);
+
+        while ($row = $response->fetch()) {
+            $items[] = $row;
+        }
+
+        return ['items' => $items, 'total' => $total];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function getExchangeListingsForSeller(int $userId, bool $activeOnly = true): array
+    {
+        if ($userId <= 0) {
+            return [];
+        }
+
+        $filter = ['=UF_SELLER_ID' => $userId];
+        if ($activeOnly) {
+            $filter['=UF_STATUS'] = ExchangeConfig::STATUS_ACTIVE;
+            $filter['>UF_QTY_REMAINING'] = 0;
+        }
+
+        $dataClass = $this->getExchangeListingDataClass();
+        $rows = [];
+        $response = $dataClass::getList([
+            'filter' => $filter,
+            'order' => ['UF_CREATED_AT' => 'DESC', 'ID' => 'DESC'],
+            'limit' => 100,
+        ]);
+
+        while ($row = $response->fetch()) {
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
+    public function addExchangeTrade(array $fields): int
+    {
+        $dataClass = $this->getExchangeTradeDataClass();
+        $result = $dataClass::add($fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+
+        return (int)$result->getId();
+    }
+
+    /**
+     * @return array{items: array<int, array<string, mixed>>, total: int}
+     */
+    public function getExchangeTradesPageForUser(int $userId, int $offset, int $limit): array
+    {
+        if ($userId <= 0) {
+            return ['items' => [], 'total' => 0];
+        }
+
+        $dataClass = $this->getExchangeTradeDataClass();
+        $filter = [
+            [
+                'LOGIC' => 'OR',
+                ['=UF_SELLER_ID' => $userId],
+                ['=UF_BUYER_ID' => $userId],
+            ],
+        ];
+
+        $total = (int)$dataClass::getCount($filter);
+        $limit = max(1, min($limit, 50));
+        $offset = max(0, $offset);
+
+        $items = [];
+        $response = $dataClass::getList([
+            'filter' => $filter,
+            'order' => ['UF_CREATED_AT' => 'DESC', 'ID' => 'DESC'],
+            'limit' => $limit,
+            'offset' => $offset,
+        ]);
+
+        while ($row = $response->fetch()) {
+            $items[] = $row;
+        }
+
+        return ['items' => $items, 'total' => $total];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function getExpiredActiveExchangeListings(int $limit = 200): array
+    {
+        $dataClass = $this->getExchangeListingDataClass();
+        $now = new \Bitrix\Main\Type\DateTime();
+        $rows = [];
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_STATUS' => ExchangeConfig::STATUS_ACTIVE,
+                '>UF_QTY_REMAINING' => 0,
+                '<=UF_EXPIRES_AT' => $now,
+            ],
+            'limit' => max(1, min($limit, 500)),
+        ]);
+
+        while ($row = $response->fetch()) {
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
     private function compileDataClass(string $tableName): string
     {
         if (!Loader::includeModule('highloadblock')) {
@@ -2430,7 +3148,7 @@ class GameEconomyRepository
 
         if (!$hlblock) {
             throw new \RuntimeException(
-                'HL-блок не найден: ' . $tableName . '. Запустите install_game_economy_hl.php'
+                'HL-блок не найден: ' . $tableName . '. Запустите install_game_economy_hl.php или install_exchange_hl.php'
             );
         }
 

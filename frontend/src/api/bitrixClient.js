@@ -307,6 +307,53 @@ export const apiActions = {
             }
         ),
     },
+    exchange: {
+        getState: (userToken) => runBitrixAction(
+            'prognos9ys:main.ExchangeController.getState',
+            { userToken }
+        ),
+        getCatalog: (userToken, offset = 0, limit = 25, kind = '') => runBitrixAction(
+            'prognos9ys:main.ExchangeController.getCatalog',
+            { userToken, offset, limit, kind: kind || undefined }
+        ),
+        getMyListings: (userToken) => runBitrixAction(
+            'prognos9ys:main.ExchangeController.getMyListings',
+            { userToken }
+        ),
+        createListing: (userToken, kind, code, qty, pricePerUnit, category = '', eventId = 0, teamCode = '') => runBitrixAction(
+            'prognos9ys:main.ExchangeController.createListing',
+            {
+                userToken,
+                kind,
+                code,
+                qty,
+                pricePerUnit,
+                category: category || undefined,
+                eventId: eventId || undefined,
+                teamCode: teamCode || undefined,
+            }
+        ),
+        cancelListing: (userToken, listingId) => runBitrixAction(
+            'prognos9ys:main.ExchangeController.cancelListing',
+            { userToken, listingId }
+        ),
+        buy: (userToken, kind, code, qty, category = '', eventId = 0, teamCode = '') => runBitrixAction(
+            'prognos9ys:main.ExchangeController.buy',
+            {
+                userToken,
+                kind,
+                code,
+                qty,
+                category: category || undefined,
+                eventId: eventId || undefined,
+                teamCode: teamCode || undefined,
+            }
+        ),
+        getTradeHistory: (userToken, offset = 0, limit = 25) => runBitrixAction(
+            'prognos9ys:main.ExchangeController.getTradeHistory',
+            { userToken, offset, limit }
+        ),
+    },
     impersonation: {
         searchUsers: (userToken, query) => runBitrixAction(
             'prognos9ys:main.ImpersonationController.searchUsers',

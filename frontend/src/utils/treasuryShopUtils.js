@@ -15,6 +15,48 @@ export function countNewTreasuryOffers(shop) {
   return count;
 }
 
+export function countNewTreasuryOffersForMilestone(shop, milestone) {
+  if (!shop?.shop_open || !milestone) {
+    return 0;
+  }
+
+  const target = Number(milestone);
+  let count = 0;
+
+  for (const offer of Object.values(shop.offers || {})) {
+    if (Number(offer?.milestone || 0) !== target) {
+      continue;
+    }
+    if (offer?.available && !offer?.bought) {
+      count += 1;
+    }
+  }
+
+  return count;
+}
+
+export function listTreasuryMilestones(shop) {
+  if (Array.isArray(shop?.milestones) && shop.milestones.length) {
+    return shop.milestones.map(Number).filter((n) => n > 0);
+  }
+
+  const set = new Set();
+  for (const offer of Object.values(shop?.offers || {})) {
+    const m = Number(offer?.milestone || 0);
+    if (m > 0) {
+      set.add(m);
+    }
+  }
+
+  return Array.from(set).sort((a, b) => a - b);
+}
+
+export function listTreasuryOffersForMilestone(shop, milestone) {
+  const target = Number(milestone || 0);
+
+  return listTreasuryOffers(shop).filter((offer) => Number(offer?.milestone || 0) === target);
+}
+
 export function treasuryShopMatchesEvent(shop, eventId) {
   if (!shop?.event_id || eventId == null || eventId === '') {
     return false;

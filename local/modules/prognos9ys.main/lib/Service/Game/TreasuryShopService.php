@@ -34,11 +34,16 @@ class TreasuryShopService
         $activeMilestone = $this->resolveActiveMilestone($userId, $currentTour);
         $shopOpen = $currentTour >= GameEconomyConfig::TREASURY_SHOP_FIRST_MILESTONE;
 
+        $milestones = $shopOpen
+            ? GameEconomyConfig::getTreasuryShopMilestonesUpTo($currentTour)
+            : [];
+
         return [
             'event_id' => $eventId,
             'current_tour' => $currentTour,
             'shop_open' => $shopOpen,
             'active_milestone' => $activeMilestone,
+            'milestones' => $milestones,
             'offers' => $shopOpen
                 ? $this->buildMergedOffers($userId, $currentTour)
                 : [],
@@ -289,7 +294,6 @@ class TreasuryShopService
     {
         $offers = [];
         $milestones = GameEconomyConfig::getTreasuryShopMilestonesUpTo($currentTour);
-        $showWaveInLabel = count($milestones) > 1;
 
         foreach ($milestones as $milestone) {
             $wave = $this->ensureWaveRow($userId, (int)$milestone);
@@ -298,11 +302,6 @@ class TreasuryShopService
                 $offer['base_key'] = $baseKey;
                 $offer['milestone'] = (int)$milestone;
                 $offer['key'] = 'm' . $milestone . '_' . $baseKey;
-
-                if ($showWaveInLabel) {
-                    $offer['label'] = trim((string)($offer['label'] ?? ''))
-                        . ' · тур ' . $milestone;
-                }
 
                 $offers[$offer['key']] = $offer;
             }

@@ -30,6 +30,9 @@ class BankOperationsService
         'bank_client_loan_cancel' => 'Отмена займа клиента',
         'bank_client_loan_repay' => 'Погашение займа',
         'bank_client_loan_interest' => 'Проценты по займу клиента',
+        'bank_client_gov_deposit' => 'Гос. вклад поддержки',
+        'bank_client_gov_interest' => 'Проценты гос. вклада в казну',
+        'bank_client_gov_return' => 'Возврат гос. вклада в казну',
     ];
 
     private const REASON_CATEGORY = [
@@ -52,6 +55,9 @@ class BankOperationsService
         'bank_client_loan' => 'loans',
         'bank_client_loan_repay' => 'returns',
         'bank_client_loan_interest' => 'returns',
+        'bank_client_gov_deposit' => 'deposits',
+        'bank_client_gov_interest' => 'returns',
+        'bank_client_gov_return' => 'returns',
     ];
 
     private GameEconomyRepository $repository;
@@ -295,6 +301,21 @@ class BankOperationsService
         $interestPaid = 0.0;
 
         foreach ($this->repository->getDepositsByBankId($bankId) as $deposit) {
+            if (GovSupportDepositService::isGovSupportDeposit($deposit)) {
+                $status = (string)($deposit['UF_STATUS'] ?? '');
+                $principal = round((float)($deposit['UF_PRINCIPAL'] ?? 0), 1);
+                $govInterest = GameEconomyConfig::calculateGovSupportInterest($principal);
+
+                if (in_array($status, [
+                    GameEconomyConfig::CONTRACT_STATUS_INTEREST_PAID,
+                    GameEconomyConfig::CONTRACT_STATUS_CLOSED,
+                ], true) && $govInterest > 0) {
+                    $interestPaid = round($interestPaid + $govInterest, 1);
+                }
+
+                continue;
+            }
+
             $depositId = (int)$deposit['ID'];
             $clientId = (int)($deposit['UF_USER_ID'] ?? 0);
             $principal = round((float)($deposit['UF_PRINCIPAL'] ?? 0), 1);
@@ -491,6 +512,10 @@ class BankOperationsService
      */
     private function formatBankDepositEvents(array $deposit, int $bankId): array
     {
+        if (GovSupportDepositService::isGovSupportDeposit($deposit)) {
+            return $this->formatGovSupportDepositEvents($deposit, $bankId);
+        }
+
         $depositId = (int)$deposit['ID'];
         $principal = round((float)($deposit['UF_PRINCIPAL'] ?? 0), 1);
         $clientId = (int)($deposit['UF_USER_ID'] ?? 0);
@@ -595,6 +620,90 @@ class BankOperationsService
                     'match_label' => $closedMatchLabel,
                 ];
             }
+        }
+
+        return $events;
+    }
+
+    /**
+     * @param array<string, mixed> $deposit
+     * @return array<int, array<string, mixed>>
+     */
+    private function formatGovSupportDepositEvents(array $deposit, int $bankId): array
+    {
+        $depositId = (int)$deposit['ID'];
+        $principal = round((float)($deposit['UF_PRINCIPAL'] ?? 0), 1);
+        $openedById = (int)($deposit['UF_USER_ID'] ?? 0);
+        $openedByName = $this->resolveUserName($openedById);
+        $status = (string)($deposit['UF_STATUS'] ?? '');
+        $openingMatchId = (int)($deposit['UF_OPENING_MATCH_ID'] ?? 0);
+        $lastTickMatchId = (int)($deposit['UF_LAST_TICK_MATCH_ID'] ?? 0);
+        $matchLabel = $this->buildContractMatchLabel($openingMatchId, $lastTickMatchId);
+        $govInterest = GameEconomyConfig::calculateGovSupportInterest($principal);
+        $counterpartyLabel = $openedByName !== '' ? ('Казна · открыл ' . $openedByName) : 'Казна';
+
+        $events = [[
+            'id' => 'gov_dep_in_' . $depositId,
+            'at' => $this->formatDateTime($deposit['UF_CREATED_AT'] ?? null),
+            'scope' => 'bank',
+            'category' => 'deposits',
+            'reason' => 'bank_client_gov_deposit',
+            'label' => $this->buildContractLabel('Гос. вклад поддержки', $depositId, $counterpartyLabel, $matchLabel),
+            'amount' => $principal,
+            'direction' => 'in',
+            'currency' => GameEconomyConfig::CURRENCY_PROGNOBAKS,
+            'balance_after' => null,
+            'contract_id' => $depositId,
+            'bank_id' => $bankId,
+            'counterparty_id' => 0,
+            'counterparty_name' => 'Казна',
+            'match_id' => $openingMatchId,
+            'match_label' => $matchLabel,
+        ]];
+
+        if (in_array($status, [
+            GameEconomyConfig::CONTRACT_STATUS_INTEREST_PAID,
+            GameEconomyConfig::CONTRACT_STATUS_CLOSED,
+        ], true) && $govInterest > 0) {
+            $events[] = [
+                'id' => 'gov_dep_interest_' . $depositId,
+                'at' => $this->formatDateTime($deposit['UF_UPDATED_AT'] ?? null),
+                'scope' => 'bank',
+                'category' => 'returns',
+                'reason' => 'bank_client_gov_interest',
+                'label' => $this->buildContractLabel('Проценты гос. вклада в казну', $depositId, $counterpartyLabel, $matchLabel),
+                'amount' => -$govInterest,
+                'direction' => 'out',
+                'currency' => GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                'balance_after' => null,
+                'contract_id' => $depositId,
+                'bank_id' => $bankId,
+                'counterparty_id' => 0,
+                'counterparty_name' => 'Казна',
+                'match_id' => $lastTickMatchId,
+                'match_label' => $this->scopeService->formatMatchLabel($lastTickMatchId),
+            ];
+        }
+
+        if ($status === GameEconomyConfig::CONTRACT_STATUS_CLOSED) {
+            $events[] = [
+                'id' => 'gov_dep_return_' . $depositId,
+                'at' => $this->formatDateTime($deposit['UF_CLOSED_AT'] ?? $deposit['UF_UPDATED_AT'] ?? null),
+                'scope' => 'bank',
+                'category' => 'returns',
+                'reason' => 'bank_client_gov_return',
+                'label' => $this->buildContractLabel('Возврат гос. вклада в казну', $depositId, $counterpartyLabel, $matchLabel),
+                'amount' => -$principal,
+                'direction' => 'out',
+                'currency' => GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                'balance_after' => null,
+                'contract_id' => $depositId,
+                'bank_id' => $bankId,
+                'counterparty_id' => 0,
+                'counterparty_name' => 'Казна',
+                'match_id' => $lastTickMatchId,
+                'match_label' => $this->scopeService->formatMatchLabel($lastTickMatchId),
+            ];
         }
 
         return $events;

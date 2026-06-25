@@ -1,5 +1,6 @@
 <template>
   <div class="select_wrapper">
+    <div class="msg error" v-if="impersonateError">{{ impersonateError }}</div>
     <div v-for="(data, index) in arRating" :key="index">
       <div v-if="String(selected) === String(index)">
         <table class="table table-dark table-hover rating_table_box">
@@ -105,12 +106,18 @@ export default {
     }),
 
     async loginAsUser(userId) {
-      this.impersonateError = ''
+      const targetId = Number(userId);
+      if (!targetId) {
+        this.impersonateError = 'Не удалось определить пользователя';
+        return;
+      }
+
+      this.impersonateError = '';
       try {
-        await this.impersonateStart(userId)
+        await this.impersonateStart(targetId);
       } catch (e) {
-        this.impersonateError = e.message || 'Не удалось войти'
-        console.log('loginAsUser error', e)
+        this.impersonateError = e.message || 'Не удалось войти';
+        console.log('loginAsUser error', e);
       }
     },
 
@@ -297,6 +304,16 @@ export default {
 
 .select_wrapper{
   text-align: right;
+}
+
+.msg.error {
+  font-size: 12px;
+  padding: 6px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  background: rgba(200, 60, 60, 0.2);
+  color: #f88;
+  text-align: left;
 }
 
 </style>

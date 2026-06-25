@@ -11,6 +11,9 @@ class ImpersonationConfig
     /** Bitrix GROUP_ID группы «Супермодераторы». */
     public const SUPER_MODERATOR_GROUP_ID = 8;
 
+    /** Bitrix GROUP_ID администраторов — за них нельзя входить. */
+    public const ADMIN_GROUP_ID = 1;
+
     /** Роли, которым разрешён вход за другого. */
     public const ALLOWED_ROLES = ['admin', 'super_moder'];
 

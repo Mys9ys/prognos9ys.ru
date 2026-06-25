@@ -254,9 +254,11 @@ class GameController extends BaseController
             throw new ApiException('Пользователь не авторизован', 401);
         }
 
+        $seeAll = (new ImpersonationService())->canImpersonate($userId);
+
         return [
             'status' => 'ok',
-            'deposits' => (new GovSupportDepositService())->getMyContracts($userId),
+            'deposits' => (new GovSupportDepositService())->getContractsForViewer($userId, $seeAll),
         ];
     }
 

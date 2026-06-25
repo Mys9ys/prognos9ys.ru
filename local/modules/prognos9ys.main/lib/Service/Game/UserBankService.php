@@ -42,6 +42,13 @@ class UserBankService
         $bankId = (int)$row['ID'];
         $deposits = [];
         foreach ($this->repository->getActiveDepositsByBankId($bankId) as $deposit) {
+            if (GovSupportDepositService::isGovSupportDeposit($deposit)) {
+                $deposits[] = $this->enrichGovSupportContract(
+                    GovSupportDepositService::formatContract($deposit)
+                );
+                continue;
+            }
+
             $deposits[] = $this->enrichContractWithClient(BankDepositService::formatContract($deposit));
         }
 
@@ -164,6 +171,30 @@ class UserBankService
     {
         $clientId = (int)($contract['user_id'] ?? 0);
         $contract['client'] = $this->resolveClientBrief($clientId);
+
+        return $contract;
+    }
+
+    private function enrichGovSupportContract(array $contract): array
+    {
+        $openedById = (int)($contract['user_id'] ?? 0);
+        $contract['opened_by'] = $this->resolveClientBrief($openedById);
+        $contract['client'] = null;
+
+        $depositId = (int)($contract['id'] ?? 0);
+        $deposit = $depositId > 0 ? $this->repository->getBankDepositById($depositId) : null;
+        if ($deposit) {
+            $returnCheck = GovSupportDepositService::evaluateOwnerReturnEligibility($deposit, $this->repository);
+            $contract['can_close'] = !empty($returnCheck['can_return']) && empty($returnCheck['early']);
+            $contract['can_force_close'] = !empty($returnCheck['can_return']) && !empty($returnCheck['early']);
+            if (!empty($returnCheck['can_return'])) {
+                $contract['owner_return_hint'] = !empty($returnCheck['early']) ? 'досрочно, без процентов' : '';
+            } else {
+                $contract['owner_return_hint'] = GovSupportDepositService::getOwnerReturnBlockMessage(
+                    $returnCheck['reason'] ?? ''
+                );
+            }
+        }
 
         return $contract;
     }

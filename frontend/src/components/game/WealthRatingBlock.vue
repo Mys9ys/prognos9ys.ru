@@ -92,6 +92,7 @@
         </div>
         <div class="bulk_msg ok" v-if="bulkMessage">{{ bulkMessage }}</div>
         <div class="bulk_msg error" v-if="bulkError">{{ bulkError }}</div>
+        <div class="bulk_msg error" v-if="impersonateError">{{ impersonateError }}</div>
       </div>
       <div class="wealth_filters" v-if="expanded" @click.stop>
         <button
@@ -309,6 +310,7 @@ export default {
       bulkLoading: false,
       bulkMessage: '',
       bulkError: '',
+      impersonateError: '',
       bulkProgressVisible: false,
       bulkProgressTitle: '',
       bulkProgressLines: [],
@@ -834,9 +836,17 @@ export default {
     },
 
     async loginAsUser(userId) {
+      const targetId = Number(userId);
+      if (!targetId) {
+        this.impersonateError = 'Не удалось определить пользователя';
+        return;
+      }
+
+      this.impersonateError = '';
       try {
-        await this.impersonateStart(userId);
+        await this.impersonateStart(targetId);
       } catch (e) {
+        this.impersonateError = e.message || 'Не удалось войти за пользователя';
         console.log('loginAsUser error', e);
       }
     },

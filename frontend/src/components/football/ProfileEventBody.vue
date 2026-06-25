@@ -1,6 +1,12 @@
 <template>
   <div class="body_wrapper">
     <div class="body_title_wrapper">
+      <img
+          v-if="eventImg"
+          class="body_title_event_img"
+          :src="url + eventImg"
+          :alt="title"
+      >
       <div class="title">{{ title }}</div>
     </div>
 
@@ -30,6 +36,16 @@ export default {
       type: String,
       default: '',
     },
+    eventImg: {
+      type: String,
+      default: '',
+    },
+  },
+
+  data() {
+    return {
+      url: 'https://prognos9ys.ru/',
+    };
   },
 
   computed: {
@@ -52,8 +68,27 @@ export default {
       border-radius: 5px;
       color: @colorText;
       margin-top: 5px;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 8px;
+
+      .body_title_event_img{
+        flex-shrink: 0;
+        width: 32px;
+        height: 32px;
+        object-fit: contain;
+        border-radius: 4px;
+        background: @colorBlur;
+      }
+
       .title{
         .shadow_inset;
+        flex: 1;
+        min-width: 0;
+        padding: 4px 6px;
+        font-size: 13px;
+        line-height: 1.25;
       }
     }
   }

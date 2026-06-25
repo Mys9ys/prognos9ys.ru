@@ -88,11 +88,11 @@ class ImpersonationService
         ]);
 
         if (!$target) {
-            throw new ApiException('Пользователь не найден', 404);
+            throw new ApiException('Пользователь не найден или неактивен', 404);
         }
 
-        if ($this->canImpersonate($targetUserId)) {
-            throw new ApiException('Нельзя войти за администратора или супермодератора', 403);
+        if ($this->isAdminUser($targetUserId)) {
+            throw new ApiException('Нельзя войти за администратора', 403);
         }
 
         $token = $this->ensureUserToken($targetUserId);
@@ -125,6 +125,17 @@ class ImpersonationService
         $user->Update($userId, ['UF_TOKEN' => $token]);
 
         return $token;
+    }
+
+    private function isAdminUser(int $userId): bool
+    {
+        if ($userId <= 0) {
+            return false;
+        }
+
+        $groups = array_map('intval', (array)\CUser::GetUserGroup($userId));
+
+        return in_array(ImpersonationConfig::ADMIN_GROUP_ID, $groups, true);
     }
 
     private function buildAuthPayload(

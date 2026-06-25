@@ -36,6 +36,7 @@
         <ProfileEventBody v-if="index == activeEvent"
                           :matches="arr.items"
                           :title="arr.info.NAME"
+                          :event-img="arr.info.img"
                           ></ProfileEventBody>
       </div>
     </div>

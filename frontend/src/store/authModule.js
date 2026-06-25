@@ -113,6 +113,11 @@ export const authModule = {
         },
 
         async impersonateStart({ state, commit, dispatch }, targetUserId) {
+            const targetId = Number(targetUserId);
+            if (!targetId) {
+                throw new Error('Не указан пользователь');
+            }
+
             const actorToken = state.impersonation.active
                 ? state.impersonation.originalToken
                 : state.authData.token
@@ -125,7 +130,7 @@ export const authModule = {
                 ? state.impersonation.originalToken
                 : state.authData.token
 
-            const data = await apiActions.impersonation.start(actorToken, targetUserId)
+            const data = await apiActions.impersonation.start(actorToken, targetId)
 
             commit('setImpersonation', {
                 active: true,

@@ -31,22 +31,28 @@
       </div>
     </div>
 
-    <div class="event_block" :class="{'small_category' : category}" v-if="filteredEvents && Object.keys(filteredEvents).length">
-      <div class="el_event" v-for="(el, index) in filteredEvents" :key="index">
+    <div class="event_block" v-if="switchableEvents.length">
+      <div class="el_event" v-for="el in switchableEvents" :key="el.ID">
         <div class="img_box" @click="selectRating(el.ID, el.code)">
           <img :src="url + el.img" alt="">
         </div>
       </div>
     </div>
 
-    <div class="empty_period" v-else-if="!catLoader">
+    <div class="empty_period" v-if="!catLoader && !hasEventsInPeriod">
       Событий в этой категории пока нет
     </div>
 
     <div class="rating_block" v-if="eventId && filteredEvents[eventId]">
       <div class="rating_title_wrapper">
         <div class="rating_title">
-          {{ filteredEvents[eventId].NAME }}
+          <img
+              v-if="selectedEvent?.img"
+              class="rating_title_event_img"
+              :src="url + selectedEvent.img"
+              :alt="selectedEvent.NAME"
+          >
+          <span class="rating_title_text">{{ filteredEvents[eventId].NAME }}</span>
         </div>
       </div>
 
@@ -321,6 +327,20 @@ export default {
     filteredEvents() {
       return this.periodFilter === 'old' ? this.oldEvents : this.nowEvents
     },
+    hasEventsInPeriod() {
+      return Object.keys(this.filteredEvents || {}).length > 0
+    },
+    selectedEvent() {
+      if (!this.eventId || !this.filteredEvents[this.eventId]) {
+        return null
+      }
+      return this.filteredEvents[this.eventId]
+    },
+    switchableEvents() {
+      const events = this.filteredEvents || {}
+      const selectedId = this.eventId ? String(this.eventId) : ''
+      return Object.values(events).filter((el) => String(el.ID) !== selectedId)
+    },
   },
 }
 </script>
@@ -391,15 +411,10 @@ export default {
       }
     }
 
-    &.small_category{
-      .el_event{
-        width: 40px;
-      }
-    }
   }
 
   .rating_block{
-    margin-top: 36px;
+    margin-top: 10px;
   }
   .rating_title_wrapper{
     .inset_panel_wrapper();
@@ -408,7 +423,24 @@ export default {
     .rating_title{
       .inset_panel_inner();
       justify-content: center;
+      align-items: center;
+      gap: 8px;
       font-size: 14px;
+      min-height: 40px;
+    }
+
+    .rating_title_event_img{
+      flex-shrink: 0;
+      width: 32px;
+      height: 32px;
+      object-fit: contain;
+      border-radius: 4px;
+      background: @colorBlur;
+    }
+
+    .rating_title_text{
+      text-align: center;
+      line-height: 1.25;
     }
   }
 }

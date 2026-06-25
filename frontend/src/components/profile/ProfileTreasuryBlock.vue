@@ -52,7 +52,55 @@
         </div>
       </div>
 
-      <p class="hint">«В банках» — частные банки игроков и пул ставок ЧМ. Среднее = общая масса ÷ число аккаунтов.</p>
+      <div class="macro_block macro_monitor" v-if="macro.flows">
+        <div class="macro_currency_title">Оборот и доли</div>
+        <div class="macro_row">
+          <span>Доля в казне (🪙)</span>
+          <span class="macro_value">{{ formatPercent(macro.prognobaks.treasury_share) }}</span>
+        </div>
+        <div class="macro_row">
+          <span>Оборот (🪙 на руках + в банках)</span>
+          <span class="macro_value">{{ formatPercent(macro.prognobaks.velocity) }}</span>
+        </div>
+        <div class="macro_row">
+          <span>Доля в казне (💎)</span>
+          <span class="macro_value">{{ formatPercent(macro.rublius.treasury_share) }}</span>
+        </div>
+        <div class="macro_row">
+          <span>Оборот (💎)</span>
+          <span class="macro_value">{{ formatPercent(macro.rublius.velocity) }}</span>
+        </div>
+        <div class="macro_row">
+          <span>Лавка: сундуки 🪙 (шт. / сумма)</span>
+          <span class="macro_value">
+            {{ macro.flows.shop.prognobaks_chests }} / {{ formatMoney(macro.flows.shop.prognobaks_volume) }}
+          </span>
+        </div>
+        <div class="macro_row">
+          <span>Лавка: сундуки 💎 + премиум</span>
+          <span class="macro_value">
+            {{ macro.flows.shop.rublius_chests }}+{{ macro.flows.shop.premium_1d }}
+            / {{ formatMoney(macro.flows.shop.rublius_volume) }}
+          </span>
+        </div>
+        <div class="macro_row">
+          <span>Эмиссия из сундуков (🪙 / 💎)</span>
+          <span class="macro_value">
+            {{ formatMoney(macro.flows.chest_mint.prognobaks) }}
+            /
+            {{ formatMoney(macro.flows.chest_mint.rublius) }}
+          </span>
+        </div>
+        <div class="macro_row" v-if="macro.flows.gov_support">
+          <span>Господдержка: вкладов / тело в банках</span>
+          <span class="macro_value">
+            {{ macro.flows.gov_support.active_count }}
+            / {{ formatMoney(macro.flows.gov_support.principal_in_banks) }} 🪙
+          </span>
+        </div>
+      </div>
+
+      <p class="hint">«В банках» — частные банки игроков и пул ставок ЧМ. Среднее = общая масса ÷ число аккаунтов. Оборот — доля не в казне.</p>
     </div>
 
     <div class="section" v-if="contractEvents.length">
@@ -203,6 +251,11 @@ export default {
     formatMoney(value) {
       const num = Number(value ?? 0);
       return Number.isInteger(num) ? String(num) : num.toFixed(1);
+    },
+
+    formatPercent(value) {
+      const num = Number(value ?? 0);
+      return `${Number.isInteger(num) ? num : num.toFixed(1)}%`;
     },
 
     async refresh() {
@@ -376,6 +429,12 @@ export default {
 
 .macro_block {
   margin-bottom: 10px;
+
+  &.macro_monitor {
+    margin-top: 4px;
+    padding-top: 6px;
+    border-top: 1px solid fade(@colorBlur, 25%);
+  }
 }
 
 .macro_currency_title {

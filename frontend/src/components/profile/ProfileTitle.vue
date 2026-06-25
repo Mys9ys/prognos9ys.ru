@@ -7,8 +7,6 @@
       <div class="event_img">
         <img class="img" :src="url+info.img" alt="">
       </div>
-
-      <div class="title_mini" v-if="active">{{info.PREVIEW_TEXT}} </div>
     </div>
 </template>
 
@@ -62,11 +60,7 @@ export default {
       }
     }
     .title_mini{
-      .shadow_inset;
-      .flex_center;
-      font-size: 12px;
-      word-break: break-all;
-      line-height: 14px;
+      display: none;
     }
 
   }

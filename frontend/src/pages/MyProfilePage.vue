@@ -17,7 +17,6 @@
         <div class="icon" v-else>
           <img class="icon_img" :src="el.img" alt="">
         </div>
-        <div class="name" v-if="index === active">{{ el.title }}</div>
       </div>
     </div>
   </div>
@@ -44,7 +43,6 @@
             <div class="icon">
               <AppIcon name="football" :size="22" />
             </div>
-            <div class="name" v-if="prognosisType === 'football'">Футбол</div>
           </div>
         </div>
         <div class="title_wrapper compact" :class="{'active': prognosisType === 'race'}" @click="setPrognosisType('race')">
@@ -52,7 +50,6 @@
             <div class="icon">
               <AppIcon name="f1_race" :size="22" />
             </div>
-            <div class="name" v-if="prognosisType === 'race'">Ф1</div>
           </div>
         </div>
       </div>
@@ -99,6 +96,7 @@
                             :key="`${prognosisStatus}-${eventId}-body`"
                             :matches="arr.items"
                             :title="arr.info.NAME"
+                            :event-img="arr.info.img"
           ></ProfileEventBody>
         </div>
       </div>
@@ -135,6 +133,13 @@
         <div class="title">Инвентарь</div>
       </div>
       <ProfileInventoryBlock :game="gameInfo" v-if="gameInfo" />
+    </div>
+
+    <div class="body_item" v-if="active === 'exchange'">
+      <div class="title_wrapper">
+        <div class="title">Биржа</div>
+      </div>
+      <ExchangeBlock v-if="gameInfo" />
     </div>
 
     <div class="body_item" v-if="active === 'achievement'">
@@ -178,6 +183,7 @@ import ProfileGameBlock from "@/components/profile/ProfileGameBlock";
 import ProfileBankBlock from "@/components/profile/ProfileBankBlock";
 import ProfileTreasuryBlock from "@/components/profile/ProfileTreasuryBlock";
 import ProfileInventoryBlock from "@/components/profile/ProfileInventoryBlock";
+import ExchangeBlock from "@/components/game/ExchangeBlock";
 import ImpersonationPanel from "@/components/profile/ImpersonationPanel";
 import AppIcon from '@/components/ui/AppIcon.vue';
 
@@ -193,6 +199,7 @@ export default {
     ProfileBankBlock,
     ProfileTreasuryBlock,
     ProfileInventoryBlock,
+    ExchangeBlock,
     ImpersonationPanel,
     AppIcon,
   },
@@ -211,6 +218,7 @@ export default {
         finance: {title: 'Финансы', icon: 'bank'},
         treasury: {title: 'Казна', emoji: '🏛️'},
         inventory: {title: 'Инвентарь', emoji: '🎒'},
+        exchange: {title: 'Биржа', emoji: '📈'},
         achievement: {title: 'Награды', icon: 'achievement'},
         settings: {title: 'Настройки', icon: 'settings'},
       }
@@ -435,10 +443,6 @@ export default {
   .title_wrapper {
     margin: 0;
     flex: 0 0 auto;
-
-    &.active {
-      flex: 1 1 auto;
-    }
   }
 }
 
@@ -446,10 +450,6 @@ export default {
   .title_wrapper {
     margin: 0;
     flex: 0 0 auto;
-
-    &.active {
-      flex: 1 1 auto;
-    }
   }
 }
 
