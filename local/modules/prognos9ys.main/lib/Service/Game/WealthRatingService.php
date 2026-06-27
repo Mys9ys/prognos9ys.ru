@@ -143,10 +143,7 @@ class WealthRatingService
 
     private function getPendingXpRating(int $limit, int $offset): array
     {
-        $scope = new GameEventScopeService();
-        $aggregates = $this->repository->getPendingXpAggregatesByUser(
-            static fn(int $matchId): bool => $scope->isMatchEligible($matchId)
-        );
+        $aggregates = $this->repository->getPendingXpAggregatesForScope($this->scopeService);
         $walletMap = [];
         $levelMap = $this->buildLevelMap();
 
@@ -232,15 +229,22 @@ class WealthRatingService
     private function getPendingAchievementsRating(int $limit, int $offset): array
     {
         $levelMap = $this->buildLevelMap();
+        $wallets = $this->repository->getAllWallets();
+        $userIds = array_values(array_unique(array_filter(array_map(
+            static fn(array $wallet): int => (int)($wallet['user_id'] ?? 0),
+            $wallets
+        ))));
+
+        $claimableMap = $this->achievementService->getClaimableCountMapForUsers($userIds);
         $prepared = [];
 
-        foreach ($this->repository->getAllWallets() as $wallet) {
+        foreach ($wallets as $wallet) {
             $userId = (int)($wallet['user_id'] ?? 0);
             if ($userId <= 0) {
                 continue;
             }
 
-            $pendingAchievements = $this->achievementService->countClaimableAchievements($userId);
+            $pendingAchievements = (int)($claimableMap[$userId] ?? 0);
             if ($pendingAchievements <= 0) {
                 continue;
             }
@@ -518,9 +522,7 @@ class WealthRatingService
      */
     private function buildPendingMap(): array
     {
-        return $this->repository->getPendingXpAggregatesByUser(
-            fn(int $matchId): bool => $this->scopeService->isMatchEligible($matchId)
-        );
+        return $this->repository->getPendingXpAggregatesForScope($this->scopeService);
     }
 
     /**

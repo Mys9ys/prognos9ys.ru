@@ -125,6 +125,35 @@ class GameEconomyRepository
         ])->fetch();
     }
 
+    /**
+     * @param int[] $matchIds
+     * @return array<int, true>
+     */
+    public function getSettledMatchIds(array $matchIds): array
+    {
+        $matchIds = array_values(array_unique(array_filter(array_map('intval', $matchIds))));
+
+        if (!$matchIds) {
+            return [];
+        }
+
+        $dataClass = $this->getMatchEconomySettleDataClass();
+        $set = [];
+        $response = $dataClass::getList([
+            'filter' => ['@UF_MATCH_ID' => $matchIds],
+            'select' => ['UF_MATCH_ID'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $matchId = (int)($row['UF_MATCH_ID'] ?? 0);
+            if ($matchId > 0) {
+                $set[$matchId] = true;
+            }
+        }
+
+        return $set;
+    }
+
     public function addMatchEconomySettlement(array $fields): int
     {
         $dataClass = $this->getMatchEconomySettleDataClass();
@@ -760,6 +789,67 @@ class GameEconomyRepository
             $matchId = (int)($row['UF_MATCH_ID'] ?? 0);
 
             if ($matchFilter !== null && ($matchId <= 0 || !$matchFilter($matchId))) {
+                continue;
+            }
+
+            $userId = (int)($row['UF_USER_ID'] ?? 0);
+            if ($userId <= 0) {
+                continue;
+            }
+
+            if (!isset($map[$userId])) {
+                $map[$userId] = ['count' => 0, 'points' => 0.0];
+            }
+
+            $map[$userId]['count']++;
+            $map[$userId]['points'] = round(
+                $map[$userId]['points'] + (float)($row['UF_POINTS'] ?? 0),
+                1
+            );
+        }
+
+        return $map;
+    }
+
+    /**
+     * Агрегаты pending XP с одним прогревом метаданных матчей (без N+1 к iblock).
+     *
+     * @return array<int, array{count:int,points:float}>
+     */
+    public function getPendingXpAggregatesForScope(GameEventScopeService $scope): array
+    {
+        $dataClass = $this->getPendingXpDataClass();
+        $rows = [];
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_STATUS' => GameEconomyConfig::XP_STATUS_PENDING,
+            ],
+            'select' => ['UF_USER_ID', 'UF_POINTS', 'UF_MATCH_ID'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $rows[] = $row;
+        }
+
+        if (!$rows) {
+            return [];
+        }
+
+        $matchIds = [];
+        foreach ($rows as $row) {
+            $matchId = (int)($row['UF_MATCH_ID'] ?? 0);
+            if ($matchId > 0) {
+                $matchIds[$matchId] = $matchId;
+            }
+        }
+
+        $scope->preloadMatches(array_values($matchIds));
+
+        $map = [];
+        foreach ($rows as $row) {
+            $matchId = (int)($row['UF_MATCH_ID'] ?? 0);
+
+            if ($matchId <= 0 || !$scope->isMatchEligible($matchId)) {
                 continue;
             }
 
@@ -1659,6 +1749,141 @@ class GameEconomyRepository
         }
 
         return $map;
+    }
+
+    /**
+     * Все записи HL achievement_claim: userId => code => claimed_threshold.
+     *
+     * @return array<int, array<string, array{claimed_threshold:int,id?:int}>>
+     */
+    public function getAllAchievementClaimMaps(): array
+    {
+        $dataClass = $this->getAchievementClaimDataClass();
+        $map = [];
+        $response = $dataClass::getList([
+            'select' => ['ID', 'UF_USER_ID', 'UF_CODE', 'UF_CLAIMED_THRESHOLD'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $userId = (int)($row['UF_USER_ID'] ?? 0);
+            $code = (string)($row['UF_CODE'] ?? '');
+            if ($userId <= 0 || $code === '') {
+                continue;
+            }
+
+            $map[$userId][$code] = [
+                'id' => (int)($row['ID'] ?? 0),
+                'claimed_threshold' => (int)($row['UF_CLAIMED_THRESHOLD'] ?? 0),
+            ];
+        }
+
+        return $map;
+    }
+
+    /**
+     * Экономические счётчики ачивок для всех пользователей (ORM HL, без N+1).
+     *
+     * @return array<int, array{
+     *   bet_winnings_prognobaks:int,
+     *   rublius_earned:int,
+     *   chests_opened:int,
+     *   chests_earned:int
+     * }>
+     */
+    public function getAchievementEconomyStatsMapForAllUsers(): array
+    {
+        $map = [];
+
+        $betDataClass = $this->getMatchBetDataClass();
+        $betResponse = $betDataClass::getList([
+            'filter' => ['=UF_STATUS' => GameEconomyConfig::BET_STATUS_WON],
+            'select' => ['UF_USER_ID', 'UF_PAYOUT'],
+        ]);
+        while ($row = $betResponse->fetch()) {
+            $userId = (int)($row['UF_USER_ID'] ?? 0);
+            if ($userId <= 0) {
+                continue;
+            }
+            $this->ensureAchievementEconomyRow($map, $userId);
+            $map[$userId]['bet_winnings_prognobaks'] += (int)round((float)($row['UF_PAYOUT'] ?? 0));
+        }
+
+        $txDataClass = $this->getWalletTxDataClass();
+        $txResponse = $txDataClass::getList([
+            'filter' => [
+                '=UF_CURRENCY' => GameEconomyConfig::CURRENCY_RUBLIUS,
+                '>UF_AMOUNT' => 0,
+                '!UF_REASON' => 'registration_bonus',
+            ],
+            'select' => ['UF_USER_ID', 'UF_AMOUNT'],
+        ]);
+        while ($row = $txResponse->fetch()) {
+            $userId = (int)($row['UF_USER_ID'] ?? 0);
+            if ($userId <= 0) {
+                continue;
+            }
+            $this->ensureAchievementEconomyRow($map, $userId);
+            $map[$userId]['rublius_earned'] += (int)round((float)($row['UF_AMOUNT'] ?? 0));
+        }
+
+        $logDataClass = $this->getChestOpenLogDataClass();
+        $logResponse = $logDataClass::getList([
+            'select' => ['UF_USER_ID', 'UF_CHEST_TYPE'],
+        ]);
+        while ($row = $logResponse->fetch()) {
+            $userId = (int)($row['UF_USER_ID'] ?? 0);
+            if ($userId <= 0) {
+                continue;
+            }
+            $this->ensureAchievementEconomyRow($map, $userId);
+            $map[$userId]['chests_opened']++;
+            if ((string)($row['UF_CHEST_TYPE'] ?? '') !== TreasureService::CHEST_TYPE_SHOP_WC26) {
+                $map[$userId]['chests_earned']++;
+            }
+        }
+
+        $earnedTypes = [
+            TreasureService::CHEST_TYPE_MATCH,
+            TreasureService::CHEST_TYPE_LEVEL,
+            TreasureService::CHEST_TYPE_ACHIEVEMENT,
+            TreasureService::CHEST_TYPE_WC26_ACHIEVEMENT,
+        ];
+        $chestDataClass = $this->getTreasureChestDataClass();
+        $chestResponse = $chestDataClass::getList([
+            'filter' => [
+                '=UF_STATUS' => TreasureService::CHEST_STATUS_CLOSED,
+                '@UF_TYPE' => $earnedTypes,
+                '>UF_COUNT' => 0,
+            ],
+            'select' => ['UF_USER_ID', 'UF_COUNT'],
+        ]);
+        while ($row = $chestResponse->fetch()) {
+            $userId = (int)($row['UF_USER_ID'] ?? 0);
+            if ($userId <= 0) {
+                continue;
+            }
+            $this->ensureAchievementEconomyRow($map, $userId);
+            $map[$userId]['chests_earned'] += (int)($row['UF_COUNT'] ?? 0);
+        }
+
+        return $map;
+    }
+
+    /**
+     * @param array<int, array<string, int>> $map
+     */
+    private function ensureAchievementEconomyRow(array &$map, int $userId): void
+    {
+        if (isset($map[$userId])) {
+            return;
+        }
+
+        $map[$userId] = [
+            'bet_winnings_prognobaks' => 0,
+            'rublius_earned' => 0,
+            'chests_opened' => 0,
+            'chests_earned' => 0,
+        ];
     }
 
     public function sumMatchBetPayoutPrognobaksForUser(int $userId): float

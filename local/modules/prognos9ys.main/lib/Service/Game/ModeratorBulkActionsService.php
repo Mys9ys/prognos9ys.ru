@@ -28,9 +28,9 @@ class ModeratorBulkActionsService
     ) {
         $this->repository = $repository ?? new GameEconomyRepository();
         $this->shopService = $shopService ?? new TreasuryShopService($this->repository);
-        $this->experienceService = $experienceService ?? new ExperienceService($this->repository);
-        $this->loanService = $loanService ?? new BankLoanService($this->repository);
         $this->scopeService = $scopeService ?? new GameEventScopeService();
+        $this->experienceService = $experienceService ?? new ExperienceService($this->repository, null, $this->scopeService);
+        $this->loanService = $loanService ?? new BankLoanService($this->repository);
         $this->achievementService = $achievementService ?? new AchievementService($this->repository, $this->scopeService);
     }
 
@@ -43,19 +43,27 @@ class ModeratorBulkActionsService
 
         $names = $this->loadUserNames();
         $pendingMap = $bulkAction === 'claim_xp'
-            ? $this->repository->getPendingXpAggregatesByUser(
-                fn(int $matchId): bool => $this->scopeService->isMatchEligible($matchId)
-            )
+            ? $this->repository->getPendingXpAggregatesForScope($this->scopeService)
             : [];
 
+        $wallets = $this->repository->getAllWallets();
+        $claimableMap = [];
+        if ($bulkAction === 'claim_achievements') {
+            $walletUserIds = array_values(array_unique(array_filter(array_map(
+                static fn(array $w): int => (int)($w['user_id'] ?? 0),
+                $wallets
+            ))));
+            $claimableMap = $this->achievementService->getClaimableCountMapForUsers($walletUserIds);
+        }
+
         $candidates = [];
-        foreach ($this->repository->getAllWallets() as $wallet) {
+        foreach ($wallets as $wallet) {
             $userId = (int)($wallet['user_id'] ?? 0);
             if ($userId <= 0) {
                 continue;
             }
 
-            $eligibility = $this->evaluateEligibility($bulkAction, $userId, $wallet, $pendingMap);
+            $eligibility = $this->evaluateEligibility($bulkAction, $userId, $wallet, $pendingMap, $claimableMap);
             if (!($eligibility['eligible'] ?? false)) {
                 continue;
             }
@@ -102,11 +110,21 @@ class ModeratorBulkActionsService
             'rublius' => round((float)($wallet['UF_RUBLIUS'] ?? 0), 1),
         ];
 
-        $pendingMap = $bulkAction === 'claim_xp'
-            ? $this->repository->getPendingXpAggregatesByUser(
-                fn(int $matchId): bool => $this->scopeService->isMatchEligible($matchId)
-            )
-            : [];
+        if ($bulkAction === 'claim_xp') {
+            try {
+                return $this->executeOne($bulkAction, $userId, $walletRow, []);
+            } catch (ApiException $e) {
+                if ((int)$e->getCode() === 404) {
+                    return $this->oneResult($bulkAction, $userId, 'skipped', 'Нет опыта');
+                }
+
+                return $this->oneResult($bulkAction, $userId, 'failed', $e->getMessage());
+            } catch (\Throwable $e) {
+                return $this->oneResult($bulkAction, $userId, 'failed', $e->getMessage());
+            }
+        }
+
+        $pendingMap = [];
 
         $eligibility = $this->evaluateEligibility($bulkAction, $userId, $walletRow, $pendingMap);
         if (!($eligibility['eligible'] ?? false)) {
@@ -165,7 +183,7 @@ class ModeratorBulkActionsService
                 return $this->oneResult($bulkAction, $userId, 'success', 'Премиум 1 сутки');
 
             case 'claim_xp':
-                $claim = $this->experienceService->claimAll($userId);
+                $claim = $this->experienceService->claimAll($userId, true);
                 $points = round((float)($claim['claimed_points'] ?? 0), 1);
                 $count = (int)($claim['claimed_count'] ?? 0);
 
@@ -214,7 +232,8 @@ class ModeratorBulkActionsService
         string $bulkAction,
         int $userId,
         array $wallet,
-        array $pendingMap = []
+        array $pendingMap = [],
+        array $claimableMap = []
     ): array {
         switch ($bulkAction) {
             case 'prognobaks_chests':
@@ -277,8 +296,7 @@ class ModeratorBulkActionsService
                 return ['eligible' => true, 'hint' => 'Займ 50 🪙 (' . $purpose . ', <' . (int)$walletMax . ')'];
 
             case 'claim_achievements':
-                $claimable = $this->achievementService->getClaimableItems($userId);
-                $count = count($claimable);
+                $count = (int)($claimableMap[$userId] ?? 0);
                 if ($count <= 0) {
                     return ['eligible' => false, 'skip_reason' => 'Нет ачивок'];
                 }

@@ -15,6 +15,7 @@ class ExperienceService
     private GameEconomyRepository $repository;
     private UserProgressService $progressService;
     private GameEventScopeService $eventScope;
+    private ?MatchEconomySettlementService $settlementService = null;
 
     public function __construct(
         ?GameEconomyRepository $repository = null,
@@ -156,24 +157,40 @@ class ExperienceService
         return $summary;
     }
 
-    public function claimAll(int $userId): array
+    public function claimAll(int $userId, bool $skipSync = false): array
     {
         if ($userId <= 0) {
             throw new ApiException('Некорректные параметры', 400);
         }
 
-        $this->syncPendingForUser($userId);
+        if (!$skipSync) {
+            $this->syncPendingForUser($userId);
+        }
 
         $pendingRows = $this->repository->getPendingXpListForUser($userId, GameEconomyConfig::XP_STATUS_PENDING);
+        $matchIds = [];
+        foreach ($pendingRows as $row) {
+            $matchId = (int)($row['UF_MATCH_ID'] ?? 0);
+            if ($matchId > 0) {
+                $matchIds[$matchId] = $matchId;
+            }
+        }
+
+        if ($matchIds) {
+            $this->eventScope->preloadMatches(array_values($matchIds));
+            $this->getSettlementService()->preloadSettlement(array_values($matchIds));
+        }
+
         $oldProgress = $this->progressService->getSummary($userId);
         $oldLevel = (int)$oldProgress['level'];
         $totalPoints = 0.0;
         $claimedMatches = [];
+        $settlementService = $this->getSettlementService();
 
         foreach ($pendingRows as $row) {
             $matchId = (int)($row['UF_MATCH_ID'] ?? 0);
 
-            if ($matchId <= 0 || !$this->eventScope->isMatchEligible($matchId) || !$this->isMatchFinished($matchId)) {
+            if ($matchId <= 0 || !$this->eventScope->isMatchEligible($matchId) || !$settlementService->isMatchEconomicallySettled($matchId)) {
                 continue;
             }
 
@@ -367,7 +384,11 @@ class ExperienceService
 
     private function isMatchFinished(int $matchId): bool
     {
-        return (new MatchEconomySettlementService(null, $this->eventScope))
-            ->isMatchEconomicallySettled($matchId);
+        return $this->getSettlementService()->isMatchEconomicallySettled($matchId);
+    }
+
+    private function getSettlementService(): MatchEconomySettlementService
+    {
+        return $this->settlementService ??= new MatchEconomySettlementService($this->repository, $this->eventScope);
     }
 }

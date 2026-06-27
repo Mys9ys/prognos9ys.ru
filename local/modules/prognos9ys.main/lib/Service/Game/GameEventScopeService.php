@@ -18,6 +18,9 @@ class GameEventScopeService
     private static ?int $anchorEventId = null;
     private static ?int $anchorActiveFromTs = null;
 
+    /** @var array<int, array{event_id:int,number:int}|null> */
+    private static array $matchMetaCache = [];
+
     public function isEventEligible(int $eventId): bool
     {
         if ($eventId <= 0) {
@@ -43,9 +46,70 @@ class GameEventScopeService
         return true;
     }
 
+    /**
+     * @param int[] $matchIds
+     */
+    public function preloadMatches(array $matchIds): void
+    {
+        if (!Loader::includeModule('iblock')) {
+            return;
+        }
+
+        $missing = [];
+        foreach ($matchIds as $matchId) {
+            $matchId = (int)$matchId;
+            if ($matchId > 0 && !array_key_exists($matchId, self::$matchMetaCache)) {
+                $missing[$matchId] = $matchId;
+            }
+        }
+
+        if (!$missing) {
+            return;
+        }
+
+        $response = \CIBlockElement::GetList(
+            [],
+            [
+                'IBLOCK_ID' => 2,
+                'ID' => array_values($missing),
+            ],
+            false,
+            false,
+            ['ID', 'PROPERTY_events', 'PROPERTY_number']
+        );
+
+        while ($row = $response->GetNext()) {
+            $id = (int)($row['ID'] ?? 0);
+            if ($id <= 0) {
+                continue;
+            }
+
+            self::$matchMetaCache[$id] = [
+                'event_id' => (int)($row['PROPERTY_EVENTS_VALUE'] ?? 0),
+                'number' => $this->extractMatchNumberFromRow($row),
+            ];
+        }
+
+        foreach ($missing as $matchId) {
+            if (!array_key_exists($matchId, self::$matchMetaCache)) {
+                self::$matchMetaCache[$matchId] = null;
+            }
+        }
+    }
+
     public function isMatchEligible(int $matchId): bool
     {
-        if ($matchId <= 0 || !Loader::includeModule('iblock')) {
+        if ($matchId <= 0) {
+            return false;
+        }
+
+        if (array_key_exists($matchId, self::$matchMetaCache)) {
+            $meta = self::$matchMetaCache[$matchId];
+
+            return $meta !== null && $this->isMatchInScope($meta['event_id'], $meta['number']);
+        }
+
+        if (!Loader::includeModule('iblock')) {
             return false;
         }
 
@@ -66,13 +130,23 @@ class GameEventScopeService
 
         return $this->isMatchInScope(
             (int)$row['PROPERTY_EVENTS_VALUE'],
-            (int)$row['PROPERTY_NUMBER_VALUE']
+            $this->extractMatchNumberFromRow($row)
         );
     }
 
     public function getEventIdForMatch(int $matchId): int
     {
-        if ($matchId <= 0 || !Loader::includeModule('iblock')) {
+        if ($matchId <= 0) {
+            return 0;
+        }
+
+        if (array_key_exists($matchId, self::$matchMetaCache)) {
+            $meta = self::$matchMetaCache[$matchId];
+
+            return $meta !== null ? $meta['event_id'] : 0;
+        }
+
+        if (!Loader::includeModule('iblock')) {
             return 0;
         }
 
@@ -322,7 +396,17 @@ class GameEventScopeService
 
     public function getMatchNumber(int $matchId): int
     {
-        if ($matchId <= 0 || !Loader::includeModule('iblock')) {
+        if ($matchId <= 0) {
+            return 0;
+        }
+
+        if (array_key_exists($matchId, self::$matchMetaCache)) {
+            $meta = self::$matchMetaCache[$matchId];
+
+            return $meta !== null ? $meta['number'] : 0;
+        }
+
+        if (!Loader::includeModule('iblock')) {
             return 0;
         }
 

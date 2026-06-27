@@ -14,6 +14,9 @@ class MatchEconomySettlementService
     private GameEconomyRepository $repository;
     private GameEventScopeService $scopeService;
 
+    /** @var array<int, bool> */
+    private array $settledCache = [];
+
     public function __construct(
         ?GameEconomyRepository $repository = null,
         ?GameEventScopeService $scopeService = null
@@ -53,17 +56,67 @@ class MatchEconomySettlementService
         return true;
     }
 
+    /**
+     * @param int[] $matchIds
+     */
+    public function preloadSettlement(array $matchIds): void
+    {
+        $matchIds = array_values(array_unique(array_filter(array_map('intval', $matchIds))));
+
+        if (!$matchIds) {
+            return;
+        }
+
+        $toLoad = [];
+        foreach ($matchIds as $matchId) {
+            if (!array_key_exists($matchId, $this->settledCache)) {
+                $toLoad[$matchId] = $matchId;
+            }
+        }
+
+        if (!$toLoad) {
+            return;
+        }
+
+        $registry = $this->repository->getSettledMatchIds(array_values($toLoad));
+        $needLegacy = [];
+
+        foreach ($toLoad as $matchId) {
+            if (isset($registry[$matchId])) {
+                $this->settledCache[$matchId] = true;
+                continue;
+            }
+
+            $needLegacy[$matchId] = $matchId;
+        }
+
+        if ($needLegacy) {
+            foreach ($this->batchLegacySettled(array_values($needLegacy)) as $matchId => $settled) {
+                $this->settledCache[$matchId] = $settled;
+            }
+        }
+    }
+
     public function isMatchEconomicallySettled(int $matchId): bool
     {
         if ($matchId <= 0) {
             return false;
         }
 
+        if (array_key_exists($matchId, $this->settledCache)) {
+            return $this->settledCache[$matchId];
+        }
+
         if ($this->repository->hasMatchEconomySettlement($matchId)) {
+            $this->settledCache[$matchId] = true;
+
             return true;
         }
 
-        return $this->isLegacyEconomySettled($matchId);
+        $legacy = $this->isLegacyEconomySettled($matchId);
+        $this->settledCache[$matchId] = $legacy;
+
+        return $legacy;
     }
 
     /**
@@ -117,6 +170,84 @@ class MatchEconomySettlementService
         $guest = $row['PROPERTY_GOAL_GUEST_VALUE'] ?? $row['PROPERTY_MAPS_GUEST_VALUE'] ?? null;
 
         return $home !== null && $home !== '' && $guest !== null && $guest !== '';
+    }
+
+    /**
+     * @param int[] $matchIds
+     * @return array<int, bool>
+     */
+    private function batchLegacySettled(array $matchIds): array
+    {
+        $matchIds = array_values(array_unique(array_filter(array_map('intval', $matchIds))));
+        $out = array_fill_keys($matchIds, false);
+
+        if (!$matchIds || !Loader::includeModule('iblock')) {
+            return $out;
+        }
+
+        $resultEntered = [];
+        $response = \CIBlockElement::GetList(
+            [],
+            ['IBLOCK_ID' => 2, 'ID' => $matchIds],
+            false,
+            false,
+            [
+                'ID',
+                'PROPERTY_result',
+                'PROPERTY_goal_home',
+                'PROPERTY_goal_guest',
+                'PROPERTY_maps_home',
+                'PROPERTY_maps_guest',
+            ]
+        );
+
+        while ($row = $response->GetNext()) {
+            $matchId = (int)($row['ID'] ?? 0);
+            if ($matchId <= 0) {
+                continue;
+            }
+
+            $outcome = trim((string)($row['PROPERTY_RESULT_VALUE'] ?? ''));
+            if (in_array($outcome, ['п1', 'н', 'п2'], true)) {
+                $resultEntered[$matchId] = true;
+                continue;
+            }
+
+            $home = $row['PROPERTY_GOAL_HOME_VALUE'] ?? $row['PROPERTY_MAPS_HOME_VALUE'] ?? null;
+            $guest = $row['PROPERTY_GOAL_GUEST_VALUE'] ?? $row['PROPERTY_MAPS_GUEST_VALUE'] ?? null;
+            $resultEntered[$matchId] = $home !== null && $home !== '' && $guest !== null && $guest !== '';
+        }
+
+        $withResults = array_keys(array_filter($resultEntered));
+        if (!$withResults) {
+            return $out;
+        }
+
+        $resultIbId = (int)(\CIBlock::GetList([], ['CODE' => 'result'], false)->Fetch()['ID'] ?: 7);
+        $calcResponse = \CIBlockElement::GetList(
+            [],
+            [
+                'IBLOCK_ID' => $resultIbId,
+                'PROPERTY_match_id' => $withResults,
+            ],
+            false,
+            false,
+            ['ID', 'PROPERTY_match_id']
+        );
+
+        $hasCalc = [];
+        while ($row = $calcResponse->GetNext()) {
+            $matchId = (int)($row['PROPERTY_MATCH_ID_VALUE'] ?? 0);
+            if ($matchId > 0) {
+                $hasCalc[$matchId] = true;
+            }
+        }
+
+        foreach ($matchIds as $matchId) {
+            $out[$matchId] = ($resultEntered[$matchId] ?? false) && ($hasCalc[$matchId] ?? false);
+        }
+
+        return $out;
     }
 
     private function isLegacyEconomySettled(int $matchId): bool

@@ -4,6 +4,7 @@ namespace Prognos9ys\Main\Service\Game;
 
 use Bitrix\Main\Loader;
 use Bitrix\Main\Type\DateTime;
+use Prognos9ys\Main\Model\Repository\FootballResultsRepository;
 use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
 
 class AchievementService
@@ -12,6 +13,12 @@ class AchievementService
     private GameEventScopeService $scopeService;
     private WalletService $walletService;
     private TreasureService $treasureService;
+
+    /** @var array<int, array<string, int|float>>|null */
+    private static ?array $batchStatsCache = null;
+
+    /** @var array<int, array<string, array{claimed_threshold:int,id?:int}>>|null */
+    private static ?array $allClaimMapsCache = null;
 
     public function __construct(
         ?GameEconomyRepository $repository = null,
@@ -122,7 +129,212 @@ class AchievementService
     /** Количество ачивок с незабранной наградой (хотя бы один уровень). */
     public function countClaimableAchievements(int $userId): int
     {
-        return count($this->getClaimableItems($userId));
+        $map = $this->getClaimableCountMapForUsers([$userId]);
+
+        return (int)($map[$userId] ?? 0);
+    }
+
+    /**
+     * Пакетный подсчёт незабранных ачивок (без N+1 запросов на пользователя).
+     *
+     * @param list<int> $userIds
+     * @return array<int, int> userId => count (>0 only)
+     */
+    public function getClaimableCountMapForUsers(array $userIds): array
+    {
+        $userIds = array_values(array_unique(array_filter(array_map('intval', $userIds))));
+        $restrict = $userIds ? array_fill_keys($userIds, true) : null;
+
+        $statsByUser = $this->buildBatchStatsMaps();
+        $claimMaps = $this->getAllClaimMapsCached();
+
+        $targetUserIds = $userIds;
+        if (!$targetUserIds) {
+            $targetUserIds = array_values(array_unique(array_merge(
+                array_keys($statsByUser),
+                array_keys($claimMaps)
+            )));
+        }
+
+        $result = [];
+        foreach ($targetUserIds as $userId) {
+            if ($restrict !== null && !isset($restrict[$userId])) {
+                continue;
+            }
+
+            $stats = array_merge(
+                $this->emptyStatsTemplate(),
+                $statsByUser[$userId] ?? []
+            );
+            $claimMap = $claimMaps[$userId] ?? [];
+            $count = $this->countClaimableFromStatsAndClaims($stats, $claimMap);
+            if ($count > 0) {
+                $result[$userId] = $count;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param array<string, int|float> $stats
+     * @param array<string, array{claimed_threshold:int}> $claimMap
+     */
+    public function countClaimableFromStatsAndClaims(array $stats, array $claimMap): int
+    {
+        $count = 0;
+
+        foreach (AchievementConfig::getCatalog() as $code => $definition) {
+            $progress = $this->resolveProgress($definition, $stats);
+            $claimedThreshold = (int)($claimMap[$code]['claimed_threshold'] ?? 0);
+
+            foreach ((array)($definition['levels'] ?? []) as $level) {
+                $threshold = (int)($level['threshold'] ?? 0);
+                if ($threshold > 0 && $threshold > $claimedThreshold && $progress >= $threshold) {
+                    $count++;
+                    break;
+                }
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * @return array<int, array<string, int|float>>
+     */
+    private function buildBatchStatsMaps(): array
+    {
+        if (self::$batchStatsCache !== null) {
+            return self::$batchStatsCache;
+        }
+
+        $maps = [];
+
+        foreach ($this->buildPrognosisCountMap() as $userId => $row) {
+            $maps[$userId] = array_merge($maps[$userId] ?? $this->emptyStatsTemplate(), $row);
+        }
+
+        $eventId = $this->getAchievementEventId();
+        if ($eventId > 0) {
+            $resultsRepo = new FootballResultsRepository();
+            foreach ($resultsRepo->aggregateAchievementStatsByUserForEvent($eventId) as $userId => $row) {
+                $maps[$userId] = array_merge($maps[$userId] ?? $this->emptyStatsTemplate(), $row);
+            }
+        }
+
+        foreach ($this->repository->getAchievementEconomyStatsMapForAllUsers() as $userId => $row) {
+            $maps[$userId] = array_merge($maps[$userId] ?? $this->emptyStatsTemplate(), [
+                'bet_winnings_prognobaks' => (int)($row['bet_winnings_prognobaks'] ?? 0),
+                'rublius_earned' => (int)($row['rublius_earned'] ?? 0),
+                'chests_opened' => (int)($row['chests_opened'] ?? 0),
+                'chests_earned' => (int)($row['chests_earned'] ?? 0),
+            ]);
+        }
+
+        self::$batchStatsCache = $maps;
+
+        return $maps;
+    }
+
+    /**
+     * @return array<int, array<string, array{claimed_threshold:int,id?:int}>>
+     */
+    private function getAllClaimMapsCached(): array
+    {
+        if (self::$allClaimMapsCache === null) {
+            self::$allClaimMapsCache = $this->repository->getAllAchievementClaimMaps();
+        }
+
+        return self::$allClaimMapsCache;
+    }
+
+    /**
+     * @return array<int, array{football_prognosis:int,chm_prognosis:int}>
+     */
+    private function buildPrognosisCountMap(): array
+    {
+        if (!Loader::includeModule('iblock')) {
+            return [];
+        }
+
+        $prognosisIbId = $this->getPrognosisIblockId();
+        $eventIds = $this->scopeService->getEligibleEventIds();
+        $anchorEventId = $this->getAchievementEventId();
+        if ($prognosisIbId <= 0 || !$eventIds) {
+            return [];
+        }
+
+        $filter = [
+            'IBLOCK_ID' => $prognosisIbId,
+        ];
+        if (count($eventIds) === 1) {
+            $filter['PROPERTY_events'] = $eventIds[0];
+        } else {
+            $or = ['LOGIC' => 'OR'];
+            foreach ($eventIds as $eventId) {
+                $or[] = ['PROPERTY_events' => $eventId];
+            }
+            $filter[] = $or;
+        }
+
+        $map = [];
+        $response = \CIBlockElement::GetList(
+            [],
+            $filter,
+            false,
+            false,
+            ['PROPERTY_user_id', 'PROPERTY_events']
+        );
+
+        while ($row = $response->Fetch()) {
+            $userId = (int)($row['PROPERTY_USER_ID_VALUE'] ?? 0);
+            if ($userId <= 0) {
+                continue;
+            }
+
+            if (!isset($map[$userId])) {
+                $map[$userId] = ['football_prognosis' => 0, 'chm_prognosis' => 0];
+            }
+
+            $map[$userId]['football_prognosis']++;
+            if ($anchorEventId > 0 && (int)($row['PROPERTY_EVENTS_VALUE'] ?? 0) === $anchorEventId) {
+                $map[$userId]['chm_prognosis']++;
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * @return array<string, int|float>
+     */
+    private function emptyStatsTemplate(): array
+    {
+        return [
+            'football_prognosis' => 0,
+            'chm_prognosis' => 0,
+            'score_30_39' => 0,
+            'score_40_plus' => 0,
+            'score_0' => 0,
+            'bet_winnings_prognobaks' => 0,
+            'chests_opened' => 0,
+            'chests_earned' => 0,
+            'rublius_earned' => 0,
+            'metric_exact_score' => 0,
+            'metric_outcome' => 0,
+            'metric_total_goals' => 0,
+            'metric_goal_diff' => 0,
+            'metric_corners' => 0,
+            'metric_yellow' => 0,
+            'metric_possession' => 0,
+            'rare_red' => 0,
+            'rare_penalty' => 0,
+            'wow_red' => 0,
+            'wow_pen' => 0,
+            'metric_extra_time' => 0,
+            'metric_shootout' => 0,
+        ];
     }
 
     /**
