@@ -2,11 +2,6 @@
 
 require($_SERVER["DOCUMENT_ROOT"] . "/bitrix/modules/main/include/prolog_before.php");
 
-//file_put_contents('debug_request.json',json_encode($_REQUEST));
-
-//$_REQUEST = json_decode(file_get_contents('debug_request.json'), true);
-
-
 if ($_REQUEST['type'] === 'auth') {
 
     $res = new myAuthUser($_REQUEST);

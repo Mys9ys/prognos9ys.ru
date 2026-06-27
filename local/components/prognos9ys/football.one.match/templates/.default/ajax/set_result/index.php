@@ -2,8 +2,6 @@
 
 require($_SERVER["DOCUMENT_ROOT"] . "/bitrix/modules/main/include/prolog_before.php");
 
-file_put_contents('debug_request.json',json_encode($_REQUEST));
-
 if ($_REQUEST['type'] === 'match') {
 
     $res = new SetMatchResult($_REQUEST);

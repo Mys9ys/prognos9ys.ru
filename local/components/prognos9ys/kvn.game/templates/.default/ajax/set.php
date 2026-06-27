@@ -2,7 +2,6 @@
 
 require($_SERVER["DOCUMENT_ROOT"] . "/bitrix/modules/main/include/prolog_before.php");
 
-file_put_contents('set_debug_request.json', json_encode($_REQUEST));
 $_REQUEST['type'] = 'set_result';
 if ($_REQUEST['type'] === 'set_result') {
     $res = new SetResultAllUsers($_REQUEST['id']);

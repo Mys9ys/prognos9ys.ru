@@ -11,6 +11,10 @@
 /frontend/dist/
 /mob_app/ajax/_logs/
 
+# Отладочные дампы ajax (не коммитить)
+**/debug_request*.json
+**/set_debug_request.json
+
 # Дампы БД с боя (не коммитить)
 .osp/backup/db/*
 !.osp/backup/db/.gitkeep
