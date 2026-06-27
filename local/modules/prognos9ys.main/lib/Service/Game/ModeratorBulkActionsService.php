@@ -124,6 +124,14 @@ class ModeratorBulkActionsService
             }
         }
 
+        if ($bulkAction === 'claim_achievements') {
+            try {
+                return $this->executeOne($bulkAction, $userId, $walletRow, []);
+            } catch (\Throwable $e) {
+                return $this->oneResult($bulkAction, $userId, 'failed', $e->getMessage());
+            }
+        }
+
         $pendingMap = [];
 
         $eligibility = $this->evaluateEligibility($bulkAction, $userId, $walletRow, $pendingMap);
