@@ -2,6 +2,12 @@
 
 \Bitrix\Main\Loader::includeModule('prognos9ys.main');
 
+require_once __DIR__ . '/include/session_release.php';
+
+AddEventHandler('main', 'OnProlog', static function (): void {
+    prognos9ys_release_php_session_if_needed();
+});
+
 use Prognos9ys\Main\Service\Game\RegistrationBonusService;
 use Prognos9ys\Main\Service\Game\SeedUserGroupService;
 
