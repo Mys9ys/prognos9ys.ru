@@ -31,7 +31,7 @@
     <div class="match_box" :class="{ compact_box: compact, bracket_box: bracket, readonly_box: readonly }" @click="compact && !readonly ? onOpenMatch() : null">
       <div class="left_block">
         <div class="number"># {{ match.number }}</div>
-        <div class="time">{{ match.time }}</div>
+        <div class="time">{{ scheduleLabel }}</div>
       </div>
 
       <div class="team_block">
@@ -198,6 +198,13 @@ export default {
     },
     canClaimXp() {
       return this.xpStatus === 'pending' || (this.xpReward?.can_claim && this.xpStatus !== 'claimed');
+    },
+    scheduleLabel() {
+      if (this.bracket) {
+        return this.match?.date || '';
+      }
+
+      return this.match?.time || '';
     },
   },
   methods: {
