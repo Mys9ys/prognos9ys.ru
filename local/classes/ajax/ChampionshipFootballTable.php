@@ -254,10 +254,7 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
             return [];
         }
 
-        $arFilter = [
-            'IBLOCK_ID' => $this->arIbs['matches']['id'],
-            'PROPERTY_events' => $this->data['events'],
-        ];
+        $arFilter = $this->getEventMatchesFilter() + ['!PROPERTY_stage' => 'Плей-офф'];
 
         $response = CIBlockElement::GetList(
             ['DATE_ACTIVE_FROM' => 'ASC', 'PROPERTY_number' => 'ASC'],
@@ -337,103 +334,11 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
 
         $this->ensurePlayoffTeamsLoaded();
 
-        $arFilter = [
-            'IBLOCK_ID' => $this->arIbs['matches']['id'],
-            'PROPERTY_events' => $this->data['events'],
-        ];
-
-        $select = [
-            'ID',
-            'NAME',
-            'ACTIVE',
-            'DATE_ACTIVE_FROM',
-            'PROPERTY_home',
-            'PROPERTY_guest',
-            'PROPERTY_goal_home',
-            'PROPERTY_goal_guest',
-            'PROPERTY_result',
-            'PROPERTY_group',
-            'PROPERTY_stage',
-            'PROPERTY_number',
-            'PROPERTY_events',
-            'PROPERTY_step',
-        ];
-        $this->appendMatchSelectField($select, 'round');
-        $this->appendMatchSelectField($select, 'bracket_code');
-        $this->appendMatchSelectField($select, 'home_label');
-        $this->appendMatchSelectField($select, 'guest_label');
-
-        $response = CIBlockElement::GetList(
-            ['PROPERTY_step' => 'ASC', 'PROPERTY_number' => 'ASC'],
-            $arFilter,
-            false,
-            [],
-            $select
-        );
-
         $playoffByRound = [];
 
-        while ($res = $response->GetNext()) {
-            if (!$this->isPlayoffMatchRow($res)) {
-                continue;
-            }
-
-            $matchId = (int)$res['ID'];
-            $homeId = (int)$res['PROPERTY_HOME_VALUE'];
-            $guestId = (int)$res['PROPERTY_GUEST_VALUE'];
-            $date = explode('+', ConvertDateTime($res['DATE_ACTIVE_FROM'], 'DD.MM+HH:Mi'));
-            $winner = $this->resolveMatchWinner(
-                $homeId,
-                $guestId,
-                $res['PROPERTY_GOAL_HOME_VALUE'],
-                $res['PROPERTY_GOAL_GUEST_VALUE'],
-                $res['PROPERTY_RESULT_VALUE']
-            );
-
-            $bracketCode = (string)($res['PROPERTY_BRACKET_CODE_VALUE'] ?? '');
-            $stageRound = PlayoffSlotHelper::bracketStageFromCode($bracketCode);
-            if ($stageRound <= 0) {
-                $stageRound = (int)$res['PROPERTY_ROUND_VALUE'];
-            }
-            $cardTitle = '';
-            if (PlayoffSlotHelper::isThirdPlaceMatch(['bracket_code' => $bracketCode])) {
-                $cardTitle = '3-е место';
-            } elseif (PlayoffSlotHelper::isFinalMatch(['bracket_code' => $bracketCode])) {
-                $cardTitle = 'Финал';
-            }
-
-            $playoffByRound[$stageRound][] = [
-                'id' => $matchId,
-                'number' => (int)$res['PROPERTY_NUMBER_VALUE'],
-                'event' => $res['PROPERTY_EVENTS_VALUE'],
-                'round' => $stageRound,
-                'step' => (int)$res['PROPERTY_STEP_VALUE'],
-                'date' => $date[0] ?? '',
-                'time' => $date[1] ?? '',
-                'active' => $res['ACTIVE'],
-                'finished' => $res['ACTIVE'] === 'N',
-                'home_id' => $homeId,
-                'guest_id' => $guestId,
-                'winner' => $winner,
-                'bracket_code' => $bracketCode,
-                'card_title' => $cardTitle,
-                'teams' => [
-                    'home' => $this->formatPlayoffTeam(
-                        $homeId,
-                        $res['PROPERTY_GOAL_HOME_VALUE'],
-                        (string)($res['PROPERTY_HOME_LABEL_VALUE'] ?? '')
-                    ),
-                    'guest' => $this->formatPlayoffTeam(
-                        $guestId,
-                        $res['PROPERTY_GOAL_GUEST_VALUE'],
-                        (string)($res['PROPERTY_GUEST_LABEL_VALUE'] ?? '')
-                    ),
-                ],
-                'send_info' => [
-                    'send_time' => $this->arUserPrognosis[$matchId] ?? '',
-                    'score_result' => $this->arUserResults[$matchId] ?? '',
-                ],
-            ];
+        foreach ($this->loadPlayoffMatchRows() as $res) {
+            $stageRound = $this->resolvePlayoffStageRound($res);
+            $playoffByRound[$stageRound][] = $this->mapPlayoffMatchRow($res, $stageRound);
         }
 
         if (!$playoffByRound) {
@@ -674,12 +579,9 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
 
     protected function eventHasPlayoffMatches(): bool
     {
-        $baseFilter = [
-            'IBLOCK_ID' => $this->arIbs['matches']['id'],
-            'PROPERTY_events' => $this->data['events'],
-        ];
+        $baseFilter = $this->getEventMatchesFilter();
 
-        foreach (['Плей-офф', 'Play-off', 'Playoff'] as $stageValue) {
+        foreach (self::playoffStageValues() as $stageValue) {
             $byStage = CIBlockElement::GetList(
                 [],
                 $baseFilter + ['PROPERTY_stage' => $stageValue],
@@ -696,15 +598,183 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
             return false;
         }
 
-        $byBracketCode = CIBlockElement::GetList(
-            [],
-            $baseFilter + ['!PROPERTY_bracket_code' => false],
+        // !PROPERTY_bracket_code на бою даёт fullscan по всему ИБ и висит минутами — не используем.
+        $response = CIBlockElement::GetList(
+            ['PROPERTY_number' => 'DESC'],
+            $baseFilter,
             false,
-            ['nTopCount' => 1],
+            ['nTopCount' => 48],
             ['ID', 'PROPERTY_bracket_code', 'PROPERTY_stage']
-        )->Fetch();
+        );
+        while ($row = $response->Fetch()) {
+            if ($this->isPlayoffMatchRow($row)) {
+                return true;
+            }
+        }
 
-        return $byBracketCode && $this->isPlayoffMatchRow($byBracketCode);
+        return false;
+    }
+
+    protected function getEventMatchesFilter(): array
+    {
+        return [
+            'IBLOCK_ID' => $this->arIbs['matches']['id'],
+            'PROPERTY_events' => $this->data['events'],
+        ];
+    }
+
+    protected static function playoffStageValues(): array
+    {
+        return ['Плей-офф', 'Play-off', 'Playoff'];
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function getPlayoffMatchSelect(): array
+    {
+        $select = [
+            'ID',
+            'NAME',
+            'ACTIVE',
+            'DATE_ACTIVE_FROM',
+            'PROPERTY_home',
+            'PROPERTY_guest',
+            'PROPERTY_goal_home',
+            'PROPERTY_goal_guest',
+            'PROPERTY_result',
+            'PROPERTY_group',
+            'PROPERTY_stage',
+            'PROPERTY_number',
+            'PROPERTY_events',
+            'PROPERTY_step',
+        ];
+        $this->appendMatchSelectField($select, 'round');
+        $this->appendMatchSelectField($select, 'bracket_code');
+        $this->appendMatchSelectField($select, 'home_label');
+        $this->appendMatchSelectField($select, 'guest_label');
+
+        return $select;
+    }
+
+    /**
+     * @return list<array>
+     */
+    protected function loadPlayoffMatchRows(): array
+    {
+        $baseFilter = $this->getEventMatchesFilter();
+        $select = $this->getPlayoffMatchSelect();
+
+        foreach (self::playoffStageValues() as $stageValue) {
+            $rows = [];
+            $response = CIBlockElement::GetList(
+                ['PROPERTY_step' => 'ASC', 'PROPERTY_number' => 'ASC'],
+                $baseFilter + ['PROPERTY_stage' => $stageValue],
+                false,
+                false,
+                $select
+            );
+            while ($res = $response->GetNext()) {
+                $rows[] = $res;
+            }
+            if ($rows) {
+                return $rows;
+            }
+        }
+
+        $rows = [];
+        $response = CIBlockElement::GetList(
+            ['PROPERTY_number' => 'DESC'],
+            $baseFilter,
+            false,
+            ['nTopCount' => 48],
+            $select
+        );
+        while ($res = $response->GetNext()) {
+            if ($this->isPlayoffMatchRow($res)) {
+                $rows[] = $res;
+            }
+        }
+
+        if (!$rows) {
+            return [];
+        }
+
+        usort($rows, static function ($a, $b) {
+            $stepDiff = ((int)($a['PROPERTY_STEP_VALUE'] ?? 0)) <=> ((int)($b['PROPERTY_STEP_VALUE'] ?? 0));
+            if ($stepDiff !== 0) {
+                return $stepDiff;
+            }
+
+            return ((int)($a['PROPERTY_NUMBER_VALUE'] ?? 0)) <=> ((int)($b['PROPERTY_NUMBER_VALUE'] ?? 0));
+        });
+
+        return $rows;
+    }
+
+    protected function resolvePlayoffStageRound(array $res): int
+    {
+        $bracketCode = (string)($res['PROPERTY_BRACKET_CODE_VALUE'] ?? '');
+        $stageRound = PlayoffSlotHelper::bracketStageFromCode($bracketCode);
+        if ($stageRound <= 0) {
+            $stageRound = (int)($res['PROPERTY_ROUND_VALUE'] ?? 0);
+        }
+
+        return $stageRound;
+    }
+
+    protected function mapPlayoffMatchRow(array $res, int $stageRound): array
+    {
+        $matchId = (int)$res['ID'];
+        $homeId = (int)$res['PROPERTY_HOME_VALUE'];
+        $guestId = (int)$res['PROPERTY_GUEST_VALUE'];
+        $date = explode('+', ConvertDateTime($res['DATE_ACTIVE_FROM'], 'DD.MM+HH:Mi'));
+        $bracketCode = (string)($res['PROPERTY_BRACKET_CODE_VALUE'] ?? '');
+        $cardTitle = '';
+        if (PlayoffSlotHelper::isThirdPlaceMatch(['bracket_code' => $bracketCode])) {
+            $cardTitle = '3-е место';
+        } elseif (PlayoffSlotHelper::isFinalMatch(['bracket_code' => $bracketCode])) {
+            $cardTitle = 'Финал';
+        }
+
+        return [
+            'id' => $matchId,
+            'number' => (int)$res['PROPERTY_NUMBER_VALUE'],
+            'event' => $res['PROPERTY_EVENTS_VALUE'],
+            'round' => $stageRound,
+            'step' => (int)$res['PROPERTY_STEP_VALUE'],
+            'date' => $date[0] ?? '',
+            'time' => $date[1] ?? '',
+            'active' => $res['ACTIVE'],
+            'finished' => $res['ACTIVE'] === 'N',
+            'home_id' => $homeId,
+            'guest_id' => $guestId,
+            'winner' => $this->resolveMatchWinner(
+                $homeId,
+                $guestId,
+                $res['PROPERTY_GOAL_HOME_VALUE'],
+                $res['PROPERTY_GOAL_GUEST_VALUE'],
+                $res['PROPERTY_RESULT_VALUE']
+            ),
+            'bracket_code' => $bracketCode,
+            'card_title' => $cardTitle,
+            'teams' => [
+                'home' => $this->formatPlayoffTeam(
+                    $homeId,
+                    $res['PROPERTY_GOAL_HOME_VALUE'],
+                    (string)($res['PROPERTY_HOME_LABEL_VALUE'] ?? '')
+                ),
+                'guest' => $this->formatPlayoffTeam(
+                    $guestId,
+                    $res['PROPERTY_GOAL_GUEST_VALUE'],
+                    (string)($res['PROPERTY_GUEST_LABEL_VALUE'] ?? '')
+                ),
+            ],
+            'send_info' => [
+                'send_time' => $this->arUserPrognosis[$matchId] ?? '',
+                'score_result' => $this->arUserResults[$matchId] ?? '',
+            ],
+        ];
     }
 
     protected function hasMatchProperty(string $code): bool
@@ -736,32 +806,44 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
     protected function ensurePlayoffTeamsLoaded(): void
     {
         $missingIds = [];
+        $select = ['PROPERTY_home', 'PROPERTY_guest'];
 
-        $response = CIBlockElement::GetList(
-            [],
-            [
-                'IBLOCK_ID' => $this->arIbs['matches']['id'],
-                'PROPERTY_events' => $this->data['events'],
-            ],
-            false,
-            [],
-            [
-                'PROPERTY_home',
-                'PROPERTY_guest',
-                'PROPERTY_group',
-                'PROPERTY_stage',
-            ]
-        );
+        foreach (self::playoffStageValues() as $stageValue) {
+            $response = CIBlockElement::GetList(
+                [],
+                $this->getEventMatchesFilter() + ['PROPERTY_stage' => $stageValue],
+                false,
+                false,
+                $select
+            );
 
-        while ($res = $response->GetNext()) {
-            if (!$this->isPlayoffMatchRow($res)) {
-                continue;
+            while ($res = $response->GetNext()) {
+                foreach (['PROPERTY_HOME_VALUE', 'PROPERTY_GUEST_VALUE'] as $field) {
+                    $teamId = (int)$res[$field];
+                    if ($teamId > 0 && empty($this->arTableInfo[$teamId])) {
+                        $missingIds[$teamId] = $teamId;
+                    }
+                }
             }
+        }
 
-            foreach (['PROPERTY_HOME_VALUE', 'PROPERTY_GUEST_VALUE'] as $field) {
-                $teamId = (int)$res[$field];
-                if ($teamId > 0 && empty($this->arTableInfo[$teamId])) {
-                    $missingIds[$teamId] = $teamId;
+        if (!$missingIds && $this->hasMatchProperty('bracket_code')) {
+            $response = CIBlockElement::GetList(
+                ['PROPERTY_number' => 'DESC'],
+                $this->getEventMatchesFilter(),
+                false,
+                ['nTopCount' => 48],
+                $select + ['PROPERTY_bracket_code', 'PROPERTY_stage']
+            );
+            while ($res = $response->GetNext()) {
+                if (!$this->isPlayoffMatchRow($res)) {
+                    continue;
+                }
+                foreach (['PROPERTY_HOME_VALUE', 'PROPERTY_GUEST_VALUE'] as $field) {
+                    $teamId = (int)$res[$field];
+                    if ($teamId > 0 && empty($this->arTableInfo[$teamId])) {
+                        $missingIds[$teamId] = $teamId;
+                    }
                 }
             }
         }
