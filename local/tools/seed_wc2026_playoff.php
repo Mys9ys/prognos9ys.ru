@@ -73,6 +73,7 @@ if (empty($allowedProps['bracket_code'])) {
 $created = 0;
 $updated = 0;
 $skipped = 0;
+$expectedCodes = [];
 
 foreach ($payload['rounds'] as $round) {
     foreach ($round['matches'] as $match) {
@@ -81,12 +82,20 @@ foreach ($payload['rounds'] as $round) {
             $skipped++;
             continue;
         }
+        $expectedCodes[] = $bracketCode;
 
         $xmlId = 'wc26_po_' . $bracketCode;
         $existingId = findMatchId($matchesIb, $eventId, $xmlId, $bracketCode);
 
         [$homeId, $homeLabel] = resolveSide($match['home'] ?? null, !empty($match['home_is_slot']), $teamIds);
         [$guestId, $guestLabel] = resolveSide($match['guest'] ?? null, !empty($match['guest_is_slot']), $teamIds);
+
+        if (!$dryRun && empty($match['home_is_slot']) && $homeId <= 0 && trim((string)($match['home'] ?? '')) !== '') {
+            echo "Предупреждение {$bracketCode}: команда не найдена — «{$match['home']}» (будет слот по имени)\n";
+        }
+        if (!$dryRun && empty($match['guest_is_slot']) && $guestId <= 0 && trim((string)($match['guest'] ?? '')) !== '') {
+            echo "Предупреждение {$bracketCode}: команда не найдена — «{$match['guest']}» (будет слот по имени)\n";
+        }
 
         $number = $existingId > 0 ? getMatchNumber($existingId) : $nextNumber++;
         $homeName = displaySideName($match['home'] ?? null, $homeId, $homeLabel, $teamIds);
@@ -117,7 +126,7 @@ foreach ($payload['rounds'] as $round) {
         $fields = [
             'IBLOCK_ID' => $matchesIb,
             'NAME' => sprintf('ЧМ-2026 %s: %s — %s', $bracketCode, $homeName, $guestName),
-            'CODE' => 'wc26-po-' . strtolower($bracketCode),
+            'CODE' => 'wc26-' . $eventId . '-po-' . strtolower($bracketCode),
             'XML_ID' => $xmlId,
             'ACTIVE' => 'Y',
             'DATE_ACTIVE_FROM' => $dateActive,
@@ -155,6 +164,15 @@ foreach ($payload['rounds'] as $round) {
 }
 
 echo PHP_EOL . "Готово: создано {$created}, обновлено {$updated}, пропущено {$skipped}\n";
+
+$missingCodes = $dryRun ? [] : findMissingBracketCodes($matchesIb, $eventId, $expectedCodes);
+if ($missingCodes) {
+    echo 'ВНИМАНИЕ: в БД нет матчей с кодами: ' . implode(', ', $missingCodes) . PHP_EOL;
+    echo 'Ожидалось ' . count($expectedCodes) . ' матчей, не хватает ' . count($missingCodes) . PHP_EOL;
+    exit(1);
+}
+
+echo 'Проверка: все ' . count($expectedCodes) . " матчей плей-офф на месте.\n";
 
 function resolveIblockId(string $code, int $fallback = 0): int
 {
@@ -203,6 +221,25 @@ function resolveIblockId(string $code, int $fallback = 0): int
     return 0;
 }
 
+function normalizeTeamKey(string $value): string
+{
+    $value = mb_strtolower(trim($value));
+    $value = str_replace(["`", '´', 'ʼ', '′', '’'], "'", $value);
+    $value = preg_replace('/\s+/u', ' ', $value) ?? $value;
+
+    static $canonical = [
+        "кот д'ивуар" => "кот-д'ивуар",
+        'кот-д ивуар' => "кот-д'ивуар",
+        "кот-д'ивуар" => "кот-д'ивуар",
+        'южная африка' => 'юар',
+        'соединенные штаты' => 'сша',
+        'соединённые штаты' => 'сша',
+        'кабо верде' => 'кабо-верде',
+    ];
+
+    return $canonical[$value] ?? $value;
+}
+
 function loadTeamIdsByName(int $countriesIb): array
 {
     $map = [];
@@ -218,23 +255,26 @@ function loadTeamIdsByName(int $countriesIb): array
         ['ID', 'NAME']
     );
     while ($row = $response->Fetch()) {
-        $name = mb_strtolower(trim((string)$row['NAME']));
-        $map[$name] = (int)$row['ID'];
+        $id = (int)$row['ID'];
+        $name = normalizeTeamKey((string)$row['NAME']);
+        $map[$name] = $id;
     }
 
     $aliases = [
         'юар' => ['южная африка'],
-        'сша' => ['соединенные штаты', 'соединённые штаты', 'usa'],
-        'кот-д\'ивуар' => ['кот д\'ивуар', 'кот-д ивуар'],
-        'босния и герцеговина' => ['босния и герцеговина', 'босния'],
+        'сша' => ['usa'],
+        "кот-д'ивуар" => ["кот д'ивуар", 'кот-д ивуар', 'кот-д`ивуар'],
+        'босния и герцеговина' => ['босния'],
         'кабо-верде' => ['кабо верде'],
     ];
 
     foreach ($aliases as $target => $names) {
+        $target = normalizeTeamKey($target);
         if (!isset($map[$target])) {
             foreach ($names as $alias) {
-                if (isset($map[$alias])) {
-                    $map[$target] = $map[$alias];
+                $aliasKey = normalizeTeamKey($alias);
+                if (isset($map[$aliasKey])) {
+                    $map[$target] = $map[$aliasKey];
                     break;
                 }
             }
@@ -291,7 +331,7 @@ function resolveSide(?string $value, bool $isSlot, array $teamIds): array
         return [0, $value];
     }
 
-    $teamId = $teamIds[mb_strtolower($value)] ?? 0;
+    $teamId = $teamIds[normalizeTeamKey($value)] ?? 0;
     if ($teamId > 0) {
         return [$teamId, ''];
     }
@@ -379,6 +419,48 @@ function getMatchNumber(int $matchId): int
     )->Fetch();
 
     return (int)($row['PROPERTY_NUMBER_VALUE'] ?? 0);
+}
+
+function findMissingBracketCodes(int $matchesIb, int $eventId, array $expectedCodes): array
+{
+    $expectedCodes = array_values(array_unique(array_filter(array_map('strval', $expectedCodes))));
+    if (!$expectedCodes) {
+        return [];
+    }
+
+    $found = [];
+    $response = CIBlockElement::GetList(
+        [],
+        [
+            'IBLOCK_ID' => $matchesIb,
+            'PROPERTY_events' => $eventId,
+        ],
+        false,
+        false,
+        ['ID', 'XML_ID', 'PROPERTY_bracket_code']
+    );
+
+    while ($row = $response->Fetch()) {
+        $code = strtoupper(trim((string)($row['PROPERTY_BRACKET_CODE_VALUE'] ?? '')));
+        if ($code !== '') {
+            $found[$code] = true;
+            continue;
+        }
+
+        $xmlId = (string)($row['XML_ID'] ?? '');
+        if (strpos($xmlId, 'wc26_po_') === 0) {
+            $found[strtoupper(substr($xmlId, 8))] = true;
+        }
+    }
+
+    $missing = [];
+    foreach ($expectedCodes as $code) {
+        if (empty($found[strtoupper($code)])) {
+            $missing[] = $code;
+        }
+    }
+
+    return $missing;
 }
 
 function bracketStepFromCode(string $code): int

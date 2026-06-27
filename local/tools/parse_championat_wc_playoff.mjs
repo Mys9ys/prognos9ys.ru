@@ -31,6 +31,16 @@ function stripMarkdownLink(text) {
     .trim();
 }
 
+function normalizeTeamName(name) {
+  if (!name) {
+    return name;
+  }
+  return String(name)
+    .replace(/[`´ʼ′’]/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function parseTeamCell(cell) {
   const linkNames = [...cell.matchAll(/\[([^\]]+)\]\([^)]+\)/g)]
     .map((m) => m[1].trim())
@@ -45,11 +55,11 @@ function parseTeamCell(cell) {
     .filter((token) => isSlotLabel(token));
 
   if (linkNames.length >= 2) {
-    return { home: linkNames[0], guest: linkNames[1] };
+    return { home: normalizeTeamName(linkNames[0]), guest: normalizeTeamName(linkNames[1]) };
   }
 
   if (linkNames.length === 1 && slotTokens.length >= 1) {
-    return { home: linkNames[0], guest: slotTokens[0] };
+    return { home: normalizeTeamName(linkNames[0]), guest: slotTokens[0] };
   }
 
   if (slotTokens.length >= 2) {
@@ -57,7 +67,7 @@ function parseTeamCell(cell) {
   }
 
   if (linkNames.length === 1) {
-    return { home: linkNames[0], guest: null };
+    return { home: normalizeTeamName(linkNames[0]), guest: null };
   }
 
   if (slotTokens.length === 1) {
