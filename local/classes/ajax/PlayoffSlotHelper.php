@@ -30,6 +30,34 @@ class PlayoffSlotHelper
         return 9999;
     }
 
+    /**
+     * Стадия сетки плей-офф (1/16 … финал). Не путать с PROPERTY_round (тур группы).
+     */
+    public static function bracketStageFromCode(string $code): int
+    {
+        $code = strtoupper(trim($code));
+        if (preg_match('/^A\d+$/u', $code)) {
+            return 1;
+        }
+        if (preg_match('/^B\d+$/u', $code)) {
+            return 2;
+        }
+        if (preg_match('/^QF\d$/u', $code)) {
+            return 3;
+        }
+        if (preg_match('/^SF\d$/u', $code)) {
+            return 4;
+        }
+        if ($code === 'F3' || preg_match('/^LSF\d$/u', $code)) {
+            return 5;
+        }
+        if ($code === 'F1') {
+            return 6;
+        }
+
+        return 0;
+    }
+
     public static function isThirdPlaceMatch(array $match): bool
     {
         $code = strtoupper(trim((string)($match['bracket_code'] ?? '')));

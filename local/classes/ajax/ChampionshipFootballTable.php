@@ -368,7 +368,6 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
                 continue;
             }
 
-            $round = (int)$res['PROPERTY_ROUND_VALUE'];
             $matchId = (int)$res['ID'];
             $homeId = (int)$res['PROPERTY_HOME_VALUE'];
             $guestId = (int)$res['PROPERTY_GUEST_VALUE'];
@@ -382,6 +381,10 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
             );
 
             $bracketCode = (string)($res['PROPERTY_BRACKET_CODE_VALUE'] ?? '');
+            $stageRound = PlayoffSlotHelper::bracketStageFromCode($bracketCode);
+            if ($stageRound <= 0) {
+                $stageRound = (int)$res['PROPERTY_ROUND_VALUE'];
+            }
             $cardTitle = '';
             if (PlayoffSlotHelper::isThirdPlaceMatch(['bracket_code' => $bracketCode])) {
                 $cardTitle = '3-е место';
@@ -389,11 +392,11 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
                 $cardTitle = 'Финал';
             }
 
-            $playoffByRound[$round][] = [
+            $playoffByRound[$stageRound][] = [
                 'id' => $matchId,
                 'number' => (int)$res['PROPERTY_NUMBER_VALUE'],
                 'event' => $res['PROPERTY_EVENTS_VALUE'],
-                'round' => $round,
+                'round' => $stageRound,
                 'step' => (int)$res['PROPERTY_STEP_VALUE'],
                 'date' => $date[0] ?? '',
                 'time' => $date[1] ?? '',
@@ -437,7 +440,7 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
     }
 
     /**
-     * Колонки сетки: по PROPERTY_round, либо авто-разбиение по номерам матчей.
+     * Колонки сетки: по стадии bracket_code (или legacy PROPERTY_round).
      *
      * @param array<int, list<array>> $playoffByRound
      */

@@ -118,7 +118,6 @@ foreach ($payload['rounds'] as $round) {
         $props = [
             'events' => $eventId,
             'number' => $number,
-            'round' => (int)($match['round'] ?? 0),
             'step' => bracketStepFromCode($bracketCode),
             'stage' => 'Плей-офф',
             'bracket_code' => $bracketCode,
@@ -134,6 +133,11 @@ foreach ($payload['rounds'] as $round) {
         }
 
         $props = filterProps($props, $allowedProps);
+
+        // PROPERTY_round — тур группового этапа, для плей-офф не используем.
+        if (isset($allowedProps['round'])) {
+            $props['round'] = false;
+        }
 
         $fields = [
             'IBLOCK_ID' => $matchesIb,
