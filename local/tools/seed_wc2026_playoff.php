@@ -7,6 +7,7 @@ declare(strict_types=1);
  *   php local/tools/seed_wc2026_playoff.php --dry-run
  *   php local/tools/seed_wc2026_playoff.php
  *   php local/tools/seed_wc2026_playoff.php --event=63849
+ *   php local/tools/seed_wc2026_playoff.php --event=63849 --playoff-from=73
  */
 
 $docRoot = dirname(__DIR__, 2);
@@ -18,6 +19,7 @@ define('NO_AGENT_STATISTIC', true);
 define('NOT_CHECK_PERMISSIONS', true);
 
 require_once $docRoot . '/bitrix/modules/main/include/prolog_before.php';
+require_once $docRoot . '/local/classes/ajax/PlayoffSlotHelper.php';
 
 \Bitrix\Main\Loader::includeModule('iblock');
 
@@ -25,6 +27,7 @@ $argv = $argv ?? [];
 $dryRun = in_array('--dry-run', $argv, true);
 $eventId = 63849;
 $jsonPath = $docRoot . '/local/tools/output/wc2026_playoff_bracket.json';
+$playoffFromOverride = 0;
 
 foreach ($argv as $arg) {
     if (strpos($arg, '--event=') === 0) {
@@ -32,6 +35,9 @@ foreach ($argv as $arg) {
     }
     if (strpos($arg, '--json=') === 0) {
         $jsonPath = $docRoot . '/' . ltrim(substr($arg, 7), '/');
+    }
+    if (strpos($arg, '--playoff-from=') === 0) {
+        $playoffFromOverride = (int)substr($arg, 15);
     }
 }
 
@@ -63,14 +69,17 @@ if (!eventExists($eventsIb, $eventId)) {
 
 $allowedProps = loadPropertyCodes($matchesIb);
 $teamIds = loadTeamIdsByName($countriesIb);
-$nextNumber = findNextMatchNumber($matchesIb, $eventId);
 $totalPlayoffMatches = 0;
 foreach ($payload['rounds'] as $round) {
     $totalPlayoffMatches += count($round['matches'] ?? []);
 }
-$playoffStartNumber = max(1, $nextNumber - $totalPlayoffMatches);
+$maxGroupNumber = findMaxGroupMatchNumber($matchesIb, $eventId);
+$playoffStartNumber = $playoffFromOverride > 0
+    ? $playoffFromOverride
+    : ($maxGroupNumber + 1);
+$playoffEndNumber = $playoffStartNumber + $totalPlayoffMatches - 1;
 
-echo "matchesIb={$matchesIb}, eventId={$eventId}, nextNumber={$nextNumber}, playoffFrom={$playoffStartNumber}\n";
+echo "matchesIb={$matchesIb}, eventId={$eventId}, groupMax={$maxGroupNumber}, playoff=#{$playoffStartNumber}..#{$playoffEndNumber}\n";
 if (empty($allowedProps['bracket_code'])) {
     echo "Внимание: свойства bracket_code/home_label/guest_label не найдены — сначала миграция Version20260627143000\n";
 }
@@ -108,7 +117,10 @@ foreach ($payload['rounds'] as $round) {
         } elseif ($existingId > 0) {
             $number = getMatchNumber($existingId);
         } else {
-            $number = $nextNumber++;
+            $number = $playoffEndNumber + 1;
+            while (matchNumberExists($matchesIb, $eventId, $number)) {
+                $number++;
+            }
         }
         $homeName = displaySideName($match['home'] ?? null, $homeId, $homeLabel, $teamIds);
         $guestName = displaySideName($match['guest'] ?? null, $guestId, $guestLabel, $teamIds);
@@ -371,6 +383,55 @@ function displaySideName(?string $raw, int $teamId, string $label, array $teamId
     }
 
     return $label !== '' ? $label : 'TBD';
+}
+
+function findMaxGroupMatchNumber(int $matchesIb, int $eventId): int
+{
+    $max = 0;
+    $response = CIBlockElement::GetList(
+        ['PROPERTY_number' => 'DESC'],
+        [
+            'IBLOCK_ID' => $matchesIb,
+            'PROPERTY_events' => $eventId,
+        ],
+        false,
+        false,
+        ['ID', 'XML_ID', 'PROPERTY_number', 'PROPERTY_stage', 'PROPERTY_bracket_code', 'PROPERTY_group']
+    );
+
+    while ($row = $response->Fetch()) {
+        if (PlayoffSlotHelper::isPlayoffMatchRow($row)) {
+            continue;
+        }
+
+        $num = (int)($row['PROPERTY_NUMBER_VALUE'] ?? 0);
+        if ($num > $max) {
+            $max = $num;
+        }
+    }
+
+    return $max;
+}
+
+function matchNumberExists(int $matchesIb, int $eventId, int $number): bool
+{
+    if ($number <= 0) {
+        return false;
+    }
+
+    $row = CIBlockElement::GetList(
+        [],
+        [
+            'IBLOCK_ID' => $matchesIb,
+            'PROPERTY_events' => $eventId,
+            'PROPERTY_number' => $number,
+        ],
+        false,
+        ['nTopCount' => 1],
+        ['ID']
+    )->Fetch();
+
+    return (bool)$row;
 }
 
 function findNextMatchNumber(int $matchesIb, int $eventId): int
