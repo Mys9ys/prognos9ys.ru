@@ -18,7 +18,7 @@ class EventsRepository extends BaseIblockRepository
         'PREVIEW_PICTURE',
         'DETAIL_TEXT',
         'DETAIL_PICTURE',
-        'EXTERNAL_ID',
+        'XML_ID',
         'E_TYPE_' => 'E_TYPE',
         'TABLE_' => 'TABLE',
     ];
@@ -59,7 +59,7 @@ class EventsRepository extends BaseIblockRepository
             'ACTIVE' => (string)($row['ACTIVE'] ?? ''),
             'PREVIEW_TEXT' => (string)($row['PREVIEW_TEXT'] ?? ''),
             'DETAIL_TEXT' => (string)($row['DETAIL_TEXT'] ?? ''),
-            'EXTERNAL_ID' => (string)($row['EXTERNAL_ID'] ?? ''),
+            'EXTERNAL_ID' => (string)($row['XML_ID'] ?? ''),
             'img' => $previewId > 0 ? (string)\CFile::GetPath($previewId) : '',
             'code' => (string)($row['E_TYPE_VALUE'] ?? ''),
             'table' => (string)($row['TABLE_VALUE'] ?? ''),
