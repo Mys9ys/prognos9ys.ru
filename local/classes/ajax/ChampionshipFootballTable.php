@@ -26,6 +26,7 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
     protected $arPlayoffBracket = [];
     protected $arUserPrognosis = [];
     protected $arUserResults = [];
+    protected $matchPropertyCodes;
 
     public function __construct($data)
     {
@@ -36,33 +37,38 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
         }
 
         $this->data = $data;
+        $this->arTable = [];
+        $this->arTableUnsort = [];
 
         $this->userId = (new GetUserIdForToken($data['token']))->getId();
 
         $this->getTeamsOneTurids();
 
-        $arEventsInfo = (new GetPrognosisEvents($this->data['events']))->result()['events'][$this->data['events']];
+        $eventsPayload = (new GetPrognosisEvents($this->data['events']))->result();
+        $arEventsInfo = $eventsPayload['events'][$this->data['events']] ?? null;
 
-        if (count($this->teamsIds)) $this->getTeamsInfo();
+        if (!$arEventsInfo) {
+            $this->setResult('error', 'Событие не найдено');
+            return;
+        }
+
+        if (count($this->teamsIds)) {
+            $this->getTeamsInfo();
+        }
 
         $this->calcAllTurs();
-
-//        $this->getTurMatches();
-//        die();
-
+        $this->loadUserMatchMarks();
         $this->arGroupMatches = $this->buildGroupMatches();
         $this->arPlayoffRounds = $this->buildPlayoffRounds();
 
-        if (count($this->arTable) || $this->arPlayoffRounds) {
-            $this->setResult('ok', '', [
-                'groups' => $this->arTable,
-                'thirdPlaces' => $this->arThirdPlaces,
-                'groupMatches' => $this->arGroupMatches,
-                'playoffRounds' => $this->arPlayoffRounds,
-                'playoffBracket' => $this->arPlayoffBracket,
-                'info' => $arEventsInfo,
-            ]);
-        }
+        $this->setResult('ok', '', [
+            'groups' => $this->arTable,
+            'thirdPlaces' => $this->arThirdPlaces,
+            'groupMatches' => $this->arGroupMatches,
+            'playoffRounds' => $this->arPlayoffRounds,
+            'playoffBracket' => $this->arPlayoffBracket,
+            'info' => $arEventsInfo,
+        ]);
 
     }
 
@@ -143,7 +149,6 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
                 "PROPERTY_result",
                 "PROPERTY_group",
                 "PROPERTY_stage",
-                "PROPERTY_bracket_code",
             ]
         );
 
@@ -249,8 +254,6 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
             return [];
         }
 
-        $this->loadUserMatchMarks();
-
         $arFilter = [
             'IBLOCK_ID' => $this->arIbs['matches']['id'],
             'PROPERTY_events' => $this->data['events'],
@@ -326,7 +329,12 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
      */
     protected function buildPlayoffRounds(): array
     {
-        $this->loadUserMatchMarks();
+        if (!$this->eventHasPlayoffMatches()) {
+            $this->arPlayoffBracket = [];
+
+            return [];
+        }
+
         $this->ensurePlayoffTeamsLoaded();
 
         $arFilter = [
@@ -334,31 +342,33 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
             'PROPERTY_events' => $this->data['events'],
         ];
 
+        $select = [
+            'ID',
+            'NAME',
+            'ACTIVE',
+            'DATE_ACTIVE_FROM',
+            'PROPERTY_home',
+            'PROPERTY_guest',
+            'PROPERTY_goal_home',
+            'PROPERTY_goal_guest',
+            'PROPERTY_result',
+            'PROPERTY_group',
+            'PROPERTY_stage',
+            'PROPERTY_number',
+            'PROPERTY_events',
+            'PROPERTY_step',
+        ];
+        $this->appendMatchSelectField($select, 'round');
+        $this->appendMatchSelectField($select, 'bracket_code');
+        $this->appendMatchSelectField($select, 'home_label');
+        $this->appendMatchSelectField($select, 'guest_label');
+
         $response = CIBlockElement::GetList(
-            ['PROPERTY_round' => 'ASC', 'PROPERTY_step' => 'ASC', 'PROPERTY_number' => 'ASC'],
+            ['PROPERTY_step' => 'ASC', 'PROPERTY_number' => 'ASC'],
             $arFilter,
             false,
             [],
-            [
-                'ID',
-                'NAME',
-                'ACTIVE',
-                'DATE_ACTIVE_FROM',
-                'PROPERTY_home',
-                'PROPERTY_guest',
-                'PROPERTY_goal_home',
-                'PROPERTY_goal_guest',
-                'PROPERTY_result',
-                'PROPERTY_group',
-                'PROPERTY_stage',
-                'PROPERTY_number',
-                'PROPERTY_events',
-                'PROPERTY_round',
-                'PROPERTY_step',
-                'PROPERTY_bracket_code',
-                'PROPERTY_home_label',
-                'PROPERTY_guest_label',
-            ]
+            $select
         );
 
         $playoffByRound = [];
@@ -660,6 +670,70 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
     protected function isPlayoffMatchRow(array $res): bool
     {
         return PlayoffSlotHelper::isPlayoffMatchRow($res);
+    }
+
+    protected function eventHasPlayoffMatches(): bool
+    {
+        $baseFilter = [
+            'IBLOCK_ID' => $this->arIbs['matches']['id'],
+            'PROPERTY_events' => $this->data['events'],
+        ];
+
+        $byStage = CIBlockElement::GetList(
+            [],
+            $baseFilter + ['PROPERTY_stage' => 'Плей-офф'],
+            false,
+            ['nTopCount' => 1],
+            ['ID']
+        )->Fetch();
+        if ($byStage) {
+            return true;
+        }
+
+        if (!$this->hasMatchProperty('bracket_code')) {
+            return false;
+        }
+
+        $response = CIBlockElement::GetList(
+            [],
+            $baseFilter,
+            false,
+            ['nTopCount' => 50],
+            ['ID', 'PROPERTY_bracket_code', 'PROPERTY_stage']
+        );
+        while ($row = $response->Fetch()) {
+            if ($this->isPlayoffMatchRow($row)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    protected function hasMatchProperty(string $code): bool
+    {
+        if ($this->matchPropertyCodes === null) {
+            $this->matchPropertyCodes = [];
+            $response = CIBlockProperty::GetList(
+                ['SORT' => 'ASC'],
+                ['IBLOCK_ID' => $this->arIbs['matches']['id'], 'ACTIVE' => 'Y']
+            );
+            while ($row = $response->Fetch()) {
+                $propertyCode = (string)($row['CODE'] ?? '');
+                if ($propertyCode !== '') {
+                    $this->matchPropertyCodes[$propertyCode] = true;
+                }
+            }
+        }
+
+        return !empty($this->matchPropertyCodes[$code]);
+    }
+
+    protected function appendMatchSelectField(array &$select, string $code): void
+    {
+        if ($this->hasMatchProperty($code)) {
+            $select[] = 'PROPERTY_' . $code;
+        }
     }
 
     protected function ensurePlayoffTeamsLoaded(): void

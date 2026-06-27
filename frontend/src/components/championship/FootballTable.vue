@@ -218,8 +218,14 @@ export default {
     }),
     hasTableData() {
       const groups = this.tableData?.groups;
-      if (groups && Object.keys(groups).some((key) => !this.isDefaultGroup(key))) {
-        return true;
+      if (groups && typeof groups === 'object') {
+        if (Object.keys(groups).some((key) => !this.isDefaultGroup(key))) {
+          return true;
+        }
+        const defaultGroup = groups[0] || groups['0'];
+        if (Array.isArray(defaultGroup) && defaultGroup.length > 0) {
+          return true;
+        }
       }
       return this.thirdPlaces.length > 0
         || this.playoffRounds.length > 0
