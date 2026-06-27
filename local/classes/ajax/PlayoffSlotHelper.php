@@ -74,15 +74,6 @@ class PlayoffSlotHelper
             return true;
         }
 
-        $group = $res['PROPERTY_GROUP_VALUE'] ?? null;
-        if ($group === 'N') {
-            return true;
-        }
-
-        if ((int)($res['PROPERTY_ROUND_VALUE'] ?? 0) > 0 && self::isEmptyGroup($group)) {
-            return true;
-        }
-
         return false;
     }
 
@@ -135,10 +126,5 @@ class PlayoffSlotHelper
             'goals' => $goals ?? 0,
             'is_slot' => true,
         ];
-    }
-
-    protected static function isEmptyGroup($group): bool
-    {
-        return $group === null || $group === '' || $group === false || $group === 0 || $group === '0';
     }
 }

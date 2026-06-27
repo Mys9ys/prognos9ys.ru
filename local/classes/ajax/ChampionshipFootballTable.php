@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/PlayoffSlotHelper.php';
+
 use Bitrix\Main\Loader;
 
 class ChampionshipFootballTable extends PrognosisGiveInfo
@@ -140,10 +142,15 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
                 "PROPERTY_goal_guest",
                 "PROPERTY_result",
                 "PROPERTY_group",
+                "PROPERTY_stage",
+                "PROPERTY_bracket_code",
             ]
         );
 
         while ($res = $response->GetNext()) {
+            if (PlayoffSlotHelper::isPlayoffMatchRow($res)) {
+                continue;
+            }
 
             if ($res['PROPERTY_GROUP_VALUE'] && $res['PROPERTY_GROUP_VALUE'] !== 'N') {
                 $this->arGroup[$res['PROPERTY_HOME_VALUE']] = $res['PROPERTY_GROUP_VALUE'];

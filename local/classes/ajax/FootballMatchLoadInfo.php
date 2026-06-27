@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/PlayoffSlotHelper.php';
+
 use Bitrix\Main\Loader;
 
 class FootballMatchLoadInfo extends PrognosisGiveInfo

@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/PlayoffSlotHelper.php';
+
 require($_SERVER["DOCUMENT_ROOT"] . "/bitrix/modules/main/include/prolog_before.php");
 
 use Bitrix\Main\Loader;
