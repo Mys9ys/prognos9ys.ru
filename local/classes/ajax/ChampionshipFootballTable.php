@@ -679,35 +679,32 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
             'PROPERTY_events' => $this->data['events'],
         ];
 
-        $byStage = CIBlockElement::GetList(
-            [],
-            $baseFilter + ['PROPERTY_stage' => 'Плей-офф'],
-            false,
-            ['nTopCount' => 1],
-            ['ID']
-        )->Fetch();
-        if ($byStage) {
-            return true;
+        foreach (['Плей-офф', 'Play-off', 'Playoff'] as $stageValue) {
+            $byStage = CIBlockElement::GetList(
+                [],
+                $baseFilter + ['PROPERTY_stage' => $stageValue],
+                false,
+                ['nTopCount' => 1],
+                ['ID']
+            )->Fetch();
+            if ($byStage) {
+                return true;
+            }
         }
 
         if (!$this->hasMatchProperty('bracket_code')) {
             return false;
         }
 
-        $response = CIBlockElement::GetList(
+        $byBracketCode = CIBlockElement::GetList(
             [],
-            $baseFilter,
+            $baseFilter + ['!PROPERTY_bracket_code' => false],
             false,
-            ['nTopCount' => 50],
+            ['nTopCount' => 1],
             ['ID', 'PROPERTY_bracket_code', 'PROPERTY_stage']
-        );
-        while ($row = $response->Fetch()) {
-            if ($this->isPlayoffMatchRow($row)) {
-                return true;
-            }
-        }
+        )->Fetch();
 
-        return false;
+        return $byBracketCode && $this->isPlayoffMatchRow($byBracketCode);
     }
 
     protected function hasMatchProperty(string $code): bool

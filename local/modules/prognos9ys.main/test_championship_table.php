@@ -44,7 +44,15 @@ foreach ($third as $i => $row) {
         . ' (' . ($row['score'] ?? 0) . ' pts)' . PHP_EOL;
 }
 
+$playoffBracket = $data['playoffBracket'] ?? [];
+$bracketColumns = is_array($playoffBracket['columns'] ?? null) ? count($playoffBracket['columns']) : 0;
+
 echo 'playoffRounds: ' . count($playoffRounds) . PHP_EOL;
 foreach ($playoffRounds as $tab) {
     echo '  tab ' . ($tab['label'] ?? '?') . ': ' . count($tab['matches'] ?? []) . ' matches' . PHP_EOL;
+}
+
+echo 'playoffBracket columns: ' . $bracketColumns . PHP_EOL;
+if (count($playoffRounds) === 0 && $bracketColumns === 0) {
+    echo 'hint: для ЧМ-2026 на сервере — миграция Version20260627143000 и php local/tools/seed_wc2026_playoff.php' . PHP_EOL;
 }
