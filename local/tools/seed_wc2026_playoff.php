@@ -105,7 +105,7 @@ foreach ($payload['rounds'] as $round) {
         $expectedCodes[] = $bracketCode;
 
         $xmlId = 'wc26_po_' . $bracketCode;
-        $existingId = findMatchId($matchesIb, $eventId, $xmlId, $bracketCode, $playoffStartNumber);
+        $existingId = findMatchId($matchesIb, $eventId, $xmlId, $bracketCode, $playoffStartNumber, $allowedProps);
 
         [$homeId, $homeLabel] = resolveSide($match['home'] ?? null, !empty($match['home_is_slot']), $teamIds);
         [$guestId, $guestLabel] = resolveSide($match['guest'] ?? null, !empty($match['guest_is_slot']), $teamIds);
@@ -133,21 +133,28 @@ foreach ($payload['rounds'] as $round) {
         $date = trim((string)($match['date'] ?? ''));
         $dateActive = $date !== '' ? $date . ' 18:00:00' : date('d.m.Y H:i:s');
 
+        $stageDetailLabel = PlayoffSlotHelper::mapStageDetailLabel(
+            (string)($match['stage_label'] ?? $round['label'] ?? ''),
+            $bracketCode
+        );
+
         $props = [
             'events' => $eventId,
             'number' => $number,
-            'step' => bracketStepFromCode($bracketCode),
             'stage' => 'Плей-офф',
             'bracket_code' => $bracketCode,
             'home_label' => $homeLabel,
             'guest_label' => $guestLabel,
         ];
 
-        if ($stageDetailCode) {
-            $props[$stageDetailCode] = PlayoffSlotHelper::mapStageDetailLabel(
-                (string)($match['stage_label'] ?? $round['label'] ?? ''),
-                $bracketCode
-            );
+        // На бою «Этап расширенный» часто имеет CODE step — не перетирать позицию в сетке.
+        if ($stageDetailCode === 'step') {
+            $props['step'] = $stageDetailLabel;
+        } else {
+            $props['step'] = bracketStepFromCode($bracketCode);
+            if ($stageDetailCode) {
+                $props[$stageDetailCode] = $stageDetailLabel;
+            }
         }
 
         if ($homeId > 0) {
@@ -205,6 +212,11 @@ foreach ($payload['rounds'] as $round) {
 }
 
 echo PHP_EOL . "Готово: создано {$created}, обновлено {$updated}, пропущено {$skipped}\n";
+
+$cleaned = cleanupOrphanPlayoffMarkers($matchesIb, $eventId, $playoffStartNumber, $allowedProps, $stageDetailCode);
+if ($cleaned > 0) {
+    echo "Очищено групповых матчей с метками плей-офф: {$cleaned}\n";
+}
 
 $missingCodes = $dryRun ? [] : findMissingBracketCodes($matchesIb, $eventId, $expectedCodes);
 if ($missingCodes) {
@@ -341,17 +353,17 @@ function loadPropertyCodes(int $iblockId): array
 
 function resolveStageDetailPropCode(int $matchesIb, array $allowedProps): ?string
 {
-    foreach (['stage_detail', 'stage_d', 'stage_ext', 'extended_stage'] as $code) {
-        if (!empty($allowedProps[$code])) {
-            return $code;
-        }
-    }
-
     $response = CIBlockProperty::GetList([], ['IBLOCK_ID' => $matchesIb, 'NAME' => 'Этап расширенный']);
     if ($response && ($row = $response->Fetch())) {
         $code = (string)($row['CODE'] ?? '');
 
         return $code !== '' ? $code : null;
+    }
+
+    foreach (['stage_detail', 'stage_d', 'stage_ext', 'extended_stage'] as $code) {
+        if (!empty($allowedProps[$code])) {
+            return $code;
+        }
     }
 
     return null;
@@ -485,7 +497,7 @@ function findNextMatchNumber(int $matchesIb, int $eventId): int
     return max(1, $max + 1);
 }
 
-function findMatchId(int $matchesIb, int $eventId, string $xmlId, string $bracketCode, int $playoffStartNumber): int
+function findMatchId(int $matchesIb, int $eventId, string $xmlId, string $bracketCode, int $playoffStartNumber, array $allowedProps = []): int
 {
     $byXml = CIBlockElement::GetList(
         [],
@@ -503,7 +515,8 @@ function findMatchId(int $matchesIb, int $eventId, string $xmlId, string $bracke
             return $id;
         }
         $num = (int)($byXml['PROPERTY_NUMBER_VALUE'] ?? 0);
-        echo "Предупреждение: XML_ID {$xmlId} на матче #{$num} (id {$id}) не похож на плей-офф — ищем дальше\n";
+        echo "Предупреждение: XML_ID {$xmlId} на матче #{$num} (id {$id}) — сбрасываем метки плей-офф с группового матча\n";
+        clearCorruptPlayoffBinding($id, $matchesIb, $eventId, $playoffStartNumber, $allowedProps);
     }
 
     $byCode = CIBlockElement::GetList(
@@ -556,6 +569,106 @@ function isPlayoffSeedMatchRow(array $row, int $eventId, string $bracketCode, st
     }
 
     return strpos($rowXmlId, 'wc26_po_') === 0;
+}
+
+function clearCorruptPlayoffBinding(
+    int $matchId,
+    int $matchesIb,
+    int $eventId,
+    int $playoffStartNumber,
+    array $allowedProps = []
+): void
+{
+    if (!$allowedProps) {
+        $allowedProps = loadPropertyCodes($matchesIb);
+    }
+
+    $row = CIBlockElement::GetList(
+        [],
+        ['ID' => $matchId],
+        false,
+        ['nTopCount' => 1],
+        ['ID', 'XML_ID', 'PROPERTY_events', 'PROPERTY_number']
+    )->Fetch();
+    if (!$row) {
+        return;
+    }
+
+    if ((int)($row['PROPERTY_EVENTS_VALUE'] ?? 0) !== $eventId) {
+        return;
+    }
+
+    $number = (int)($row['PROPERTY_NUMBER_VALUE'] ?? 0);
+    if ($playoffStartNumber > 1 && $number >= $playoffStartNumber) {
+        return;
+    }
+
+    $el = new CIBlockElement();
+    $el->Update($matchId, ['XML_ID' => 'match_' . $eventId . '_' . $number]);
+
+    $clear = [];
+    if (isset($allowedProps['bracket_code'])) {
+        $clear['bracket_code'] = false;
+    }
+    if (isset($allowedProps['home_label'])) {
+        $clear['home_label'] = false;
+    }
+    if (isset($allowedProps['guest_label'])) {
+        $clear['guest_label'] = false;
+    }
+    if (isset($allowedProps['stage'])) {
+        $clear['stage'] = 'Групповой';
+    }
+    if ($clear) {
+        CIBlockElement::SetPropertyValuesEx($matchId, $matchesIb, $clear);
+    }
+}
+
+function cleanupOrphanPlayoffMarkers(
+    int $matchesIb,
+    int $eventId,
+    int $playoffStartNumber,
+    array $allowedProps,
+    ?string $stageDetailCode
+): int {
+    if ($playoffStartNumber <= 1) {
+        return 0;
+    }
+
+    $cleaned = 0;
+    $response = CIBlockElement::GetList(
+        ['PROPERTY_number' => 'ASC'],
+        [
+            'IBLOCK_ID' => $matchesIb,
+            'PROPERTY_events' => $eventId,
+        ],
+        false,
+        false,
+        ['ID', 'XML_ID', 'PROPERTY_number', 'PROPERTY_stage', 'PROPERTY_bracket_code']
+    );
+
+    while ($row = $response->Fetch()) {
+        $number = (int)($row['PROPERTY_NUMBER_VALUE'] ?? 0);
+        if ($number <= 0 || $number >= $playoffStartNumber) {
+            continue;
+        }
+
+        $xmlId = (string)($row['XML_ID'] ?? '');
+        $bracketCode = trim((string)($row['PROPERTY_BRACKET_CODE_VALUE'] ?? ''));
+        $stage = mb_strtolower(trim((string)($row['PROPERTY_STAGE_VALUE'] ?? '')));
+        $isPlayoffStage = in_array($stage, ['плей-офф', 'play-off', 'playoff'], true);
+        $isPlayoffXml = strpos($xmlId, 'wc26_po_') === 0;
+
+        if (!$isPlayoffStage && $bracketCode === '' && !$isPlayoffXml) {
+            continue;
+        }
+
+        clearCorruptPlayoffBinding((int)$row['ID'], $matchesIb, $eventId, $playoffStartNumber, $allowedProps);
+        $cleaned++;
+        echo "Очищен групповой матч #{$number} (id {$row['ID']})\n";
+    }
+
+    return $cleaned;
 }
 
 function getMatchNumber(int $matchId): int

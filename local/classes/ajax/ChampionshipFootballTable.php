@@ -668,6 +668,14 @@ class ChampionshipFootballTable extends PrognosisGiveInfo
         }
 
         usort($rows, static function ($a, $b) {
+            $codeDiff = PlayoffSlotHelper::compareBracketCodes(
+                (string)($a['PROPERTY_BRACKET_CODE_VALUE'] ?? ''),
+                (string)($b['PROPERTY_BRACKET_CODE_VALUE'] ?? '')
+            );
+            if ($codeDiff !== 0) {
+                return $codeDiff;
+            }
+
             $stepDiff = ((int)($a['PROPERTY_STEP_VALUE'] ?? 0)) <=> ((int)($b['PROPERTY_STEP_VALUE'] ?? 0));
             if ($stepDiff !== 0) {
                 return $stepDiff;
