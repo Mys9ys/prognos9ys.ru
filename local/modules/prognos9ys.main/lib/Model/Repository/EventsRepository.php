@@ -39,4 +39,32 @@ class EventsRepository extends BaseIblockRepository
 
         return $query;
     }
+
+    public function getChampionshipInfo(int $eventId): ?array
+    {
+        if ($eventId <= 0) {
+            return null;
+        }
+
+        $row = $this->dataObjectBuilder([$eventId])->fetch();
+        if (!$row) {
+            return null;
+        }
+
+        $previewId = (int)($row['PREVIEW_PICTURE'] ?? 0);
+
+        return [
+            'ID' => (int)$row['ID'],
+            'NAME' => (string)($row['NAME'] ?? ''),
+            'ACTIVE' => (string)($row['ACTIVE'] ?? ''),
+            'PREVIEW_TEXT' => (string)($row['PREVIEW_TEXT'] ?? ''),
+            'DETAIL_TEXT' => (string)($row['DETAIL_TEXT'] ?? ''),
+            'EXTERNAL_ID' => (string)($row['EXTERNAL_ID'] ?? ''),
+            'img' => $previewId > 0 ? (string)\CFile::GetPath($previewId) : '',
+            'code' => (string)($row['E_TYPE_VALUE'] ?? ''),
+            'table' => (string)($row['TABLE_VALUE'] ?? ''),
+            'PROPERTY_E_TYPE_VALUE' => (string)($row['E_TYPE_VALUE'] ?? ''),
+            'PROPERTY_TABLE_VALUE' => (string)($row['TABLE_VALUE'] ?? ''),
+        ];
+    }
 }

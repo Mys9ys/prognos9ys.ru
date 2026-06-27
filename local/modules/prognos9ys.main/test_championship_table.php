@@ -3,19 +3,22 @@
 define('NO_KEEP_STATISTIC', true);
 define('NOT_CHECK_PERMISSIONS', true);
 
+use Prognos9ys\Main\Service\Championship\FootballTableService;
+
 $eventId = (int)($argv[1] ?? 63849);
 $profile = in_array('--profile', $argv ?? [], true);
 
 $_SERVER['DOCUMENT_ROOT'] = realpath(__DIR__ . '/../../..');
 require $_SERVER['DOCUMENT_ROOT'] . '/bitrix/modules/main/include/prolog_before.php';
 
+\Bitrix\Main\Loader::includeModule('prognos9ys.main');
+
 if ($profile) {
     echo 'building table for event ' . $eventId . '...' . PHP_EOL;
     $startedAt = microtime(true);
 }
 
-$handler = new ChampionshipFootballTable(['events' => $eventId, 'token' => '']);
-$result = $handler->result();
+$result = (new FootballTableService())->getTable((string)$eventId, '');
 
 if ($profile) {
     echo sprintf('done in %.2fs', microtime(true) - $startedAt) . PHP_EOL;

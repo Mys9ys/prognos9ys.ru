@@ -14,7 +14,7 @@ class ChampionshipController extends BaseController
     }
 
     /**
-     * Турнирная таблица — legacy /mob_app/ajax/championship/football/
+     * Турнирная таблица чемпионата (ORM + сервис).
      */
     public function getFootballTableAction(string $events, ?string $token = null): array
     {
