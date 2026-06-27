@@ -78,6 +78,10 @@ export const apiActions = {
             'prognos9ys:main.FootballController.getEventMatches',
             { events, userToken }
         ),
+        getEventStatistics: (events, userToken = '') => runBitrixAction(
+            'prognos9ys:main.FootballController.getEventStatistics',
+            { events, userToken }
+        ),
         getMatchesByEvent: (eventId) => runBitrixAction(
             'prognos9ys:main.FootballController.getMatchesByEvent',
             { eventId }

@@ -2,6 +2,7 @@
   <PreLoader v-if="loading"></PreLoader>
   <div v-else class="event_wrapper">
     <PageHeader class="header">Соревнование</PageHeader>
+    <EventStatisticsBlock :event-id="$route.params.event" :user-token="token" />
     <SectionMatches
         v-for="(arrSection, index) in arMatches"
         :arMatches="arrSection"
@@ -16,13 +17,15 @@ import PageHeader from "@/components/main/PageHeader";
 import {mapActions, mapState} from "vuex";
 import PreLoader from "@/components/main/PreLoader";
 import SectionMatches from "@/components/football/SectionMatches";
+import EventStatisticsBlock from "@/components/football/EventStatisticsBlock.vue";
 
 export default {
   name: "FBEvent",
   components: {
     PageHeader,
     PreLoader,
-    SectionMatches
+    SectionMatches,
+    EventStatisticsBlock,
   },
   data() {
     return {

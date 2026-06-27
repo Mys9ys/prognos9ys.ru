@@ -2,6 +2,7 @@
 
 namespace Prognos9ys\Main\Controller;
 
+use Prognos9ys\Main\Service\Football\EventStatisticsService;
 use Prognos9ys\Main\Service\Football\FootballEventListService;
 use Prognos9ys\Main\Service\Football\FootballMatchService;
 use Prognos9ys\Main\Service\Football\FootballPrognosisService;
@@ -13,6 +14,7 @@ class FootballController extends BaseController
     {
         return [
             'getEventMatches' => $this->getDefaultConfigureForPost(true),
+            'getEventStatistics' => $this->getDefaultConfigureForPost(true),
             'getMatchesByEvent' => $this->getDefaultConfigureForPostPublic(),
             'getMatch' => $this->getDefaultConfigureForPost(true),
             'sendPrognosis' => $this->getDefaultConfigureForPostToken(),
@@ -25,6 +27,21 @@ class FootballController extends BaseController
     public function getEventMatchesAction(string $events, ?string $userToken = null): array
     {
         return (new FootballEventListService())->getByEvent($events, $userToken);
+    }
+
+    /**
+     * Сводная статистика события: факты матчей и прогнозы пользователя.
+     */
+    public function getEventStatisticsAction(string $events, ?string $userToken = null): array
+    {
+        $eventId = (int)$events;
+        $userId = 0;
+
+        if ($userToken) {
+            $userId = (int)((new \GetUserIdForToken($userToken))->getId() ?: 0);
+        }
+
+        return (new EventStatisticsService())->getForEvent($eventId, $userId);
     }
 
     /**
