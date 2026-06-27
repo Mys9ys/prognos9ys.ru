@@ -68,6 +68,7 @@ if (!eventExists($eventsIb, $eventId)) {
 }
 
 $allowedProps = loadPropertyCodes($matchesIb);
+$stageDetailCode = resolveStageDetailPropCode($matchesIb, $allowedProps);
 $teamIds = loadTeamIdsByName($countriesIb);
 $totalPlayoffMatches = 0;
 foreach ($payload['rounds'] as $round) {
@@ -80,6 +81,11 @@ $playoffStartNumber = $playoffFromOverride > 0
 $playoffEndNumber = $playoffStartNumber + $totalPlayoffMatches - 1;
 
 echo "matchesIb={$matchesIb}, eventId={$eventId}, groupMax={$maxGroupNumber}, playoff=#{$playoffStartNumber}..#{$playoffEndNumber}\n";
+if ($stageDetailCode) {
+    echo "stage_detail property: {$stageDetailCode}\n";
+} else {
+    echo "Внимание: свойство «Этап расширенный» не найдено — задайте в админке или миграцией\n";
+}
 if (empty($allowedProps['bracket_code'])) {
     echo "Внимание: свойства bracket_code/home_label/guest_label не найдены — сначала миграция Version20260627143000\n";
 }
@@ -136,6 +142,13 @@ foreach ($payload['rounds'] as $round) {
             'home_label' => $homeLabel,
             'guest_label' => $guestLabel,
         ];
+
+        if ($stageDetailCode) {
+            $props[$stageDetailCode] = PlayoffSlotHelper::mapStageDetailLabel(
+                (string)($match['stage_label'] ?? $round['label'] ?? ''),
+                $bracketCode
+            );
+        }
 
         if ($homeId > 0) {
             $props['home'] = $homeId;
@@ -324,6 +337,24 @@ function loadPropertyCodes(int $iblockId): array
     }
 
     return $codes;
+}
+
+function resolveStageDetailPropCode(int $matchesIb, array $allowedProps): ?string
+{
+    foreach (['stage_detail', 'stage_d', 'stage_ext', 'extended_stage'] as $code) {
+        if (!empty($allowedProps[$code])) {
+            return $code;
+        }
+    }
+
+    $response = CIBlockProperty::GetList([], ['IBLOCK_ID' => $matchesIb, 'NAME' => 'Этап расширенный']);
+    if ($response && ($row = $response->Fetch())) {
+        $code = (string)($row['CODE'] ?? '');
+
+        return $code !== '' ? $code : null;
+    }
+
+    return null;
 }
 
 function filterProps(array $props, array $allowed): array

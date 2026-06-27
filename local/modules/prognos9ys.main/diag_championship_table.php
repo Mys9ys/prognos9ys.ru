@@ -12,64 +12,75 @@ require_once $_SERVER['DOCUMENT_ROOT'] . '/local/classes/ajax/PlayoffSlotHelper.
 \Bitrix\Main\Loader::includeModule('iblock');
 
 $matchesIb = 2;
+$res = CIBlock::GetList([], ['TYPE' => 'content', 'CODE' => 'matches'], true);
+if ($res && ($row = $res->Fetch())) {
+    $matchesIb = (int)$row['ID'];
+}
+
 $baseFilter = [
     'IBLOCK_ID' => $matchesIb,
     'PROPERTY_events' => $eventId,
 ];
 
-$tick = static function (string $label) {
-    static $startedAt = null;
-    $now = microtime(true);
-    if ($startedAt === null) {
-        $startedAt = $now;
-        echo $label . PHP_EOL;
-        return;
+$say = static function (string $line): void {
+    echo $line . PHP_EOL;
+    if (function_exists('ob_flush')) {
+        @ob_flush();
     }
-    echo sprintf('  %.3fs  %s', $now - $startedAt, $label) . PHP_EOL;
-    $startedAt = $now;
+    flush();
 };
 
-echo 'diag event ' . $eventId . PHP_EOL;
+$say('diag event ' . $eventId . ' ib=' . $matchesIb);
+$say('prolog ok');
 
-$tick('prolog ok');
-
-$row = CIBlockElement::GetList(
-    [],
-    $baseFilter + ['PROPERTY_stage' => 'Плей-офф'],
-    false,
-    ['nTopCount' => 1],
-    ['ID', 'PROPERTY_number', 'PROPERTY_bracket_code']
-)->Fetch();
-$tick('stage=Плей-офф (nTopCount 1): ' . ($row ? 'found #' . ($row['ID'] ?? '?') : 'none'));
-
+$t0 = microtime(true);
 $count = 0;
 $response = CIBlockElement::GetList(
-    ['PROPERTY_number' => 'DESC'],
+    ['ID' => 'ASC'],
     $baseFilter,
     false,
-    ['nTopCount' => 48],
-    ['ID', 'PROPERTY_number', 'PROPERTY_bracket_code', 'PROPERTY_stage']
+    false,
+    ['ID', 'PROPERTY_number', 'PROPERTY_stage']
 );
+while ($response->Fetch()) {
+    $count++;
+}
+$say(sprintf('events-only query: %d matches in %.3fs', $count, microtime(true) - $t0));
+
+$stageDetailCode = null;
+$propRes = CIBlockProperty::GetList([], ['IBLOCK_ID' => $matchesIb, 'NAME' => 'Этап расширенный']);
+if ($propRes && ($propRow = $propRes->Fetch())) {
+    $stageDetailCode = (string)($propRow['CODE'] ?? '');
+}
+$say('stage_detail property: ' . ($stageDetailCode ?: 'not found'));
+
+$playoff = 0;
+$t1 = microtime(true);
+$select = ['ID', 'PROPERTY_number', 'PROPERTY_stage', 'PROPERTY_bracket_code'];
+if ($stageDetailCode) {
+    $select[] = 'PROPERTY_' . $stageDetailCode;
+}
+$response = CIBlockElement::GetList(['PROPERTY_number' => 'ASC'], $baseFilter, false, false, $select);
 while ($row = $response->Fetch()) {
-    if (PlayoffSlotHelper::isPlayoffMatchRow($row)) {
-        $count++;
+    if (PlayoffSlotHelper::isPlayoffMatchRow($row, $stageDetailCode ?: null)) {
+        $playoff++;
     }
 }
-$tick('top-48 by number + isPlayoff: ' . $count);
+$say(sprintf('php classify playoff: %d in %.3fs', $playoff, microtime(true) - $t1));
 
-$tick('full ChampionshipFootballTable...');
-$t0 = microtime(true);
+$say('full handler...');
+$t2 = microtime(true);
 $handler = new ChampionshipFootballTable(['events' => $eventId, 'token' => '']);
 $result = $handler->result();
-$tick('handler done, status=' . ($result['status'] ?? '?') . ', elapsed=' . round(microtime(true) - $t0, 2) . 's');
+$say(sprintf('handler status=%s in %.3fs', $result['status'] ?? '?', microtime(true) - $t2));
 
 if (!empty($result['result'])) {
     $data = $result['result'];
-    echo 'groups: ' . count($data['groups'] ?? []) . PHP_EOL;
-    echo 'playoffRounds: ' . count($data['playoffRounds'] ?? []) . PHP_EOL;
+    $say('groups: ' . count($data['groups'] ?? []));
+    $say('playoffRounds: ' . count($data['playoffRounds'] ?? []));
     $cols = count($data['playoffBracket']['columns'] ?? []);
-    echo 'playoffBracket columns: ' . $cols . PHP_EOL;
+    $say('playoffBracket columns: ' . $cols);
     if ($cols === 0) {
-        echo 'hint: php7.4 local/tools/seed_wc2026_playoff.php --event=' . $eventId . PHP_EOL;
+        $say('run: php7.4 local/tools/seed_wc2026_playoff.php --event=' . $eventId);
     }
 }

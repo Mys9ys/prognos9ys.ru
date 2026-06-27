@@ -58,10 +58,119 @@ class PlayoffSlotHelper
         return 0;
     }
 
+    /**
+     * Стадия сетки из «Этап расширенный» (список в админке матчей).
+     */
+    public static function bracketStageFromDetail(string $detail): int
+    {
+        $value = mb_strtolower(trim($detail));
+        if ($value === '') {
+            return 0;
+        }
+        if (strpos($value, '1/16') !== false) {
+            return 1;
+        }
+        if (strpos($value, '1/8') !== false) {
+            return 2;
+        }
+        if (strpos($value, '1/4') !== false) {
+            return 3;
+        }
+        if (strpos($value, 'полуфинал') !== false || strpos($value, '1/2') !== false) {
+            return 4;
+        }
+        if (strpos($value, '3') !== false && strpos($value, 'место') !== false) {
+            return 5;
+        }
+        if ($value === 'финал') {
+            return 6;
+        }
+
+        return 0;
+    }
+
+    public static function mapStageDetailLabel(string $stageLabel, string $bracketCode = ''): string
+    {
+        $code = strtoupper(trim($bracketCode));
+        if ($code === 'F3') {
+            return '3е место';
+        }
+        if ($code === 'F1') {
+            return 'Финал';
+        }
+
+        $map = [
+            '1/16' => '1/16 финала',
+            '1/8' => '1/8 финала',
+            '1/4' => '1/4 финала',
+            '1/2' => 'Полуфинал',
+            '3-е место' => '3е место',
+            'За 3-е место' => '3е место',
+            'Финал' => 'Финал',
+        ];
+
+        return $map[trim($stageLabel)] ?? trim($stageLabel);
+    }
+
+    public static function readPropertyValue(array $res, ?string $code): string
+    {
+        if (!$code) {
+            return '';
+        }
+
+        $key = 'PROPERTY_' . strtoupper($code) . '_VALUE';
+
+        return trim((string)($res[$key] ?? ''));
+    }
+
+    public static function isPlayoffStageDetail(string $value): bool
+    {
+        $value = mb_strtolower(trim($value));
+        if ($value === '') {
+            return false;
+        }
+
+        foreach ([
+            '1/16 финала',
+            '1/8 финала',
+            '1/4 финала',
+            'полуфинал',
+            '3е место',
+            '3-е место',
+            'за 3-е место',
+            'финал',
+        ] as $needle) {
+            if ($value === mb_strtolower($needle)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static function isGroupStageDetail(string $value): bool
+    {
+        $value = mb_strtolower(trim($value));
+        if ($value === '') {
+            return false;
+        }
+
+        if (strpos($value, 'группа') === 0) {
+            return true;
+        }
+
+        return in_array($value, ['отборочный', 'чемпионат', 'дома-гости', 'выживание'], true);
+    }
+
     public static function isThirdPlaceMatch(array $match): bool
     {
         $code = strtoupper(trim((string)($match['bracket_code'] ?? '')));
         if ($code === 'F3') {
+            return true;
+        }
+
+        $detail = mb_strtolower(trim((string)($match['stage_detail'] ?? '')));
+        if (strpos($detail, '3') !== false && strpos($detail, 'место') !== false) {
             return true;
         }
 
@@ -72,6 +181,10 @@ class PlayoffSlotHelper
     {
         $code = strtoupper(trim((string)($match['bracket_code'] ?? '')));
         if ($code === 'F1') {
+            return true;
+        }
+
+        if (mb_strtolower(trim((string)($match['stage_detail'] ?? ''))) === 'финал') {
             return true;
         }
 
@@ -88,13 +201,23 @@ class PlayoffSlotHelper
         return strcmp((string)$a, (string)$b);
     }
 
-    public static function isPlayoffMatchRow(array $res): bool
+    public static function isPlayoffMatchRow(array $res, ?string $stageDetailCode = null): bool
     {
+        $stageDetail = self::readPropertyValue($res, $stageDetailCode);
+        if ($stageDetail !== '') {
+            if (self::isPlayoffStageDetail($stageDetail)) {
+                return true;
+            }
+            if (self::isGroupStageDetail($stageDetail)) {
+                return false;
+            }
+        }
+
         $stage = mb_strtolower(trim((string)($res['PROPERTY_STAGE_VALUE'] ?? '')));
         if (in_array($stage, ['плей-офф', 'play-off', 'playoff'], true)) {
             return true;
         }
-        if (in_array($stage, ['групповой', 'group'], true)) {
+        if (in_array($stage, ['групповой', 'group', 'чемпионат', 'дома-гости'], true)) {
             return false;
         }
 
