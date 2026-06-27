@@ -1,6 +1,6 @@
 <template>
-  <div class="match_card" v-if="match" :class="{ 'has_xp': showRewardTabs }">
-    <div class="reward_tabs" v-if="showRewardTabs">
+  <div class="match_card" v-if="match" :class="{ 'has_xp': showRewardTabs, compact: compact, bracket_mode: bracket }">
+    <div class="reward_tabs" v-if="showRewardTabs && !compact">
       <div class="match_xp_tab" v-if="showTreasureReward">
         <div class="chest_claimed reward_chip">
           <span v-if="treasureCount > 1">x{{ treasureCount }} </span>
@@ -28,24 +28,29 @@
       </div>
     </div>
 
-    <div class="match_box">
+    <div class="match_box" :class="{ compact_box: compact, bracket_box: bracket, readonly_box: readonly }" @click="compact && !readonly ? onOpenMatch() : null">
       <div class="left_block">
         <div class="number"># {{ match.number }}</div>
         <div class="time">{{ match.time }}</div>
       </div>
 
       <div class="team_block">
-        <div class="team" v-for="(team, index) in match.teams"
-             :key="index">
-          <div class="flag">
-            <img :src="urlImg + team.flag" alt="">
+        <div
+          class="team"
+          v-for="(team, index) in match.teams"
+          :key="index"
+          :class="[playoffTeamClass(index), { slot_team: isSlotTeam(team) }]"
+        >
+          <div class="flag" :class="{ slot_flag: isSlotTeam(team) }">
+            <img v-if="team.flag" :src="urlImg + team.flag" alt="">
+            <span v-else-if="isSlotTeam(team)" class="slot_shield"></span>
           </div>
           <div class="name">{{ team.name }}</div>
           <div class="score" :class="{'score_blur' : match.active === 'Y'}">{{ team.goals ?? 0 }}</div>
         </div>
       </div>
 
-      <div class="right_block">
+      <div class="right_block" v-if="!compact">
         <div class="send_info_block" v-if="!hasUserPrognosis">
           <div class="send_info">не заполнено</div>
         </div>
@@ -98,7 +103,19 @@ export default {
   props: {
     match: {
       type: Object
-    }
+    },
+    compact: {
+      type: Boolean,
+      default: false,
+    },
+    readonly: {
+      type: Boolean,
+      default: false,
+    },
+    bracket: {
+      type: Boolean,
+      default: false,
+    },
   },
   data() {
     return {
@@ -189,7 +206,24 @@ export default {
       showBulkLevelBanner: 'game/showBulkLevelBanner',
     }),
     onOpenMatch() {
+      if (this.readonly) {
+        return;
+      }
       this.$router.push(this.link);
+    },
+    playoffTeamClass(index) {
+      if (!this.compact || !this.match?.winner) {
+        return {};
+      }
+
+      const side = index === 'home' || index === 0 ? 'home' : 'guest';
+      return {
+        playoff_winner: this.match.winner === side,
+        playoff_dimmed: this.match.winner !== side,
+      };
+    },
+    isSlotTeam(team) {
+      return Boolean(team?.is_slot) || (!team?.flag && Boolean(team?.name));
     },
     async claimExperience() {
       if (!this.match?.id || this.claiming) {
@@ -229,6 +263,14 @@ export default {
   flex-direction: column;
   gap: 0;
   align-items: stretch;
+
+  &.compact {
+    width: 100%;
+  }
+
+  &.bracket_mode {
+    width: 100%;
+  }
 
   &.has_xp {
     align-items: stretch;
@@ -343,6 +385,59 @@ export default {
   padding: 4px;
   border-radius: 5px;
 
+  &.compact_box {
+    width: 100%;
+    cursor: pointer;
+  }
+
+  &.bracket_box {
+    padding: 3px;
+    gap: 3px;
+
+    .left_block {
+      width: 18%;
+      max-width: 38px;
+      gap: 2px;
+
+      .number,
+      .time {
+        font-size: 10px;
+        height: 20px;
+      }
+    }
+
+    .team_block {
+      width: 82%;
+      max-width: none;
+      gap: 2px;
+
+      .team .name {
+        font-size: 11px;
+      }
+
+      .team.slot_team .name {
+        color: fade(@colorText, 88%);
+        font-weight: 600;
+        letter-spacing: 0.2px;
+      }
+
+      .team .flag {
+        max-width: 20px;
+        padding: 2px;
+      }
+
+      .team .score {
+        max-width: 20px;
+        font-size: 11px;
+      }
+    }
+  }
+
+  &.readonly_box {
+    cursor: default;
+    opacity: 0.85;
+  }
+
   .left_block {
     display: flex;
     flex-direction: column;
@@ -388,10 +483,24 @@ export default {
         flex-direction: row;
         justify-content: center;
         align-items: center;
+
+        &.slot_flag {
+          padding: 2px;
+        }
+
         img{
           width: 98%;
           max-width: 20px;
           border-radius: 3px;
+        }
+
+        .slot_shield {
+          display: block;
+          width: 14px;
+          height: 14px;
+          background: fade(@colorText, 12%);
+          border: 1px solid fade(@colorText, 18%);
+          clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
         }
       }
 
@@ -413,6 +522,15 @@ export default {
         &.score_blur{
           color: @colorBlur;
         }
+      }
+
+      &.playoff_winner .name {
+        color: @YesWrite;
+        font-weight: 700;
+      }
+
+      &.playoff_dimmed {
+        opacity: 0.55;
       }
     }
   }

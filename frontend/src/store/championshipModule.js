@@ -79,6 +79,8 @@ export const championshipModule = {
                         groups: tablePayload.groups || {},
                         thirdPlaces: tablePayload.thirdPlaces || [],
                         groupMatches: tablePayload.groupMatches || {},
+                        playoffRounds: tablePayload.playoffRounds || [],
+                        playoffBracket: tablePayload.playoffBracket || null,
                         info: tablePayload.info || {},
                     });
                     commit('setError', null)

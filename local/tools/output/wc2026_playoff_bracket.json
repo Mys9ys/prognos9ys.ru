@@ -1,0 +1,437 @@
+{
+  "source": "championat.com/football/_worldcup/tournament/6858/table/#playoff",
+  "parsed_at": "2026-06-27T11:34:43.391Z",
+  "rounds": [
+    {
+      "key": "r32",
+      "label": "1/16",
+      "round": 1,
+      "matches": [
+        {
+          "bracket_code": "A03",
+          "home": "ЮАР",
+          "guest": "Канада",
+          "date": "28.06.2026",
+          "home_is_slot": false,
+          "guest_is_slot": false,
+          "round": 1,
+          "step": 1,
+          "stage_label": "1/16",
+          "sort_step": 1
+        },
+        {
+          "bracket_code": "A09",
+          "home": "Бразилия",
+          "guest": "Япония",
+          "date": "29.06.2026",
+          "home_is_slot": false,
+          "guest_is_slot": false,
+          "round": 1,
+          "step": 2,
+          "stage_label": "1/16",
+          "sort_step": 2
+        },
+        {
+          "bracket_code": "A01",
+          "home": "Германия",
+          "guest": "Парагвай",
+          "date": "29.06.2026",
+          "home_is_slot": false,
+          "guest_is_slot": false,
+          "round": 1,
+          "step": 3,
+          "stage_label": "1/16",
+          "sort_step": 3
+        },
+        {
+          "bracket_code": "A04",
+          "home": "Нидерланды",
+          "guest": "Марокко",
+          "date": "30.06.2026",
+          "home_is_slot": false,
+          "guest_is_slot": false,
+          "round": 1,
+          "step": 4,
+          "stage_label": "1/16",
+          "sort_step": 4
+        },
+        {
+          "bracket_code": "A10",
+          "home": "Кот-д'Ивуар",
+          "guest": "Норвегия",
+          "date": "30.06.2026",
+          "home_is_slot": false,
+          "guest_is_slot": false,
+          "round": 1,
+          "step": 5,
+          "stage_label": "1/16",
+          "sort_step": 5
+        },
+        {
+          "bracket_code": "A02",
+          "home": "Франция",
+          "guest": "Швеция",
+          "date": "01.07.2026",
+          "home_is_slot": false,
+          "guest_is_slot": false,
+          "round": 1,
+          "step": 6,
+          "stage_label": "1/16",
+          "sort_step": 6
+        },
+        {
+          "bracket_code": "A11",
+          "home": "Мексика",
+          "guest": "3CEFHI",
+          "date": "01.07.2026",
+          "home_is_slot": false,
+          "guest_is_slot": true,
+          "round": 1,
+          "step": 7,
+          "stage_label": "1/16",
+          "sort_step": 7
+        },
+        {
+          "bracket_code": "A12",
+          "home": "1L",
+          "guest": "3EHIJK",
+          "date": "01.07.2026",
+          "home_is_slot": true,
+          "guest_is_slot": true,
+          "round": 1,
+          "step": 8,
+          "stage_label": "1/16",
+          "sort_step": 8
+        },
+        {
+          "bracket_code": "A08",
+          "home": "Бельгия",
+          "guest": "3AEHIJ",
+          "date": "01.07.2026",
+          "home_is_slot": false,
+          "guest_is_slot": true,
+          "round": 1,
+          "step": 9,
+          "stage_label": "1/16",
+          "sort_step": 9
+        },
+        {
+          "bracket_code": "A07",
+          "home": "США",
+          "guest": "Босния и Герцеговина",
+          "date": "02.07.2026",
+          "home_is_slot": false,
+          "guest_is_slot": false,
+          "round": 1,
+          "step": 10,
+          "stage_label": "1/16",
+          "sort_step": 10
+        },
+        {
+          "bracket_code": "A06",
+          "home": "Испания",
+          "guest": "2J",
+          "date": "02.07.2026",
+          "home_is_slot": false,
+          "guest_is_slot": true,
+          "round": 1,
+          "step": 11,
+          "stage_label": "1/16",
+          "sort_step": 11
+        },
+        {
+          "bracket_code": "A05",
+          "home": "2K",
+          "guest": "2L",
+          "date": "03.07.2026",
+          "home_is_slot": true,
+          "guest_is_slot": true,
+          "round": 1,
+          "step": 12,
+          "stage_label": "1/16",
+          "sort_step": 12
+        },
+        {
+          "bracket_code": "A15",
+          "home": "Швейцария",
+          "guest": "3EFGIJ",
+          "date": "03.07.2026",
+          "home_is_slot": false,
+          "guest_is_slot": true,
+          "round": 1,
+          "step": 13,
+          "stage_label": "1/16",
+          "sort_step": 13
+        },
+        {
+          "bracket_code": "A14",
+          "home": "Австралия",
+          "guest": "Египет",
+          "date": "03.07.2026",
+          "home_is_slot": false,
+          "guest_is_slot": false,
+          "round": 1,
+          "step": 14,
+          "stage_label": "1/16",
+          "sort_step": 14
+        },
+        {
+          "bracket_code": "A13",
+          "home": "Аргентина",
+          "guest": "Кабо-Верде",
+          "date": "04.07.2026",
+          "home_is_slot": false,
+          "guest_is_slot": false,
+          "round": 1,
+          "step": 15,
+          "stage_label": "1/16",
+          "sort_step": 15
+        },
+        {
+          "bracket_code": "A16",
+          "home": "1K",
+          "guest": "3DEIJL",
+          "date": "04.07.2026",
+          "home_is_slot": true,
+          "guest_is_slot": true,
+          "round": 1,
+          "step": 16,
+          "stage_label": "1/16",
+          "sort_step": 16
+        }
+      ]
+    },
+    {
+      "key": "r16",
+      "label": "1/8",
+      "round": 2,
+      "matches": [
+        {
+          "bracket_code": "B02",
+          "home": "A03",
+          "guest": "A04",
+          "date": "04.07.2026",
+          "home_is_slot": true,
+          "guest_is_slot": true,
+          "round": 2,
+          "step": 1,
+          "stage_label": "1/8",
+          "sort_step": 17
+        },
+        {
+          "bracket_code": "B01",
+          "home": "A01",
+          "guest": "A02",
+          "date": "05.07.2026",
+          "home_is_slot": true,
+          "guest_is_slot": true,
+          "round": 2,
+          "step": 2,
+          "stage_label": "1/8",
+          "sort_step": 18
+        },
+        {
+          "bracket_code": "B05",
+          "home": "A09",
+          "guest": "A10",
+          "date": "05.07.2026",
+          "home_is_slot": true,
+          "guest_is_slot": true,
+          "round": 2,
+          "step": 3,
+          "stage_label": "1/8",
+          "sort_step": 19
+        },
+        {
+          "bracket_code": "B06",
+          "home": "A11",
+          "guest": "A12",
+          "date": "06.07.2026",
+          "home_is_slot": true,
+          "guest_is_slot": true,
+          "round": 2,
+          "step": 4,
+          "stage_label": "1/8",
+          "sort_step": 20
+        },
+        {
+          "bracket_code": "B03",
+          "home": "A05",
+          "guest": "A06",
+          "date": "06.07.2026",
+          "home_is_slot": true,
+          "guest_is_slot": true,
+          "round": 2,
+          "step": 5,
+          "stage_label": "1/8",
+          "sort_step": 21
+        },
+        {
+          "bracket_code": "B04",
+          "home": "A07",
+          "guest": "A08",
+          "date": "07.07.2026",
+          "home_is_slot": true,
+          "guest_is_slot": true,
+          "round": 2,
+          "step": 6,
+          "stage_label": "1/8",
+          "sort_step": 22
+        },
+        {
+          "bracket_code": "B07",
+          "home": "A13",
+          "guest": "A14",
+          "date": "07.07.2026",
+          "home_is_slot": true,
+          "guest_is_slot": true,
+          "round": 2,
+          "step": 7,
+          "stage_label": "1/8",
+          "sort_step": 23
+        },
+        {
+          "bracket_code": "B08",
+          "home": "A15",
+          "guest": "A16",
+          "date": "07.07.2026",
+          "home_is_slot": true,
+          "guest_is_slot": true,
+          "round": 2,
+          "step": 8,
+          "stage_label": "1/8",
+          "sort_step": 24
+        }
+      ]
+    },
+    {
+      "key": "qf",
+      "label": "1/4",
+      "round": 3,
+      "matches": [
+        {
+          "bracket_code": "QF1",
+          "home": "B01",
+          "guest": "B02",
+          "date": "09.07.2026",
+          "home_is_slot": true,
+          "guest_is_slot": true,
+          "round": 3,
+          "step": 1,
+          "stage_label": "1/4",
+          "sort_step": 25
+        },
+        {
+          "bracket_code": "QF2",
+          "home": "B03",
+          "guest": "B04",
+          "date": "10.07.2026",
+          "home_is_slot": true,
+          "guest_is_slot": true,
+          "round": 3,
+          "step": 2,
+          "stage_label": "1/4",
+          "sort_step": 26
+        },
+        {
+          "bracket_code": "QF3",
+          "home": "B05",
+          "guest": "B06",
+          "date": "12.07.2026",
+          "home_is_slot": true,
+          "guest_is_slot": true,
+          "round": 3,
+          "step": 3,
+          "stage_label": "1/4",
+          "sort_step": 27
+        },
+        {
+          "bracket_code": "QF4",
+          "home": "B07",
+          "guest": "B08",
+          "date": "12.07.2026",
+          "home_is_slot": true,
+          "guest_is_slot": true,
+          "round": 3,
+          "step": 4,
+          "stage_label": "1/4",
+          "sort_step": 28
+        }
+      ]
+    },
+    {
+      "key": "sf",
+      "label": "1/2",
+      "round": 4,
+      "matches": [
+        {
+          "bracket_code": "SF1",
+          "home": "QF1",
+          "guest": "QF2",
+          "date": "14.07.2026",
+          "home_is_slot": true,
+          "guest_is_slot": true,
+          "round": 4,
+          "step": 1,
+          "stage_label": "1/2",
+          "sort_step": 29
+        },
+        {
+          "bracket_code": "SF2",
+          "home": "QF3",
+          "guest": "QF4",
+          "date": "15.07.2026",
+          "home_is_slot": true,
+          "guest_is_slot": true,
+          "round": 4,
+          "step": 2,
+          "stage_label": "1/2",
+          "sort_step": 30
+        }
+      ]
+    },
+    {
+      "key": "third",
+      "label": "3-е место",
+      "round": 5,
+      "matches": [
+        {
+          "bracket_code": "F3",
+          "home": "LSF1",
+          "guest": "LSF2",
+          "date": "19.07.2026",
+          "home_is_slot": true,
+          "guest_is_slot": true,
+          "round": 5,
+          "step": 1,
+          "stage_label": "3-е место",
+          "sort_step": 31
+        }
+      ]
+    },
+    {
+      "key": "final",
+      "label": "Финал",
+      "round": 6,
+      "matches": [
+        {
+          "bracket_code": "F1",
+          "home": "SF1",
+          "guest": "SF2",
+          "date": "19.07.2026",
+          "home_is_slot": true,
+          "guest_is_slot": true,
+          "round": 6,
+          "step": 1,
+          "stage_label": "Финал",
+          "sort_step": 32
+        }
+      ]
+    }
+  ],
+  "totals": {
+    "matches": 32,
+    "known_team_sides": 22,
+    "slot_sides": 42
+  }
+}

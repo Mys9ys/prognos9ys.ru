@@ -23,6 +23,7 @@ $data = $result['result'];
 $groups = $data['groups'] ?? [];
 $third = $data['thirdPlaces'] ?? [];
 $groupMatches = $data['groupMatches'] ?? [];
+$playoffRounds = $data['playoffRounds'] ?? [];
 
 echo 'groups: ' . count($groups) . PHP_EOL;
 foreach ($groups as $name => $teams) {
@@ -41,4 +42,9 @@ echo 'thirdPlaces: ' . count($third) . PHP_EOL;
 foreach ($third as $i => $row) {
     echo '  #' . ($i + 1) . ' group ' . ($row['sourceGroup'] ?? '?') . ' — ' . ($row['info']['NAME'] ?? '?')
         . ' (' . ($row['score'] ?? 0) . ' pts)' . PHP_EOL;
+}
+
+echo 'playoffRounds: ' . count($playoffRounds) . PHP_EOL;
+foreach ($playoffRounds as $tab) {
+    echo '  tab ' . ($tab['label'] ?? '?') . ': ' . count($tab['matches'] ?? []) . ' matches' . PHP_EOL;
 }

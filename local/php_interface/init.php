@@ -32,6 +32,7 @@ $arClassAjax = [
     'FootballSendPrognosis',
     'Cs2SendPrognosis',
     'ChampionshipFootballTable',
+    'PlayoffSlotHelper',
     'ChampionshipRaceTable',
     'CalcRacePrognosisResult',
     'CalcFootballPrognosisResult',

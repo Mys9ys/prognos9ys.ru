@@ -11,7 +11,26 @@
     </div>
   </div>
 
-  <div v-if="tableData.groups">
+  <div class="stage_tabs" v-if="hasPlayoff">
+    <button
+      type="button"
+      class="stage_tab"
+      :class="{ active: activeStage === 'groups' }"
+      @click="activeStage = 'groups'"
+    >
+      Групповой этап
+    </button>
+    <button
+      type="button"
+      class="stage_tab"
+      :class="{ active: activeStage === 'playoff' }"
+      @click="activeStage = 'playoff'"
+    >
+      Плей-офф
+    </button>
+  </div>
+
+  <div v-if="tableData.groups && showGroups">
     <div class="table_wrapper" v-for="(teams, char) in tableData.groups" :key="char">
       <div class="title_wrapper group_wrapper group_header" v-if="!isDefaultGroup(char)">
         <span class="title">Группа: {{ char }}</span>
@@ -65,12 +84,20 @@
     </div>
   </div>
 
+  <PlayoffBracketBlock
+    v-if="hasPlayoff && showPlayoff"
+    :bracket="playoffBracket"
+    :rounds="playoffRounds"
+    :event-id="eventId"
+    hide-title
+  />
+
   <div class="table_empty" v-if="!elLoader && loadAttempted && !hasTableData">
     <span v-if="loadError">{{ loadError }}</span>
     <span v-else>Турнирная таблица пока пуста</span>
   </div>
 
-  <div class="table_wrapper third_places_wrapper" v-if="thirdPlaces.length">
+  <div class="table_wrapper third_places_wrapper" v-if="thirdPlaces.length && showGroups">
     <div class="title_wrapper group_wrapper">
       <span class="title">Третьи места (сравнение групп)</span>
     </div>
@@ -114,6 +141,7 @@ import {mapActions, mapState} from "vuex";
 import PreLoader from "@/components/main/PreLoader";
 import EventMatch from "@/components/football/EventMatch";
 import TreasuryShopBlock from "@/components/game/TreasuryShopBlock";
+import PlayoffBracketBlock from "@/components/championship/PlayoffBracketBlock";
 
 export default {
   name: "FootballTable",
@@ -122,6 +150,7 @@ export default {
     PreLoader,
     EventMatch,
     TreasuryShopBlock,
+    PlayoffBracketBlock,
   },
   data() {
     return {
@@ -129,7 +158,13 @@ export default {
       elLoader: false,
       loadAttempted: false,
       expandedGroups: {},
+      activeStage: 'groups',
     }
+  },
+  watch: {
+    eventId() {
+      this.activeStage = 'groups';
+    },
   },
   created() {
     this.fillTable()
@@ -186,7 +221,27 @@ export default {
       if (groups && Object.keys(groups).some((key) => !this.isDefaultGroup(key))) {
         return true;
       }
-      return this.thirdPlaces.length > 0 || Boolean(this.tableData?.info?.NAME);
+      return this.thirdPlaces.length > 0
+        || this.playoffRounds.length > 0
+        || Boolean(this.playoffBracket)
+        || Boolean(this.tableData?.info?.NAME);
+    },
+    playoffRounds() {
+      const rounds = this.tableData?.playoffRounds;
+      return Array.isArray(rounds) ? rounds : [];
+    },
+    playoffBracket() {
+      const bracket = this.tableData?.playoffBracket;
+      return bracket?.columns?.length ? bracket : null;
+    },
+    hasPlayoff() {
+      return this.playoffRounds.length > 0 || Boolean(this.playoffBracket);
+    },
+    showGroups() {
+      return !this.hasPlayoff || this.activeStage === 'groups';
+    },
+    showPlayoff() {
+      return this.hasPlayoff && this.activeStage === 'playoff';
     },
     thirdPlaces() {
       const places = this.tableData?.thirdPlaces;
@@ -305,6 +360,40 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.stage_tabs {
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+  margin-top: 10px;
+  background: @DarkColorBG;
+  padding: 4px;
+  border-radius: 5px;
+}
+
+.stage_tab {
+  flex: 1;
+  border: 1px solid transparent;
+  background: fade(@colorBlur, 35%);
+  color: @colorText;
+  border-radius: 3px;
+  padding: 6px 8px;
+  font-size: 12px;
+  line-height: 1.2;
+  cursor: pointer;
+  .shadow_inset;
+
+  &:hover {
+    filter: brightness(1.08);
+  }
+
+  &.active {
+    background: @colorText2;
+    color: @colorText;
+    border-color: fade(@colorText, 25%);
+    .shadow_template;
+  }
 }
 
 .team_col{

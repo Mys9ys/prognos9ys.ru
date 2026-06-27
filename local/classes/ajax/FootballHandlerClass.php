@@ -99,6 +99,8 @@ class FootballHandlerClass
                 "PROPERTY_stage",
                 "PROPERTY_number",
                 "PROPERTY_events",
+                "PROPERTY_home_label",
+                "PROPERTY_guest_label",
             ]
         );
 
@@ -135,8 +137,18 @@ class FootballHandlerClass
             $el["number"] = $res["PROPERTY_NUMBER_VALUE"];
             $el["event"] = $res["PROPERTY_EVENTS_VALUE"];
 
-            $el["teams"]["home"] = $this->getTeamData($this->arTeams[$res["PROPERTY_HOME_VALUE"]], $res["PROPERTY_GOAL_HOME_VALUE"]);
-            $el["teams"]["guest"] = $this->getTeamData($this->arTeams[$res["PROPERTY_GUEST_VALUE"]], $res["PROPERTY_GOAL_GUEST_VALUE"]);
+            $el["teams"]["home"] = $this->getTeamData(
+                $this->arTeams[$res["PROPERTY_HOME_VALUE"]] ?? null,
+                $res["PROPERTY_GOAL_HOME_VALUE"],
+                (string)($res["PROPERTY_HOME_LABEL_VALUE"] ?? ''),
+                (int)$res["PROPERTY_HOME_VALUE"]
+            );
+            $el["teams"]["guest"] = $this->getTeamData(
+                $this->arTeams[$res["PROPERTY_GUEST_VALUE"]] ?? null,
+                $res["PROPERTY_GOAL_GUEST_VALUE"],
+                (string)($res["PROPERTY_GUEST_LABEL_VALUE"] ?? ''),
+                (int)$res["PROPERTY_GUEST_VALUE"]
+            );
 
             $el["send_info"]["send_time"] = $this->arUserPrognosis[$res["ID"]] ?? '';
             $el["send_info"]["score_result"] = $this->arUserResults[$res["ID"]] ?? '';
@@ -438,13 +450,13 @@ class FootballHandlerClass
         }
     }
 
-    protected function getTeamData($data, $goals): array
+    protected function getTeamData($data, $goals, string $slotLabel = '', int $teamId = 0): array
     {
-        return [
-            'flag' => $data['flag'],
-            'name' => $data['NAME'],
-            'goals' => $goals ?? 0
-        ];
+        if ($teamId <= 0 && is_array($data) && !empty($data['ID'])) {
+            $teamId = (int)$data['ID'];
+        }
+
+        return PlayoffSlotHelper::teamPayload($teamId, is_array($data) ? $data : null, $goals, $slotLabel);
     }
 
     protected function setResult($status, $mes, $info = '')

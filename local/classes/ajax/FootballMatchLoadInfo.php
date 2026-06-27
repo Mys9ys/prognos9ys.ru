@@ -75,6 +75,8 @@ class FootballMatchLoadInfo extends PrognosisGiveInfo
                 "PROPERTY_events",
                 "PROPERTY_step",
                 "PROPERTY_round",
+                "PROPERTY_home_label",
+                "PROPERTY_guest_label",
             ]
         )->GetNext();
 
@@ -99,8 +101,16 @@ class FootballMatchLoadInfo extends PrognosisGiveInfo
         $guestTeamId = (int)$res['PROPERTY_GUEST_VALUE'];
         $matchNumber = (int)$res['PROPERTY_NUMBER_VALUE'];
 
-        $el['home'] = $this->getTeamData($this->arTeams[$homeTeamId]);
-        $el['guest'] = $this->getTeamData($this->arTeams[$guestTeamId]);
+        $el['home'] = $this->getTeamData(
+            $this->arTeams[$homeTeamId] ?? null,
+            (string)($res['PROPERTY_HOME_LABEL_VALUE'] ?? ''),
+            $homeTeamId
+        );
+        $el['guest'] = $this->getTeamData(
+            $this->arTeams[$guestTeamId] ?? null,
+            (string)($res['PROPERTY_GUEST_LABEL_VALUE'] ?? ''),
+            $guestTeamId
+        );
 
         if (Loader::includeModule('prognos9ys.main')) {
             $forms = (new \Prognos9ys\Main\Service\Football\TeamFormService())->getTeamForms(
@@ -124,11 +134,13 @@ class FootballMatchLoadInfo extends PrognosisGiveInfo
 
     }
 
-    protected function getTeamData($data): array
+    protected function getTeamData($data, string $slotLabel = '', int $teamId = 0): array
     {
+        $payload = PlayoffSlotHelper::teamPayload($teamId, is_array($data) ? $data : null, null, $slotLabel);
+
         return [
-            'flag' => $data['flag'],
-            'name' => $data['NAME'],
+            'flag' => $payload['flag'],
+            'name' => $payload['name'],
         ];
     }
 
