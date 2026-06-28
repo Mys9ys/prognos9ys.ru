@@ -4,142 +4,170 @@
     <div class="msg ok" v-if="message">{{ message }}</div>
 
     <PreLoader v-if="treasuryLoading" />
-    <div class="section" v-else-if="treasury">
-      <div class="section_title">Баланс казны</div>
-      <div class="balance_row">
-        <span>прогнобаксы</span>
-        <span class="balance_value">
-          {{ formatMoney(treasury.prognobaks) }}
-          <AppIcon name="prognobak" :size="14" />
-        </span>
-      </div>
-      <div class="balance_row">
-        <span>рублиусы</span>
-        <span class="balance_value">
-          {{ formatMoney(treasury.rublius) }}
-          <AppIcon name="rublius" :size="14" />
-        </span>
-      </div>
-      <p class="hint">Поступления из лавки казны и процентов по гос. вкладам. Покупки сундуков — на странице «Рейтинги».</p>
-    </div>
 
-    <div class="section" v-if="macro">
-      <div class="section_title">Макроэкономика</div>
-      <p class="hint macro_users">Зарегистрировано пользователей: <strong>{{ macro.registered_users }}</strong></p>
-      <p class="hint macro_match" v-if="macro.last_settled_match_label">
-        Результаты внесены за <strong>{{ macro.last_settled_match_label }}</strong>
-      </p>
-
-      <div class="macro_block">
-        <div class="macro_currency_title">
-          <AppIcon name="prognobak" :size="14" />
-          Прогнобаксы
-        </div>
-        <div class="macro_row" v-for="row in prognobakRows" :key="row.key">
-          <span>{{ row.label }}</span>
-          <span class="macro_value">{{ formatMoney(macro.prognobaks[row.key]) }}</span>
-        </div>
+    <template v-else-if="treasury">
+      <div class="main_tabs">
+        <button
+          v-for="tab in mainTabs"
+          :key="tab.id"
+          type="button"
+          class="main_tab"
+          :class="{ active: activeMainTab === tab.id }"
+          @click="activeMainTab = tab.id"
+        >{{ tab.label }}</button>
       </div>
 
-      <div class="macro_block">
-        <div class="macro_currency_title">
-          <AppIcon name="rublius" :size="14" />
-          Рублиусы
-        </div>
-        <div class="macro_row" v-for="row in rubliusRows" :key="row.key">
-          <span>{{ row.label }}</span>
-          <span class="macro_value">{{ formatMoney(macro.rublius[row.key]) }}</span>
-        </div>
+      <div class="tab_panel">
+        <template v-if="activeMainTab === 'overview'">
+          <div class="section">
+            <div class="section_title">Баланс казны</div>
+            <div class="balance_row">
+              <span>прогнобаксы</span>
+              <span class="balance_value">
+                {{ formatMoney(treasury.prognobaks) }}
+                <AppIcon name="prognobak" :size="14" />
+              </span>
+            </div>
+            <div class="balance_row">
+              <span>рублиусы</span>
+              <span class="balance_value">
+                {{ formatMoney(treasury.rublius) }}
+                <AppIcon name="rublius" :size="14" />
+              </span>
+            </div>
+            <p class="hint">Поступления из лавки казны и процентов по гос. вкладам. Покупки сундуков — на странице «Рейтинги».</p>
+          </div>
+
+          <div class="section" v-if="macro">
+            <div class="section_title">Макроэкономика</div>
+            <p class="hint macro_users">Зарегистрировано пользователей: <strong>{{ macro.registered_users }}</strong></p>
+            <p class="hint macro_match" v-if="macro.last_settled_match_label">
+              Результаты внесены за <strong>{{ macro.last_settled_match_label }}</strong>
+            </p>
+
+            <div class="macro_block">
+              <div class="macro_currency_title">
+                <AppIcon name="prognobak" :size="14" />
+                Прогнобаксы
+              </div>
+              <div class="macro_row" v-for="row in prognobakRows" :key="row.key">
+                <span>{{ row.label }}</span>
+                <span class="macro_value">{{ formatMoney(macro.prognobaks[row.key]) }}</span>
+              </div>
+            </div>
+
+            <div class="macro_block">
+              <div class="macro_currency_title">
+                <AppIcon name="rublius" :size="14" />
+                Рублиусы
+              </div>
+              <div class="macro_row" v-for="row in rubliusRows" :key="row.key">
+                <span>{{ row.label }}</span>
+                <span class="macro_value">{{ formatMoney(macro.rublius[row.key]) }}</span>
+              </div>
+            </div>
+
+            <div class="macro_block macro_monitor" v-if="macro.flows">
+              <div class="macro_currency_title">Оборот и доли</div>
+              <div class="macro_row">
+                <span>Доля в казне (🪙)</span>
+                <span class="macro_value">{{ formatPercent(macro.prognobaks.treasury_share) }}</span>
+              </div>
+              <div class="macro_row">
+                <span>Оборот (🪙 на руках + в банках)</span>
+                <span class="macro_value">{{ formatPercent(macro.prognobaks.velocity) }}</span>
+              </div>
+              <div class="macro_row">
+                <span>Доля в казне (💎)</span>
+                <span class="macro_value">{{ formatPercent(macro.rublius.treasury_share) }}</span>
+              </div>
+              <div class="macro_row">
+                <span>Оборот (💎)</span>
+                <span class="macro_value">{{ formatPercent(macro.rublius.velocity) }}</span>
+              </div>
+              <div class="macro_row">
+                <span>Лавка: сундуки 🪙 (шт. / сумма)</span>
+                <span class="macro_value">
+                  {{ macro.flows.shop.prognobaks_chests }} / {{ formatMoney(macro.flows.shop.prognobaks_volume) }}
+                </span>
+              </div>
+              <div class="macro_row">
+                <span>Лавка: сундуки 💎 + премиум</span>
+                <span class="macro_value">
+                  {{ macro.flows.shop.rublius_chests }}+{{ macro.flows.shop.premium_1d }}
+                  / {{ formatMoney(macro.flows.shop.rublius_volume) }}
+                </span>
+              </div>
+              <div class="macro_row">
+                <span>Эмиссия из сундуков (🪙 / 💎)</span>
+                <span class="macro_value">
+                  {{ formatMoney(macro.flows.chest_mint.prognobaks) }}
+                  /
+                  {{ formatMoney(macro.flows.chest_mint.rublius) }}
+                </span>
+              </div>
+              <div class="macro_row" v-if="macro.flows.gov_support">
+                <span>Господдержка: вкладов / тело в банках</span>
+                <span class="macro_value">
+                  {{ macro.flows.gov_support.active_count }}
+                  / {{ formatMoney(macro.flows.gov_support.principal_in_banks) }} 🪙
+                </span>
+              </div>
+            </div>
+
+            <p class="hint">«В банках» — частные банки игроков и пул ставок ЧМ. Среднее = общая масса ÷ число аккаунтов. Оборот — доля не в казне.</p>
+          </div>
+        </template>
+
+        <template v-else-if="activeMainTab === 'gov'">
+          <div class="section" v-if="contractEvents.length">
+            <div class="section_title">Гос. вклад поддержки</div>
+            <p class="hint">
+              500 <AppIcon name="prognobak" :size="14" /> из казны пополняют ликвидность выбранного банка (господдержка).
+              После 5 туров 5% поступают в казну. Тело вклада — кнопкой «Забрать вклад».
+            </p>
+
+            <div class="event_pick" v-if="contractEvents.length > 1">
+              <div class="event_pick_label">Соревнование</div>
+              <select v-model.number="selectedEventId" class="event_select">
+                <option v-for="ev in contractEvents" :key="ev.id" :value="ev.id">{{ ev.name }}</option>
+              </select>
+            </div>
+
+            <div class="gov_open_block">
+              <div class="subsection_title">Открыть вклад</div>
+              <div v-if="banks.length && canOpenGovDeposit" class="gov_open_row">
+                <select v-model.number="selectedGovBankId" class="event_select gov_bank_select">
+                  <option v-for="b in banks" :key="b.id" :value="b.id">Банк #{{ b.id }} ({{ b.owner_name }})</option>
+                </select>
+                <button class="btn small" :disabled="actionLoading || !selectedGovBankId" @click="onCreateGovDeposit">
+                  Открыть гос. вклад 500 <AppIcon name="prognobak" :size="14" />
+                </button>
+              </div>
+              <div v-else-if="!banks.length" class="hint">Сначала откройте банк во вкладке «Финансы» или дождитесь появления банков в каталоге</div>
+              <div v-else-if="!canOpenGovDeposit" class="hint">В казне меньше 500 прогнобаксов для нового вклада</div>
+            </div>
+
+            <div v-if="govDeposits.length" class="gov_deposits_block">
+              <div class="subsection_title">Активные вклады</div>
+              <div class="gov_deposits_list">
+                <BankContractCard
+                    v-for="d in govDeposits"
+                    :key="'gov' + d.id"
+                    :contract="d"
+                    kind="deposit"
+                    show-force-close
+                    @close="onCloseGovDeposit"
+                    @force-close="onForceCloseGovDeposit"
+                />
+              </div>
+            </div>
+            <p v-else class="hint gov_empty">Активных гос. вкладов пока нет.</p>
+          </div>
+          <p v-else class="hint section_hint">Нет доступных соревнований для гос. вкладов.</p>
+        </template>
       </div>
-
-      <div class="macro_block macro_monitor" v-if="macro.flows">
-        <div class="macro_currency_title">Оборот и доли</div>
-        <div class="macro_row">
-          <span>Доля в казне (🪙)</span>
-          <span class="macro_value">{{ formatPercent(macro.prognobaks.treasury_share) }}</span>
-        </div>
-        <div class="macro_row">
-          <span>Оборот (🪙 на руках + в банках)</span>
-          <span class="macro_value">{{ formatPercent(macro.prognobaks.velocity) }}</span>
-        </div>
-        <div class="macro_row">
-          <span>Доля в казне (💎)</span>
-          <span class="macro_value">{{ formatPercent(macro.rublius.treasury_share) }}</span>
-        </div>
-        <div class="macro_row">
-          <span>Оборот (💎)</span>
-          <span class="macro_value">{{ formatPercent(macro.rublius.velocity) }}</span>
-        </div>
-        <div class="macro_row">
-          <span>Лавка: сундуки 🪙 (шт. / сумма)</span>
-          <span class="macro_value">
-            {{ macro.flows.shop.prognobaks_chests }} / {{ formatMoney(macro.flows.shop.prognobaks_volume) }}
-          </span>
-        </div>
-        <div class="macro_row">
-          <span>Лавка: сундуки 💎 + премиум</span>
-          <span class="macro_value">
-            {{ macro.flows.shop.rublius_chests }}+{{ macro.flows.shop.premium_1d }}
-            / {{ formatMoney(macro.flows.shop.rublius_volume) }}
-          </span>
-        </div>
-        <div class="macro_row">
-          <span>Эмиссия из сундуков (🪙 / 💎)</span>
-          <span class="macro_value">
-            {{ formatMoney(macro.flows.chest_mint.prognobaks) }}
-            /
-            {{ formatMoney(macro.flows.chest_mint.rublius) }}
-          </span>
-        </div>
-        <div class="macro_row" v-if="macro.flows.gov_support">
-          <span>Господдержка: вкладов / тело в банках</span>
-          <span class="macro_value">
-            {{ macro.flows.gov_support.active_count }}
-            / {{ formatMoney(macro.flows.gov_support.principal_in_banks) }} 🪙
-          </span>
-        </div>
-      </div>
-
-      <p class="hint">«В банках» — частные банки игроков и пул ставок ЧМ. Среднее = общая масса ÷ число аккаунтов. Оборот — доля не в казне.</p>
-    </div>
-
-    <div class="section" v-if="contractEvents.length">
-      <div class="section_title">Гос. вклад поддержки</div>
-      <p class="hint">
-        500 <AppIcon name="prognobak" :size="14" /> из казны пополняют ликвидность выбранного банка (господдержка).
-        После 5 туров 5% поступают в казну. Тело вклада — кнопкой «Забрать вклад».
-      </p>
-
-      <div class="event_pick" v-if="contractEvents.length > 1">
-        <div class="event_pick_label">Соревнование</div>
-        <select v-model.number="selectedEventId" class="event_select">
-          <option v-for="ev in contractEvents" :key="ev.id" :value="ev.id">{{ ev.name }}</option>
-        </select>
-      </div>
-
-      <div v-if="govDeposits.length" class="gov_deposits_list">
-        <BankContractCard
-            v-for="d in govDeposits"
-            :key="'gov' + d.id"
-            :contract="d"
-            kind="deposit"
-            show-force-close
-            @close="onCloseGovDeposit"
-            @force-close="onForceCloseGovDeposit"
-        />
-      </div>
-
-      <div v-if="banks.length && canOpenGovDeposit" class="gov_open_row">
-        <select v-model.number="selectedGovBankId" class="event_select">
-          <option v-for="b in banks" :key="b.id" :value="b.id">Банк #{{ b.id }} ({{ b.owner_name }})</option>
-        </select>
-        <button class="btn small" :disabled="actionLoading || !selectedGovBankId" @click="onCreateGovDeposit">
-          Открыть гос. вклад 500 <AppIcon name="prognobak" :size="14" />
-        </button>
-      </div>
-      <div v-else-if="!banks.length" class="hint">Сначала откройте банк во вкладке «Финансы» или дождитесь появления банков в каталоге</div>
-      <div v-else-if="!canOpenGovDeposit" class="hint">В казне меньше 500 прогнобаксов для нового вклада</div>
-    </div>
+    </template>
   </div>
 </template>
 
@@ -161,6 +189,7 @@ export default {
   },
   data() {
     return {
+      activeMainTab: 'overview',
       treasuryLoading: false,
       actionLoading: false,
       treasury: null,
@@ -188,6 +217,12 @@ export default {
     },
     canOpenGovDeposit() {
       return Number(this.treasury?.prognobaks ?? 0) >= 500;
+    },
+    mainTabs() {
+      return [
+        { id: 'overview', label: 'Общая информация' },
+        { id: 'gov', label: 'Гос. поддержка' },
+      ];
     },
     prognobakRows() {
       return [
@@ -468,15 +503,69 @@ export default {
   line-height: 1.35;
 }
 
+.main_tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.main_tab {
+  background: @darkbg;
+  color: @colorText;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 7px 12px;
+  font-size: 12px;
+  cursor: pointer;
+
+  &.active {
+    background: @orange;
+    color: #fff;
+  }
+}
+
+.tab_panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.subsection_title {
+  font-size: 12px;
+  color: @colorBlur;
+  margin: 0 0 6px;
+}
+
+.gov_open_block {
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid fade(@colorBlur, 25%);
+}
+
+.gov_deposits_block {
+  margin-top: 4px;
+}
+
 .gov_open_row {
-  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gov_bank_select {
+  margin-bottom: 0;
 }
 
 .gov_deposits_list {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-bottom: 8px;
+}
+
+.gov_empty,
+.section_hint {
+  margin: 0;
 }
 
 .event_pick {
