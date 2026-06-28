@@ -19,6 +19,7 @@ class ExchangeController extends BaseController
             'cancelListing' => $this->getDefaultConfigureForPostToken(),
             'buy' => $this->getDefaultConfigureForPostToken(),
             'getTradeHistory' => $this->getDefaultConfigureForPostToken(),
+            'consignToBank' => $this->getDefaultConfigureForPostToken(),
             'moderatorRemoveListing' => $this->getDefaultConfigureForPostToken(),
         ];
     }
@@ -33,16 +34,18 @@ class ExchangeController extends BaseController
         return array_merge(['status' => 'ok'], (new ExchangeService())->getState($userId));
     }
 
-    public function getCatalogAction(int $offset = 0, int $limit = 25, string $kind = ''): array
+    public function getCatalogAction(int $offset = 0, int $limit = 25, string $catalogTab = '', string $kind = ''): array
     {
         $userId = TokenAuthService::getCurrentUserId();
         if (!$userId) {
             throw new ApiException('Пользователь не авторизован', 401);
         }
 
+        $tab = trim($catalogTab) !== '' ? $catalogTab : $kind;
+
         return array_merge(
             ['status' => 'ok'],
-            (new ExchangeService())->getCatalog($offset, $limit, $kind)
+            (new ExchangeService())->getCatalog($offset, $limit, $tab)
         );
     }
 
@@ -119,7 +122,8 @@ class ExchangeController extends BaseController
         int $qty,
         string $category = '',
         int $eventId = 0,
-        string $teamCode = ''
+        string $teamCode = '',
+        float $pricePerUnit = 0
     ): array {
         $userId = TokenAuthService::getCurrentUserId();
         if (!$userId) {
@@ -134,7 +138,8 @@ class ExchangeController extends BaseController
                 $qty,
                 $category,
                 $eventId,
-                $teamCode
+                $teamCode,
+                $pricePerUnit
             );
         } catch (\InvalidArgumentException $e) {
             throw new ApiException($e->getMessage(), 400);
@@ -158,6 +163,40 @@ class ExchangeController extends BaseController
             ['status' => 'ok'],
             (new ExchangeService())->getTradeHistory($userId, $offset, $limit)
         );
+    }
+
+    public function consignToBankAction(
+        string $kind,
+        string $code,
+        int $qty,
+        string $category = '',
+        int $eventId = 0,
+        string $teamCode = ''
+    ): array {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        try {
+            $result = (new ExchangeService())->consignToBank(
+                $userId,
+                $kind,
+                $code,
+                $qty,
+                $category,
+                $eventId,
+                $teamCode
+            );
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok'], $result, [
+            'game' => (new GameProfileService())->getSummary($userId),
+        ]);
     }
 
     public function moderatorRemoveListingAction(int $listingId, string $reason = ''): array

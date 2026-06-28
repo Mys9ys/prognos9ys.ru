@@ -37,8 +37,20 @@
           <div class="section_title">Каталог банков</div>
           <button class="btn secondary" :disabled="loading" @click="loadBanks">Обновить список</button>
           <div class="bank_card" v-for="b in banks" :key="b.id">
-            <div class="row">
-              <span>{{ b.owner_name }}</span>
+            <div class="row bank_card_head">
+              <span class="bank_owner">
+                {{ b.owner_name }}
+                <button
+                  v-if="canImpersonate && b.owner_id"
+                  type="button"
+                  class="bank_enter_btn"
+                  title="Войти как владелец банка"
+                  :disabled="loading"
+                  @click="loginAsBankOwner(b)"
+                >
+                  <AppIcon name="exit_door" :size="14" />
+                </button>
+              </span>
               <span>займ: {{ b.loanable ?? (b.reserved + b.liquid) }} <AppIcon name="prognobak" :size="14" /></span>
             </div>
             <div class="meta">Резерв {{ b.reserved }} · вклады {{ b.liquid }} · +{{ b.deposit_rate_percent }}% / +{{ b.loan_rate_percent }}% за {{ b.term_matches }} матчей</div>
@@ -221,6 +233,40 @@
               Вклад в свой банк {{ depositAmount }} <AppIcon name="prognobak" :size="14" />
             </button>
           </div>
+          <div class="consignment_block" v-if="consignmentSettings">
+            <div class="subsection_title">Комиссионка</div>
+            <div class="hint">
+              Игроки сдают товары — банк платит 80% сразу и выставляет на бирже.
+              По умолчанию приём включён, все категории активны.
+            </div>
+            <label class="consign_toggle">
+              <input
+                type="checkbox"
+                v-model="consignmentForm.enabled"
+                :disabled="loading"
+              />
+              Принимать комиссионку
+            </label>
+            <div class="consign_categories" v-if="consignmentForm.enabled">
+              <label
+                v-for="opt in consignmentSettings.category_options"
+                :key="opt.id"
+                class="consign_cat"
+              >
+                <input
+                  type="checkbox"
+                  v-model="consignmentForm.categories[opt.id]"
+                  :disabled="loading"
+                />
+                {{ opt.label }}
+              </label>
+            </div>
+            <button
+              class="btn small"
+              :disabled="loading"
+              @click="onSaveConsignmentSettings"
+            >Сохранить настройки комиссионки</button>
+          </div>
         </div>
       </template>
     </div>
@@ -228,7 +274,7 @@
 </template>
 
 <script>
-import { mapActions, mapState } from 'vuex';
+import { mapActions, mapGetters, mapState } from 'vuex';
 import AppIcon from '@/components/ui/AppIcon.vue';
 import BankContractCard from '@/components/profile/BankContractCard.vue';
 
@@ -261,13 +307,19 @@ export default {
         { id: 'all', label: 'Все' },
         { id: 'deposits', label: 'Вклады' },
         { id: 'loans', label: 'Займы' },
+        { id: 'consignment', label: 'Комиссионка' },
         { id: 'returns', label: 'Возвраты' },
       ],
       selectedEventId: 0,
+      consignmentForm: {
+        enabled: false,
+        categories: {},
+      },
     };
   },
   computed: {
     ...mapState('auth', ['authData']),
+    ...mapGetters('auth', ['canImpersonate']),
     mainTabs() {
       const tabs = [
         { id: 'banks', label: 'Банки' },
@@ -324,6 +376,9 @@ export default {
     myContractsCount() {
       return this.myDepositsCount + this.myLoansCount;
     },
+    consignmentSettings() {
+      return this.myBank?.consignment || null;
+    },
   },
   watch: {
     contractEvents: {
@@ -348,6 +403,7 @@ export default {
         this.activeMainTab = 'banks';
       }
       this.syncBankContractTab();
+      this.syncConsignmentForm();
     },
     game: {
       deep: true,
@@ -379,8 +435,9 @@ export default {
       'cancelDeposit',
       'forceCloseDeposit',
       'closeGovSupportDeposit',
+      'updateBankConsignmentSettings',
     ]),
-    ...mapActions('auth', ['refreshGameInfo']),
+    ...mapActions('auth', ['refreshGameInfo', 'impersonateStart']),
     formatSignedAmount(amount) {
       const value = Number(amount ?? 0);
       const fixed = value.toFixed(1).replace(/\.0$/, '');
@@ -412,6 +469,14 @@ export default {
       } else if (this.activeMyContractTab === 'loans' && !this.myLoansCount && this.myDepositsCount) {
         this.activeMyContractTab = 'deposits';
       }
+    },
+    syncConsignmentForm() {
+      const settings = this.consignmentSettings;
+      if (!settings) {
+        return;
+      }
+      this.consignmentForm.enabled = !!settings.enabled;
+      this.consignmentForm.categories = { ...(settings.categories || {}) };
     },
     async loadBanks() {
       try {
@@ -514,6 +579,49 @@ export default {
         await this.refresh();
       } catch (e) {
         this.error = e.message || 'Не удалось вернуть гос. вклад';
+      } finally {
+        this.loading = false;
+      }
+    },
+    async loginAsBankOwner(bank) {
+      const ownerId = Number(bank?.owner_id || 0);
+      if (!ownerId) {
+        return;
+      }
+
+      this.loading = true;
+      this.error = '';
+      this.message = '';
+      try {
+        await this.impersonateStart(ownerId);
+        this.message = `Вход за ${bank.owner_name || 'владельца банка'}`;
+        await this.refreshGameInfo();
+        await this.refresh();
+        if (this.myBank) {
+          this.activeMainTab = 'my_bank';
+        }
+      } catch (e) {
+        this.error = e.message || 'Не удалось войти за владельца банка';
+      } finally {
+        this.loading = false;
+      }
+    },
+    async onSaveConsignmentSettings() {
+      this.loading = true;
+      this.error = '';
+      this.message = '';
+      try {
+        await this.updateBankConsignmentSettings({
+          enabled: this.consignmentForm.enabled,
+          categories: this.consignmentForm.categories,
+        });
+        this.message = this.consignmentForm.enabled
+          ? 'Комиссионка включена'
+          : 'Комиссионка отключена';
+        await this.refreshGameInfo();
+        await this.refresh();
+      } catch (e) {
+        this.error = e.message || 'Не удалось сохранить настройки';
       } finally {
         this.loading = false;
       }
@@ -660,6 +768,26 @@ export default {
   }
 }
 
+.consignment_block {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid fade(@colorBlur, 25%);
+}
+
+.consign_toggle,
+.consign_cat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  margin: 6px 0;
+  cursor: pointer;
+}
+
+.consign_categories {
+  margin: 6px 0 10px 12px;
+}
+
 .row {
   display: flex;
   justify-content: space-between;
@@ -735,6 +863,37 @@ export default {
 
 .event_single {
   margin-bottom: 8px;
+}
+
+.bank_card_head {
+  align-items: center;
+}
+
+.bank_owner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bank_enter_btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 4px;
+  border: 1px solid fade(@colorBlur, 45%);
+  border-radius: 4px;
+  background: fade(@DarkColorBG, 60%);
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    border-color: fade(@orange, 70%);
+    background: fade(@orange, 15%);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
 }
 
 .bank_card, .operation {

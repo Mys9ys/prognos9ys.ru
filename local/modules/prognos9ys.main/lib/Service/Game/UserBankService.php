@@ -62,6 +62,7 @@ class UserBankService
             'loans' => $loans,
             'active_contracts' => count($deposits) + count($loans),
             'lifetime' => (new BankOperationsService($this->repository))->getLifetimeTotalsForBank($bankId),
+            'consignment' => (new BankConsignmentService($this->repository))->getConsignmentSettingsForBank($row),
         ]);
     }
 
@@ -91,6 +92,10 @@ class UserBankService
             'UF_RESERVED' => $reserve,
             'UF_LIQUID' => 0,
             'UF_ACTIVE' => GameEconomyConfig::USER_BANK_STATUS_ACTIVE,
+            'UF_CONSIGNMENT_ENABLED' => 'Y',
+            'UF_CONSIGNMENT_CATEGORIES' => BankConsignmentConfig::encodeCategoryFlags(
+                BankConsignmentConfig::defaultCategoryFlags()
+            ),
             'UF_CREATED_AT' => new DateTime(),
         ]);
 

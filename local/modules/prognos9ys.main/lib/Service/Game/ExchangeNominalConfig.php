@@ -14,6 +14,7 @@ class ExchangeNominalConfig
         TreasureService::CHEST_TYPE_MATCH => 60.0,
         TreasureService::CHEST_TYPE_WC26_ACHIEVEMENT => 60.0,
         TreasureService::CHEST_TYPE_SHOP_WC26 => 60.0,
+        ExchangeConfig::CHEST_CODE_WC26 => 60.0,
     ];
 
     /** @var array<int, float> */

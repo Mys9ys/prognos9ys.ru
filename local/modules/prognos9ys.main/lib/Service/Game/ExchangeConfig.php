@@ -50,4 +50,45 @@ class ExchangeConfig
     /** Нижняя / верхняя граница коэффициента команды для открытых вымпелов и шарфов. */
     public const TEAM_K_MIN = 0.85;
     public const TEAM_K_MAX = 1.15;
+
+    /** Единый код сундука ЧМ-26 на бирже (матч / ачивка / лавка — один SKU). */
+    public const CHEST_CODE_WC26 = 'wc26';
+
+    /**
+     * @return array<int, string>
+     */
+    public static function wc26LegacyChestTypes(): array
+    {
+        return [
+            TreasureService::CHEST_TYPE_MATCH,
+            TreasureService::CHEST_TYPE_WC26_ACHIEVEMENT,
+            TreasureService::CHEST_TYPE_SHOP_WC26,
+        ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function wc26ChestExchangeCodes(): array
+    {
+        return array_values(array_unique(array_merge(
+            [self::CHEST_CODE_WC26],
+            self::wc26LegacyChestTypes()
+        )));
+    }
+
+    public static function normalizeChestExchangeCode(string $code): string
+    {
+        if (in_array($code, self::wc26LegacyChestTypes(), true)) {
+            return self::CHEST_CODE_WC26;
+        }
+
+        return $code;
+    }
+
+    public static function isUnifiedWc26Chest(string $code): bool
+    {
+        return $code === self::CHEST_CODE_WC26
+            || in_array($code, self::wc26LegacyChestTypes(), true);
+    }
 }

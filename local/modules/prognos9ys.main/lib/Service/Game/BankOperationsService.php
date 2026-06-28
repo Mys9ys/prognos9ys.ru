@@ -33,6 +33,10 @@ class BankOperationsService
         'bank_client_gov_deposit' => 'Гос. вклад поддержки',
         'bank_client_gov_interest' => 'Проценты гос. вклада в казну',
         'bank_client_gov_return' => 'Возврат гос. вклада в казну',
+        'bank_consignment_payout' => 'Выплата за комиссионку',
+        'bank_client_consignment_payout' => 'Выплата по комиссионке',
+        'bank_client_consignment_sale' => 'Продажа комиссионки',
+        'exchange_sell' => 'Продажа на бирже',
     ];
 
     private const REASON_CATEGORY = [
@@ -58,6 +62,9 @@ class BankOperationsService
         'bank_client_gov_deposit' => 'deposits',
         'bank_client_gov_interest' => 'returns',
         'bank_client_gov_return' => 'returns',
+        'bank_consignment_payout' => 'consignment',
+        'bank_client_consignment_payout' => 'consignment',
+        'bank_client_consignment_sale' => 'consignment',
     ];
 
     private GameEconomyRepository $repository;
@@ -182,6 +189,13 @@ class BankOperationsService
                 }
 
                 $event = $this->formatContractWalletTxForBankOwner($row, 'loan');
+                if (!isset($seenIds[$event['id']])) {
+                    $seenIds[$event['id']] = true;
+                    $operations[] = $event;
+                }
+            }
+
+            foreach ($this->formatBankConsignmentEvents($bankId) as $event) {
                 if (!isset($seenIds[$event['id']])) {
                     $seenIds[$event['id']] = true;
                     $operations[] = $event;
@@ -457,6 +471,18 @@ class BankOperationsService
             }
 
             $bank = $this->repository->getUserBankById((int)($loan['UF_BANK_ID'] ?? 0));
+            $ownerId = (int)($bank['UF_OWNER_ID'] ?? 0);
+
+            return [$ownerId, $this->resolveUserName($ownerId)];
+        }
+
+        if ($refType === 'bank_consignment') {
+            $consignment = $this->repository->getBankConsignmentById($refId);
+            if (!$consignment) {
+                return [0, ''];
+            }
+
+            $bank = $this->repository->getUserBankById((int)($consignment['UF_BANK_ID'] ?? 0));
             $ownerId = (int)($bank['UF_OWNER_ID'] ?? 0);
 
             return [$ownerId, $this->resolveUserName($ownerId)];
@@ -818,6 +844,107 @@ class BankOperationsService
         return $events;
     }
 
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function formatBankConsignmentEvents(int $bankId): array
+    {
+        $events = [];
+
+        foreach ($this->repository->getConsignmentsByBankId($bankId) as $consignment) {
+            $consignmentId = (int)($consignment['ID'] ?? 0);
+            if ($consignmentId <= 0) {
+                continue;
+            }
+
+            $clientId = (int)($consignment['UF_USER_ID'] ?? 0);
+            $clientName = $this->resolveUserName($clientId);
+            $itemLabel = $this->buildConsignmentItemLabel($consignment);
+            $instantPaid = round((float)($consignment['UF_INSTANT_PAID'] ?? 0), 1);
+            $createdAt = $this->formatDateTime($consignment['UF_CREATED_AT'] ?? null);
+
+            $events[] = [
+                'id' => 'consign_out_' . $consignmentId,
+                'at' => $createdAt,
+                'scope' => 'bank',
+                'category' => 'consignment',
+                'reason' => 'bank_client_consignment_payout',
+                'label' => $this->buildConsignmentLabel('Приём комиссионки', $itemLabel, $clientName),
+                'amount' => -$instantPaid,
+                'direction' => 'out',
+                'currency' => GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                'balance_after' => null,
+                'contract_id' => $consignmentId,
+                'bank_id' => $bankId,
+                'counterparty_id' => $clientId,
+                'counterparty_name' => $clientName,
+                'match_id' => 0,
+                'match_label' => '',
+            ];
+
+            $status = (string)($consignment['UF_STATUS'] ?? '');
+            if ($status !== BankConsignmentConfig::STATUS_SOLD) {
+                continue;
+            }
+
+            $qty = (int)($consignment['UF_QTY'] ?? 0);
+            $price = round((float)($consignment['UF_PRICE_PER_UNIT'] ?? 0), 1);
+            $saleTotal = round($price * $qty, 1);
+            if ($saleTotal <= 0) {
+                continue;
+            }
+
+            $events[] = [
+                'id' => 'consign_sale_' . $consignmentId,
+                'at' => $this->formatDateTime($consignment['UF_UPDATED_AT'] ?? $consignment['UF_CREATED_AT'] ?? null),
+                'scope' => 'bank',
+                'category' => 'consignment',
+                'reason' => 'bank_client_consignment_sale',
+                'label' => $this->buildConsignmentLabel('Продажа комиссионки', $itemLabel, $clientName),
+                'amount' => $saleTotal,
+                'direction' => 'in',
+                'currency' => GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                'balance_after' => null,
+                'contract_id' => $consignmentId,
+                'bank_id' => $bankId,
+                'counterparty_id' => $clientId,
+                'counterparty_name' => $clientName,
+                'match_id' => 0,
+                'match_label' => '',
+            ];
+        }
+
+        return $events;
+    }
+
+    /**
+     * @param array<string, mixed> $consignment
+     */
+    private function buildConsignmentItemLabel(array $consignment): string
+    {
+        return (new ExchangeInventoryService($this->repository))->buildItemLabel(
+            (string)($consignment['UF_ITEM_KIND'] ?? ''),
+            (string)($consignment['UF_ITEM_CODE'] ?? ''),
+            (string)($consignment['UF_ITEM_CATEGORY'] ?? ''),
+            (string)($consignment['UF_TEAM_CODE'] ?? '') ?: null
+        );
+    }
+
+    private function buildConsignmentLabel(string $base, string $itemLabel, string $clientName): string
+    {
+        $parts = [$base];
+
+        if ($itemLabel !== '') {
+            $parts[] = $itemLabel;
+        }
+
+        if ($clientName !== '') {
+            $parts[] = $clientName;
+        }
+
+        return implode(' — ', array_filter($parts));
+    }
+
     private function buildWalletLabel(
         string $reason,
         string $refType,
@@ -830,8 +957,18 @@ class BankOperationsService
 
         if ($refId > 0 && ($refType === 'deposit' || $refType === 'loan')) {
             $parts[0] .= ' #' . $refId;
-        } elseif ($refId > 0 && $refType === 'bank') {
-            $parts[0] .= ' (банк #' . $refId . ')';
+        } elseif ($refId > 0 && ($refType === 'bank' || $refType === 'bank_consignment')) {
+            if ($refType === 'bank_consignment') {
+                $consignment = $this->repository->getBankConsignmentById($refId);
+                if ($consignment) {
+                    $itemLabel = $this->buildConsignmentItemLabel($consignment);
+                    if ($itemLabel !== '') {
+                        $parts[0] .= ': ' . $itemLabel;
+                    }
+                }
+            } else {
+                $parts[0] .= ' (банк #' . $refId . ')';
+            }
         }
 
         $name = $userName;
@@ -846,6 +983,7 @@ class BankOperationsService
             'bank_loan_cancel',
             'bank_loan_repay',
             'bank_loan_interest',
+            'bank_consignment_payout',
         ], true)) {
             $parts[] = $name;
         }

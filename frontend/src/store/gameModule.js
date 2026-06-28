@@ -208,6 +208,20 @@ export const gameModule = {
             const res = await apiActions.game.closeBank(userToken);
             return applyGamePayload(ctx, res);
         },
+        async updateBankConsignmentSettings(ctx, { enabled, categories }) {
+            const userToken = ctx.rootState.auth?.authData?.token;
+            if (!userToken) {
+                throw new Error('Требуется авторизация');
+            }
+            const categoriesJson = categories ? JSON.stringify(categories) : '';
+            const res = await apiActions.game.updateBankConsignmentSettings(
+                userToken,
+                enabled,
+                categoriesJson
+            );
+            await ctx.dispatch('auth/refreshGameInfo', null, { root: true });
+            return res;
+        },
         async createGovSupportDeposit(ctx, { bankId, eventId = 0 }) {
             const userToken = ctx.rootState.auth?.authData?.token;
             if (!userToken) {

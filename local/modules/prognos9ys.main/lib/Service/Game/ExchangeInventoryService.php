@@ -35,6 +35,15 @@ class ExchangeInventoryService
         }
 
         if ($kind === ExchangeConfig::KIND_CHEST) {
+            if ($code === ExchangeConfig::CHEST_CODE_WC26) {
+                $total = 0;
+                foreach (ExchangeConfig::wc26LegacyChestTypes() as $chestType) {
+                    $total += $this->repository->countClosedChestUnitsByType($userId, $chestType);
+                }
+
+                return $total;
+            }
+
             return $this->repository->countClosedChestUnitsByType($userId, $code);
         }
 
@@ -84,6 +93,30 @@ class ExchangeInventoryService
         }
 
         if ($kind === ExchangeConfig::KIND_CHEST) {
+            if ($code === ExchangeConfig::CHEST_CODE_WC26) {
+                $remaining = $qty;
+                foreach (ExchangeConfig::wc26LegacyChestTypes() as $chestType) {
+                    if ($remaining <= 0) {
+                        break;
+                    }
+
+                    $available = $this->repository->countClosedChestUnitsByType($userId, $chestType);
+                    if ($available <= 0) {
+                        continue;
+                    }
+
+                    $take = min($available, $remaining);
+                    $this->repository->consumeClosedChestUnitsByType($userId, $chestType, $take);
+                    $remaining -= $take;
+                }
+
+                if ($remaining > 0) {
+                    throw new \RuntimeException('Не удалось списать сундуки');
+                }
+
+                return;
+            }
+
             $this->repository->consumeClosedChestUnitsByType($userId, $code, $qty);
 
             return;
@@ -135,7 +168,10 @@ class ExchangeInventoryService
         }
 
         if ($kind === ExchangeConfig::KIND_CHEST) {
-            $this->repository->grantClosedChestUnits($userId, $code, $qty);
+            $grantType = $code === ExchangeConfig::CHEST_CODE_WC26
+                ? TreasureService::CHEST_TYPE_MATCH
+                : $code;
+            $this->repository->grantClosedChestUnits($userId, $grantType, $qty);
 
             return;
         }
@@ -207,12 +243,14 @@ class ExchangeInventoryService
         ?string $teamCode = null
     ): string {
         if ($kind === ExchangeConfig::KIND_CHEST) {
+            if ($code === ExchangeConfig::CHEST_CODE_WC26
+                || in_array($code, ExchangeConfig::wc26LegacyChestTypes(), true)) {
+                return 'Сундук ЧМ-26';
+            }
+
             $map = [
                 TreasureService::CHEST_TYPE_LEVEL => 'Сундук за уровень',
                 TreasureService::CHEST_TYPE_ACHIEVEMENT => 'Сундук за ачивку',
-                TreasureService::CHEST_TYPE_MATCH => 'Сундук ЧМ (матч)',
-                TreasureService::CHEST_TYPE_WC26_ACHIEVEMENT => 'Сундук ЧМ (ачивка)',
-                TreasureService::CHEST_TYPE_SHOP_WC26 => 'Сундук ЧМ (лавка)',
             ];
 
             return $map[$code] ?? 'Сундук';

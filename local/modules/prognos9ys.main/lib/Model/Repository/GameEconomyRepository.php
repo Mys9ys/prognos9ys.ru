@@ -4,7 +4,9 @@ namespace Prognos9ys\Main\Model\Repository;
 
 use Bitrix\Highloadblock\HighloadBlockTable;
 use Bitrix\Main\Loader;
+use Prognos9ys\Main\Service\Game\BankConsignmentConfig;
 use Prognos9ys\Main\Service\Game\ChestLootConfig;
+use Prognos9ys\Main\Service\Game\ExchangeCatalogConfig;
 use Prognos9ys\Main\Service\Game\ExchangeConfig;
 use Prognos9ys\Main\Service\Game\GameEconomyConfig;
 use Prognos9ys\Main\Service\Game\GameEconomyHlInstaller;
@@ -29,6 +31,7 @@ class GameEconomyRepository
     private ?string $exchangeListingDataClass = null;
     private ?string $exchangeTradeDataClass = null;
     private ?string $exchangeNominalDataClass = null;
+    private ?string $bankConsignmentDataClass = null;
     private ?string $treasuryTxDataClass = null;
 
     public function getWalletDataClass(): string
@@ -109,6 +112,11 @@ class GameEconomyRepository
     public function getExchangeNominalDataClass(): string
     {
         return $this->exchangeNominalDataClass ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_EXCHANGE_NOMINAL);
+    }
+
+    public function getBankConsignmentDataClass(): string
+    {
+        return $this->bankConsignmentDataClass ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_BANK_CONSIGNMENT);
     }
 
     public function getTreasuryTxDataClass(): string
@@ -565,6 +573,7 @@ class GameEconomyRepository
                     'bank_loan_cancel',
                     'bank_loan_repay',
                     'bank_loan_interest',
+                    'bank_consignment_payout',
                 ],
             ],
             'order' => ['UF_CREATED_AT' => 'DESC', 'ID' => 'DESC'],
@@ -3329,8 +3338,10 @@ class GameEconomyRepository
             '=UF_STATUS' => ExchangeConfig::STATUS_ACTIVE,
             '>UF_QTY_REMAINING' => 0,
             '=UF_ITEM_KIND' => $kind,
-            '=UF_ITEM_CODE' => $code,
         ];
+
+        $codeFilter = $this->buildExchangeItemCodeFilter($kind, $code);
+        $filter = array_merge($filter, $codeFilter);
 
         if ($category !== '') {
             $filter['=UF_ITEM_CATEGORY'] = $category;
@@ -3493,6 +3504,246 @@ class GameEconomyRepository
         }
 
         return $rows;
+    }
+
+    public function getMinActiveExchangePriceForSku(
+        string $kind,
+        string $code,
+        string $category = '',
+        int $eventId = -1,
+        string $teamCode = ''
+    ): ?float {
+        $listings = $this->findActiveExchangeListingsForSku($kind, $code, $category, $eventId, $teamCode);
+        if ($listings === []) {
+            return null;
+        }
+
+        $min = null;
+        foreach ($listings as $listing) {
+            $price = round((float)($listing['UF_PRICE_PER_UNIT'] ?? 0), 1);
+            if ($price <= 0) {
+                continue;
+            }
+            if ($min === null || $price < $min) {
+                $min = $price;
+            }
+        }
+
+        return $min;
+    }
+
+    public function getLastExchangeTradePriceForSku(
+        string $kind,
+        string $code,
+        string $category = '',
+        int $eventId = -1,
+        string $teamCode = ''
+    ): ?float {
+        $filter = [
+            '=UF_ITEM_KIND' => $kind,
+        ];
+        $filter = array_merge($filter, $this->buildExchangeItemCodeFilter($kind, $code));
+
+        if ($category !== '') {
+            $filter['=UF_ITEM_CATEGORY'] = $category;
+        }
+
+        if ($eventId >= 0) {
+            $filter['=UF_EVENT_ID'] = $eventId;
+        }
+
+        if ($teamCode !== '') {
+            $filter['=UF_TEAM_CODE'] = $teamCode;
+        }
+
+        $dataClass = $this->getExchangeTradeDataClass();
+        $row = $dataClass::getList([
+            'filter' => $filter,
+            'order' => ['UF_CREATED_AT' => 'DESC', 'ID' => 'DESC'],
+            'limit' => 1,
+        ])->fetch();
+
+        if (!$row) {
+            return null;
+        }
+
+        $price = round((float)($row['UF_PRICE_PER_UNIT'] ?? 0), 1);
+
+        return $price > 0 ? $price : null;
+    }
+
+    public function addBankConsignment(array $fields): int
+    {
+        $dataClass = $this->getBankConsignmentDataClass();
+        $result = $dataClass::add($fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+
+        return (int)$result->getId();
+    }
+
+    public function updateBankConsignment(int $id, array $fields): void
+    {
+        $dataClass = $this->getBankConsignmentDataClass();
+        $result = $dataClass::update($id, $fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+    }
+
+    public function getBankConsignmentById(int $id): ?array
+    {
+        if ($id <= 0) {
+            return null;
+        }
+
+        $dataClass = $this->getBankConsignmentDataClass();
+
+        return $dataClass::getList([
+            'filter' => ['=ID' => $id],
+            'limit' => 1,
+        ])->fetch() ?: null;
+    }
+
+    public function getBankConsignmentByListingId(int $listingId): ?array
+    {
+        if ($listingId <= 0) {
+            return null;
+        }
+
+        $dataClass = $this->getBankConsignmentDataClass();
+
+        return $dataClass::getList([
+            'filter' => ['=UF_LISTING_ID' => $listingId],
+            'limit' => 1,
+        ])->fetch() ?: null;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function getConsignmentsByBankId(int $bankId, int $limit = 200): array
+    {
+        if ($bankId <= 0) {
+            return [];
+        }
+
+        $dataClass = $this->getBankConsignmentDataClass();
+        $rows = [];
+        $response = $dataClass::getList([
+            'filter' => ['=UF_BANK_ID' => $bankId],
+            'order' => ['UF_CREATED_AT' => 'DESC', 'ID' => 'DESC'],
+            'limit' => max(1, min($limit, 500)),
+        ]);
+
+        while ($row = $response->fetch()) {
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function getConsignmentsByUserId(int $userId, int $limit = 100): array
+    {
+        if ($userId <= 0) {
+            return [];
+        }
+
+        $dataClass = $this->getBankConsignmentDataClass();
+        $rows = [];
+        $response = $dataClass::getList([
+            'filter' => ['=UF_USER_ID' => $userId],
+            'order' => ['UF_CREATED_AT' => 'DESC', 'ID' => 'DESC'],
+            'limit' => max(1, min($limit, 200)),
+        ]);
+
+        while ($row = $response->fetch()) {
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function getEligibleConsignmentBanks(string $kind, float $requiredLiquid, string $category = ''): array
+    {
+        $requiredLiquid = round($requiredLiquid, 1);
+        $eligible = [];
+
+        foreach ($this->getActiveUserBanks(500) as $bank) {
+            if (!BankConsignmentConfig::isCategoryAccepted($bank, $kind, $category)) {
+                continue;
+            }
+
+            $liquid = round((float)($bank['UF_LIQUID'] ?? 0), 1);
+            if ($liquid < $requiredLiquid) {
+                continue;
+            }
+
+            $eligible[] = $bank;
+        }
+
+        return $eligible;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function getActiveExchangeListings(int $limit = 1000, string $catalogTab = ''): array
+    {
+        $filter = [
+            '=UF_STATUS' => ExchangeConfig::STATUS_ACTIVE,
+            '>UF_QTY_REMAINING' => 0,
+        ];
+
+        $catalogTab = trim($catalogTab);
+        if ($catalogTab !== '' && $catalogTab !== ExchangeCatalogConfig::TAB_ALL) {
+            if ($catalogTab === ExchangeCatalogConfig::TAB_LOOT) {
+                $filter['=UF_ITEM_KIND'] = ExchangeConfig::KIND_LOOT;
+            } elseif ($catalogTab === ExchangeCatalogConfig::TAB_XP_BANK) {
+                $filter['=UF_ITEM_KIND'] = ExchangeConfig::KIND_LOOT;
+                $filter['=UF_ITEM_CATEGORY'] = ChestLootConfig::CATEGORY_XP_BANK;
+            } elseif ($catalogTab === ExchangeCatalogConfig::TAB_CERT) {
+                $filter['=UF_ITEM_KIND'] = ExchangeConfig::KIND_LOOT;
+                $filter['=UF_ITEM_CATEGORY'] = ChestLootConfig::CATEGORY_CERT;
+            } else {
+                $filter['=UF_ITEM_KIND'] = $catalogTab;
+            }
+        }
+
+        $dataClass = $this->getExchangeListingDataClass();
+        $rows = [];
+        $response = $dataClass::getList([
+            'filter' => $filter,
+            'order' => ['UF_PRICE_PER_UNIT' => 'ASC', 'UF_CREATED_AT' => 'DESC', 'ID' => 'ASC'],
+            'limit' => max(1, min($limit, 2000)),
+        ]);
+
+        while ($row = $response->fetch()) {
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildExchangeItemCodeFilter(string $kind, string $code): array
+    {
+        if ($kind === ExchangeConfig::KIND_CHEST && ExchangeConfig::isUnifiedWc26Chest($code)) {
+            return ['@UF_ITEM_CODE' => ExchangeConfig::wc26ChestExchangeCodes()];
+        }
+
+        return ['=UF_ITEM_CODE' => $code];
     }
 
     private function compileDataClass(string $tableName): string

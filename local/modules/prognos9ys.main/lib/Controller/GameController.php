@@ -5,6 +5,7 @@ namespace Prognos9ys\Main\Controller;
 use Prognos9ys\Main\Service\Auth\ImpersonationService;
 use Prognos9ys\Main\Service\Auth\TokenAuthService;
 use Prognos9ys\Main\Service\Game\AchievementService;
+use Prognos9ys\Main\Service\Game\BankConsignmentService;
 use Prognos9ys\Main\Service\Game\BankContractLifecycleService;
 use Prognos9ys\Main\Service\Game\BankDepositService;
 use Prognos9ys\Main\Service\Game\BankLoanService;
@@ -55,6 +56,7 @@ class GameController extends BaseController
             'cancelDeposit' => $this->getDefaultConfigureForPostToken(),
             'forceCloseDeposit' => $this->getDefaultConfigureForPostToken(),
             'closeBank' => $this->getDefaultConfigureForPostToken(),
+            'updateBankConsignmentSettings' => $this->getDefaultConfigureForPostToken(),
             'getAchievements' => $this->getDefaultConfigureForPostToken(),
             'claimAchievement' => $this->getDefaultConfigureForPostToken(),
             'openWc26Chests' => $this->getDefaultConfigureForPostToken(),
@@ -439,6 +441,38 @@ class GameController extends BaseController
         return array_merge(['status' => 'ok'], $result, [
             'game' => (new GameProfileService())->getSummary($userId),
         ]);
+    }
+
+    public function updateBankConsignmentSettingsAction(bool $enabled = false, string $categoriesJson = ''): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        $categories = [];
+        if ($categoriesJson !== '') {
+            $decoded = json_decode($categoriesJson, true);
+            if (is_array($decoded)) {
+                $categories = $decoded;
+            }
+        }
+
+        try {
+            $consignment = (new BankConsignmentService())->updateConsignmentSettings(
+                $userId,
+                $enabled,
+                $categories
+            );
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return [
+            'status' => 'ok',
+            'consignment' => $consignment,
+            'bank' => (new UserBankService())->getMyBank($userId),
+        ];
     }
 
     public function moderatorBulkActionAction(string $bulkAction): array

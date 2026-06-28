@@ -299,6 +299,10 @@ export const apiActions = {
             'prognos9ys:main.GameController.closeBank',
             { userToken }
         ),
+        updateBankConsignmentSettings: (userToken, enabled, categoriesJson = '') => runBitrixAction(
+            'prognos9ys:main.GameController.updateBankConsignmentSettings',
+            { userToken, enabled: enabled ? 1 : 0, categoriesJson }
+        ),
         getAchievements: (userToken) => runBitrixAction(
             'prognos9ys:main.GameController.getAchievements',
             { userToken }
@@ -335,9 +339,9 @@ export const apiActions = {
             'prognos9ys:main.ExchangeController.getState',
             { userToken }
         ),
-        getCatalog: (userToken, offset = 0, limit = 25, kind = '') => runBitrixAction(
+        getCatalog: (userToken, offset = 0, limit = 25, catalogTab = '') => runBitrixAction(
             'prognos9ys:main.ExchangeController.getCatalog',
-            { userToken, offset, limit, kind: kind || undefined }
+            { userToken, offset, limit, catalogTab: catalogTab || undefined }
         ),
         getMyListings: (userToken) => runBitrixAction(
             'prognos9ys:main.ExchangeController.getMyListings',
@@ -360,7 +364,7 @@ export const apiActions = {
             'prognos9ys:main.ExchangeController.cancelListing',
             { userToken, listingId }
         ),
-        buy: (userToken, kind, code, qty, category = '', eventId = 0, teamCode = '') => runBitrixAction(
+        buy: (userToken, kind, code, qty, category = '', eventId = 0, teamCode = '', pricePerUnit = 0) => runBitrixAction(
             'prognos9ys:main.ExchangeController.buy',
             {
                 userToken,
@@ -370,11 +374,24 @@ export const apiActions = {
                 category: category || undefined,
                 eventId: eventId || undefined,
                 teamCode: teamCode || undefined,
+                pricePerUnit: pricePerUnit > 0 ? pricePerUnit : undefined,
             }
         ),
         getTradeHistory: (userToken, offset = 0, limit = 25) => runBitrixAction(
             'prognos9ys:main.ExchangeController.getTradeHistory',
             { userToken, offset, limit }
+        ),
+        consignToBank: (userToken, kind, code, qty, category = '', eventId = 0, teamCode = '') => runBitrixAction(
+            'prognos9ys:main.ExchangeController.consignToBank',
+            {
+                userToken,
+                kind,
+                code,
+                qty,
+                category: category || undefined,
+                eventId: eventId || undefined,
+                teamCode: teamCode || undefined,
+            }
         ),
     },
     impersonation: {

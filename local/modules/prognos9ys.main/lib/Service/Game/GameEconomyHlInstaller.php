@@ -27,6 +27,7 @@ class GameEconomyHlInstaller
     public const TABLE_EXCHANGE_LISTING = 'prognos9ys_exchange_listing';
     public const TABLE_EXCHANGE_TRADE = 'prognos9ys_exchange_trade';
     public const TABLE_EXCHANGE_NOMINAL = 'prognos9ys_exchange_nominal';
+    public const TABLE_BANK_CONSIGNMENT = 'prognos9ys_bank_consignment';
     public const TABLE_USER_PROFESSION = 'prognos9ys_user_profession';
     public const TABLE_PROFESSION_SESSION = 'prognos9ys_profession_session';
     public const TABLE_USER_MATERIAL = 'prognos9ys_user_material';
@@ -120,6 +121,8 @@ class GameEconomyHlInstaller
             'UF_RESERVED' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
             'UF_LIQUID' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
             'UF_ACTIVE' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_CONSIGNMENT_ENABLED' => ['USER_TYPE_ID' => 'boolean'],
+            'UF_CONSIGNMENT_CATEGORIES' => ['USER_TYPE_ID' => 'string'],
             'UF_CREATED_AT' => ['USER_TYPE_ID' => 'datetime'],
         ]);
 
@@ -358,6 +361,9 @@ class GameEconomyHlInstaller
             'UF_EXPIRES_AT' => ['USER_TYPE_ID' => 'datetime'],
             'UF_CREATED_AT' => ['USER_TYPE_ID' => 'datetime'],
             'UF_UPDATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+            'UF_SELLER_BANK_ID' => ['USER_TYPE_ID' => 'integer'],
+            'UF_CONSIGNMENT_ID' => ['USER_TYPE_ID' => 'integer'],
+            'UF_ORIGINAL_USER_ID' => ['USER_TYPE_ID' => 'integer'],
         ]);
 
         $tradeHlId = $this->ensureHlBlock('Prognos9ysExchangeTrade', self::TABLE_EXCHANGE_TRADE, [
@@ -389,6 +395,81 @@ class GameEconomyHlInstaller
             'exchange_trade_hl_id' => $tradeHlId,
             'exchange_nominal_hl_id' => $nominalHlId,
         ];
+    }
+
+    /**
+     * HL комиссионки банка + поля на user_bank и exchange_listing.
+     */
+    public function upgradeBankConsignmentHl(): array
+    {
+        if (!Loader::includeModule('highloadblock')) {
+            throw new \RuntimeException('Модуль highloadblock не установлен');
+        }
+
+        $this->ensureHlBlock('Prognos9ysUserBank', self::TABLE_USER_BANK, [
+            'UF_CONSIGNMENT_ENABLED' => ['USER_TYPE_ID' => 'boolean'],
+            'UF_CONSIGNMENT_CATEGORIES' => ['USER_TYPE_ID' => 'string'],
+        ]);
+
+        $this->ensureHlBlock('Prognos9ysExchangeListing', self::TABLE_EXCHANGE_LISTING, [
+            'UF_SELLER_BANK_ID' => ['USER_TYPE_ID' => 'integer'],
+            'UF_CONSIGNMENT_ID' => ['USER_TYPE_ID' => 'integer'],
+            'UF_ORIGINAL_USER_ID' => ['USER_TYPE_ID' => 'integer'],
+        ]);
+
+        $consignmentHlId = $this->ensureHlBlock('Prognos9ysBankConsignment', self::TABLE_BANK_CONSIGNMENT, [
+            'UF_USER_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_BANK_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_LISTING_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_ITEM_KIND' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_ITEM_CODE' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_ITEM_CATEGORY' => ['USER_TYPE_ID' => 'string'],
+            'UF_EVENT_ID' => ['USER_TYPE_ID' => 'integer'],
+            'UF_TEAM_CODE' => ['USER_TYPE_ID' => 'string'],
+            'UF_QTY' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_PRICE_PER_UNIT' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
+            'UF_INSTANT_PAID' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
+            'UF_STATUS' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_RELIST_COUNT' => ['USER_TYPE_ID' => 'integer'],
+            'UF_CREATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+            'UF_UPDATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+        ]);
+
+        $this->seedConsignmentEnabledForActiveBanks();
+
+        return [
+            'bank_consignment_hl_id' => $consignmentHlId,
+        ];
+    }
+
+    private function seedConsignmentEnabledForActiveBanks(): void
+    {
+        $repository = new GameEconomyRepository();
+        $defaultCategories = BankConsignmentConfig::encodeCategoryFlags(
+            BankConsignmentConfig::defaultCategoryFlags()
+        );
+
+        foreach ($repository->getActiveUserBanks(500) as $bank) {
+            $bankId = (int)($bank['ID'] ?? 0);
+            if ($bankId <= 0) {
+                continue;
+            }
+
+            $updates = [];
+            $flag = $bank['UF_CONSIGNMENT_ENABLED'] ?? null;
+            if ($flag === null || $flag === '' || $flag === 0 || $flag === '0') {
+                $updates['UF_CONSIGNMENT_ENABLED'] = 'Y';
+            }
+
+            $categories = trim((string)($bank['UF_CONSIGNMENT_CATEGORIES'] ?? ''));
+            if ($categories === '') {
+                $updates['UF_CONSIGNMENT_CATEGORIES'] = $defaultCategories;
+            }
+
+            if ($updates !== []) {
+                $repository->updateUserBank($bankId, $updates);
+            }
+        }
     }
 
     /**

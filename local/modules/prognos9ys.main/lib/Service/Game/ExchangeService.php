@@ -12,6 +12,7 @@ class ExchangeService
     private ExchangeInventoryService $inventoryService;
     private WalletService $walletService;
     private TreasuryService $treasuryService;
+    private BankConsignmentService $consignmentService;
 
     public function __construct(?GameEconomyRepository $repository = null)
     {
@@ -19,6 +20,7 @@ class ExchangeService
         $this->inventoryService = new ExchangeInventoryService($this->repository);
         $this->walletService = new WalletService($this->repository);
         $this->treasuryService = new TreasuryService($this->repository);
+        $this->consignmentService = new BankConsignmentService($this->repository);
     }
 
     public function getState(int $userId): array
@@ -32,6 +34,8 @@ class ExchangeService
             'max_listings' => $this->resolveMaxListings($userId),
             'listing_days' => $this->resolveListingDays($userId),
             'commission_percent' => ExchangeConfig::COMMISSION_PERCENT,
+            'consignment_payout_percent' => BankConsignmentConfig::INSTANT_PAYOUT_PERCENT,
+            'catalog_tabs' => ExchangeCatalogConfig::getTabs(),
             'sellable' => $this->buildSellableCatalog($userId),
         ];
     }
@@ -39,26 +43,93 @@ class ExchangeService
     /**
      * @return array{items: array<int, array<string, mixed>>, pagination: array<string, int|bool>}
      */
-    public function getCatalog(int $offset = 0, int $limit = 25, string $kind = ''): array
+    public function getCatalog(int $offset = 0, int $limit = 25, string $catalogTab = ''): array
     {
-        $page = $this->repository->getExchangeCatalogPage($offset, $limit, $kind);
-        $items = [];
+        $listings = $this->repository->getActiveExchangeListings(2000, $catalogTab);
+        $groups = [];
 
-        foreach ($page['items'] as $row) {
-            $items[] = $this->formatListing($row);
+        foreach ($listings as $row) {
+            $formatted = $this->formatListing($row);
+            if (!ExchangeCatalogConfig::matchesTab(
+                $catalogTab,
+                (string)($formatted['kind'] ?? ''),
+                (string)($formatted['category'] ?? '')
+            )) {
+                continue;
+            }
+            $price = round((float)($formatted['price_per_unit'] ?? 0), 1);
+            $catalogCode = (string)($formatted['catalog_code'] ?? $formatted['code'] ?? '');
+            $groupKey = implode('|', [
+                (string)($formatted['kind'] ?? ''),
+                $catalogCode,
+                (string)($formatted['category'] ?? ''),
+                (int)($formatted['event_id'] ?? 0),
+                (string)($formatted['team_code'] ?? ''),
+                (string)$price,
+            ]);
+
+            if (!isset($groups[$groupKey])) {
+                $groups[$groupKey] = [
+                    'group_key' => $groupKey,
+                    'kind' => (string)($formatted['kind'] ?? ''),
+                    'code' => $catalogCode,
+                    'category' => (string)($formatted['category'] ?? ''),
+                    'event_id' => (int)($formatted['event_id'] ?? 0),
+                    'team_code' => (string)($formatted['team_code'] ?? ''),
+                    'label' => (string)($formatted['label'] ?? ''),
+                    'catalog_tab' => ExchangeCatalogConfig::resolveTab(
+                        (string)($formatted['kind'] ?? ''),
+                        (string)($formatted['category'] ?? '')
+                    ),
+                    'price_per_unit' => $price,
+                    'qty_total' => 0,
+                    'listings_count' => 0,
+                    'has_consignment' => false,
+                    'offers' => [],
+                ];
+            }
+
+            $qty = (int)($formatted['qty_remaining'] ?? 0);
+            $groups[$groupKey]['qty_total'] += $qty;
+            $groups[$groupKey]['listings_count']++;
+            if (!empty($formatted['is_consignment'])) {
+                $groups[$groupKey]['has_consignment'] = true;
+            }
+
+            $groups[$groupKey]['offers'][] = [
+                'listing_id' => (int)($formatted['id'] ?? 0),
+                'seller_id' => (int)($formatted['seller_id'] ?? 0),
+                'seller_name' => (string)($formatted['seller_name'] ?? ''),
+                'seller_bank_id' => (int)($formatted['seller_bank_id'] ?? 0),
+                'seller_bank_name' => (string)($formatted['seller_bank_name'] ?? ''),
+                'is_consignment' => !empty($formatted['is_consignment']),
+                'qty_remaining' => $qty,
+                'expires_at' => (string)($formatted['expires_at'] ?? ''),
+            ];
         }
+
+        $items = array_values($groups);
+        usort($items, static function (array $a, array $b): int {
+            $priceCmp = ($a['price_per_unit'] ?? 0) <=> ($b['price_per_unit'] ?? 0);
+            if ($priceCmp !== 0) {
+                return $priceCmp;
+            }
+
+            return strcmp((string)($a['label'] ?? ''), (string)($b['label'] ?? ''));
+        });
 
         $limit = max(1, min($limit, 50));
         $offset = max(0, $offset);
-        $total = (int)($page['total'] ?? 0);
+        $total = count($items);
+        $pageItems = array_slice($items, $offset, $limit);
 
         return [
-            'items' => $items,
+            'items' => $pageItems,
             'pagination' => [
                 'offset' => $offset,
                 'limit' => $limit,
                 'total' => $total,
-                'has_more' => ($offset + count($items)) < $total,
+                'has_more' => ($offset + count($pageItems)) < $total,
             ],
         ];
     }
@@ -87,6 +158,7 @@ class ExchangeService
         $code = trim($code);
         $category = trim($category);
         $teamCode = trim($teamCode);
+        $code = $this->normalizeListingCode($kind, $code);
 
         if ($userId <= 0 || $kind === '' || $code === '' || $qty <= 0) {
             throw new \InvalidArgumentException('Некорректные параметры лота');
@@ -147,6 +219,10 @@ class ExchangeService
     public function cancelListing(int $userId, int $listingId): array
     {
         $row = $this->requireOwnedActiveListing($userId, $listingId);
+        if ($this->consignmentService->isConsignmentListing($row)) {
+            throw new \RuntimeException('Комиссионный лот нельзя снять');
+        }
+
         $this->returnListingToSeller($row);
         $now = new DateTime();
         $this->repository->updateExchangeListing($listingId, [
@@ -170,11 +246,21 @@ class ExchangeService
         }
 
         $remaining = (int)($row['UF_QTY_REMAINING'] ?? 0);
-        if ($remaining > 0) {
+        if ($remaining > 0 && !$this->consignmentService->isConsignmentListing($row)) {
             $this->returnListingToSeller($row);
         }
 
         $now = new DateTime();
+        if ($this->consignmentService->isConsignmentListing($row)) {
+            $consignmentId = (int)($row['UF_CONSIGNMENT_ID'] ?? 0);
+            if ($consignmentId > 0) {
+                $this->repository->updateBankConsignment($consignmentId, [
+                    'UF_STATUS' => BankConsignmentConfig::STATUS_CANCELLED,
+                    'UF_UPDATED_AT' => $now,
+                ]);
+            }
+        }
+
         $this->repository->updateExchangeListing($listingId, [
             'UF_STATUS' => ExchangeConfig::STATUS_MOD_REMOVED,
             'UF_QTY_REMAINING' => 0,
@@ -191,7 +277,8 @@ class ExchangeService
         int $qty,
         string $category = '',
         int $eventId = 0,
-        string $teamCode = ''
+        string $teamCode = '',
+        float $pricePerUnit = 0
     ): array {
         if ($buyerId <= 0 || $qty <= 0) {
             throw new \InvalidArgumentException('Некорректная покупка');
@@ -201,6 +288,7 @@ class ExchangeService
         $code = trim($code);
         $category = trim($category);
         $teamCode = trim($teamCode);
+        $code = $this->normalizeListingCode($kind, $code);
 
         $listings = $this->repository->findActiveExchangeListingsForSku(
             $kind,
@@ -209,6 +297,14 @@ class ExchangeService
             $eventId,
             $teamCode
         );
+
+        if ($pricePerUnit > 0) {
+            $targetPrice = round($pricePerUnit, 1);
+            $listings = array_values(array_filter(
+                $listings,
+                static fn(array $listing): bool => round((float)($listing['UF_PRICE_PER_UNIT'] ?? 0), 1) === $targetPrice
+            ));
+        }
 
         $chunks = [];
         $remaining = $qty;
@@ -219,7 +315,9 @@ class ExchangeService
             }
 
             $sellerId = (int)($listing['UF_SELLER_ID'] ?? 0);
-            if ($sellerId === $buyerId) {
+            $sellerBankId = (int)($listing['UF_SELLER_BANK_ID'] ?? 0);
+            $isBankListing = $sellerBankId > 0;
+            if (!$isBankListing && $sellerId === $buyerId) {
                 continue;
             }
 
@@ -231,12 +329,17 @@ class ExchangeService
             $take = min($listingRemaining, $remaining);
             $price = round((float)($listing['UF_PRICE_PER_UNIT'] ?? 0), 1);
             $chunkTotal = round($price * $take, 1);
-            $commission = round($chunkTotal * ExchangeConfig::COMMISSION_PERCENT / 100, 1);
+            $commission = $isBankListing
+                ? 0.0
+                : round($chunkTotal * ExchangeConfig::COMMISSION_PERCENT / 100, 1);
 
             $chunks[] = [
                 'listing' => $listing,
                 'listing_id' => (int)($listing['ID'] ?? 0),
                 'seller_id' => $sellerId,
+                'seller_bank_id' => $sellerBankId,
+                'is_bank_listing' => $isBankListing,
+                'consignment_id' => (int)($listing['UF_CONSIGNMENT_ID'] ?? 0),
                 'take' => $take,
                 'price' => $price,
                 'total' => $chunkTotal,
@@ -281,16 +384,22 @@ class ExchangeService
             $listing = $chunk['listing'];
             $listingId = (int)$chunk['listing_id'];
             $sellerId = (int)$chunk['seller_id'];
+            $sellerBankId = (int)($chunk['seller_bank_id'] ?? 0);
+            $isBankListing = !empty($chunk['is_bank_listing']);
             $take = (int)$chunk['take'];
 
-            $this->walletService->credit(
-                $sellerId,
-                GameEconomyConfig::CURRENCY_PROGNOBAKS,
-                (float)$chunk['seller_net'],
-                'exchange_sell',
-                'exchange_listing',
-                $listingId
-            );
+            if ($isBankListing && $sellerBankId > 0) {
+                $this->repository->adjustUserBankLiquid($sellerBankId, (float)$chunk['seller_net']);
+            } else {
+                $this->walletService->credit(
+                    $sellerId,
+                    GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                    (float)$chunk['seller_net'],
+                    'exchange_sell',
+                    'exchange_listing',
+                    $listingId
+                );
+            }
 
             $itemKind = (string)($listing['UF_ITEM_KIND'] ?? '');
             $itemCode = (string)($listing['UF_ITEM_CODE'] ?? '');
@@ -310,11 +419,19 @@ class ExchangeService
 
             $listingRemaining = (int)($listing['UF_QTY_REMAINING'] ?? 0);
             $newRemaining = $listingRemaining - $take;
+            $newStatus = $newRemaining <= 0 ? ExchangeConfig::STATUS_FILLED : ExchangeConfig::STATUS_ACTIVE;
             $this->repository->updateExchangeListing($listingId, [
                 'UF_QTY_REMAINING' => $newRemaining,
-                'UF_STATUS' => $newRemaining <= 0 ? ExchangeConfig::STATUS_FILLED : ExchangeConfig::STATUS_ACTIVE,
+                'UF_STATUS' => $newStatus,
                 'UF_UPDATED_AT' => $now,
             ]);
+
+            if ($newRemaining <= 0) {
+                $consignmentId = (int)($chunk['consignment_id'] ?? 0);
+                if ($consignmentId > 0) {
+                    $this->consignmentService->markConsignmentSold($consignmentId);
+                }
+            }
 
             $tradeId = $this->repository->addExchangeTrade([
                 'UF_LISTING_ID' => $listingId,
@@ -356,6 +473,29 @@ class ExchangeService
             'commission' => $totalCommission,
             'trades' => $trades,
         ];
+    }
+
+    /**
+     * @return array{chunks: array<int, array<string, mixed>>, total_paid: float}
+     */
+    public function consignToBank(
+        int $userId,
+        string $kind,
+        string $code,
+        int $qty,
+        string $category = '',
+        int $eventId = 0,
+        string $teamCode = ''
+    ): array {
+        return $this->consignmentService->consign(
+            $userId,
+            $kind,
+            $code,
+            $qty,
+            $category,
+            $eventId,
+            $teamCode
+        );
     }
 
     /**
@@ -413,6 +553,13 @@ class ExchangeService
         foreach ($rows as $row) {
             $listingId = (int)($row['ID'] ?? 0);
             if ($listingId <= 0) {
+                continue;
+            }
+
+            if ($this->consignmentService->isConsignmentListing($row)) {
+                if ($this->consignmentService->relistExpiredConsignmentListing($row)) {
+                    $count++;
+                }
                 continue;
             }
 
@@ -479,9 +626,6 @@ class ExchangeService
         foreach ([
             TreasureService::CHEST_TYPE_LEVEL,
             TreasureService::CHEST_TYPE_ACHIEVEMENT,
-            TreasureService::CHEST_TYPE_MATCH,
-            TreasureService::CHEST_TYPE_WC26_ACHIEVEMENT,
-            TreasureService::CHEST_TYPE_SHOP_WC26,
         ] as $chestType) {
             $count = $this->inventoryService->getAvailableQty($userId, ExchangeConfig::KIND_CHEST, $chestType);
             if ($count <= 0) {
@@ -496,6 +640,24 @@ class ExchangeService
                 0,
                 '',
                 $count,
+                $nominal
+            );
+        }
+
+        $wc26Count = $this->inventoryService->getAvailableQty(
+            $userId,
+            ExchangeConfig::KIND_CHEST,
+            ExchangeConfig::CHEST_CODE_WC26
+        );
+        if ($wc26Count > 0) {
+            $nominal = ExchangeNominalConfig::getChestNominal(ExchangeConfig::CHEST_CODE_WC26);
+            $items[] = $this->sellableRow(
+                ExchangeConfig::KIND_CHEST,
+                ExchangeConfig::CHEST_CODE_WC26,
+                '',
+                0,
+                '',
+                $wc26Count,
                 $nominal
             );
         }
@@ -618,6 +780,13 @@ class ExchangeService
     ): array {
         $maxPrice = ExchangeNominalConfig::getMaxSellerPrice($nominal);
         $pallet = ExchangeNominalConfig::getPalletLimit($kind, $code, $category);
+        $consignPrice = $this->consignmentService->resolveConsignmentPrice(
+            $kind,
+            $code,
+            $category,
+            $eventId,
+            $teamCode
+        );
 
         return [
             'kind' => $kind,
@@ -630,6 +799,12 @@ class ExchangeService
             'pallet_limit' => $pallet,
             'nominal' => $nominal,
             'max_price' => $maxPrice,
+            'consign_price' => $consignPrice,
+            'consign_instant_per_unit' => round(
+                $consignPrice * BankConsignmentConfig::INSTANT_PAYOUT_PERCENT / 100,
+                1
+            ),
+            'catalog_tab' => ExchangeCatalogConfig::resolveTab($kind, $category),
         ];
     }
 
@@ -645,16 +820,27 @@ class ExchangeService
         $code = (string)($row['UF_ITEM_CODE'] ?? '');
         $category = (string)($row['UF_ITEM_CATEGORY'] ?? '');
         $teamCode = (string)($row['UF_TEAM_CODE'] ?? '');
+        $sellerBankId = (int)($row['UF_SELLER_BANK_ID'] ?? 0);
+        $sellerBankName = $this->resolveSellerBankName($sellerBankId);
+        $catalogCode = $kind === ExchangeConfig::KIND_CHEST
+            ? ExchangeConfig::normalizeChestExchangeCode($code)
+            : $code;
 
         return [
             'id' => (int)($row['ID'] ?? 0),
             'seller_id' => (int)($row['UF_SELLER_ID'] ?? 0),
+            'seller_name' => $this->resolveSellerDisplayName($row),
+            'seller_bank_id' => $sellerBankId,
+            'seller_bank_name' => $sellerBankName,
+            'consignor_id' => (int)($row['UF_ORIGINAL_USER_ID'] ?? 0),
+            'is_consignment' => $sellerBankId > 0,
             'kind' => $kind,
             'code' => $code,
+            'catalog_code' => $catalogCode,
             'category' => $category,
             'event_id' => (int)($row['UF_EVENT_ID'] ?? 0),
             'team_code' => $teamCode,
-            'label' => $this->inventoryService->buildItemLabel($kind, $code, $category, $teamCode ?: null),
+            'label' => $this->inventoryService->buildItemLabel($kind, $catalogCode, $category, $teamCode ?: null),
             'qty_total' => (int)($row['UF_QTY_TOTAL'] ?? 0),
             'qty_remaining' => (int)($row['UF_QTY_REMAINING'] ?? 0),
             'price_per_unit' => (float)($row['UF_PRICE_PER_UNIT'] ?? 0),
@@ -681,5 +867,63 @@ class ExchangeService
     private function hasActivePremium(int $userId): bool
     {
         return false;
+    }
+
+    private function resolveSellerBankName(int $bankId): string
+    {
+        if ($bankId <= 0) {
+            return '';
+        }
+
+        $bank = $this->repository->getUserBankById($bankId);
+        if (!$bank) {
+            return '';
+        }
+
+        return (new UserBankService($this->repository))->formatBankPublic($bank)['owner_name'] ?? '';
+    }
+
+    private function normalizeListingCode(string $kind, string $code): string
+    {
+        if ($kind === ExchangeConfig::KIND_CHEST) {
+            return ExchangeConfig::normalizeChestExchangeCode($code);
+        }
+
+        return $code;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
+    private function resolveSellerDisplayName(array $row): string
+    {
+        $sellerBankId = (int)($row['UF_SELLER_BANK_ID'] ?? 0);
+        if ($sellerBankId > 0) {
+            $bankName = $this->resolveSellerBankName($sellerBankId);
+
+            return $bankName !== '' ? ('банк ' . $bankName) : 'банк';
+        }
+
+        $sellerId = (int)($row['UF_SELLER_ID'] ?? 0);
+        if ($sellerId <= 0) {
+            return '';
+        }
+
+        $userRow = \Bitrix\Main\UserTable::getList([
+            'filter' => ['=ID' => $sellerId],
+            'select' => ['ID', 'LOGIN', 'NAME', 'LAST_NAME'],
+            'limit' => 1,
+        ])->fetch();
+
+        if (!$userRow) {
+            return 'user#' . $sellerId;
+        }
+
+        $name = trim(($userRow['NAME'] ?? '') . ' ' . ($userRow['LAST_NAME'] ?? ''));
+        if ($name !== '') {
+            return $name;
+        }
+
+        return (string)($userRow['LOGIN'] ?? ('user#' . $sellerId));
     }
 }
