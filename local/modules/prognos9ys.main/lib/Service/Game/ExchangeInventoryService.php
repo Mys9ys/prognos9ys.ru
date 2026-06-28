@@ -61,6 +61,10 @@ class ExchangeInventoryService
         }
 
         if ($kind === ExchangeConfig::KIND_LOOT) {
+            if (ChestLootConfig::isEventAgnosticLootCategory($category)) {
+                return $this->repository->getEventAgnosticLootItemCount($userId, $code, $category);
+            }
+
             return $this->repository->getLootItemCount($userId, $eventId, $code, $category);
         }
 
@@ -135,6 +139,12 @@ class ExchangeInventoryService
         }
 
         if ($kind === ExchangeConfig::KIND_LOOT) {
+            if (ChestLootConfig::isEventAgnosticLootCategory($category)) {
+                $this->repository->decrementEventAgnosticLootItem($userId, $code, $category, $qty);
+
+                return;
+            }
+
             $this->repository->decrementLootItem($userId, $eventId, $code, $qty);
 
             return;

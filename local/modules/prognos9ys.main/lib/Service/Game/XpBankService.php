@@ -47,18 +47,8 @@ class XpBankService
             throw new \InvalidArgumentException('Неизвестная банка опыта');
         }
 
-        $eventId = $this->repository->findLootStackEventId(
+        $available = $this->repository->getEventAgnosticLootItemCount(
             $userId,
-            $code,
-            ChestLootConfig::CATEGORY_XP_BANK
-        );
-        if ($eventId === null) {
-            throw new \RuntimeException('Банка опыта не найдена в инвентаре');
-        }
-
-        $available = $this->repository->getLootItemCount(
-            $userId,
-            $eventId,
             $code,
             ChestLootConfig::CATEGORY_XP_BANK
         );
@@ -70,7 +60,12 @@ class XpBankService
         $xpPerUnit = (float)$definition['xp'];
         $totalXp = round($xpPerUnit * $qty, 1);
 
-        $this->repository->decrementLootItem($userId, $eventId, $code, $qty);
+        $this->repository->decrementEventAgnosticLootItem(
+            $userId,
+            $code,
+            ChestLootConfig::CATEGORY_XP_BANK,
+            $qty
+        );
 
         $lines = [
             [

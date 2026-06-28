@@ -140,6 +140,47 @@ class ChestLootConfig
     }
 
     /**
+     * @param array<int, array<string, mixed>> $stacks
+     * @return array<int, array<string, mixed>>
+     */
+    public static function mergeInventoryLootStacks(array $stacks): array
+    {
+        $merged = [];
+
+        foreach ($stacks as $stack) {
+            $category = trim((string)($stack['category'] ?? ''));
+            $code = trim((string)($stack['code'] ?? ''));
+            $count = (int)($stack['count'] ?? 0);
+            if ($code === '' || $count <= 0) {
+                continue;
+            }
+
+            if (self::isEventAgnosticLootCategory($category)) {
+                $key = $category . '|' . $code;
+                if (!isset($merged[$key])) {
+                    $merged[$key] = $stack;
+                    $merged[$key]['event_id'] = self::LOOT_EVENT_GLOBAL;
+                } else {
+                    $merged[$key]['count'] = (int)$merged[$key]['count'] + $count;
+                }
+
+                continue;
+            }
+
+            $eventId = (int)($stack['event_id'] ?? 0);
+            $sealed = !empty($stack['sealed']) ? '1' : '0';
+            $key = $category . '|' . $code . '|' . $eventId . '|' . $sealed;
+            if (!isset($merged[$key])) {
+                $merged[$key] = $stack;
+            } else {
+                $merged[$key]['count'] = (int)$merged[$key]['count'] + $count;
+            }
+        }
+
+        return array_values($merged);
+    }
+
+    /**
      * @return array{kind:string,xp:float,label:string}|null
      */
     public static function parseXpBankCode(string $code): ?array

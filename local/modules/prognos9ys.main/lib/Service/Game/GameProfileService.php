@@ -83,11 +83,14 @@ class GameProfileService
             }
 
             $anchorEventId = (new GameEventScopeService())->getAnchorEventId();
-            $inventoryItems = array_merge(
+            $lootStacks = ChestLootConfig::mergeInventoryLootStacks(array_merge(
                 $this->repository->getLootItemStacksForUser($userId, ChestLootConfig::LOOT_EVENT_GLOBAL),
                 $anchorEventId > 0
                     ? $this->repository->getLootItemStacksForUser($userId, $anchorEventId)
-                    : [],
+                    : []
+            ));
+            $inventoryItems = array_merge(
+                $lootStacks,
                 ProfessionMaterialConfig::buildInventoryStacksFromRows(
                     (new ProfessionRepository())->getMaterialsByUserId($userId)
                 )

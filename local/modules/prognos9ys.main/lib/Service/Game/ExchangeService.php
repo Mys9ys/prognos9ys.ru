@@ -715,10 +715,10 @@ class ExchangeService
         }
 
         $anchorEventId = (new GameEventScopeService())->getAnchorEventId();
-        foreach (array_merge(
+        foreach (ChestLootConfig::mergeInventoryLootStacks(array_merge(
             $this->repository->getLootItemStacksForUser($userId, ChestLootConfig::LOOT_EVENT_GLOBAL),
             $anchorEventId > 0 ? $this->repository->getLootItemStacksForUser($userId, $anchorEventId) : []
-        ) as $loot) {
+        )) as $loot) {
             $count = (int)($loot['count'] ?? 0);
             if ($count <= 0) {
                 continue;

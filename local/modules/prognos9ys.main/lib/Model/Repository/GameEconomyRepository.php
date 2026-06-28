@@ -3211,11 +3211,7 @@ class GameEconomyRepository
             return null;
         }
 
-        $eventIds = [ChestLootConfig::LOOT_EVENT_GLOBAL];
-        $anchorEventId = (new GameEventScopeService())->getAnchorEventId();
-        if ($anchorEventId > 0) {
-            $eventIds[] = $anchorEventId;
-        }
+        $eventIds = $this->resolveLootLookupEventIds();
 
         foreach ($eventIds as $eventId) {
             if ($this->getLootItemCount($userId, $eventId, $itemCode, $category) > 0) {
@@ -3224,6 +3220,72 @@ class GameEconomyRepository
         }
 
         return null;
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    public function resolveLootLookupEventIds(): array
+    {
+        $eventIds = [ChestLootConfig::LOOT_EVENT_GLOBAL];
+        $anchorEventId = (new GameEventScopeService())->getAnchorEventId();
+        if ($anchorEventId > 0) {
+            $eventIds[] = $anchorEventId;
+        }
+
+        return $eventIds;
+    }
+
+    public function getEventAgnosticLootItemCount(
+        int $userId,
+        string $itemCode,
+        string $category
+    ): int {
+        if ($userId <= 0 || $itemCode === '' || !ChestLootConfig::isEventAgnosticLootCategory($category)) {
+            return 0;
+        }
+
+        $total = 0;
+        foreach ($this->resolveLootLookupEventIds() as $eventId) {
+            $total += $this->getLootItemCount($userId, $eventId, $itemCode, $category);
+        }
+
+        return $total;
+    }
+
+    public function decrementEventAgnosticLootItem(
+        int $userId,
+        string $itemCode,
+        string $category,
+        int $qty
+    ): void {
+        if ($userId <= 0 || $itemCode === '' || $qty <= 0) {
+            return;
+        }
+
+        if (!ChestLootConfig::isEventAgnosticLootCategory($category)) {
+            throw new \InvalidArgumentException('Категория лута не поддерживает объединённые стаки');
+        }
+
+        $remaining = $qty;
+        foreach ($this->resolveLootLookupEventIds() as $eventId) {
+            if ($remaining <= 0) {
+                break;
+            }
+
+            $available = $this->getLootItemCount($userId, $eventId, $itemCode, $category);
+            if ($available <= 0) {
+                continue;
+            }
+
+            $take = min($available, $remaining);
+            $this->decrementLootItem($userId, $eventId, $itemCode, $take);
+            $remaining -= $take;
+        }
+
+        if ($remaining > 0) {
+            throw new \RuntimeException('Недостаточно предметов');
+        }
     }
 
     public function decrementLootItem(int $userId, int $eventId, string $itemCode, int $qty): void
