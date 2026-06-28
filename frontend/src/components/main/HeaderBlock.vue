@@ -124,8 +124,8 @@ export default {
     currentLevel() {
       this.evaluateLevelBanner();
     },
-    'impersonation.active'() {
-      if (this.token) {
+    'impersonation.active'(active) {
+      if (active && this.token) {
         this.refreshGameInfo();
       }
     },
@@ -257,6 +257,14 @@ export default {
     },
 
     async checkAuth() {
+      if (
+        this.userInfo?.game_info
+        && this.userInfo?.UF_TOKEN
+        && this.userInfo.UF_TOKEN === this.token
+      ) {
+        return;
+      }
+
       await this.loginRequest()
       await this.refreshGameInfo()
       if (location.pathname === '/mob_app/') this.$router.push('/main')
