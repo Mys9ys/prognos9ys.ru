@@ -27,6 +27,7 @@
         <div class="title">Общая информация</div>
       </div>
       <ProfileGameBlock :game="gameInfo" v-if="gameInfo"></ProfileGameBlock>
+      <ProfileRulesBlock />
     </div>
 
     <div class="body_item" v-if="active === 'prognosis'">
@@ -114,18 +115,11 @@
       </div>
     </div>
 
-    <div class="body_item" v-if="active === 'finance'">
+    <div class="body_item" v-if="active === 'economy'">
       <div class="title_wrapper">
-        <div class="title">Финансы</div>
+        <div class="title">Богатство и финансы</div>
       </div>
-      <ProfileBankBlock :game="gameInfo" v-if="gameInfo"></ProfileBankBlock>
-    </div>
-
-    <div class="body_item" v-if="active === 'treasury'">
-      <div class="title_wrapper">
-        <div class="title">Казна</div>
-      </div>
-      <ProfileTreasuryBlock :game="gameInfo" />
+      <ProfileEconomyBlock :game="gameInfo" v-if="gameInfo" />
     </div>
 
     <div class="body_item" v-if="active === 'inventory'">
@@ -133,13 +127,6 @@
         <div class="title">Инвентарь</div>
       </div>
       <ProfileInventoryBlock :game="gameInfo" v-if="gameInfo" />
-    </div>
-
-    <div class="body_item" v-if="active === 'exchange'">
-      <div class="title_wrapper">
-        <div class="title">Биржа</div>
-      </div>
-      <ExchangeBlock v-if="gameInfo" />
     </div>
 
     <div class="body_item" v-if="active === 'achievement'">
@@ -180,10 +167,9 @@ import ProfileEventBody from "@/components/football/ProfileEventBody";
 import ProfileRaceBlock from "@/components/profile/ProfileRaceBlock";
 import ProfileTitle from "@/components/profile/ProfileTitle";
 import ProfileGameBlock from "@/components/profile/ProfileGameBlock";
-import ProfileBankBlock from "@/components/profile/ProfileBankBlock";
-import ProfileTreasuryBlock from "@/components/profile/ProfileTreasuryBlock";
+import ProfileEconomyBlock from "@/components/profile/ProfileEconomyBlock";
+import ProfileRulesBlock from "@/components/profile/ProfileRulesBlock";
 import ProfileInventoryBlock from "@/components/profile/ProfileInventoryBlock";
-import ExchangeBlock from "@/components/game/ExchangeBlock";
 import ImpersonationPanel from "@/components/profile/ImpersonationPanel";
 import AppIcon from '@/components/ui/AppIcon.vue';
 
@@ -196,10 +182,9 @@ export default {
     ProfileTitle,
     ProfileEventBody,
     ProfileGameBlock,
-    ProfileBankBlock,
-    ProfileTreasuryBlock,
+    ProfileEconomyBlock,
+    ProfileRulesBlock,
     ProfileInventoryBlock,
-    ExchangeBlock,
     ImpersonationPanel,
     AppIcon,
   },
@@ -215,10 +200,8 @@ export default {
       profileMenu: {
         general: {title: 'Общая', icon: 'profile_info'},
         prognosis: {title: 'Прогнозы', icon: 'prognosis'},
-        finance: {title: 'Финансы', icon: 'bank'},
-        treasury: {title: 'Казна', emoji: '🏛️'},
+        economy: {title: 'Богатство', icon: 'wealth'},
         inventory: {title: 'Инвентарь', emoji: '🎒'},
-        exchange: {title: 'Биржа', emoji: '📈'},
         achievement: {title: 'Награды', icon: 'achievement'},
         settings: {title: 'Настройки', icon: 'settings'},
       }
@@ -374,7 +357,7 @@ export default {
       },
     },
     active(tab) {
-      if (tab === 'inventory') {
+      if (tab === 'inventory' || tab === 'economy') {
         this.refreshGameInfo();
       }
     },
