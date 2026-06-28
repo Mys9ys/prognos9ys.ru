@@ -53,6 +53,8 @@ class SetBotPrognosis
                 "PROPERTY_number",
                 "PROPERTY_events",
                 "PROPERTY_stage",
+                "PROPERTY_bracket_code",
+                "PROPERTY_step",
             ]
         );
 
@@ -81,12 +83,15 @@ class SetBotPrognosis
                 )->GetNext();
 
                 if(!$res) {
+                    $stageDetail = trim((string)($botPrognos['PROPERTY_STEP_VALUE'] ?? ''));
                     $this->arEmptyPrognosis[$botID.'_'.$botPrognos['ID']] = [
                         17 => $botPrognos['ID'],
                         30 => $botPrognos['PROPERTY_NUMBER_VALUE'],
                         31 => $botID,
                         52 => $botPrognos['PROPERTY_EVENTS_VALUE'],
-                        'stage' => $botPrognos['PROPERTY_STAGE_VALUE'], // Плей-офф
+                        'stage' => $botPrognos['PROPERTY_STAGE_VALUE'],
+                        'stage_detail' => $stageDetail,
+                        'bracket_code' => trim((string)($botPrognos['PROPERTY_BRACKET_CODE_VALUE'] ?? '')),
                     ];
                     $this->setBotPrognosis($this->arEmptyPrognosis[$botID.'_'.$botPrognos['ID']]);
                 }
@@ -96,9 +101,12 @@ class SetBotPrognosis
     }
 
     protected function setBotPrognosis($arr){
-        $playOff = false;
-        if($arr['stage'] === 'Плей-офф') $playOff = true;
-        unset($arr['stage']);
+        $playOff = \Prognos9ys\Main\Service\Championship\PlayoffSlotHelper::isPlayoffMatch([
+            'stage' => (string)($arr['stage'] ?? ''),
+            'stage_detail' => (string)($arr['stage_detail'] ?? ''),
+            'bracket_code' => (string)($arr['bracket_code'] ?? ''),
+        ]);
+        unset($arr['stage'], $arr['stage_detail'], $arr['bracket_code']);
 
         $response = new GenValuesBotFootball($playOff);
 

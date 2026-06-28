@@ -62,6 +62,45 @@ class MatchesRepository extends BaseIblockRepository
 
         $meta = new MatchIblockMetaRepository();
         $stageDetailCode = $meta->getStageDetailPropertyCode();
+        $select = $this->buildChampionshipSelect($meta, $stageDetailCode);
+
+        $rows = $this->setSelect($select, false)
+            ->dataObjectBuilder([$eventId])
+            ->setOrder(['NUMBER_VALUE' => 'ASC', 'ID' => 'ASC'])
+            ->fetchAll();
+
+        return array_map(
+            static fn(array $row) => self::normalizeChampionshipRow($row, $stageDetailCode),
+            $rows
+        );
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function findNormalizedById(int $matchId): ?array
+    {
+        if ($matchId <= 0) {
+            return null;
+        }
+
+        $meta = new MatchIblockMetaRepository();
+        $stageDetailCode = $meta->getStageDetailPropertyCode();
+        $select = $this->buildChampionshipSelect($meta, $stageDetailCode);
+
+        $row = $this->setSelect($select, false)
+            ->dataObjectBuilder([], [$matchId])
+            ->fetch();
+
+        if (!$row) {
+            return null;
+        }
+
+        return self::normalizeChampionshipRow($row, $stageDetailCode);
+    }
+
+    private function buildChampionshipSelect(MatchIblockMetaRepository $meta, ?string $stageDetailCode): array
+    {
         $select = self::SELECT_FIELDS;
 
         foreach ([
@@ -81,15 +120,7 @@ class MatchesRepository extends BaseIblockRepository
             $select[$ormName . '_'] = $ormName;
         }
 
-        $rows = $this->setSelect($select, false)
-            ->dataObjectBuilder([$eventId])
-            ->setOrder(['NUMBER_VALUE' => 'ASC', 'ID' => 'ASC'])
-            ->fetchAll();
-
-        return array_map(
-            static fn(array $row) => self::normalizeChampionshipRow($row, $stageDetailCode),
-            $rows
-        );
+        return $select;
     }
 
     /**

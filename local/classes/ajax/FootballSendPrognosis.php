@@ -62,6 +62,17 @@ class FootballSendPrognosis extends PrognosisGiveInfo
     }
 
     protected function uploadUserPrognosis(){
+        $matchId = (int)($this->arFields[17] ?? 0);
+        if ($matchId > 0) {
+            $validationError = (new \Prognos9ys\Main\Service\Football\FootballPrognosisValidator())
+                ->validate($matchId, $this->arFields);
+            if ($validationError !== null) {
+                $this->setResult('error', $validationError);
+
+                return;
+            }
+        }
+
         $this->checkOldPrognosis();
 
         $ib = new CIBlockElement;

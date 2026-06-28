@@ -44,8 +44,6 @@ class FootballMatchLoadInfo extends PrognosisGiveInfo
 
         $this->number = $data['number'] ?? '';
 
-        $this->arTeams = (new GetFootballTeams())->result();
-
         $this->getMatchStaticData();
 
         if($this->arResult) $this->setResult('ok', '', $this->arResult);
@@ -103,6 +101,8 @@ class FootballMatchLoadInfo extends PrognosisGiveInfo
         $guestTeamId = (int)$res['PROPERTY_GUEST_VALUE'];
         $matchNumber = (int)$res['PROPERTY_NUMBER_VALUE'];
 
+        $this->arTeams = $this->loadTeamsByIds(array_filter([$homeTeamId, $guestTeamId]));
+
         $el['home'] = $this->getTeamData(
             $this->arTeams[$homeTeamId] ?? null,
             (string)($res['PROPERTY_HOME_LABEL_VALUE'] ?? ''),
@@ -146,28 +146,53 @@ class FootballMatchLoadInfo extends PrognosisGiveInfo
         ];
     }
 
+    /**
+     * @param int[] $teamIds
+     * @return array<int, array<string, mixed>>
+     */
+    protected function loadTeamsByIds(array $teamIds): array
+    {
+        $teamIds = array_values(array_unique(array_filter(array_map('intval', $teamIds))));
+        if (!$teamIds) {
+            return [];
+        }
+
+        $teamsIb = \CIBlock::GetList([], ['CODE' => 'countries'], false)->Fetch()['ID'] ?: 3;
+
+        $map = [];
+        $response = \Bitrix\Iblock\ElementTable::getList([
+            'select' => ['ID', 'NAME', 'PREVIEW_PICTURE'],
+            'filter' => [
+                'IBLOCK_ID' => (int)$teamsIb,
+                '@ID' => $teamIds,
+            ],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $row['flag'] = \CFile::GetPath($row['PREVIEW_PICTURE']);
+            $row['name'] = $row['NAME'];
+            $map[(int)$row['ID']] = $row;
+        }
+
+        return $map;
+    }
+
     protected function getCountMatches()
     {
-        $arCount = [];
         $arFilter = [
             'IBLOCK_ID' => $this->arIbs['matches']['id'],
             'PROPERTY_EVENTS' => $this->eventId,
         ];
 
-        $recourse = CIBlockElement::GetList(
-            ["DATE_ACTIVE_FROM" => "ASC", "created" => "ASC"],
+        $res = CIBlockElement::GetList(
+            ['PROPERTY_number' => 'DESC', 'ID' => 'DESC'],
             $arFilter,
             false,
-            [],
-            [
-                "ID",
-            ]
-        );
-        while ($res = $recourse->GetNext()) {
-            $arCount[] = $res['ID'];
-        }
+            ['nTopCount' => 1],
+            ['PROPERTY_number']
+        )->GetNext();
 
-        return count($arCount);
+        return (int)($res['PROPERTY_NUMBER_VALUE'] ?? 0);
     }
 
     protected function getRecordData($ib, $matchId)

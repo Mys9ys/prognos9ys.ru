@@ -6,6 +6,7 @@ class GenValuesBotFootball
 {
 
     protected $arFields;
+    protected $playOff = false;
 
     public function __construct($playOff = false)
     {
@@ -13,6 +14,8 @@ class GenValuesBotFootball
             ShowError('Модуль Информационных блоков не установлен');
             return;
         }
+
+        $this->playOff = (bool)$playOff;
 
         $this->setGoals();
         $this->setCorner();
@@ -22,9 +25,9 @@ class GenValuesBotFootball
         $this->setPenalty();
         $this->setOffsides();
 
-        if($playOff) $this->setPlayOff();
-
-        var_dump($this->arFields);
+        if ($this->playOff) {
+            $this->setPlayOff();
+        }
     }
 
     protected function setGoals(){
@@ -79,11 +82,25 @@ class GenValuesBotFootball
         $rand = random_int(1, $max);
         $findScore = '';
 
-        for($i=$rand; $i<$max; $i++){
-            if($arScore[$i]) {
-                $findScore = $arScore[$i];
-                break;
+        for ($i = $rand; $i <= $max; $i++) {
+            if (!isset($arScore[$i])) {
+                continue;
             }
+
+            $candidate = $arScore[$i];
+            if ($this->playOff) {
+                $parts = explode('-', $candidate);
+                if (count($parts) === 2 && (int)$parts[0] === (int)$parts[1]) {
+                    continue;
+                }
+            }
+
+            $findScore = $candidate;
+            break;
+        }
+
+        if ($findScore === '') {
+            $findScore = $this->playOff ? '1-0' : '1-1';
         }
 
         $arRandScore = explode('-', $findScore);
@@ -293,20 +310,17 @@ class GenValuesBotFootball
     }
 
     protected function setPlayOff(){
-        // 49 otime
-        // 50 spen
-        if($this->arFields[18] == 0){
+        if ($this->arFields[18] === 'н' || (int)$this->arFields[19] === 0) {
             $win = random_int(1, 2);
-            if($win == 1){
-                $this->arFields[19] += 1;
-                $this->arFields[15] +=1;
+            if ($win === 1) {
+                $this->arFields[15] = (int)$this->arFields[15] + 1;
+                $this->arFields[19] = (int)$this->arFields[19] + 1;
             } else {
-                $this->arFields[19] -= 1;
-                $this->arFields[16] += 1;
+                $this->arFields[16] = (int)$this->arFields[16] + 1;
+                $this->arFields[19] = (int)$this->arFields[19] - 1;
             }
-            $this->arFields[28] += 1;
+            $this->arFields[28] = (int)$this->arFields[15] + (int)$this->arFields[16];
             $this->arFields[18] = 'п' . $win;
-
         }
 
         $otime = random_int(1, 2);

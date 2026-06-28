@@ -137,7 +137,7 @@
               <div class="value_block">
                 <div class="value_box">
                   <div class="match_result_el" :class="{'active' : data[18] === 'п1'}" @click="setResult('п1')">п1</div>
-                  <div class="match_result_el" :class="{'active' : data[18] === 'н'}" @click="setResult('н')">н</div>
+                  <div class="match_result_el" v-if="!isPlayoff" :class="{'active' : data[18] === 'н'}" @click="setResult('н')">н</div>
                   <div class="match_result_el" :class="{'active' : data[18] === 'п2'}" @click="setResult('п2')">п2</div>
                 </div>
               </div>
@@ -258,7 +258,11 @@
 
           <div class="prognosis_dash_line"></div>
 
-          <div class="play_off_block" v-if="matchR.stage==='Плей-офф'">
+          <div class="playoff_no_draw_hint" v-if="isPlayoff">
+            В плей-офф нельзя ставить ничью и равный счёт — победитель определяется в доп. время или серии пенальти.
+          </div>
+
+          <div class="play_off_block" v-if="isPlayoff">
             <div class="part_block">
               <div class="title_block block_absolute">
                 <div class="item icon"><FootballMetricIcon context="prognosis" :field-id="45" badge :size="22" /></div>
@@ -487,6 +491,12 @@ export default {
         return
       }
 
+      if (this.isPlayoffDrawPrognosis()) {
+        this.error = 'В матче плей-офф нельзя ставить ничью и равный счёт — победитель определяется в доп. время или серии пенальти.'
+        this.prognosisLoader = false
+        return
+      }
+
       if (!this.arMatch?.id) {
         this.error = 'Матч ещё не загружен, попробуйте снова'
         this.prognosisLoader = false
@@ -532,9 +542,25 @@ export default {
       this.data[28] = Number(this.data[15]) + Number(this.data[16])
       this.data[19] = Number(this.data[15]) - Number(this.data[16])
 
+      if (this.isPlayoff && Number(this.data[15]) === Number(this.data[16])) {
+        this.data[18] = ''
+        return
+      }
+
       if (this.data[19] > 0) this.data[18] = 'п1'
       else if (this.data[19] === 0) this.data[18] = 'н'
       else if (this.data[19] < 0) this.data[18] = 'п2'
+    },
+
+    isPlayoffDrawPrognosis() {
+      if (!this.isPlayoff) {
+        return false
+      }
+
+      const home = Number(this.data[15])
+      const guest = Number(this.data[16])
+
+      return home === guest || this.data[18] === 'н'
     },
 
     syncFormFromPrognosis() {
@@ -582,6 +608,12 @@ export default {
     },
 
     setResult(res) {
+      if (this.isPlayoff && res === 'н') {
+        this.error = 'В плей-офф нельзя выбрать ничью'
+        return
+      }
+
+      this.error = ''
       this.data[18] = res
     },
 
@@ -644,11 +676,10 @@ export default {
       this.queryMatch.eventId = this.$route.params.event
       this.queryMatch.userToken = this.token
 
-      if (this.token) {
-        await this.refreshGameInfo()
-      }
+      const matchPromise = this.getMatchRequest()
+      const gamePromise = this.token ? this.refreshGameInfo() : Promise.resolve()
 
-      await this.getMatchRequest()
+      await Promise.all([matchPromise, gamePromise])
       this.syncFormFromPrognosis()
       this.applyDefaultWithBet()
 
@@ -675,6 +706,9 @@ export default {
     canAffordBet() {
       const prognobaks = Number(this.userInfo?.game_info?.wallet?.prognobaks ?? 0)
       return prognobaks >= 10
+    },
+    isPlayoff() {
+      return this.matchR?.stage === 'Плей-офф'
     },
     errorMessage() {
       if (this.errors?.mes) {
@@ -1390,6 +1424,16 @@ export default {
       .shadow_inset;
     }
   }
+}
+
+.playoff_no_draw_hint {
+  margin: 8px 0 4px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: fade(@red, 12%);
+  color: @red;
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .play_off_block{

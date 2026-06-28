@@ -141,7 +141,21 @@ class PlayoffSlotHelper
             }
         }
 
-        return false;
+        foreach (['1/16', '1/8', '1/4', '1/2'] as $needle) {
+            if (strpos($value, $needle) !== false) {
+                return true;
+            }
+        }
+
+        if (strpos($value, 'полуфинал') !== false) {
+            return true;
+        }
+
+        if (strpos($value, 'место') !== false && strpos($value, '3') !== false) {
+            return true;
+        }
+
+        return $value === 'финал';
     }
 
     public static function isGroupStageDetail(string $value): bool

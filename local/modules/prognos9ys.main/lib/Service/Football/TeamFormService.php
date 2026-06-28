@@ -40,13 +40,20 @@ class TeamFormService
     private function loadFinishedMatchesBefore(int $eventId, int $beforeMatchNumber): array
     {
         $rows = [];
+        $filter = [
+            'IBLOCK_ID' => self::MATCHES_IBLOCK_ID,
+            'PROPERTY_EVENTS' => $eventId,
+            'ACTIVE' => 'N',
+            '<PROPERTY_number' => $beforeMatchNumber,
+        ];
+
+        if ($beforeMatchNumber > 1) {
+            $filter['>=PROPERTY_number'] = max(1, $beforeMatchNumber - 25);
+        }
+
         $response = \CIBlockElement::GetList(
             ['PROPERTY_number' => 'ASC', 'ID' => 'ASC'],
-            [
-                'IBLOCK_ID' => self::MATCHES_IBLOCK_ID,
-                'PROPERTY_EVENTS' => $eventId,
-                'ACTIVE' => 'N',
-            ],
+            $filter,
             false,
             false,
             [
