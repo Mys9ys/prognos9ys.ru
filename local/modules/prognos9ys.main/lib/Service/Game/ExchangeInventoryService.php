@@ -3,6 +3,7 @@
 namespace Prognos9ys\Main\Service\Game;
 
 use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
+use Prognos9ys\Main\Model\Repository\ProfessionRepository;
 
 /**
  * Списание и выдача предметов при лотах биржи.
@@ -10,12 +11,21 @@ use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
 class ExchangeInventoryService
 {
     private GameEconomyRepository $repository;
+    private ProfessionRepository $professionRepository;
     private GameEventScopeService $scopeService;
 
-    public function __construct(?GameEconomyRepository $repository = null)
-    {
+    public function __construct(
+        ?GameEconomyRepository $repository = null,
+        ?ProfessionRepository $professionRepository = null
+    ) {
         $this->repository = $repository ?? new GameEconomyRepository();
+        $this->professionRepository = $professionRepository ?? new ProfessionRepository();
         $this->scopeService = new GameEventScopeService();
+    }
+
+    private function isPremiumMaterialCategory(string $category): bool
+    {
+        return $category === ExchangeConfig::MATERIAL_CATEGORY_PREMIUM;
     }
 
     public function getAvailableQty(int $userId, string $kind, string $code, string $category = '', int $eventId = 0): int
@@ -43,6 +53,14 @@ class ExchangeInventoryService
 
         if ($kind === ExchangeConfig::KIND_LOOT) {
             return $this->repository->getLootItemCount($userId, $eventId, $code, $category);
+        }
+
+        if ($kind === ExchangeConfig::KIND_MATERIAL) {
+            return $this->professionRepository->getUserMaterialQty(
+                $userId,
+                $code,
+                $this->isPremiumMaterialCategory($category)
+            );
         }
 
         return 0;
@@ -89,6 +107,17 @@ class ExchangeInventoryService
             return;
         }
 
+        if ($kind === ExchangeConfig::KIND_MATERIAL) {
+            $this->professionRepository->consumeUserMaterialQty(
+                $userId,
+                $code,
+                $qty,
+                $this->isPremiumMaterialCategory($category)
+            );
+
+            return;
+        }
+
         throw new \InvalidArgumentException('Неизвестный тип предмета');
     }
 
@@ -129,6 +158,17 @@ class ExchangeInventoryService
 
             return;
         }
+
+        if ($kind === ExchangeConfig::KIND_MATERIAL) {
+            $this->professionRepository->addUserMaterialQty(
+                $userId,
+                $code,
+                $qty,
+                $this->isPremiumMaterialCategory($category)
+            );
+
+            return;
+        }
     }
 
     public function resolveNominal(
@@ -151,6 +191,10 @@ class ExchangeInventoryService
 
         if ($kind === ExchangeConfig::KIND_LOOT) {
             return ExchangeNominalConfig::getLootNominal($code, $category, $teamCode);
+        }
+
+        if ($kind === ExchangeConfig::KIND_MATERIAL) {
+            return ExchangeNominalConfig::getMaterialNominal($code);
         }
 
         return 0.0;
@@ -190,6 +234,15 @@ class ExchangeInventoryService
             }
 
             return ChestLootConfig::getLabel($code);
+        }
+
+        if ($kind === ExchangeConfig::KIND_MATERIAL) {
+            $label = ProfessionMaterialConfig::getMaterialLabel($code);
+            if ($this->isPremiumMaterialCategory($category)) {
+                return $label . ' ★';
+            }
+
+            return $label;
         }
 
         return $code;

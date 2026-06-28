@@ -13,6 +13,7 @@ class TreasureService
     public const CHEST_TYPE_MATCH = 'match';
     public const CHEST_TYPE_LEVEL = 'level';
     public const CHEST_TYPE_ACHIEVEMENT = 'achievement';
+    public const CHEST_TYPE_PROFESSION = 'profession';
     public const CHEST_TYPE_WC26_ACHIEVEMENT = 'wc26_achievement';
     public const CHEST_TYPE_SHOP_WC26 = 'shop_wc26';
     public const CHEST_TYPE_PREMIUM_SCROLL = 'premium_scroll';
@@ -621,6 +622,95 @@ class TreasureService
             'UF_COUNT' => $count,
             'UF_STATUS' => self::CHEST_STATUS_CLOSED,
             'UF_TYPE' => self::CHEST_TYPE_ACHIEVEMENT,
+            'UF_CREATED_AT' => $now,
+            'UF_UPDATED_AT' => $now,
+        ]);
+
+        return true;
+    }
+
+    public static function professionLevelSyntheticMatchId(string $professionCode, int $level): int
+    {
+        $unsigned = (int)sprintf('%u', crc32('prof_lvl:' . $professionCode . ':' . $level));
+
+        return -($unsigned % 2000000000 + 1);
+    }
+
+    /**
+     * Сундук за уровень профессии (идемпотентно).
+     */
+    public function grantProfessionLevelChest(int $userId, string $professionCode, int $level): bool
+    {
+        if ($userId <= 0 || $professionCode === '' || $level <= 0) {
+            return false;
+        }
+
+        $config = ProfessionEconomyConfig::getProfessionLevelReward($level);
+        $count = (int)($config['chests'] ?? 0);
+        if ($count <= 0) {
+            return false;
+        }
+
+        $syntheticMatchId = self::professionLevelSyntheticMatchId($professionCode, $level);
+        $existing = $this->repository->getTreasureChestByType(
+            $userId,
+            $syntheticMatchId,
+            self::CHEST_TYPE_PROFESSION
+        );
+        if ($existing) {
+            return false;
+        }
+
+        $now = new DateTime();
+        $eventId = (new GameEventScopeService())->getAnchorEventId();
+
+        $this->repository->addTreasureChest([
+            'UF_USER_ID' => $userId,
+            'UF_MATCH_ID' => $syntheticMatchId,
+            'UF_EVENT_ID' => $eventId > 0 ? $eventId : GameEconomyConfig::ANCHOR_EVENT_ID,
+            'UF_COUNT' => $count,
+            'UF_STATUS' => self::CHEST_STATUS_CLOSED,
+            'UF_TYPE' => self::CHEST_TYPE_PROFESSION,
+            'UF_CREATED_AT' => $now,
+            'UF_UPDATED_AT' => $now,
+        ]);
+
+        return true;
+    }
+
+    /**
+     * Сундук за ачивку профессии.
+     */
+    public function grantProfessionAchievementChests(
+        int $userId,
+        string $achievementCode,
+        int $threshold,
+        int $count
+    ): bool {
+        if ($userId <= 0 || $achievementCode === '' || $threshold <= 0 || $count <= 0) {
+            return false;
+        }
+
+        $syntheticMatchId = self::achievementSyntheticMatchId('prof:' . $achievementCode, $threshold);
+        $existing = $this->repository->getTreasureChestByType(
+            $userId,
+            $syntheticMatchId,
+            self::CHEST_TYPE_PROFESSION
+        );
+        if ($existing) {
+            return false;
+        }
+
+        $now = new DateTime();
+        $eventId = (new GameEventScopeService())->getAnchorEventId();
+
+        $this->repository->addTreasureChest([
+            'UF_USER_ID' => $userId,
+            'UF_MATCH_ID' => $syntheticMatchId,
+            'UF_EVENT_ID' => $eventId > 0 ? $eventId : GameEconomyConfig::ANCHOR_EVENT_ID,
+            'UF_COUNT' => $count,
+            'UF_STATUS' => self::CHEST_STATUS_CLOSED,
+            'UF_TYPE' => self::CHEST_TYPE_PROFESSION,
             'UF_CREATED_AT' => $now,
             'UF_UPDATED_AT' => $now,
         ]);

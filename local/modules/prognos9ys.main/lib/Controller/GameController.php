@@ -16,8 +16,10 @@ use Prognos9ys\Main\Service\Game\GameBankService;
 use Prognos9ys\Main\Service\Game\GameEconomyConfig;
 use Prognos9ys\Main\Service\Game\GameProfileService;
 use Prognos9ys\Main\Service\Game\GovSupportDepositService;
+use Prognos9ys\Main\Service\Game\GovWarehouseService;
 use Prognos9ys\Main\Service\Game\ModeratorBulkActionsService;
 use Prognos9ys\Main\Service\Game\MacroEconomyService;
+use Prognos9ys\Main\Service\Game\ProfessionFarmService;
 use Prognos9ys\Main\Service\Game\TreasuryService;
 use Prognos9ys\Main\Service\Game\TreasuryShopService;
 use Prognos9ys\Main\Service\Game\UserBankService;
@@ -62,6 +64,10 @@ class GameController extends BaseController
             'moderatorBulkAction' => $this->getDefaultConfigureForPostToken(),
             'moderatorBulkCandidates' => $this->getDefaultConfigureForPostToken(),
             'moderatorBulkRunOne' => $this->getDefaultConfigureForPostToken(),
+            'getFarmState' => $this->getDefaultConfigureForPostToken(),
+            'pickFarmProfessions' => $this->getDefaultConfigureForPostToken(),
+            'startFarmWork' => $this->getDefaultConfigureForPostToken(),
+            'cancelFarmWork' => $this->getDefaultConfigureForPostToken(),
         ];
     }
 
@@ -154,8 +160,12 @@ class GameController extends BaseController
 
         return [
             'status' => 'ok',
-            'treasury' => (new TreasuryService())->getSummary(),
+            'treasury' => array_merge(
+                (new TreasuryService())->getSummary(),
+                ['ledger' => (new TreasuryService())->getRecentLedger(40)]
+            ),
             'macro' => (new MacroEconomyService())->getSummary(),
+            'warehouses' => (new GovWarehouseService())->getState(),
         ];
     }
 
@@ -546,6 +556,8 @@ class GameController extends BaseController
                 $result = $service->openLevelChests($userId, $openAll > 0);
             } elseif ($pool === ChestOpenService::POOL_ACHIEVEMENT) {
                 $result = $service->openAchievementChests($userId, $openAll > 0);
+            } elseif ($pool === ChestOpenService::POOL_PROFESSION) {
+                $result = $service->openProfessionChests($userId, $openAll > 0);
             } else {
                 throw new ApiException('Неизвестный пул сундуков', 400);
             }
@@ -585,6 +597,72 @@ class GameController extends BaseController
             ['status' => 'ok'],
             (new ChestOpenLogService())->getEntries($userId, $eventId, $groupKey, $offset, $limit)
         );
+    }
+
+    public function getFarmStateAction(): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        return array_merge(
+            ['status' => 'ok'],
+            ['farm' => (new ProfessionFarmService())->getState($userId)]
+        );
+    }
+
+    public function pickFarmProfessionsAction(string $professions = '', string $profession1 = '', string $profession2 = ''): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        if ($professions !== '') {
+            $codes = array_values(array_filter(array_map('trim', explode(',', $professions))));
+        } else {
+            $codes = array_values(array_filter([$profession1, $profession2], static function ($code) {
+                return trim((string)$code) !== '';
+            }));
+        }
+
+        $farm = (new ProfessionFarmService())->pickProfessions($userId, $codes);
+
+        return [
+            'status' => 'ok',
+            'farm' => $farm,
+        ];
+    }
+
+    public function startFarmWorkAction(string $professionCode = '', string $workMode = 'treasury', int $iterations = 0): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        $farm = (new ProfessionFarmService())->startWork($userId, $professionCode, $workMode, $iterations);
+
+        return [
+            'status' => 'ok',
+            'farm' => $farm,
+        ];
+    }
+
+    public function cancelFarmWorkAction(): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        $farm = (new ProfessionFarmService())->cancelWork($userId);
+
+        return [
+            'status' => 'ok',
+            'farm' => $farm,
+        ];
     }
 
     private function resolveTargetUserId(int $actorId, int $targetUserId): int

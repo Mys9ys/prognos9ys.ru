@@ -4,6 +4,7 @@ namespace Prognos9ys\Main\Service\Game;
 
 use Bitrix\Main\Type\DateTime;
 use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
+use Prognos9ys\Main\Model\Repository\ProfessionRepository;
 
 class ExchangeService
 {
@@ -566,6 +567,34 @@ class ExchangeService
                 $code,
                 $category,
                 $eventId,
+                '',
+                $count,
+                $nominal
+            );
+        }
+
+        $professionRepository = new ProfessionRepository();
+        foreach ($professionRepository->getMaterialsByUserId($userId) as $materialRow) {
+            $count = (int)($materialRow['UF_QTY'] ?? 0);
+            if ($count <= 0) {
+                continue;
+            }
+
+            $code = (string)($materialRow['UF_MATERIAL_CODE'] ?? '');
+            if ($code === '') {
+                continue;
+            }
+
+            $isPremium = ($materialRow['UF_IS_PREMIUM'] ?? '') === 'Y';
+            $category = $isPremium
+                ? ExchangeConfig::MATERIAL_CATEGORY_PREMIUM
+                : ExchangeConfig::MATERIAL_CATEGORY_NORMAL;
+            $nominal = ExchangeNominalConfig::getMaterialNominal($code);
+            $items[] = $this->sellableRow(
+                ExchangeConfig::KIND_MATERIAL,
+                $code,
+                $category,
+                0,
                 '',
                 $count,
                 $nominal

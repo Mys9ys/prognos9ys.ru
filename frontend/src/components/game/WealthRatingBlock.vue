@@ -89,6 +89,79 @@
             <AppIcon name="bank" :size="12" />
             <span>50&lt;50</span>
           </button>
+          <button
+              type="button"
+              class="bulk_btn"
+              :disabled="bulkLoading"
+              title="Всем без профессии — добыча по долям рецепта усадьбы (48/19/10/13/10)"
+              @click="runBulk('farm_pick_professions')"
+          >
+            <span class="bulk_emoji">⛏️</span>
+            <span>Проф. всем</span>
+          </button>
+        </div>
+        <div class="bulk_subtitle">Добыча на казну (мгновенно)</div>
+        <div class="bulk_row">
+          <button
+              type="button"
+              class="bulk_btn"
+              :disabled="bulkLoading"
+              title="1 цикл (+2 🪙) — всем с кошельком"
+              @click="runBulk('farm_treasury_1')"
+          >
+            <span class="bulk_emoji">🪵</span>
+            <span>×1 всем</span>
+          </button>
+          <button
+              type="button"
+              class="bulk_btn"
+              :disabled="bulkLoading"
+              title="5 циклов (+10 🪙) — всем с кошельком"
+              @click="runBulk('farm_treasury_5')"
+          >
+            <span class="bulk_emoji">🪵</span>
+            <span>×5 всем</span>
+          </button>
+          <button
+              type="button"
+              class="bulk_btn"
+              :disabled="bulkLoading"
+              title="1 цикл — у кого меньше 50 🪙 на руках"
+              @click="runBulk('farm_treasury_1_poor')"
+          >
+            <span class="bulk_emoji">🪵</span>
+            <span>×1 &lt;50</span>
+          </button>
+          <button
+              type="button"
+              class="bulk_btn"
+              :disabled="bulkLoading"
+              title="5 циклов — у кого меньше 50 🪙"
+              @click="runBulk('farm_treasury_5_poor')"
+          >
+            <span class="bulk_emoji">🪵</span>
+            <span>×5 &lt;50</span>
+          </button>
+          <button
+              type="button"
+              class="bulk_btn"
+              :disabled="bulkLoading"
+              title="1 цикл — только с активным банковским займом"
+              @click="runBulk('farm_treasury_1_indebted')"
+          >
+            <span class="bulk_emoji">🏦</span>
+            <span>×1 долг</span>
+          </button>
+          <button
+              type="button"
+              class="bulk_btn"
+              :disabled="bulkLoading"
+              title="5 циклов — только с активным банковским займом"
+              @click="runBulk('farm_treasury_5_indebted')"
+          >
+            <span class="bulk_emoji">🏦</span>
+            <span>×5 долг</span>
+          </button>
         </div>
         <div class="bulk_msg ok" v-if="bulkMessage">{{ bulkMessage }}</div>
         <div class="bulk_msg error" v-if="bulkError">{{ bulkError }}</div>
@@ -107,6 +180,12 @@
             :class="{ active: mode === 'poor' }"
             @click="setMode('poor')"
         ><span class="filter_icon_back"><AppIcon name="poverty" :size="14" /></span> Бедные</button>
+        <button
+            type="button"
+            class="filter_btn"
+            :class="{ active: mode === 'indebted' }"
+            @click="setMode('indebted')"
+        ><span class="filter_icon_back"><AppIcon name="bank" :size="14" /></span> В долгах</button>
         <button
             type="button"
             class="filter_btn"
@@ -290,7 +369,16 @@ import BulkActionProgress from '@/components/game/BulkActionProgress.vue';
 import { DEFAULT_AVATAR_URL } from '@/utils/defaultAvatar';
 
 const PAGE_SIZE = 50;
-const WEALTH_MODES = ['rich', 'poor', 'pending_xp', 'pending_achievements', 'treasure_rich', 'rublius_rich'];
+const WEALTH_MODES = ['rich', 'poor', 'indebted', 'pending_xp', 'pending_achievements', 'treasure_rich', 'rublius_rich'];
+const FARM_TREASURY_BULK = [
+  'farm_treasury_1',
+  'farm_treasury_5',
+  'farm_treasury_1_poor',
+  'farm_treasury_5_poor',
+  'farm_treasury_1_indebted',
+  'farm_treasury_5_indebted',
+  'farm_treasury_gather',
+];
 const BULK_TITLES = {
   prognobaks_chests: 'Сундуки за 50 прогнобаксов',
   claim_xp: 'Сбор опыта',
@@ -299,6 +387,23 @@ const BULK_TITLES = {
   grant_loans_bet: 'Займы 50 (<20 🪙)',
   grant_loans_shop: 'Займы 50 (<50 🪙)',
   claim_achievements: 'Сбор ачивок',
+  farm_pick_professions: 'Профессии всем',
+  farm_treasury_1: 'Добыча ×1 (всем)',
+  farm_treasury_5: 'Добыча ×5 (всем)',
+  farm_treasury_1_poor: 'Добыча ×1 (бедным)',
+  farm_treasury_5_poor: 'Добыча ×5 (бедным)',
+  farm_treasury_1_indebted: 'Добыча ×1 (в долгах)',
+  farm_treasury_5_indebted: 'Добыча ×5 (в долгах)',
+  farm_treasury_gather: 'Добыча ×5 (всем)',
+};
+const FARM_TREASURY_PROMPTS = {
+  farm_treasury_1: 'Мгновенная смена на казну (×1 цикл, +2 🪙 каждому) для всех игроков с кошельком? Пропуск — если уже идёт смена или в казне не хватает монет.',
+  farm_treasury_5: 'Мгновенная смена на казну (×5 циклов, +10 🪙 каждому) для всех игроков с кошельком? Пропуск — если уже идёт смена или в казне не хватает монет.',
+  farm_treasury_gather: 'Мгновенная смена на казну (×5 циклов, +10 🪙 каждому) для всех игроков с кошельком? Пропуск — если уже идёт смена или в казне не хватает монет.',
+  farm_treasury_1_poor: 'Мгновенная смена (×1, +2 🪙) для игроков с менее чем 50 🪙 на руках?',
+  farm_treasury_5_poor: 'Мгновенная смена (×5, +10 🪙) для игроков с менее чем 50 🪙 на руках?',
+  farm_treasury_1_indebted: 'Мгновенная смена (×1, +2 🪙) для игроков с активным банковским займом?',
+  farm_treasury_5_indebted: 'Мгновенная смена (×5, +10 🪙) для игроков с активным банковским займом?',
 };
 
 export default {
@@ -346,10 +451,10 @@ export default {
       );
     },
     showLevelColumn() {
-      return this.mode === 'rich' || this.mode === 'poor' || this.mode === 'rublius_rich';
+      return this.mode === 'rich' || this.mode === 'poor' || this.mode === 'indebted' || this.mode === 'rublius_rich';
     },
     showLoanDebtColumn() {
-      return this.mode === 'poor';
+      return this.mode === 'poor' || this.mode === 'indebted';
     },
     isTreasureMode() {
       return this.mode === 'treasure_rich';
@@ -363,6 +468,9 @@ export default {
     titleIcon() {
       if (this.mode === 'poor') {
         return 'poverty';
+      }
+      if (this.mode === 'indebted') {
+        return 'bank';
       }
       if (this.mode === 'pending_xp') {
         return 'xp';
@@ -382,6 +490,9 @@ export default {
     blockTitle() {
       if (this.mode === 'poor') {
         return 'Самые бедные';
+      }
+      if (this.mode === 'indebted') {
+        return 'В долгах';
       }
       if (this.mode === 'pending_xp') {
         return 'Незабранный опыт';
@@ -408,6 +519,9 @@ export default {
       if (this.mode === 'poor') {
         return 'Нет участников с кошельком';
       }
+      if (this.mode === 'indebted') {
+        return 'Нет игроков с активным займом';
+      }
       if (this.mode === 'treasure_rich') {
         return 'Пока никто не накопил сокровища';
       }
@@ -426,6 +540,9 @@ export default {
       }
       if (this.mode === 'poor') {
         return 'Σ = прогнобаксы на кошельке · 🏦 = сумма к возврату по займам (×N — число контрактов)';
+      }
+      if (this.mode === 'indebted') {
+        return '🏦 = сумма к возврату · сортировка по долгу (убыв.) · 🪙/💎 — что на руках';
       }
       if (this.mode === 'treasure_rich') {
         return '🎁 = сумма закрытых сундучков · сортировка по убыванию';
@@ -556,9 +673,15 @@ export default {
         grant_loans_bet: 'Выдать займ 50 прогнобаксов всем, у кого на кошельке меньше 20? (для ставок на текущие матчи). Банк — с максимальной ликвидностью.',
         grant_loans_shop: 'Выдать займ 50 прогнобаксов всем, у кого на кошельке меньше 50? (для покупки сундука в лавке). Банк — с максимальной ликвидностью.',
         claim_achievements: 'Забрать все доступные награды за ачивки у всех игроков?',
+        farm_pick_professions: 'Назначить всем игрокам добывающую профессию (лес 48%, камень 19%, руда 10%, песок 13%, хлопок 10%)? Только у кого ещё нет профессии.',
+        ...FARM_TREASURY_PROMPTS,
       };
 
-      if (!window.confirm(prompts[bulkAction] || 'Выполнить массовое действие?')) {
+      const confirmText = prompts[bulkAction]
+        || (FARM_TREASURY_BULK.includes(bulkAction) ? FARM_TREASURY_PROMPTS.farm_treasury_5 : null)
+        || 'Выполнить массовое действие?';
+
+      if (!window.confirm(confirmText)) {
         return;
       }
 
@@ -993,6 +1116,12 @@ export default {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   margin-bottom: 5px;
+}
+
+.bulk_subtitle {
+  font-size: 10px;
+  color: @colorBlur;
+  margin: 6px 0 4px;
 }
 
 .bulk_row {

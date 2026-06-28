@@ -13,6 +13,15 @@
       <button
         type="button"
         class="ach_tab"
+        :class="{ active: activeTab === 'profession' }"
+        @click="activeTab = 'profession'"
+      >
+        Профессии
+        <span v-if="professionCount" class="ach_tab_count">({{ professionCount }})</span>
+      </button>
+      <button
+        type="button"
+        class="ach_tab"
         :class="{ active: activeTab === 'football' }"
         @click="activeTab = 'football'"
       >
@@ -26,7 +35,11 @@
 
     <div v-if="loaded">
       <div class="empty_text" v-if="!filteredItems.length">
-        {{ activeTab === 'general' ? 'Пока нет общих ачивок' : 'Пока нет футбольных ачивок' }}
+        {{
+          activeTab === 'general'
+            ? 'Пока нет общих ачивок'
+            : (activeTab === 'profession' ? 'Пока нет ачивок профессий' : 'Пока нет футбольных ачивок')
+        }}
       </div>
       <div class="grid" v-else>
         <AchievementCard
@@ -92,7 +105,10 @@ export default {
       return this.items.filter((item) => item.group === 'welcome');
     },
     footballItems() {
-      return this.items.filter((item) => item.group !== 'welcome');
+      return this.items.filter((item) => item.group !== 'welcome' && item.group !== 'profession');
+    },
+    professionItems() {
+      return this.items.filter((item) => item.group === 'profession');
     },
     generalCount() {
       return this.generalItems.length;
@@ -100,8 +116,16 @@ export default {
     footballCount() {
       return this.footballItems.length;
     },
+    professionCount() {
+      return this.professionItems.length;
+    },
     filteredItems() {
-      const list = this.activeTab === 'general' ? this.generalItems : this.footballItems;
+      let list = this.generalItems;
+      if (this.activeTab === 'football') {
+        list = this.footballItems;
+      } else if (this.activeTab === 'profession') {
+        list = this.professionItems;
+      }
       return this.sortAchievementItems(list);
     },
   },

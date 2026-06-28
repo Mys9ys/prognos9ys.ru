@@ -224,6 +224,25 @@ export const apiActions = {
             'prognos9ys:main.GameController.getGovSupportDeposits',
             { userToken }
         ),
+        getFarmState: (userToken) => runBitrixAction(
+            'prognos9ys:main.GameController.getFarmState',
+            { userToken }
+        ),
+        pickFarmProfessions: (userToken, codes) => runBitrixAction(
+            'prognos9ys:main.GameController.pickFarmProfessions',
+            {
+                userToken,
+                professions: (Array.isArray(codes) ? codes : []).filter(Boolean).join(','),
+            }
+        ),
+        startFarmWork: (userToken, professionCode, workMode = 'treasury', iterations = 0) => runBitrixAction(
+            'prognos9ys:main.GameController.startFarmWork',
+            { userToken, professionCode, workMode, iterations }
+        ),
+        cancelFarmWork: (userToken) => runBitrixAction(
+            'prognos9ys:main.GameController.cancelFarmWork',
+            { userToken }
+        ),
         moderatorBulkAction: (userToken, bulkAction) => runBitrixAction(
             'prognos9ys:main.GameController.moderatorBulkAction',
             { userToken, bulkAction }

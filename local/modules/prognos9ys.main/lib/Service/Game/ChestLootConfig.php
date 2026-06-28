@@ -28,6 +28,7 @@ class ChestLootConfig
     public const GENERIC_OPENABLE_CHEST_TYPES = [
         TreasureService::CHEST_TYPE_LEVEL,
         TreasureService::CHEST_TYPE_ACHIEVEMENT,
+        TreasureService::CHEST_TYPE_PROFESSION,
     ];
 
     /**
@@ -191,6 +192,35 @@ class ChestLootConfig
         }
 
         return $n . ' прогнобаксов';
+    }
+
+    /**
+     * Лут сундука профессии: валюта + банки XP / сертификаты, без карт и вымпелов.
+     *
+     * @return array{block1:array|null,block2:array|null,block3:array|null}
+     */
+    public static function rollProfessionLoot(): array
+    {
+        $block1 = self::rollFromTable(self::getBlock1Table());
+
+        $block2 = null;
+        if (random_int(1, 100) <= self::BLOCK2_CHANCE_PERCENT) {
+            $block2 = self::rollFromTable(self::getProfessionBlock2Table());
+        }
+
+        return [
+            'block1' => $block1,
+            'block2' => $block2,
+            'block3' => null,
+        ];
+    }
+
+    /**
+     * @return array<int, array{code:string,weight:int,kind:string,category:string,label:string}>
+     */
+    public static function getProfessionBlock2Table(): array
+    {
+        return self::getBlock2Table();
     }
 
     public static function getItemCategory(string $code): string

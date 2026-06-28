@@ -15,13 +15,7 @@
       <ProfileBankBlock v-if="activeTab === 'bank'" :game="game" />
       <ProfileTreasuryBlock v-else-if="activeTab === 'treasury'" :game="game" />
       <ExchangeBlock v-else-if="activeTab === 'exchange'" />
-      <div v-else-if="activeTab === 'farm'" class="farm_placeholder">
-        <div class="placeholder_title">Гос. делянка</div>
-        <p class="placeholder_text">
-          Добывающие профессии между матчами — в разработке. Здесь будут лесозаготовка, рудник,
-          каменоломня и работа на казну.
-        </p>
-      </div>
+      <ProfileFarmBlock v-else-if="activeTab === 'farm'" />
     </div>
   </div>
 </template>
@@ -30,6 +24,7 @@
 import ProfileBankBlock from '@/components/profile/ProfileBankBlock.vue';
 import ProfileTreasuryBlock from '@/components/profile/ProfileTreasuryBlock.vue';
 import ExchangeBlock from '@/components/game/ExchangeBlock.vue';
+import ProfileFarmBlock from '@/components/profile/ProfileFarmBlock.vue';
 
 export default {
   name: 'ProfileEconomyBlock',
@@ -37,6 +32,7 @@ export default {
     ProfileBankBlock,
     ProfileTreasuryBlock,
     ExchangeBlock,
+    ProfileFarmBlock,
   },
   props: {
     game: {
@@ -95,24 +91,5 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 10px;
-}
-
-.farm_placeholder {
-  .shadow_inset;
-  padding: 10px;
-  border-radius: 4px;
-}
-
-.placeholder_title {
-  font-size: 13px;
-  color: @orange;
-  margin-bottom: 6px;
-}
-
-.placeholder_text {
-  font-size: 12px;
-  color: @colorBlur;
-  line-height: 1.4;
-  margin: 0;
 }
 </style>

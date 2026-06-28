@@ -5,6 +5,7 @@ namespace Prognos9ys\Main\Service\Game;
 use Bitrix\Main\UserTable;
 use Prognos9ys\Main\Controller\ApiException;
 use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
+use Prognos9ys\Main\Model\Repository\ProfessionRepository;
 
 /**
  * Массовые действия модератора (лавка, XP, займы) — по одному игроку за запрос.
@@ -17,6 +18,7 @@ class ModeratorBulkActionsService
     private BankLoanService $loanService;
     private GameEventScopeService $scopeService;
     private AchievementService $achievementService;
+    private BotFarmService $botFarmService;
 
     public function __construct(
         ?GameEconomyRepository $repository = null,
@@ -24,7 +26,8 @@ class ModeratorBulkActionsService
         ?ExperienceService $experienceService = null,
         ?BankLoanService $loanService = null,
         ?GameEventScopeService $scopeService = null,
-        ?AchievementService $achievementService = null
+        ?AchievementService $achievementService = null,
+        ?BotFarmService $botFarmService = null
     ) {
         $this->repository = $repository ?? new GameEconomyRepository();
         $this->shopService = $shopService ?? new TreasuryShopService($this->repository);
@@ -32,6 +35,7 @@ class ModeratorBulkActionsService
         $this->experienceService = $experienceService ?? new ExperienceService($this->repository, null, $this->scopeService);
         $this->loanService = $loanService ?? new BankLoanService($this->repository);
         $this->achievementService = $achievementService ?? new AchievementService($this->repository, $this->scopeService);
+        $this->botFarmService = $botFarmService ?? new BotFarmService();
     }
 
     /**
@@ -56,6 +60,12 @@ class ModeratorBulkActionsService
             $claimableMap = $this->achievementService->getClaimableCountMapForUsers($walletUserIds);
         }
 
+        $loanMap = [];
+        $treasuryParsed = FarmBulkActionConfig::parseTreasuryAction($bulkAction);
+        if ($treasuryParsed && $treasuryParsed['scope'] === FarmBulkActionConfig::SCOPE_INDEBTED) {
+            $loanMap = $this->repository->getActiveLoanAggregatesByUser();
+        }
+
         $candidates = [];
         foreach ($wallets as $wallet) {
             $userId = (int)($wallet['user_id'] ?? 0);
@@ -63,7 +73,14 @@ class ModeratorBulkActionsService
                 continue;
             }
 
-            $eligibility = $this->evaluateEligibility($bulkAction, $userId, $wallet, $pendingMap, $claimableMap);
+            $eligibility = $this->evaluateEligibility(
+                $bulkAction,
+                $userId,
+                $wallet,
+                $pendingMap,
+                $claimableMap,
+                $loanMap
+            );
             if (!($eligibility['eligible'] ?? false)) {
                 continue;
             }
@@ -125,6 +142,14 @@ class ModeratorBulkActionsService
         }
 
         if ($bulkAction === 'claim_achievements') {
+            try {
+                return $this->executeOne($bulkAction, $userId, $walletRow, []);
+            } catch (\Throwable $e) {
+                return $this->oneResult($bulkAction, $userId, 'failed', $e->getMessage());
+            }
+        }
+
+        if ($bulkAction === 'farm_pick_professions' || FarmBulkActionConfig::isTreasuryAction($bulkAction)) {
             try {
                 return $this->executeOne($bulkAction, $userId, $walletRow, []);
             } catch (\Throwable $e) {
@@ -227,13 +252,42 @@ class ModeratorBulkActionsService
                     ['granted_count' => $count, 'granted' => $granted]
                 );
 
+            case 'farm_pick_professions':
+                $result = $this->botFarmService->pickGatherProfessionIfMissing($userId);
+
+                return $this->oneResult(
+                    $bulkAction,
+                    $userId,
+                    (string)($result['status'] ?? 'failed'),
+                    (string)($result['message'] ?? ''),
+                    $result
+                );
+
             default:
+                $treasuryParsed = FarmBulkActionConfig::parseTreasuryAction($bulkAction);
+                if ($treasuryParsed) {
+                    $result = $this->botFarmService->runInstantTreasuryGather(
+                        $userId,
+                        (int)$treasuryParsed['iterations']
+                    );
+
+                    return $this->oneResult(
+                        $bulkAction,
+                        $userId,
+                        (string)($result['status'] ?? 'failed'),
+                        (string)($result['message'] ?? ''),
+                        $result
+                    );
+                }
+
                 throw new \InvalidArgumentException('Неизвестное массовое действие');
         }
     }
 
     /**
      * @param array<int, array{count:int,points:float}> $pendingMap
+     * @param array<int, int> $claimableMap
+     * @param array<int, array{count:int,total_due:float}> $loanMap
      * @return array{eligible:bool,hint?:string,skip_reason?:string}
      */
     private function evaluateEligibility(
@@ -241,8 +295,14 @@ class ModeratorBulkActionsService
         int $userId,
         array $wallet,
         array $pendingMap = [],
-        array $claimableMap = []
+        array $claimableMap = [],
+        array $loanMap = []
     ): array {
+        $treasuryParsed = FarmBulkActionConfig::parseTreasuryAction($bulkAction);
+        if ($treasuryParsed) {
+            return $this->evaluateFarmTreasuryEligibility($userId, $wallet, $treasuryParsed, $loanMap);
+        }
+
         switch ($bulkAction) {
             case 'prognobaks_chests':
                 $offers = $this->shopService->getCompactRowOffers($userId);
@@ -311,9 +371,81 @@ class ModeratorBulkActionsService
 
                 return ['eligible' => true, 'hint' => $count . ' наград'];
 
+            case 'farm_pick_professions':
+                if ($this->botFarmService->userHasGatherProfession($userId)) {
+                    return ['eligible' => false, 'skip_reason' => 'Профессия есть'];
+                }
+
+                $code = BotProfessionPickConfig::pickGatheringCodeForUser($userId);
+                $label = ProfessionMaterialConfig::getProfession($code)['label'] ?? $code;
+
+                return ['eligible' => true, 'hint' => $label];
+
             default:
                 return ['eligible' => false, 'skip_reason' => 'Неизвестное действие'];
         }
+    }
+
+    /**
+     * @param array{iterations:int,scope:string} $parsed
+     * @param array<int, array{count:int,total_due:float}> $loanMap
+     * @return array{eligible:bool,hint?:string,skip_reason?:string}
+     */
+    private function evaluateFarmTreasuryEligibility(
+        int $userId,
+        array $wallet,
+        array $parsed,
+        array $loanMap
+    ): array {
+        $iterations = (int)$parsed['iterations'];
+        $scope = (string)$parsed['scope'];
+
+        if ($scope === FarmBulkActionConfig::SCOPE_POOR
+            && $wallet['prognobaks'] >= GameEconomyConfig::MODERATOR_BULK_LOAN_SHOP_WALLET_MAX) {
+            return [
+                'eligible' => false,
+                'skip_reason' => 'Не бедный (≥' . (int)GameEconomyConfig::MODERATOR_BULK_LOAN_SHOP_WALLET_MAX . ' 🪙)',
+            ];
+        }
+
+        if ($scope === FarmBulkActionConfig::SCOPE_INDEBTED) {
+            $loans = $loanMap[$userId] ?? ['count' => 0, 'total_due' => 0.0];
+            if ((int)($loans['count'] ?? 0) <= 0) {
+                return ['eligible' => false, 'skip_reason' => 'Нет займа'];
+            }
+        }
+
+        if ($this->professionRepositoryHasActiveSession($userId)) {
+            return ['eligible' => false, 'skip_reason' => 'Смена активна'];
+        }
+
+        $professions = (new ProfessionRepository())->getProfessionsByUserId($userId);
+        $code = (string)($professions[0]['UF_PROFESSION_CODE'] ?? '');
+        if ($code === '') {
+            $code = BotProfessionPickConfig::pickGatheringCodeForUser($userId);
+            $label = ProfessionMaterialConfig::getProfession($code)['label'] ?? $code;
+            $hint = 'Назначим ' . $label;
+        } else {
+            $label = ProfessionMaterialConfig::getProfession($code)['label'] ?? $code;
+            $hint = $label;
+        }
+
+        $payTotal = $iterations * ProfessionEconomyConfig::PAY_TREASURY_PER_ITERATION;
+        $treasury = (new TreasuryService())->getSummary();
+        if ((float)($treasury['prognobaks'] ?? 0) < $payTotal) {
+            return ['eligible' => false, 'skip_reason' => 'Мало 🪙 в казне'];
+        }
+
+        $hint .= ', ×' . $iterations;
+        if ($scope === FarmBulkActionConfig::SCOPE_POOR) {
+            $hint .= ', ' . round($wallet['prognobaks'], 1) . ' 🪙';
+        }
+        if ($scope === FarmBulkActionConfig::SCOPE_INDEBTED) {
+            $due = round((float)(($loanMap[$userId] ?? [])['total_due'] ?? 0), 1);
+            $hint .= ', долг ' . $due . ' 🪙';
+        }
+
+        return ['eligible' => true, 'hint' => $hint];
     }
 
     private function findBestBankForLoan(int $borrowerId, float $minAmount): ?array
@@ -374,9 +506,15 @@ class ModeratorBulkActionsService
             'grant_loans_bet',
             'grant_loans_shop',
             'claim_achievements',
-        ], true)) {
+            'farm_pick_professions',
+        ], true) && !FarmBulkActionConfig::isTreasuryAction($bulkAction)) {
             throw new \InvalidArgumentException('Неизвестное массовое действие');
         }
+    }
+
+    private function professionRepositoryHasActiveSession(int $userId): bool
+    {
+        return (new ProfessionRepository())->getActiveSessionByUserId($userId) !== null;
     }
 
     /**

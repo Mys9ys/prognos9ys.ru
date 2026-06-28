@@ -30,10 +30,28 @@ export function buildAchievementRewardBits(reward) {
   }
 
   if (Number(reward.chests) > 0) {
+    const chestIcon = reward.chest_type === 'profession' ? 'chest_xp' : 'chest_achievement';
     bits.push({
       key: 'chests',
       amount: reward.chests,
-      icon: 'chest_achievement',
+      icon: chestIcon,
+      label: reward.chest_type === 'profession' ? 'сундук проф.' : undefined,
+    });
+  }
+
+  const materials = reward.materials;
+  if (Array.isArray(materials)) {
+    materials.forEach((mat, index) => {
+      const qty = Number(mat?.qty) || 0;
+      if (qty <= 0) {
+        return;
+      }
+      bits.push({
+        key: `material_${index}`,
+        amount: qty,
+        label: mat?.code || 'ресурс',
+        icon: 'total_all',
+      });
     });
   }
 

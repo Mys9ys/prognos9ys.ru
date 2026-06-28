@@ -34,6 +34,7 @@ class WealthRatingService
         $wealthSort = in_array($wealthSort, [
             'rich',
             'poor',
+            'indebted',
             'pending_xp',
             'pending_achievements',
             'treasure_rich',
@@ -56,7 +57,96 @@ class WealthRatingService
             return $this->getRubliusRating($limit, $offset);
         }
 
+        if ($wealthSort === 'indebted') {
+            return $this->getIndebtedRating($limit, $offset);
+        }
+
         return $this->getWealthRating($limit, $offset, $wealthSort === 'poor');
+    }
+
+    private function getIndebtedRating(int $limit, int $offset): array
+    {
+        $wallets = $this->repository->getAllWallets();
+        $loanMap = $this->repository->getActiveLoanAggregatesByUser();
+        $levelMap = $this->buildLevelMap();
+        $pendingMap = $this->buildPendingMap();
+        $prepared = [];
+
+        foreach ($wallets as $wallet) {
+            $userId = (int)$wallet['user_id'];
+            $loans = $loanMap[$userId] ?? ['count' => 0, 'total_due' => 0.0];
+            $due = round((float)($loans['total_due'] ?? 0), 1);
+            if ($due <= 0) {
+                continue;
+            }
+
+            $prepared[] = [
+                'user_id' => $userId,
+                'prognobaks' => $wallet['prognobaks'],
+                'rublius' => $wallet['rublius'],
+                'total_due' => $due,
+                'loan_count' => (int)($loans['count'] ?? 0),
+            ];
+        }
+
+        usort($prepared, static function (array $a, array $b): int {
+            if ($a['total_due'] === $b['total_due']) {
+                return $a['user_id'] <=> $b['user_id'];
+            }
+
+            return $b['total_due'] <=> $a['total_due'];
+        });
+
+        $total = count($prepared);
+        $users = $this->loadUsers(array_column($prepared, 'user_id'));
+
+        $ratings = [];
+        $place = 0;
+        $prevDue = null;
+
+        foreach ($prepared as $index => $row) {
+            if ($index < $offset) {
+                if ($prevDue === null || $row['total_due'] !== $prevDue) {
+                    $place = $index + 1;
+                }
+                $prevDue = $row['total_due'];
+                continue;
+            }
+
+            if ($index >= $offset + $limit) {
+                break;
+            }
+
+            if ($prevDue === null || $row['total_due'] !== $prevDue) {
+                $place = $index + 1;
+            }
+
+            $userId = $row['user_id'];
+            $extras = $this->buildRowExtras($userId, $pendingMap);
+            $totalWealth = $this->calcTotalWealth($row['prognobaks'], $row['rublius']);
+            $ratings[] = array_merge([
+                'place' => $place,
+                'user' => $this->resolveUser($users, $userId),
+                'prognobaks' => $row['prognobaks'],
+                'rublius' => $row['rublius'],
+                'level' => $levelMap[$userId] ?? 0,
+                'total' => $totalWealth,
+                'score' => $row['total_due'],
+                'active_loans_count' => $row['loan_count'],
+                'active_loans_due' => $row['total_due'],
+            ], $extras);
+
+            $prevDue = $row['total_due'];
+        }
+
+        return [
+            'status' => 'ok',
+            'wealth_sort' => 'indebted',
+            'total' => $total,
+            'limit' => $limit,
+            'offset' => $offset,
+            'ratings' => $ratings,
+        ];
     }
 
     private function getWealthRating(int $limit, int $offset, bool $poorestFirst): array

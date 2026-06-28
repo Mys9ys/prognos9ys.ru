@@ -29,6 +29,7 @@ class GameEconomyRepository
     private ?string $exchangeListingDataClass = null;
     private ?string $exchangeTradeDataClass = null;
     private ?string $exchangeNominalDataClass = null;
+    private ?string $treasuryTxDataClass = null;
 
     public function getWalletDataClass(): string
     {
@@ -108,6 +109,73 @@ class GameEconomyRepository
     public function getExchangeNominalDataClass(): string
     {
         return $this->exchangeNominalDataClass ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_EXCHANGE_NOMINAL);
+    }
+
+    public function getTreasuryTxDataClass(): string
+    {
+        return $this->treasuryTxDataClass ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_TREASURY_TX);
+    }
+
+    public function addTreasuryTx(array $fields): int
+    {
+        $dataClass = $this->getTreasuryTxDataClass();
+        $result = $dataClass::add($fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+
+        return (int)$result->getId();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function getRecentTreasuryTx(int $limit = 50): array
+    {
+        $limit = max(1, min(200, $limit));
+        $dataClass = $this->getTreasuryTxDataClass();
+        $rows = [];
+        $response = $dataClass::getList([
+            'order' => ['ID' => 'DESC'],
+            'limit' => $limit,
+        ]);
+
+        while ($row = $response->fetch()) {
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
+    public function sumTreasuryTxAmountByReasons(array $reasons, ?string $currency = null, string $direction = 'credit'): float
+    {
+        if (!$reasons) {
+            return 0.0;
+        }
+
+        $filter = ['@UF_REASON' => $reasons];
+        if ($currency !== null && $currency !== '') {
+            $filter['=UF_CURRENCY'] = $currency;
+        }
+        if ($direction === 'credit') {
+            $filter['>UF_AMOUNT'] = 0;
+        } else {
+            $filter['<UF_AMOUNT'] = 0;
+        }
+
+        $dataClass = $this->getTreasuryTxDataClass();
+        $total = 0.0;
+        $response = $dataClass::getList([
+            'filter' => $filter,
+            'select' => ['UF_AMOUNT'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $total += (float)($row['UF_AMOUNT'] ?? 0);
+        }
+
+        return round(abs($total), 1);
     }
 
     public function hasMatchEconomySettlement(int $matchId): bool

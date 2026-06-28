@@ -11,6 +11,7 @@ class AchievementConfig
     public const GROUP_LUCK = 'luck';
     public const GROUP_METRICS = 'metrics';
     public const GROUP_ECONOMY = 'economy';
+    public const GROUP_PROFESSION = 'profession';
 
     /**
      * @return array<string, array{
@@ -24,7 +25,7 @@ class AchievementConfig
      */
     public static function getCatalog(): array
     {
-        return [
+        $base = [
             // 1. Добро пожаловать / 1 прогноз / вымпел сайта
             'welcome' => [
                 'title' => 'Добро пожаловать',
@@ -365,6 +366,8 @@ class AchievementConfig
                 ],
             ],
         ];
+
+        return array_merge($base, ProfessionAchievementConfig::getCatalogEntries());
     }
 
     /**
@@ -373,5 +376,10 @@ class AchievementConfig
     public static function grantsWc26Chest(string $code): bool
     {
         return $code === 'chm2026';
+    }
+
+    public static function grantsProfessionChest(string $code): bool
+    {
+        return strpos($code, 'prof_') === 0;
     }
 }

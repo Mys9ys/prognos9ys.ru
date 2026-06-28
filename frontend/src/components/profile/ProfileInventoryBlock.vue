@@ -50,7 +50,7 @@
     </div>
 
     <div class="inventory_empty" v-else>
-      Пока пусто — зарабатывайте сундуки в матчах, ачивки, повышайте уровень или покупайте в лавке казны.
+      Пока пусто — зарабатывайте сундуки в матчах, ачивки, повышайте уровень, покупайте в лавке казны или добывайте сырьё на фарме.
     </div>
 
     <BulkActionProgress
@@ -92,6 +92,7 @@ const LOOT_EMOJI = {
   xp_bank: '🧪',
   cert: '📜',
   pack: '📦',
+  material: '📦',
 };
 
 const LOOT_CAPTION = {
@@ -173,9 +174,9 @@ export default {
       return items
         .filter((item) => Number(item.count) > 0)
         .map((item) => ({
-          id: `loot_${item.code}`,
+          id: `loot_${item.code}${item.is_premium ? '_p' : ''}`,
           count: Number(item.count),
-          emoji: LOOT_EMOJI[item.category] || '📦',
+          emoji: item.emoji || LOOT_EMOJI[item.category] || '📦',
           caption: item.type_caption || LOOT_CAPTION[item.category] || 'Лут',
           label: item.label || item.code,
         }));

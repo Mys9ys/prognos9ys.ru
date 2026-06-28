@@ -3,6 +3,7 @@
 namespace Prognos9ys\Main\Service\Game;
 
 use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
+use Prognos9ys\Main\Model\Repository\ProfessionRepository;
 
 class GameProfileService
 {
@@ -86,7 +87,10 @@ class GameProfileService
                 $this->repository->getLootItemStacksForUser($userId, ChestLootConfig::LOOT_EVENT_GLOBAL),
                 $anchorEventId > 0
                     ? $this->repository->getLootItemStacksForUser($userId, $anchorEventId)
-                    : []
+                    : [],
+                ProfessionMaterialConfig::buildInventoryStacksFromRows(
+                    (new ProfessionRepository())->getMaterialsByUserId($userId)
+                )
             );
 
             return [

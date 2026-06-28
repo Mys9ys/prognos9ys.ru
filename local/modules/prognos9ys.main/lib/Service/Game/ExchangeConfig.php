@@ -25,6 +25,10 @@ class ExchangeConfig
     public const KIND_PREMIUM_SCROLL = 'premium_scroll';
     public const KIND_LOOT = 'loot';
     public const KIND_PENNANT = 'pennant';
+    public const KIND_MATERIAL = 'material';
+
+    public const MATERIAL_CATEGORY_NORMAL = 'normal';
+    public const MATERIAL_CATEGORY_PREMIUM = 'premium';
 
     public const ESCROW_REF_TYPE = 'exchange_listing';
 
@@ -34,6 +38,7 @@ class ExchangeConfig
         self::KIND_PENNANT => 5,
         self::KIND_PREMIUM_SCROLL => 10,
         self::KIND_LOOT => 20,
+        self::KIND_MATERIAL => 50,
     ];
 
     public const PALLET_LIMIT_XP_BANK = 10;

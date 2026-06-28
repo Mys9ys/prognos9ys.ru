@@ -3,33 +3,32 @@
 namespace Prognos9ys\Main\Service\Game;
 
 /**
- * Экономика профессий: единая оплата труда, комбо, премиум-дроп.
+ * Экономика профессий: оплата труда, XP, комбо, награды за уровень.
  */
 class ProfessionEconomyConfig
 {
     public const ITERATION_MINUTES = 5;
 
-    /** Оплата за итерацию при работе на казну / заказчика (🪙). */
     public const PAY_TREASURY_PER_ITERATION = 2.0;
 
-    /** Плата игрока за итерацию в режиме «для себя» (🪙). */
     public const FEE_SELF_PER_ITERATION = 0.5;
 
-    /** Итераций без премиума за ~30 мин, затем ручной перезапуск. */
     public const FREE_ITERATIONS_PER_SESSION = 6;
 
-    /** Номинал обычного сырья на бирже (🪙). */
     public const NOMINAL_RAW = 5.0;
 
-    /** Номинал переработанного материала на бирже (🪙). */
     public const NOMINAL_PROCESSED = 9.0;
 
-    /** 1 слиток → гвозди (только для построек, не на биржу в MVP). */
     public const NAILS_PER_INGOT = 20;
 
-    /**
-     * Шанс комбо ×2 (0..1) по уровню профессии.
-     */
+    public const PROFESSION_LEVEL_ABSOLUTE_MAX = 10;
+
+    /** XP за 1 ед. обычного ресурса (× комбо). */
+    public const XP_PER_NORMAL_UNIT = 2;
+
+    /** XP за 1 премиум (без комбо). */
+    public const XP_PER_PREMIUM_UNIT = 5;
+
     public static function comboDoubleChance(int $level): float
     {
         $level = max(1, $level);
@@ -37,9 +36,6 @@ class ProfessionEconomyConfig
         return min(0.30, 0.06 + ($level - 1) * 0.03);
     }
 
-    /**
-     * Шанс комбо ×3 (0..1) по уровню профессии.
-     */
     public static function comboTripleChance(int $level): float
     {
         if ($level < 3) {
@@ -49,9 +45,6 @@ class ProfessionEconomyConfig
         return min(0.05, ($level - 2) * 0.005);
     }
 
-    /**
-     * Шанс премиум-дропа за итерацию (отдельный ролл, не умножается комбо).
-     */
     public static function premiumDropChance(int $level): float
     {
         $level = max(1, $level);
@@ -69,11 +62,51 @@ class ProfessionEconomyConfig
             'stone' => ['code' => 'marble', 'label' => 'Мрамор', 'nominal' => 80.0],
             'ore' => ['code' => 'gold_nugget', 'label' => 'Самородок', 'nominal' => 90.0],
             'sand' => ['code' => 'quartz', 'label' => 'Кварц', 'nominal' => 70.0],
+            'cotton' => ['code' => 'silk', 'label' => 'Шёлк', 'nominal' => 75.0],
         ];
     }
 
-    /**
-     * Премиум при работе на казну всегда остаётся добытчику (обычный дроп — на госсклад).
-     */
     public const PREMIUM_ON_TREASURY_WORK_GOES_TO_PLAYER = true;
+
+    /** Комбо ×2/×3: доп. единицы обычного ресурса игроку, не на госсклад. */
+    public const COMBO_BONUS_ON_TREASURY_WORK_GOES_TO_PLAYER = true;
+
+    /**
+     * @return array{
+     *   prognobaks:float,
+     *   rublius:float,
+     *   material_qty:int,
+     *   chests:int,
+     *   title:?string
+     * }
+     */
+    public static function getProfessionLevelReward(int $level): array
+    {
+        if ($level <= 0) {
+            return [
+                'prognobaks' => 0.0,
+                'rublius' => 0.0,
+                'material_qty' => 0,
+                'chests' => 0,
+                'title' => null,
+            ];
+        }
+
+        $player = GameEconomyConfig::getLevelUpReward($level);
+        $materialQty = ($level % 5 === 0) ? 5 : 3;
+        $chests = 0;
+        if ($level === 5) {
+            $chests = 1;
+        } elseif ($level === 10) {
+            $chests = 2;
+        }
+
+        return [
+            'prognobaks' => round($player['prognobaks'] * 0.4, 1),
+            'rublius' => round($player['rublius'] * 0.4, 1),
+            'material_qty' => $materialQty,
+            'chests' => $chests,
+            'title' => $level === 10 ? 'Мастер' : null,
+        ];
+    }
 }

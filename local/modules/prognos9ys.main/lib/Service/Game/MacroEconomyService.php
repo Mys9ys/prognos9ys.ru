@@ -94,6 +94,28 @@ class MacroEconomyService
                     ),
                 ],
                 'gov_support' => $govSupport,
+                'profession' => [
+                    'treasury_out' => $this->repository->sumTreasuryTxAmountByReasons(
+                        ['profession_work_pay'],
+                        GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                        'debit'
+                    ),
+                    'treasury_in' => $this->repository->sumTreasuryTxAmountByReasons(
+                        ['profession_work_fee'],
+                        GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                        'credit'
+                    ),
+                    'hands_in' => $this->repository->sumWalletTxAmountByReasons(
+                        ['profession_work_pay'],
+                        GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                        'credit'
+                    ),
+                    'hands_out' => $this->repository->sumWalletTxAmountByReasons(
+                        ['profession_work_fee'],
+                        GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                        'debit'
+                    ),
+                ],
             ],
         ];
     }

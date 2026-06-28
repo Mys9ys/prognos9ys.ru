@@ -115,6 +115,27 @@
               </div>
             </div>
 
+            <div class="section ledger_section" v-if="treasury?.ledger?.length">
+              <div class="section_title">Журнал казны</div>
+              <p class="hint">Последние операции: выплаты населению, поступления, лавка, гос. вклады.</p>
+              <div class="ledger_list">
+                <div v-for="row in treasury.ledger" :key="row.id" class="ledger_row">
+                  <div class="ledger_head">
+                    <span class="ledger_reason">{{ row.reason_label || row.reason }}</span>
+                    <span class="ledger_amount" :class="{ out: row.amount < 0, in: row.amount > 0 }">
+                      {{ row.amount > 0 ? '+' : '' }}{{ formatMoney(row.amount) }}
+                      <AppIcon :name="row.currency === 'rublius' ? 'rublius' : 'prognobak'" :size="12" />
+                    </span>
+                  </div>
+                  <div class="ledger_meta">
+                    <span v-if="row.user_name">{{ row.user_name }}</span>
+                    <span v-if="row.created_at">{{ row.created_at }}</span>
+                    <span>остаток {{ formatMoney(row.balance_after) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <p class="hint">«В банках» — частные банки игроков и пул ставок ЧМ. Среднее = общая масса ÷ число аккаунтов. Оборот — доля не в казне.</p>
           </div>
         </template>
@@ -166,6 +187,86 @@
           </div>
           <p v-else class="hint section_hint">Нет доступных соревнований для гос. вкладов.</p>
         </template>
+
+        <template v-else-if="activeMainTab === 'warehouses'">
+          <div class="section" v-if="warehouses">
+            <div class="section_title">Государственные склады</div>
+            <p class="hint">
+              Сырьё и товары, поступившие с фарма на казну. Нулевые позиции — в каталоге, но на складе пока нет.
+            </p>
+            <p class="hint warehouse_totals" v-if="warehouses.totals">
+              На складе: <strong>{{ warehouses.totals.total_units }}</strong> ед.
+              ({{ warehouses.totals.items_with_stock }} видов с остатком)
+            </p>
+
+            <div class="warehouse_subtabs" v-if="warehouseGroups.length">
+              <button
+                v-for="group in warehouseGroups"
+                :key="group.id"
+                type="button"
+                class="warehouse_subtab"
+                :class="{ active: activeWarehouseGroupId === group.id }"
+                @click="activeWarehouseGroupId = group.id"
+              >{{ group.label }}</button>
+            </div>
+
+            <div class="warehouse_items" v-if="activeWarehouseGroup">
+              <div class="subsection_title">
+                {{ activeWarehouseGroup.label }} — всего {{ activeWarehouseGroup.total_qty }} ед.
+              </div>
+              <div
+                v-for="item in activeWarehouseGroup.items"
+                :key="item.code"
+                class="stock_row"
+              >
+                <span class="stock_label">
+                  <span class="stock_emoji">{{ item.emoji || '📦' }}</span>
+                  {{ item.label }}
+                  <span v-if="item.is_premium" class="premium_tag">★</span>
+                </span>
+                <span class="stock_qty" :class="{ zero: item.qty <= 0 }">{{ item.qty }}</span>
+              </div>
+            </div>
+
+            <div class="macro_block macro_monitor" v-if="warehouseFlows">
+              <div class="macro_currency_title">Оборот по фарму (🪙)</div>
+              <div class="macro_row">
+                <span>Казна → на руки (оплата работы)</span>
+                <span class="macro_value">{{ formatMoney(warehouseFlows.treasury_out) }}</span>
+              </div>
+              <div class="macro_row">
+                <span>На руки → казна (сбор за работу)</span>
+                <span class="macro_value">{{ formatMoney(warehouseFlows.treasury_in) }}</span>
+              </div>
+              <div class="macro_row">
+                <span>Зачислено игрокам</span>
+                <span class="macro_value">{{ formatMoney(warehouseFlows.hands_in) }}</span>
+              </div>
+            </div>
+
+            <div class="ledger_section" v-if="warehouses.ledger?.length">
+              <div class="subsection_title">Журнал по фарму</div>
+              <p class="hint">Выплаты и сборы, связанные с профессиями и госскладом.</p>
+              <div class="ledger_list">
+                <div v-for="row in warehouses.ledger" :key="row.id" class="ledger_row">
+                  <div class="ledger_head">
+                    <span class="ledger_reason">{{ row.reason_label || row.reason }}</span>
+                    <span class="ledger_amount" :class="{ out: row.amount < 0, in: row.amount > 0 }">
+                      {{ row.amount > 0 ? '+' : '' }}{{ formatMoney(row.amount) }}
+                      <AppIcon :name="row.currency === 'rublius' ? 'rublius' : 'prognobak'" :size="12" />
+                    </span>
+                  </div>
+                  <div class="ledger_meta">
+                    <span v-if="row.user_name">{{ row.user_name }}</span>
+                    <span v-if="row.created_at">{{ row.created_at }}</span>
+                    <span>остаток {{ formatMoney(row.balance_after) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p v-else class="hint section_hint">Нет данных по складам.</p>
+        </template>
       </div>
     </template>
   </div>
@@ -190,10 +291,12 @@ export default {
   data() {
     return {
       activeMainTab: 'overview',
+      activeWarehouseGroupId: 'gather',
       treasuryLoading: false,
       actionLoading: false,
       treasury: null,
       macro: null,
+      warehouses: null,
       banks: [],
       govDeposits: [],
       selectedGovBankId: 0,
@@ -222,7 +325,19 @@ export default {
       return [
         { id: 'overview', label: 'Общая информация' },
         { id: 'gov', label: 'Гос. поддержка' },
+        { id: 'warehouses', label: 'Склады' },
       ];
+    },
+    warehouseGroups() {
+      return this.warehouses?.groups || [];
+    },
+    activeWarehouseGroup() {
+      return this.warehouseGroups.find((group) => group.id === this.activeWarehouseGroupId)
+        || this.warehouseGroups[0]
+        || null;
+    },
+    warehouseFlows() {
+      return this.warehouses?.flows?.profession || null;
     },
     prognobakRows() {
       return [
@@ -267,6 +382,15 @@ export default {
       }
       if (!bankList.some((b) => b.id === this.selectedGovBankId)) {
         this.selectedGovBankId = bankList[0].id;
+      }
+    },
+    warehouseGroups(groups) {
+      if (!groups.length) {
+        this.activeWarehouseGroupId = 'gather';
+        return;
+      }
+      if (!groups.some((group) => group.id === this.activeWarehouseGroupId)) {
+        this.activeWarehouseGroupId = groups[0].id;
       }
     },
   },
@@ -314,6 +438,7 @@ export default {
         if (data?.status === 'ok') {
           this.treasury = data.treasury || null;
           this.macro = data.macro || null;
+          this.warehouses = data.warehouses || null;
         } else {
           this.error = data?.message || 'Не удалось загрузить казну';
         }
@@ -566,6 +691,124 @@ export default {
 .gov_empty,
 .section_hint {
   margin: 0;
+}
+
+.warehouse_totals strong {
+  color: @yellow;
+}
+
+.warehouse_subtabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.warehouse_subtab {
+  background: @darkbg;
+  color: @colorText;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-size: 11px;
+  cursor: pointer;
+
+  &.active {
+    background: @orange;
+    color: #fff;
+  }
+}
+
+.warehouse_items {
+  margin-bottom: 10px;
+}
+
+.stock_row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: @colorBlur;
+  padding: 3px 0;
+}
+
+.stock_label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: @colorText;
+}
+
+.stock_emoji {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.premium_tag {
+  color: @yellow;
+  margin-left: 4px;
+}
+
+.stock_qty {
+  font-weight: 600;
+  color: @colorText;
+
+  &.zero {
+    color: fade(@colorBlur, 70%);
+    font-weight: 400;
+  }
+}
+
+.ledger_section {
+  margin-top: 10px;
+}
+
+.ledger_list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.ledger_row {
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: fade(@darkbg, 50%);
+}
+
+.ledger_head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.ledger_reason {
+  color: @colorText;
+}
+
+.ledger_amount {
+  flex-shrink: 0;
+  font-weight: 600;
+
+  &.out {
+    color: #f88;
+  }
+
+  &.in {
+    color: @yellow;
+  }
+}
+
+.ledger_meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 3px;
+  font-size: 11px;
+  color: @colorBlur;
 }
 
 .event_pick {

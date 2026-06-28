@@ -131,6 +131,13 @@ class ExchangeNominalConfig
         return round($nominal * ExchangeConfig::SELLER_PRICE_CAP_MULTIPLIER, 1);
     }
 
+    public static function getMaterialNominal(string $materialCode): float
+    {
+        $catalog = ProfessionMaterialConfig::materialCatalog();
+
+        return (float)($catalog[$materialCode]['nominal'] ?? ProfessionEconomyConfig::NOMINAL_RAW);
+    }
+
     public static function getPalletLimit(string $kind, string $itemCode = '', string $category = ''): int
     {
         if ($kind === ExchangeConfig::KIND_CHEST || $kind === ExchangeConfig::KIND_PENNANT) {
@@ -149,6 +156,10 @@ class ExchangeNominalConfig
                 return ExchangeConfig::PALLET_LIMIT_CERT;
             }
 
+            return ExchangeConfig::PALLET_LIMITS[$kind];
+        }
+
+        if ($kind === ExchangeConfig::KIND_MATERIAL) {
             return ExchangeConfig::PALLET_LIMITS[$kind];
         }
 

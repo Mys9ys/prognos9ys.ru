@@ -6,6 +6,7 @@ use Bitrix\Main\Loader;
 use Bitrix\Main\Type\DateTime;
 use Prognos9ys\Main\Model\Repository\FootballResultsRepository;
 use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
+use Prognos9ys\Main\Model\Repository\ProfessionRepository;
 
 class AchievementService
 {
@@ -13,6 +14,7 @@ class AchievementService
     private GameEventScopeService $scopeService;
     private WalletService $walletService;
     private TreasureService $treasureService;
+    private ProfessionRepository $professionRepository;
 
     /** @var array<int, array<string, int|float>>|null */
     private static ?array $batchStatsCache = null;
@@ -28,6 +30,7 @@ class AchievementService
         $this->scopeService = $scopeService ?? new GameEventScopeService();
         $this->walletService = new WalletService($this->repository);
         $this->treasureService = new TreasureService($this->repository);
+        $this->professionRepository = new ProfessionRepository();
     }
 
     public function getForUser(int $userId): array
@@ -553,6 +556,7 @@ class AchievementService
             'rublius' => 0.0,
             'chests' => 0,
             'pennant' => null,
+            'materials' => [],
         ];
 
         $reward = is_array($reward) ? $reward : [];
@@ -579,6 +583,14 @@ class AchievementService
                     $targetThreshold,
                     $chests
                 );
+            } elseif (AchievementConfig::grantsProfessionChest($code)
+                || (($reward['chest_type'] ?? '') === 'profession')) {
+                $granted = $this->treasureService->grantProfessionAchievementChests(
+                    $userId,
+                    $code,
+                    $targetThreshold,
+                    $chests
+                );
             } else {
                 $granted = $this->treasureService->grantAchievementChests(
                     $userId,
@@ -588,6 +600,28 @@ class AchievementService
                 );
             }
             $given['chests'] = $granted ? $chests : 0;
+            $given['chest_type'] = (string)($reward['chest_type'] ?? 'achievement');
+        }
+
+        $materials = $reward['materials'] ?? [];
+        if (is_array($materials)) {
+            foreach ($materials as $material) {
+                if (!is_array($material)) {
+                    continue;
+                }
+                $materialCode = (string)($material['code'] ?? '');
+                $qty = (int)($material['qty'] ?? 0);
+                $isPremium = !empty($material['is_premium']);
+                if ($materialCode === '' || $qty <= 0) {
+                    continue;
+                }
+                $this->professionRepository->addUserMaterialQty($userId, $materialCode, $qty, $isPremium);
+                $given['materials'][] = [
+                    'code' => $materialCode,
+                    'qty' => $qty,
+                    'is_premium' => $isPremium,
+                ];
+            }
         }
 
         $pennant = (string)($reward['pennant'] ?? '');
@@ -626,7 +660,7 @@ class AchievementService
             'chests_opened' => $this->repository->sumOpenedTreasureChestsForUser($userId),
             'chests_earned' => $this->repository->sumEarnedTreasureChestsForUser($userId),
             'rublius_earned' => (int)round($this->repository->sumRubliusEarnedForUser($userId)),
-        ], $metrics);
+        ], $metrics, $this->professionRepository->getYieldStatsByUserId($userId));
     }
 
     private function resolveProgress(array $definition, array $stats): int

@@ -27,6 +27,12 @@ class GameEconomyHlInstaller
     public const TABLE_EXCHANGE_LISTING = 'prognos9ys_exchange_listing';
     public const TABLE_EXCHANGE_TRADE = 'prognos9ys_exchange_trade';
     public const TABLE_EXCHANGE_NOMINAL = 'prognos9ys_exchange_nominal';
+    public const TABLE_USER_PROFESSION = 'prognos9ys_user_profession';
+    public const TABLE_PROFESSION_SESSION = 'prognos9ys_profession_session';
+    public const TABLE_USER_MATERIAL = 'prognos9ys_user_material';
+    public const TABLE_GOV_WAREHOUSE = 'prognos9ys_gov_warehouse';
+    public const TABLE_CONSTRUCTION_PROJECT = 'prognos9ys_construction_project';
+    public const TABLE_TREASURY_TX = 'prognos9ys_treasury_tx';
 
     public function install(): array
     {
@@ -240,6 +246,34 @@ class GameEconomyHlInstaller
     }
 
     /**
+     * Журнал операций казны (поступления / выплаты населению).
+     */
+    public function upgradeTreasuryLedger(): array
+    {
+        if (!Loader::includeModule('highloadblock')) {
+            throw new \RuntimeException('Модуль highloadblock не установлен');
+        }
+
+        $txHlId = $this->ensureHlBlock('Prognos9ysTreasuryTx', self::TABLE_TREASURY_TX, [
+            'UF_BANK_CODE' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_CURRENCY' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_AMOUNT' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
+            'UF_BALANCE_AFTER' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
+            'UF_REASON' => ['USER_TYPE_ID' => 'string'],
+            'UF_REF_TYPE' => ['USER_TYPE_ID' => 'string'],
+            'UF_REF_ID' => ['USER_TYPE_ID' => 'integer'],
+            'UF_USER_ID' => ['USER_TYPE_ID' => 'integer'],
+            'UF_CREATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+        ]);
+
+        $this->ensureStateTreasurySeed();
+
+        return [
+            'treasury_tx_hl_id' => $txHlId,
+        ];
+    }
+
+    /**
      * Реестр матчей с внесённым результатом и прогнанным пересчётом (тур экономики).
      */
     public function upgradeMatchEconomySettlement(): array
@@ -354,6 +388,75 @@ class GameEconomyHlInstaller
             'exchange_listing_hl_id' => $listingHlId,
             'exchange_trade_hl_id' => $tradeHlId,
             'exchange_nominal_hl_id' => $nominalHlId,
+        ];
+    }
+
+    /**
+     * HL фарма: профессии, сессии работы, материалы, госсклад, стройки.
+     */
+    public function upgradeProfessionHl(): array
+    {
+        if (!Loader::includeModule('highloadblock')) {
+            throw new \RuntimeException('Модуль highloadblock не установлен');
+        }
+
+        $professionHlId = $this->ensureHlBlock('Prognos9ysUserProfession', self::TABLE_USER_PROFESSION, [
+            'UF_USER_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_PROFESSION_CODE' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_LEVEL' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_XP' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_NORMAL_YIELD' => ['USER_TYPE_ID' => 'integer'],
+            'UF_PREMIUM_YIELD' => ['USER_TYPE_ID' => 'integer'],
+            'UF_SLOT_INDEX' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_CREATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+            'UF_UPDATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+        ]);
+
+        $sessionHlId = $this->ensureHlBlock('Prognos9ysProfessionSession', self::TABLE_PROFESSION_SESSION, [
+            'UF_USER_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_PROFESSION_CODE' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_WORK_MODE' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_STATUS' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_ITERATIONS_DONE' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_ITERATIONS_TOTAL' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_NEXT_TICK_AT' => ['USER_TYPE_ID' => 'datetime'],
+            'UF_STARTED_AT' => ['USER_TYPE_ID' => 'datetime'],
+            'UF_UPDATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+            'UF_LAST_RESULT_JSON' => ['USER_TYPE_ID' => 'string'],
+        ]);
+
+        $materialHlId = $this->ensureHlBlock('Prognos9ysUserMaterial', self::TABLE_USER_MATERIAL, [
+            'UF_USER_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_MATERIAL_CODE' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_QTY' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_IS_PREMIUM' => ['USER_TYPE_ID' => 'string'],
+            'UF_UPDATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+        ]);
+
+        $warehouseHlId = $this->ensureHlBlock('Prognos9ysGovWarehouse', self::TABLE_GOV_WAREHOUSE, [
+            'UF_MATERIAL_CODE' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_QTY' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_UPDATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+        ]);
+
+        $projectHlId = $this->ensureHlBlock('Prognos9ysConstructionProject', self::TABLE_CONSTRUCTION_PROJECT, [
+            'UF_OWNER_USER_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_RECIPE_CODE' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_KIND' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_PROGRESS' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_STATUS' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_STASH_JSON' => ['USER_TYPE_ID' => 'string'],
+            'UF_BRIGADE_JSON' => ['USER_TYPE_ID' => 'string'],
+            'UF_CREATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+            'UF_UPDATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+        ]);
+
+        return [
+            'user_profession_hl_id' => $professionHlId,
+            'profession_session_hl_id' => $sessionHlId,
+            'user_material_hl_id' => $materialHlId,
+            'gov_warehouse_hl_id' => $warehouseHlId,
+            'construction_project_hl_id' => $projectHlId,
         ];
     }
 

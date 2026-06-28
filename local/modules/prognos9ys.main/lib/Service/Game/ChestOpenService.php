@@ -10,6 +10,7 @@ class ChestOpenService
     public const POOL_WC26 = 'wc26';
     public const POOL_LEVEL = 'level';
     public const POOL_ACHIEVEMENT = 'achievement';
+    public const POOL_PROFESSION = 'profession';
 
     private const MAX_OPEN_ALL = 30;
 
@@ -39,6 +40,11 @@ class ChestOpenService
     public function openAchievementChests(int $userId, bool $openAll): array
     {
         return $this->openChests($userId, self::POOL_ACHIEVEMENT, $openAll);
+    }
+
+    public function openProfessionChests(int $userId, bool $openAll): array
+    {
+        return $this->openChests($userId, self::POOL_PROFESSION, $openAll);
     }
 
     /**
@@ -81,7 +87,7 @@ class ChestOpenService
                 break;
             }
 
-            $loot = $this->rollLoot($config['generic_block3']);
+            $loot = $this->rollLootForConfig($config);
             $this->applyLoot($userId, $config['loot_event_id'], (int)$chest['ID'], $loot);
             $persistMeta = $this->logService->extractPersistFieldsFromChest($chest);
             $this->repository->addChestOpenLog(array_merge([
@@ -127,6 +133,7 @@ class ChestOpenService
                 'loot_event_id' => $this->scopeService->getAnchorEventId(),
                 'generic_block3' => false,
                 'empty_error' => 'Нет закрытых сундуков ЧМ-26',
+                'profession_loot' => false,
             ];
         }
 
@@ -136,6 +143,7 @@ class ChestOpenService
                 'loot_event_id' => ChestLootConfig::LOOT_EVENT_GLOBAL,
                 'generic_block3' => true,
                 'empty_error' => 'Нет сундуков за уровень',
+                'profession_loot' => false,
             ];
         }
 
@@ -145,10 +153,34 @@ class ChestOpenService
                 'loot_event_id' => ChestLootConfig::LOOT_EVENT_GLOBAL,
                 'generic_block3' => true,
                 'empty_error' => 'Нет сундуков за ачивки',
+                'profession_loot' => false,
+            ];
+        }
+
+        if ($pool === self::POOL_PROFESSION) {
+            return [
+                'types' => [TreasureService::CHEST_TYPE_PROFESSION],
+                'loot_event_id' => ChestLootConfig::LOOT_EVENT_GLOBAL,
+                'generic_block3' => false,
+                'empty_error' => 'Нет сундуков профессий',
+                'profession_loot' => true,
             ];
         }
 
         throw new \InvalidArgumentException('Неизвестный пул сундуков');
+    }
+
+    /**
+     * @param array{types:string[],loot_event_id:int,generic_block3:bool,empty_error:string,profession_loot?:bool} $config
+     * @return array{block1:array|null,block2:array|null,block3:array|null}
+     */
+    private function rollLootForConfig(array $config): array
+    {
+        if (!empty($config['profession_loot'])) {
+            return ChestLootConfig::rollProfessionLoot();
+        }
+
+        return $this->rollLoot((bool)$config['generic_block3']);
     }
 
     /**
