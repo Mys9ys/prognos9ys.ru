@@ -94,6 +94,7 @@ class WealthRatingService
 
         $total = count($prepared);
         $users = $this->loadUsers(array_column($prepared, 'user_id'));
+        $loanMap = $poorestFirst ? $this->repository->getActiveLoanAggregatesByUser() : [];
 
         $ratings = [];
         $place = 0;
@@ -118,7 +119,7 @@ class WealthRatingService
 
             $userId = $row['user_id'];
             $extras = $this->buildRowExtras($userId, $pendingMap);
-            $ratings[] = array_merge([
+            $rowData = [
                 'place' => $place,
                 'user' => $this->resolveUser($users, $userId),
                 'prognobaks' => $row['prognobaks'],
@@ -126,7 +127,15 @@ class WealthRatingService
                 'level' => $levelMap[$userId] ?? 0,
                 'total' => $row['total'],
                 'score' => $row['total'],
-            ], $extras);
+            ];
+
+            if ($poorestFirst) {
+                $loans = $loanMap[$userId] ?? ['count' => 0, 'total_due' => 0.0];
+                $rowData['active_loans_count'] = (int)($loans['count'] ?? 0);
+                $rowData['active_loans_due'] = round((float)($loans['total_due'] ?? 0), 1);
+            }
+
+            $ratings[] = array_merge($rowData, $extras);
 
             $prevTotal = $row['total'];
         }

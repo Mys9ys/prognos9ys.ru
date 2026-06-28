@@ -150,6 +150,7 @@
           <th v-if="isRubliusMode"><AppIcon name="rublius" :size="16" /></th>
           <th v-if="!isTreasureMode && !isRubliusMode && mode !== 'pending_xp' && mode !== 'pending_achievements'"><AppIcon name="prognobak" :size="16" /></th>
           <th v-if="!isTreasureMode && !isRubliusMode && mode !== 'pending_xp' && mode !== 'pending_achievements'"><AppIcon name="rublius" :size="16" /></th>
+          <th v-if="showLoanDebtColumn" title="Сумма к возврату по активным займам"><AppIcon name="bank" :size="16" /></th>
         </tr>
         </thead>
         <tbody>
@@ -240,6 +241,12 @@
           <td class="money rublius_score" v-if="isRubliusMode">{{ formatMoney(el.rublius) }}</td>
           <td class="money" v-if="!isTreasureMode && !isRubliusMode && mode !== 'pending_xp' && mode !== 'pending_achievements'">{{ formatMoney(el.prognobaks) }}</td>
           <td class="money" v-if="!isTreasureMode && !isRubliusMode && mode !== 'pending_xp' && mode !== 'pending_achievements'">{{ formatMoney(el.rublius) }}</td>
+          <td
+              class="money loan_debt"
+              v-if="showLoanDebtColumn"
+              :class="{ has_debt: Number(el.active_loans_due) > 0 }"
+              :title="loanDebtTitle(el)"
+          >{{ formatLoanDebt(el) }}</td>
         </tr>
         </tbody>
       </table>
@@ -341,6 +348,9 @@ export default {
     showLevelColumn() {
       return this.mode === 'rich' || this.mode === 'poor' || this.mode === 'rublius_rich';
     },
+    showLoanDebtColumn() {
+      return this.mode === 'poor';
+    },
     isTreasureMode() {
       return this.mode === 'treasure_rich';
     },
@@ -415,7 +425,7 @@ export default {
         return 'Количество ачивок с незабранной наградой · сортировка по убыванию';
       }
       if (this.mode === 'poor') {
-        return 'Σ = прогнобаксы · 💎 отдельно · сортировка по возрастанию';
+        return 'Σ = прогнобаксы на кошельке · 🏦 = сумма к возврату по займам (×N — число контрактов)';
       }
       if (this.mode === 'treasure_rich') {
         return '🎁 = сумма закрытых сундучков · сортировка по убыванию';
@@ -831,6 +841,31 @@ export default {
       return Number.isInteger(num) ? String(num) : num.toFixed(1);
     },
 
+    formatLoanDebt(el) {
+      const due = Number(el?.active_loans_due ?? 0);
+      if (due <= 0) {
+        return '—';
+      }
+
+      const count = Number(el?.active_loans_count ?? 0);
+      const formatted = this.formatMoney(due);
+      return count > 1 ? `${formatted} (×${count})` : formatted;
+    },
+
+    loanDebtTitle(el) {
+      const count = Number(el?.active_loans_count ?? 0);
+      const due = Number(el?.active_loans_due ?? 0);
+      if (count <= 0 || due <= 0) {
+        return '';
+      }
+
+      if (count === 1) {
+        return `1 активный займ · к возврату ${this.formatMoney(due)} 🪙`;
+      }
+
+      return `${count} активных займа · к возврату ${this.formatMoney(due)} 🪙`;
+    },
+
     rowKey(el, index) {
       return el?.user?.id || index;
     },
@@ -1036,9 +1071,14 @@ export default {
     vertical-align: middle;
   }
 
-  .money, .total, .pending_xp, .pending_count, .pending_achievements, .rublius_score {
+  .money, .total, .pending_xp, .pending_count, .pending_achievements, .rublius_score, .loan_debt {
     text-align: right;
     white-space: nowrap;
+  }
+
+  .loan_debt.has_debt {
+    color: #f99;
+    font-weight: 600;
   }
 
   .total, .pending_xp {

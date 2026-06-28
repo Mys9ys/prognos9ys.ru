@@ -2758,6 +2758,43 @@ class GameEconomyRepository
         return $this->getLoansByFilter(['=UF_USER_ID' => $userId], ['ID' => 'DESC']);
     }
 
+    /**
+     * @return array<int, array{count:int,total_due:float}>
+     */
+    public function getActiveLoanAggregatesByUser(): array
+    {
+        $dataClass = $this->getBankLoanDataClass();
+        $map = [];
+        $response = $dataClass::getList([
+            'filter' => [
+                '@UF_STATUS' => [
+                    GameEconomyConfig::CONTRACT_STATUS_ACTIVE,
+                    GameEconomyConfig::CONTRACT_STATUS_EXTENDED,
+                ],
+            ],
+            'select' => ['UF_USER_ID', 'UF_PRINCIPAL'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $userId = (int)($row['UF_USER_ID'] ?? 0);
+            if ($userId <= 0) {
+                continue;
+            }
+
+            $principal = round((float)($row['UF_PRINCIPAL'] ?? 0), 1);
+            $due = round($principal + GameEconomyConfig::calculateLoanInterest($principal), 1);
+
+            if (!isset($map[$userId])) {
+                $map[$userId] = ['count' => 0, 'total_due' => 0.0];
+            }
+
+            $map[$userId]['count']++;
+            $map[$userId]['total_due'] = round($map[$userId]['total_due'] + $due, 1);
+        }
+
+        return $map;
+    }
+
     private function getLoansByFilter(array $filter, array $order = ['ID' => 'ASC']): array
     {
         $dataClass = $this->getBankLoanDataClass();
