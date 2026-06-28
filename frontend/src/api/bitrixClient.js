@@ -291,6 +291,10 @@ export const apiActions = {
             'prognos9ys:main.GameController.repayLoan',
             { userToken, loanId }
         ),
+        repayAllLoans: (userToken) => runBitrixAction(
+            'prognos9ys:main.GameController.repayAllLoans',
+            { userToken }
+        ),
         cancelDeposit: (userToken, depositId) => runBitrixAction(
             'prognos9ys:main.GameController.cancelDeposit',
             { userToken, depositId }

@@ -192,6 +192,14 @@ export const gameModule = {
             const res = await apiActions.game.repayLoan(userToken, loanId);
             return applyGamePayload(ctx, res);
         },
+        async repayAllLoans(ctx) {
+            const userToken = ctx.rootState.auth?.authData?.token;
+            if (!userToken) {
+                throw new Error('Требуется авторизация');
+            }
+            const res = await apiActions.game.repayAllLoans(userToken);
+            return applyGamePayload(ctx, res);
+        },
         async cancelDeposit(ctx, depositId) {
             const userToken = ctx.rootState.auth?.authData?.token;
             if (!userToken) {

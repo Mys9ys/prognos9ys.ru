@@ -244,6 +244,134 @@ class BankLoanService
         return self::formatContract($this->repository->getBankLoanById($loanId));
     }
 
+    /**
+     * @return array{
+     *   loan_count:int,
+     *   total_due:float,
+     *   wallet:float,
+     *   can_repay_all:bool,
+     *   reason?:string,
+     *   items:array<int, array{loan_id:int,action:string,due:float}>
+     * }
+     */
+    public function buildRepayAllPlan(int $userId): array
+    {
+        if ($userId <= 0) {
+            return [
+                'loan_count' => 0,
+                'total_due' => 0.0,
+                'wallet' => 0.0,
+                'can_repay_all' => false,
+                'reason' => 'no_loans',
+                'items' => [],
+            ];
+        }
+
+        $lifecycle = new BankContractLifecycleService(
+            $this->repository,
+            $this->walletService,
+            $this->scopeService
+        );
+        $items = [];
+        $totalDue = 0.0;
+
+        foreach ($this->repository->getLoansByUserId($userId) as $row) {
+            if (($row['UF_STATUS'] ?? '') === GameEconomyConfig::CONTRACT_STATUS_CLOSED) {
+                continue;
+            }
+
+            $loanId = (int)($row['ID'] ?? 0);
+            $cancel = $lifecycle->evaluateCancelEligibility($row, 'loan');
+            if ($cancel['can_cancel'] ?? false) {
+                $due = round((float)($row['UF_PRINCIPAL'] ?? 0), 1);
+                $items[] = ['loan_id' => $loanId, 'action' => 'cancel', 'due' => $due];
+                $totalDue = round($totalDue + $due, 1);
+                continue;
+            }
+
+            $repay = $this->evaluateEarlyRepayEligibility($row);
+            if ($repay['can_repay'] ?? false) {
+                $due = round((float)($repay['total_due'] ?? 0), 1);
+                $items[] = ['loan_id' => $loanId, 'action' => 'repay', 'due' => $due];
+                $totalDue = round($totalDue + $due, 1);
+                continue;
+            }
+
+            return [
+                'loan_count' => count($items),
+                'total_due' => $totalDue,
+                'wallet' => (float)($this->walletService->getWalletSummary($userId)['prognobaks'] ?? 0),
+                'can_repay_all' => false,
+                'reason' => (string)($repay['reason'] ?? 'blocked_loan'),
+                'blocked_loan_id' => $loanId,
+                'items' => $items,
+            ];
+        }
+
+        if (!$items) {
+            return [
+                'loan_count' => 0,
+                'total_due' => 0.0,
+                'wallet' => (float)($this->walletService->getWalletSummary($userId)['prognobaks'] ?? 0),
+                'can_repay_all' => false,
+                'reason' => 'no_loans',
+                'items' => [],
+            ];
+        }
+
+        $wallet = round((float)($this->walletService->getWalletSummary($userId)['prognobaks'] ?? 0), 1);
+
+        return [
+            'loan_count' => count($items),
+            'total_due' => $totalDue,
+            'wallet' => $wallet,
+            'can_repay_all' => $wallet >= $totalDue,
+            'reason' => $wallet >= $totalDue ? '' : 'insufficient_funds',
+            'items' => $items,
+        ];
+    }
+
+    /**
+     * @return array{
+     *   repaid_count:int,
+     *   total_paid:float,
+     *   loans:array<int, array<string, mixed>>
+     * }
+     */
+    public function repayAllLoans(int $userId): array
+    {
+        $plan = $this->buildRepayAllPlan($userId);
+        if (!($plan['can_repay_all'] ?? false)) {
+            throw new \RuntimeException($this->repayAllBlockMessage($plan));
+        }
+
+        $lifecycle = new BankContractLifecycleService(
+            $this->repository,
+            $this->walletService,
+            $this->scopeService
+        );
+        $closed = [];
+
+        foreach ($plan['items'] as $item) {
+            $loanId = (int)($item['loan_id'] ?? 0);
+            if ($loanId <= 0) {
+                continue;
+            }
+
+            if (($item['action'] ?? '') === 'cancel') {
+                $closed[] = $lifecycle->cancelLoan($userId, $loanId);
+            } else {
+                $closed[] = $this->repayLoanEarly($userId, $loanId);
+            }
+        }
+
+        return [
+            'repaid_count' => count($closed),
+            'total_paid' => (float)($plan['total_due'] ?? 0),
+            'loans' => $closed,
+        ];
+    }
+
     public function processMaturity(array $loan): void
     {
         $loanId = (int)$loan['ID'];
@@ -394,6 +522,32 @@ class BankLoanService
                 return 'До первого матча займ можно отменить без процентов';
             default:
                 return 'Досрочный возврат сейчас недоступен';
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $plan
+     */
+    private function repayAllBlockMessage(array $plan): string
+    {
+        $reason = (string)($plan['reason'] ?? '');
+        $total = round((float)($plan['total_due'] ?? 0), 1);
+        $wallet = round((float)($plan['wallet'] ?? 0), 1);
+
+        switch ($reason) {
+            case 'no_loans':
+                return 'Нет активных займов для погашения';
+            case 'insufficient_funds':
+                return 'Недостаточно средств: нужно ' . $total . ' 🪙, на кошельке ' . $wallet;
+            case 'funds_spent':
+                return 'Не все займы можно закрыть: средства уже потрачены';
+            case 'blocked_loan':
+                $loanId = (int)($plan['blocked_loan_id'] ?? 0);
+                return $loanId > 0
+                    ? 'Займ #' . $loanId . ' нельзя погасить сейчас'
+                    : 'Не все займы можно погасить сейчас';
+            default:
+                return 'Массовое погашение сейчас недоступно';
         }
     }
 }

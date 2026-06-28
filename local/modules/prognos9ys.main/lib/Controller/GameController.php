@@ -55,6 +55,7 @@ class GameController extends BaseController
             'takeLoan' => $this->getDefaultConfigureForPostToken(),
             'cancelLoan' => $this->getDefaultConfigureForPostToken(),
             'repayLoan' => $this->getDefaultConfigureForPostToken(),
+            'repayAllLoans' => $this->getDefaultConfigureForPostToken(),
             'cancelDeposit' => $this->getDefaultConfigureForPostToken(),
             'forceCloseDeposit' => $this->getDefaultConfigureForPostToken(),
             'closeBank' => $this->getDefaultConfigureForPostToken(),
@@ -315,6 +316,7 @@ class GameController extends BaseController
             'status' => 'ok',
             'deposits' => (new BankDepositService())->getMyContracts($userId),
             'loans' => (new BankLoanService())->getMyContracts($userId),
+            'repay_all' => (new BankLoanService())->buildRepayAllPlan($userId),
         ];
     }
 
@@ -423,6 +425,25 @@ class GameController extends BaseController
             'loan' => $loan,
             'game' => (new GameProfileService())->getSummary($userId),
         ];
+    }
+
+    public function repayAllLoansAction(): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        try {
+            $result = (new BankLoanService())->repayAllLoans($userId);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok'], $result, [
+            'game' => (new GameProfileService())->getSummary($userId),
+            'repay_all' => (new BankLoanService())->buildRepayAllPlan($userId),
+        ]);
     }
 
     public function cancelDepositAction(int $depositId): array

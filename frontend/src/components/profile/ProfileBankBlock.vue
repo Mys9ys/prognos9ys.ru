@@ -73,40 +73,6 @@
 
       <template v-else-if="activeMainTab === 'operations'">
         <div class="section">
-          <div class="section_title">Операции</div>
-          <div class="ops_tabs">
-            <button
-              v-for="tab in operationTabs"
-              :key="tab.id"
-              type="button"
-              class="ops_tab"
-              :class="{ active: activeOpsTab === tab.id }"
-              @click="activeOpsTab = tab.id"
-            >{{ tab.label }}</button>
-          </div>
-          <button class="btn secondary" :disabled="loading" @click="loadOperations">Обновить</button>
-          <div v-if="!filteredOperations.length" class="hint">Пока нет операций в этой категории</div>
-          <div class="operation" v-for="op in filteredOperations" :key="op.id">
-            <div class="operation_main">
-              <span class="operation_label">{{ op.label }}</span>
-              <span class="operation_amount" :class="op.direction">
-                {{ formatSignedAmount(op.amount) }}
-                <AppIcon name="prognobak" :size="14" />
-              </span>
-            </div>
-            <div class="meta">
-              {{ op.at }}
-              <span v-if="op.counterparty_name"> · {{ op.counterparty_name }}</span>
-              <span v-if="op.match_label"> · {{ op.match_label }}</span>
-              <span v-if="op.scope === 'bank'" class="badge">банк</span>
-              <span v-if="op.balance_after !== null && op.balance_after !== undefined">
-                · баланс {{ op.balance_after }}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div class="section">
           <div class="section_title">Мои контракты</div>
           <div v-if="!myContractsCount" class="hint">Нет активных вкладов и займов</div>
           <template v-else>
@@ -139,6 +105,25 @@
             </template>
             <template v-else>
               <div v-if="!myLoansCount" class="hint">Нет активных займов</div>
+              <div v-if="myLoansCount > 1 && repayAllSummary?.can_repay_all" class="repay_all_row">
+                <button
+                  type="button"
+                  class="btn repay_all_btn"
+                  :disabled="loading"
+                  @click="onRepayAllLoans"
+                >
+                  Вернуть все ({{ repayAllSummary.loan_count }}) —
+                  {{ formatAmount(repayAllSummary.total_due) }}
+                  <AppIcon name="prognobak" :size="14" />
+                </button>
+              </div>
+              <div
+                v-else-if="myLoansCount > 1 && repayAllSummary?.loan_count > 1 && repayAllSummary?.reason === 'insufficient_funds'"
+                class="hint repay_all_hint"
+              >
+                Для погашения всех займов нужно {{ formatAmount(repayAllSummary.total_due) }}
+                <AppIcon name="prognobak" :size="12" /> (на кошельке {{ formatAmount(repayAllSummary.wallet) }})
+              </div>
               <BankContractCard
                 v-for="l in contracts.loans"
                 :key="'l' + l.id"
@@ -151,6 +136,40 @@
               />
             </template>
           </template>
+        </div>
+
+        <div class="section">
+          <div class="section_title">Операции</div>
+          <div class="ops_tabs">
+            <button
+              v-for="tab in operationTabs"
+              :key="tab.id"
+              type="button"
+              class="ops_tab"
+              :class="{ active: activeOpsTab === tab.id }"
+              @click="activeOpsTab = tab.id"
+            >{{ tab.label }}</button>
+          </div>
+          <button class="btn secondary" :disabled="loading" @click="loadOperations">Обновить</button>
+          <div v-if="!filteredOperations.length" class="hint">Пока нет операций в этой категории</div>
+          <div class="operation" v-for="op in filteredOperations" :key="op.id">
+            <div class="operation_main">
+              <span class="operation_label">{{ op.label }}</span>
+              <span class="operation_amount" :class="op.direction">
+                {{ formatSignedAmount(op.amount) }}
+                <AppIcon name="prognobak" :size="14" />
+              </span>
+            </div>
+            <div class="meta">
+              {{ op.at }}
+              <span v-if="op.counterparty_name"> · {{ op.counterparty_name }}</span>
+              <span v-if="op.match_label"> · {{ op.match_label }}</span>
+              <span v-if="op.scope === 'bank'" class="badge">банк</span>
+              <span v-if="op.balance_after !== null && op.balance_after !== undefined">
+                · баланс {{ op.balance_after }}
+              </span>
+            </div>
+          </div>
         </div>
       </template>
 
@@ -300,6 +319,7 @@ export default {
       message: '',
       banks: [],
       contracts: { deposits: [], loans: [] },
+      repayAllSummary: null,
       operations: [],
       operationsLoaded: false,
       activeOpsTab: 'all',
@@ -396,8 +416,14 @@ export default {
       },
     },
     activeMainTab(val) {
-      if (val === 'operations' && !this.operationsLoaded) {
-        this.loadOperations();
+      if (val === 'operations') {
+        if (!this.operationsLoaded) {
+          this.loadOperations();
+        }
+        if (this.myLoansCount > 0) {
+          this.activeMyContractTab = 'loans';
+          this.activeOpsTab = 'loans';
+        }
       }
     },
     myBank(val) {
@@ -435,6 +461,7 @@ export default {
       'closeBank',
       'cancelLoan',
       'repayLoan',
+      'repayAllLoans',
       'cancelDeposit',
       'forceCloseDeposit',
       'closeGovSupportDeposit',
@@ -496,6 +523,7 @@ export default {
           deposits: res.deposits || [],
           loans: res.loans || [],
         };
+        this.repayAllSummary = res.repay_all || null;
       } catch (e) {
         this.error = e.message || 'Не удалось загрузить контракты';
       }
@@ -678,6 +706,38 @@ export default {
       }
       await this.cancelContract('loan', contract.id);
     },
+    async onRepayAllLoans() {
+      const summary = this.repayAllSummary;
+      if (!summary?.can_repay_all || summary.loan_count < 2) {
+        return;
+      }
+
+      const total = this.formatAmount(summary.total_due);
+      const msg = `Вернуть все займы (${summary.loan_count}): списать ${total} 🪙 с кошелька?`;
+      if (!window.confirm(msg)) {
+        return;
+      }
+
+      this.loading = true;
+      this.error = '';
+      this.message = '';
+      try {
+        const res = await this.repayAllLoans();
+        const count = Number(res?.repaid_count ?? summary.loan_count);
+        const paid = this.formatAmount(res?.total_paid ?? summary.total_due);
+        this.message = `Погашено займов: ${count}, списано ${paid} 🪙`;
+        this.repayAllSummary = res?.repay_all || null;
+        await this.refreshGameInfo();
+        await this.refresh();
+        this.operationsLoaded = false;
+        await this.loadOperations();
+        this.activeOpsTab = 'loans';
+      } catch (e) {
+        this.error = e.message || 'Не удалось погасить все займы';
+      } finally {
+        this.loading = false;
+      }
+    },
     async onRepayLoan(contract) {
       if (!contract?.id || !contract.can_early_repay) {
         return;
@@ -772,6 +832,22 @@ export default {
   font-size: 13px;
   color: @orange;
   margin-bottom: 6px;
+}
+
+.repay_all_row {
+  margin: 8px 0 10px;
+}
+
+.repay_all_btn {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.repay_all_hint {
+  margin: 6px 0 8px;
 }
 
 .bank_contracts_block {
