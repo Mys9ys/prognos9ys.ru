@@ -145,7 +145,9 @@
                 :contract="l"
                 kind="loan"
                 show-cancel
+                show-early-repay
                 @cancel="onCancelLoan"
+                @repay="onRepayLoan"
               />
             </template>
           </template>
@@ -432,6 +434,7 @@ export default {
       'takeLoan',
       'closeBank',
       'cancelLoan',
+      'repayLoan',
       'cancelDeposit',
       'forceCloseDeposit',
       'closeGovSupportDeposit',
@@ -674,6 +677,31 @@ export default {
         return;
       }
       await this.cancelContract('loan', contract.id);
+    },
+    async onRepayLoan(contract) {
+      if (!contract?.id || !contract.can_early_repay) {
+        return;
+      }
+
+      const total = contract.early_repay_due ?? contract.total_due ?? contract.principal;
+      const msg = `Вернуть займ досрочно: списать ${total} 🪙 с кошелька (тело + проценты)?`;
+      if (!window.confirm(msg)) {
+        return;
+      }
+
+      this.loading = true;
+      this.error = '';
+      this.message = '';
+      try {
+        await this.repayLoan(contract.id);
+        this.message = `Займ #${contract.id} погашен`;
+        await this.refreshGameInfo();
+        await this.refresh();
+      } catch (e) {
+        this.error = e.message || 'Не удалось вернуть займ';
+      } finally {
+        this.loading = false;
+      }
     },
     async cancelContract(kind, contractId) {
       this.loading = true;

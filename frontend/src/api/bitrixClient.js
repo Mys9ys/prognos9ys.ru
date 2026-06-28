@@ -287,6 +287,10 @@ export const apiActions = {
             'prognos9ys:main.GameController.cancelLoan',
             { userToken, loanId }
         ),
+        repayLoan: (userToken, loanId) => runBitrixAction(
+            'prognos9ys:main.GameController.repayLoan',
+            { userToken, loanId }
+        ),
         cancelDeposit: (userToken, depositId) => runBitrixAction(
             'prognos9ys:main.GameController.cancelDeposit',
             { userToken, depositId }
@@ -318,6 +322,10 @@ export const apiActions = {
         openChests: (userToken, pool, openAll = false) => runBitrixAction(
             'prognos9ys:main.GameController.openChests',
             { userToken, pool, openAll: openAll ? 1 : 0 }
+        ),
+        openXpBanks: (userToken, code, openAll = false) => runBitrixAction(
+            'prognos9ys:main.GameController.openXpBanks',
+            { userToken, code, openAll: openAll ? 1 : 0 }
         ),
         getChestOpenLogMeta: (userToken) => runBitrixAction(
             'prognos9ys:main.GameController.getChestOpenLogMeta',

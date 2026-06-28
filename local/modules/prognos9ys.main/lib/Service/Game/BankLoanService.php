@@ -94,6 +94,156 @@ class BankLoanService
         return $items;
     }
 
+    /**
+     * Сумма автоматического погашения при расчёте матча (с учётом уже списанных % при продлении).
+     *
+     * @return array{
+     *   principal:float,
+     *   interest_amount:float,
+     *   interest_paid:float,
+     *   interest_remaining:float,
+     *   total_due:float
+     * }
+     */
+    public static function getLoanRepaySummary(array $row, ?GameEconomyRepository $repository = null): array
+    {
+        $repository = $repository ?? new GameEconomyRepository();
+        $loanId = (int)($row['ID'] ?? 0);
+        $principal = round((float)($row['UF_PRINCIPAL'] ?? 0), 1);
+        $interestAmount = GameEconomyConfig::calculateLoanInterest($principal);
+
+        $interestPaid = 0.0;
+        if ($loanId > 0) {
+            foreach ($repository->getWalletTxByRefs('loan', [$loanId], ['bank_loan_interest']) as $tx) {
+                $interestPaid = round($interestPaid + abs((float)($tx['UF_AMOUNT'] ?? 0)), 1);
+            }
+        }
+
+        $interestRemaining = max(0.0, round($interestAmount - $interestPaid, 1));
+
+        return [
+            'principal' => $principal,
+            'interest_amount' => $interestAmount,
+            'interest_paid' => $interestPaid,
+            'interest_remaining' => $interestRemaining,
+            'total_due' => round($principal + $interestRemaining, 1),
+        ];
+    }
+
+    /**
+     * Досрочный возврат: всегда тело + полные проценты по этому займу.
+     * Не уменьшаем сумму из-за %, списанных при продлении других/этого контракта.
+     *
+     * @return array{principal:float,interest_amount:float,total_due:float}
+     */
+    public static function getEarlyRepayDue(array $row): array
+    {
+        $principal = round((float)($row['UF_PRINCIPAL'] ?? 0), 1);
+        $interestAmount = GameEconomyConfig::calculateLoanInterest($principal);
+
+        return [
+            'principal' => $principal,
+            'interest_amount' => $interestAmount,
+            'total_due' => round($principal + $interestAmount, 1),
+        ];
+    }
+
+    /**
+     * @return array{
+     *   can_repay:bool,
+     *   reason?:string,
+     *   principal?:float,
+     *   interest_amount?:float,
+     *   interest_paid?:float,
+     *   interest_remaining?:float,
+     *   total_due?:float
+     * }
+     */
+    public function evaluateEarlyRepayEligibility(array $row): array
+    {
+        $status = (string)($row['UF_STATUS'] ?? '');
+        if ($status === GameEconomyConfig::CONTRACT_STATUS_CLOSED) {
+            return ['can_repay' => false, 'reason' => 'closed'];
+        }
+
+        if ($status !== GameEconomyConfig::CONTRACT_STATUS_ACTIVE
+            && $status !== GameEconomyConfig::CONTRACT_STATUS_EXTENDED) {
+            return ['can_repay' => false, 'reason' => 'not_active'];
+        }
+
+        $loanId = (int)($row['ID'] ?? 0);
+        $userId = (int)($row['UF_USER_ID'] ?? 0);
+        if ($this->repository->hasWalletTx($userId, 'bank_loan_repay', 'loan', $loanId)
+            || $this->repository->hasWalletTx($userId, 'bank_loan_cancel', 'loan', $loanId)) {
+            return ['can_repay' => false, 'reason' => 'already_settled'];
+        }
+
+        $cancel = (new BankContractLifecycleService($this->repository, $this->walletService, $this->scopeService))
+            ->evaluateCancelEligibility($row, 'loan');
+        if ($cancel['can_cancel'] ?? false) {
+            return ['can_repay' => false, 'reason' => 'use_cancel'];
+        }
+
+        $summary = self::getEarlyRepayDue($row);
+        $wallet = $this->walletService->getWalletSummary($userId);
+        if ((float)$wallet['prognobaks'] < (float)$summary['total_due']) {
+            return array_merge($summary, ['can_repay' => false, 'reason' => 'insufficient_funds']);
+        }
+
+        return array_merge($summary, ['can_repay' => true]);
+    }
+
+    public function repayLoanEarly(int $userId, int $loanId): array
+    {
+        $loan = $this->repository->getBankLoanById($loanId);
+        if (!$loan) {
+            throw new \RuntimeException('Займ не найден');
+        }
+
+        if ((int)($loan['UF_USER_ID'] ?? 0) !== $userId) {
+            throw new \RuntimeException('Нет доступа к этому займу');
+        }
+
+        $check = $this->evaluateEarlyRepayEligibility($loan);
+        if (!($check['can_repay'] ?? false)) {
+            throw new \RuntimeException($this->earlyRepayBlockMessage($check['reason'] ?? '', $check));
+        }
+
+        $bankId = (int)($loan['UF_BANK_ID'] ?? 0);
+        $due = self::getEarlyRepayDue($loan);
+        $principal = (float)$due['principal'];
+        $interest = (float)$due['interest_amount'];
+        $total = (float)$due['total_due'];
+        $now = new DateTime();
+
+        $this->walletService->debit(
+            $userId,
+            GameEconomyConfig::CURRENCY_PROGNOBAKS,
+            $principal,
+            'bank_loan_repay',
+            'loan',
+            $loanId
+        );
+        if ($interest > 0) {
+            $this->walletService->debit(
+                $userId,
+                GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                $interest,
+                'bank_loan_interest',
+                'loan',
+                $loanId
+            );
+        }
+        $this->repository->creditUserBankLoanRepayment($bankId, $total);
+        $this->repository->updateBankLoan($loanId, [
+            'UF_STATUS' => GameEconomyConfig::CONTRACT_STATUS_CLOSED,
+            'UF_UPDATED_AT' => $now,
+            'UF_CLOSED_AT' => $now,
+        ]);
+
+        return self::formatContract($this->repository->getBankLoanById($loanId));
+    }
+
     public function processMaturity(array $loan): void
     {
         $loanId = (int)$loan['ID'];
@@ -149,6 +299,8 @@ class BankLoanService
         $term = (int)($row['UF_TERM_MATCHES'] ?? GameEconomyConfig::BANK_TERM_MATCHES);
         $since = (int)($row['UF_MATCHES_SINCE_START'] ?? 0);
         $principal = round((float)($row['UF_PRINCIPAL'] ?? 0), 1);
+        $maturitySummary = self::getLoanRepaySummary($row);
+        $earlyDue = self::getEarlyRepayDue($row);
         $scope = new GameEventScopeService();
         $opening = $scope->resolveOpeningMatchMeta($row);
         $lastTickMatchId = (int)($row['UF_LAST_TICK_MATCH_ID'] ?? 0);
@@ -156,7 +308,19 @@ class BankLoanService
         $maturityMatchNumber = $opening['opening_match_number'] > 0
             ? $opening['opening_match_number'] + $term
             : 0;
-        $cancel = (new BankContractLifecycleService())->evaluateCancelEligibility($row, 'loan');
+        $lifecycle = new BankContractLifecycleService();
+        $cancel = $lifecycle->evaluateCancelEligibility($row, 'loan');
+        $repay = (new self())->evaluateEarlyRepayEligibility($row);
+        $status = (string)($row['UF_STATUS'] ?? '');
+        $showEarlyRepay = !($cancel['can_cancel'] ?? false)
+            && in_array($status, [
+                GameEconomyConfig::CONTRACT_STATUS_ACTIVE,
+                GameEconomyConfig::CONTRACT_STATUS_EXTENDED,
+            ], true)
+            && ($repay['reason'] ?? '') !== 'already_settled';
+        $displayDue = ($cancel['can_cancel'] ?? false)
+            ? $principal
+            : (float)$earlyDue['total_due'];
 
         return [
             'id' => (int)$row['ID'],
@@ -164,8 +328,11 @@ class BankLoanService
             'user_id' => (int)($row['UF_USER_ID'] ?? 0),
             'principal' => $principal,
             'interest_rate' => round((float)($row['UF_INTEREST_RATE'] ?? 0), 1),
-            'interest_amount' => GameEconomyConfig::calculateLoanInterest($principal),
-            'total_due' => round($principal + GameEconomyConfig::calculateLoanInterest($principal), 1),
+            'interest_amount' => (float)$earlyDue['interest_amount'],
+            'interest_paid' => (float)$maturitySummary['interest_paid'],
+            'interest_remaining' => (float)$maturitySummary['interest_remaining'],
+            'total_due' => $displayDue,
+            'early_repay_due' => (float)$earlyDue['total_due'],
             'status' => (string)($row['UF_STATUS'] ?? ''),
             'matches_since_start' => $since,
             'term_matches' => $term,
@@ -183,6 +350,50 @@ class BankLoanService
             'last_tick_match_id' => $lastTickMatchId,
             'last_tick_match_label' => $scope->formatMatchLabel($lastTickMatchId),
             'can_cancel' => (bool)($cancel['can_cancel'] ?? false),
+            'show_early_repay' => $showEarlyRepay,
+            'can_early_repay' => (bool)($repay['can_repay'] ?? false),
+            'early_repay_hint' => self::buildEarlyRepayHint($repay),
         ];
+    }
+
+    /**
+     * @param array<string, mixed> $repay
+     */
+    private static function buildEarlyRepayHint(array $repay): string
+    {
+        if ($repay['can_repay'] ?? false) {
+            return '';
+        }
+
+        $reason = (string)($repay['reason'] ?? '');
+        $totalDue = round((float)($repay['total_due'] ?? 0), 1);
+
+        if ($reason === 'insufficient_funds' && $totalDue > 0) {
+            return 'Нужно ' . $totalDue . ' 🪙 на кошельке';
+        }
+
+        return '';
+    }
+
+    /**
+     * @param array<string, mixed> $check
+     */
+    private function earlyRepayBlockMessage(string $reason, array $check = []): string
+    {
+        switch ($reason) {
+            case 'insufficient_funds':
+                $total = round((float)($check['total_due'] ?? 0), 1);
+                return $total > 0
+                    ? 'Недостаточно средств: нужно ' . $total . ' 🪙'
+                    : 'Недостаточно средств на кошельке';
+            case 'already_settled':
+                return 'Займ уже закрыт или изменён';
+            case 'closed':
+                return 'Займ уже закрыт';
+            case 'use_cancel':
+                return 'До первого матча займ можно отменить без процентов';
+            default:
+                return 'Досрочный возврат сейчас недоступен';
+        }
     }
 }

@@ -3205,6 +3205,27 @@ class GameEconomyRepository
         return (int)($row['UF_COUNT'] ?? 0);
     }
 
+    public function findLootStackEventId(int $userId, string $itemCode, string $category = ''): ?int
+    {
+        if ($userId <= 0 || $itemCode === '') {
+            return null;
+        }
+
+        $eventIds = [ChestLootConfig::LOOT_EVENT_GLOBAL];
+        $anchorEventId = (new GameEventScopeService())->getAnchorEventId();
+        if ($anchorEventId > 0) {
+            $eventIds[] = $anchorEventId;
+        }
+
+        foreach ($eventIds as $eventId) {
+            if ($this->getLootItemCount($userId, $eventId, $itemCode, $category) > 0) {
+                return $eventId;
+            }
+        }
+
+        return null;
+    }
+
     public function decrementLootItem(int $userId, int $eventId, string $itemCode, int $qty): void
     {
         if ($userId <= 0 || $itemCode === '' || $qty <= 0) {

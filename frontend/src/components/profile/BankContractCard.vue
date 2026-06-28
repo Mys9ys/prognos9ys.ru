@@ -6,7 +6,7 @@
         {{ contract.principal }}
         <AppIcon name="prognobak" :size="14" />
         <template v-if="kind === 'loan'">
-          (к возврату {{ contract.total_due }})
+          (к возврату {{ loanDueLabel }})
         </template>
       </span>
     </div>
@@ -42,6 +42,18 @@
       <button class="btn_cancel" type="button" @click.stop="$emit('cancel', contract)">
         Отменить
       </button>
+    </div>
+    <div class="contract_actions early_repay" v-else-if="contract.show_early_repay && showEarlyRepay">
+      <button
+        class="btn_repay"
+        type="button"
+        :disabled="!contract.can_early_repay"
+        :title="contract.early_repay_hint || ''"
+        @click.stop="$emit('repay', contract)"
+      >
+        Вернуть {{ repayButtonAmount }} <AppIcon name="prognobak" :size="12" />
+      </button>
+      <span v-if="contract.early_repay_hint" class="force_hint">{{ contract.early_repay_hint }}</span>
     </div>
     <div class="contract_actions force_close" v-else-if="contract.can_force_close && showForceClose">
       <button class="btn_force_close" type="button" @click.stop="$emit('force-close', contract)">
@@ -98,6 +110,10 @@ export default {
       type: Boolean,
       default: false,
     },
+    showEarlyRepay: {
+      type: Boolean,
+      default: false,
+    },
     showForceClose: {
       type: Boolean,
       default: false,
@@ -122,6 +138,16 @@ export default {
       }
       const label = this.kind === 'loan' ? 'Займ' : 'Вклад';
       return `${label} #${this.contract.id}`;
+    },
+    loanDueLabel() {
+      if (this.contract.can_cancel) {
+        return this.contract.principal;
+      }
+
+      return this.contract.early_repay_due ?? this.contract.total_due;
+    },
+    repayButtonAmount() {
+      return this.contract.early_repay_due ?? this.contract.total_due;
     },
     isGovSupport() {
       return !!(this.contract.is_gov_support || this.contract.contract_type === 'gov_support');
@@ -325,6 +351,31 @@ export default {
   padding: 4px 10px;
   font-size: 11px;
   cursor: pointer;
+}
+
+.early_repay {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn_repay {
+  background: transparent;
+  color: @YesWrite;
+  border: 1px solid @YesWrite;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
 }
 
 .btn_close {

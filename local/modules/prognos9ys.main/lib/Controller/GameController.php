@@ -26,6 +26,7 @@ use Prognos9ys\Main\Service\Game\TreasuryShopService;
 use Prognos9ys\Main\Service\Game\UserBankService;
 use Prognos9ys\Main\Service\Game\WalletService;
 use Prognos9ys\Main\Service\Game\WealthRatingService;
+use Prognos9ys\Main\Service\Game\XpBankService;
 
 class GameController extends BaseController
 {
@@ -53,6 +54,7 @@ class GameController extends BaseController
             'createDeposit' => $this->getDefaultConfigureForPostToken(),
             'takeLoan' => $this->getDefaultConfigureForPostToken(),
             'cancelLoan' => $this->getDefaultConfigureForPostToken(),
+            'repayLoan' => $this->getDefaultConfigureForPostToken(),
             'cancelDeposit' => $this->getDefaultConfigureForPostToken(),
             'forceCloseDeposit' => $this->getDefaultConfigureForPostToken(),
             'closeBank' => $this->getDefaultConfigureForPostToken(),
@@ -61,6 +63,7 @@ class GameController extends BaseController
             'claimAchievement' => $this->getDefaultConfigureForPostToken(),
             'openWc26Chests' => $this->getDefaultConfigureForPostToken(),
             'openChests' => $this->getDefaultConfigureForPostToken(),
+            'openXpBanks' => $this->getDefaultConfigureForPostToken(),
             'getChestOpenLogMeta' => $this->getDefaultConfigureForPostToken(),
             'getChestOpenLogs' => $this->getDefaultConfigureForPostToken(),
             'moderatorBulkAction' => $this->getDefaultConfigureForPostToken(),
@@ -402,6 +405,26 @@ class GameController extends BaseController
         ];
     }
 
+    public function repayLoanAction(int $loanId): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        try {
+            $loan = (new BankLoanService())->repayLoanEarly($userId, $loanId);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return [
+            'status' => 'ok',
+            'loan' => $loan,
+            'game' => (new GameProfileService())->getSummary($userId),
+        ];
+    }
+
     public function cancelDepositAction(int $depositId): array
     {
         $userId = TokenAuthService::getCurrentUserId();
@@ -596,6 +619,27 @@ class GameController extends BaseController
             } else {
                 throw new ApiException('Неизвестный пул сундуков', 400);
             }
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok'], $result, [
+            'game' => (new GameProfileService())->getSummary($userId),
+        ]);
+    }
+
+    public function openXpBanksAction(string $code, int $openAll = 0): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        try {
+            $qty = $openAll > 0 ? 30 : 1;
+            $result = (new XpBankService())->open($userId, $code, $qty);
         } catch (\InvalidArgumentException $e) {
             throw new ApiException($e->getMessage(), 400);
         } catch (\RuntimeException $e) {

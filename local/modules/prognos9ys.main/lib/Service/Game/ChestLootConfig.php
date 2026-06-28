@@ -125,6 +125,33 @@ class ChestLootConfig
         return $code;
     }
 
+    public static function isXpBankCode(string $code): bool
+    {
+        return self::parseXpBankCode($code) !== null;
+    }
+
+    /**
+     * @return array{kind:string,xp:float,label:string}|null
+     */
+    public static function parseXpBankCode(string $code): ?array
+    {
+        $code = trim($code);
+        if (!preg_match('/^xp_bank_(player|mining|crafting)_(\d+)$/', $code, $matches)) {
+            return null;
+        }
+
+        $xp = round((float)$matches[2], 1);
+        if ($xp <= 0) {
+            return null;
+        }
+
+        return [
+            'kind' => (string)$matches[1],
+            'xp' => $xp,
+            'label' => self::getLabel($code),
+        ];
+    }
+
     /**
      * Подпись награды для лога/UI (без emoji — HL/JSON в БД их не держит).
      *

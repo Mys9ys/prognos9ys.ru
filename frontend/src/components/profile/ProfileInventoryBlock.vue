@@ -33,7 +33,7 @@
           v-if="item.openable && item.count > 0 && hoveredSlotId === item.id"
           class="slot_actions"
         >
-          <button type="button" class="slot_action_btn" :disabled="opening" @click.stop="openChests(item.pool, false)">
+          <button type="button" class="slot_action_btn" :disabled="opening" @click.stop="openInventoryItem(item, false)">
             Открыть
           </button>
           <button
@@ -41,7 +41,7 @@
             type="button"
             class="slot_action_btn slot_action_btn_all"
             :disabled="opening"
-            @click.stop="openChests(item.pool, true)"
+            @click.stop="openInventoryItem(item, true)"
           >
             Все ({{ Math.min(item.count, 30) }})
           </button>
@@ -179,6 +179,8 @@ export default {
           emoji: item.emoji || LOOT_EMOJI[item.category] || '📦',
           caption: item.type_caption || LOOT_CAPTION[item.category] || 'Лут',
           label: item.label || item.code,
+          openable: item.category === 'xp_bank',
+          xpBankCode: item.category === 'xp_bank' ? item.code : null,
         }));
     },
     displayItems() {
@@ -264,6 +266,17 @@ export default {
       this.openProgressTotal = 0;
     },
 
+    openInventoryItem(item, openAll) {
+      if (item.xpBankCode) {
+        this.openXpBank(item.xpBankCode, openAll, item);
+        return;
+      }
+
+      if (item.pool) {
+        this.openChests(item.pool, openAll);
+      }
+    },
+
     async openChests(pool, openAll) {
       if (!this.authData?.token || this.opening || !pool) {
         return;
@@ -311,6 +324,48 @@ export default {
         }
       } catch (e) {
         this.openLines = [{ text: e.message || 'Ошибка открытия сундука', status: 'fail' }];
+        this.openModalDone = true;
+      } finally {
+        this.opening = false;
+      }
+    },
+
+    async openXpBank(code, openAll, slot) {
+      if (!this.authData?.token || this.opening || !code || !slot || slot.count <= 0) {
+        return;
+      }
+
+      this.opening = true;
+      this.hoveredSlotId = null;
+      this.openModalVisible = true;
+      this.openModalDone = false;
+      this.openModalTitle = openAll ? 'Открытие банок опыта' : 'Открытие банки опыта';
+      this.openLines = [{ text: 'Начисляем опыт…', status: 'pending' }];
+      this.openProgressCurrent = 0;
+      this.openProgressTotal = openAll ? Math.min(slot.count, 30) : 1;
+
+      try {
+        const data = await apiActions.game.openXpBanks(this.authData.token, code, openAll);
+
+        if (data?.status === 'ok') {
+          this.openLines = Array.isArray(data.lines) ? data.lines : [];
+          this.openProgressCurrent = Number(data.opened_count ?? this.openProgressTotal);
+          this.openModalDone = true;
+
+          if (data.game) {
+            this.setUserInfo({
+              ...this.$store.state.auth.userInfo,
+              game_info: data.game,
+            });
+          } else {
+            await this.refreshGameInfo();
+          }
+        } else {
+          this.openLines = [{ text: 'Не удалось открыть банку опыта', status: 'fail' }];
+          this.openModalDone = true;
+        }
+      } catch (e) {
+        this.openLines = [{ text: e.message || 'Ошибка открытия банки опыта', status: 'fail' }];
         this.openModalDone = true;
       } finally {
         this.opening = false;
