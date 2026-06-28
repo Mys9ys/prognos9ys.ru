@@ -130,6 +130,15 @@ class ChestLootConfig
         return self::parseXpBankCode($code) !== null;
     }
 
+    /** Лут без привязки к событию в каталоге биржи (стаки могут лежать с event_id 0 или якорным). */
+    public static function isEventAgnosticLootCategory(string $category): bool
+    {
+        $category = trim($category);
+
+        return $category === self::CATEGORY_XP_BANK
+            || $category === self::CATEGORY_CERT;
+    }
+
     /**
      * @return array{kind:string,xp:float,label:string}|null
      */

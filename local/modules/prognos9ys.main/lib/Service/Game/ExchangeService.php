@@ -59,11 +59,18 @@ class ExchangeService
             }
             $price = round((float)($formatted['price_per_unit'] ?? 0), 1);
             $catalogCode = (string)($formatted['catalog_code'] ?? $formatted['code'] ?? '');
+            $kind = (string)($formatted['kind'] ?? '');
+            $category = (string)($formatted['category'] ?? '');
+            $groupEventId = $this->resolveCatalogGroupEventId(
+                $kind,
+                $category,
+                (int)($formatted['event_id'] ?? 0)
+            );
             $groupKey = implode('|', [
-                (string)($formatted['kind'] ?? ''),
+                $kind,
                 $catalogCode,
-                (string)($formatted['category'] ?? ''),
-                (int)($formatted['event_id'] ?? 0),
+                $category,
+                $groupEventId,
                 (string)($formatted['team_code'] ?? ''),
                 (string)$price,
             ]);
@@ -71,10 +78,10 @@ class ExchangeService
             if (!isset($groups[$groupKey])) {
                 $groups[$groupKey] = [
                     'group_key' => $groupKey,
-                    'kind' => (string)($formatted['kind'] ?? ''),
+                    'kind' => $kind,
                     'code' => $catalogCode,
-                    'category' => (string)($formatted['category'] ?? ''),
-                    'event_id' => (int)($formatted['event_id'] ?? 0),
+                    'category' => $category,
+                    'event_id' => $groupEventId,
                     'team_code' => (string)($formatted['team_code'] ?? ''),
                     'label' => (string)($formatted['label'] ?? ''),
                     'catalog_tab' => ExchangeCatalogConfig::resolveTab(
@@ -290,11 +297,12 @@ class ExchangeService
         $teamCode = trim($teamCode);
         $code = $this->normalizeListingCode($kind, $code);
 
+        $lookupEventId = $this->resolveBuyLookupEventId($kind, $category, $eventId);
         $listings = $this->repository->findActiveExchangeListingsForSku(
             $kind,
             $code,
             $category,
-            $eventId,
+            $lookupEventId,
             $teamCode
         );
 
@@ -890,6 +898,24 @@ class ExchangeService
         }
 
         return $code;
+    }
+
+    private function resolveCatalogGroupEventId(string $kind, string $category, int $eventId): int
+    {
+        if ($kind === ExchangeConfig::KIND_LOOT && ChestLootConfig::isEventAgnosticLootCategory($category)) {
+            return ChestLootConfig::LOOT_EVENT_GLOBAL;
+        }
+
+        return $eventId;
+    }
+
+    private function resolveBuyLookupEventId(string $kind, string $category, int $eventId): int
+    {
+        if ($kind === ExchangeConfig::KIND_LOOT && ChestLootConfig::isEventAgnosticLootCategory($category)) {
+            return -1;
+        }
+
+        return $eventId;
     }
 
     /**
