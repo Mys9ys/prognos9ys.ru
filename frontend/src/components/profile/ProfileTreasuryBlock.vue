@@ -144,7 +144,8 @@
           <div class="section" v-if="contractEvents.length">
             <div class="section_title">Гос. вклад поддержки</div>
             <p class="hint">
-              500 <AppIcon name="prognobak" :size="14" /> из казны пополняют ликвидность выбранного банка (господдержка).
+              Из казны в ликвидность выбранного банка: 500 или 2500
+              <AppIcon name="prognobak" :size="14" />.
               После 5 туров 5% поступают в казну. Тело вклада — кнопкой «Забрать вклад».
             </p>
 
@@ -157,16 +158,31 @@
 
             <div class="gov_open_block">
               <div class="subsection_title">Открыть вклад</div>
-              <div v-if="banks.length && canOpenGovDeposit" class="gov_open_row">
+              <div v-if="banks.length" class="gov_open_row">
                 <select v-model.number="selectedGovBankId" class="event_select gov_bank_select">
                   <option v-for="b in banks" :key="b.id" :value="b.id">Банк #{{ b.id }} ({{ b.owner_name }})</option>
                 </select>
-                <button class="btn small" :disabled="actionLoading || !selectedGovBankId" @click="onCreateGovDeposit">
-                  Открыть гос. вклад 500 <AppIcon name="prognobak" :size="14" />
-                </button>
+                <div class="gov_amount_btns">
+                  <button
+                    class="btn small"
+                    :disabled="actionLoading || !selectedGovBankId || !canOpenGovDeposit(500)"
+                    @click="onCreateGovDeposit(500)"
+                  >
+                    500 <AppIcon name="prognobak" :size="14" />
+                  </button>
+                  <button
+                    class="btn small"
+                    :disabled="actionLoading || !selectedGovBankId || !canOpenGovDeposit(2500)"
+                    @click="onCreateGovDeposit(2500)"
+                  >
+                    2500 <AppIcon name="prognobak" :size="14" />
+                  </button>
+                </div>
               </div>
-              <div v-else-if="!banks.length" class="hint">Сначала откройте банк во вкладке «Финансы» или дождитесь появления банков в каталоге</div>
-              <div v-else-if="!canOpenGovDeposit" class="hint">В казне меньше 500 прогнобаксов для нового вклада</div>
+              <div v-else class="hint">Сначала откройте банк во вкладке «Финансы» или дождитесь появления банков в каталоге</div>
+              <p class="hint gov_treasury_hint" v-if="banks.length && !canOpenGovDeposit(500) && !canOpenGovDeposit(2500)">
+                В казне недостаточно средств для нового гос. вклада (нужно минимум 500 🪙).
+              </p>
             </div>
 
             <div v-if="govDeposits.length" class="gov_deposits_block">
@@ -329,9 +345,6 @@ export default {
     contractEvents() {
       return this.bankInfo.contract_events || [];
     },
-    canOpenGovDeposit() {
-      return Number(this.treasury?.prognobaks ?? 0) >= 500;
-    },
     mainTabs() {
       return [
         { id: 'overview', label: 'Общая информация' },
@@ -428,6 +441,10 @@ export default {
       return `${Number.isInteger(num) ? num : num.toFixed(1)}%`;
     },
 
+    canOpenGovDeposit(amount) {
+      return Number(this.treasury?.prognobaks ?? 0) >= Number(amount || 0);
+    },
+
     async refresh() {
       this.error = '';
       await Promise.all([
@@ -479,8 +496,8 @@ export default {
       }
     },
 
-    async onCreateGovDeposit() {
-      if (!this.selectedGovBankId) {
+    async onCreateGovDeposit(amount) {
+      if (!this.selectedGovBankId || !amount) {
         return;
       }
 
@@ -491,8 +508,9 @@ export default {
         await this.createGovSupportDeposit({
           bankId: this.selectedGovBankId,
           eventId: this.selectedEventId,
+          amount,
         });
-        this.message = 'Гос. вклад поддержки открыт';
+        this.message = `Гос. вклад ${amount} 🪙 открыт`;
         await this.refreshGameInfo();
         await this.refresh();
       } catch (e) {
@@ -687,6 +705,16 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.gov_amount_btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.gov_treasury_hint {
+  margin-top: 6px;
 }
 
 .gov_bank_select {

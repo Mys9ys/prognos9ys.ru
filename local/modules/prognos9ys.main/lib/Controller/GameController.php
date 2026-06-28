@@ -227,7 +227,7 @@ class GameController extends BaseController
         return $response;
     }
 
-    public function createGovSupportDepositAction(int $bankId, int $eventId = 0): array
+    public function createGovSupportDepositAction(int $bankId, int $eventId = 0, float $amount = 0): array
     {
         $userId = TokenAuthService::getCurrentUserId();
         if (!$userId) {
@@ -239,7 +239,8 @@ class GameController extends BaseController
             'deposit' => (new GovSupportDepositService())->createDeposit(
                 $userId,
                 $bankId,
-                $eventId > 0 ? $eventId : null
+                $eventId > 0 ? $eventId : null,
+                $amount
             ),
             'game' => (new GameProfileService())->getSummary($userId),
         ];

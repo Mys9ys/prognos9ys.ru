@@ -39,6 +39,7 @@ class GameEconomyConfig
     public const CONTRACT_TYPE_REGULAR = 'regular';
     public const CONTRACT_TYPE_GOV_SUPPORT = 'gov_support';
     public const GOV_SUPPORT_DEPOSIT_AMOUNT_PROGNOBAKS = 500.0;
+    public const GOV_SUPPORT_DEPOSIT_LARGE_AMOUNT_PROGNOBAKS = 2500.0;
     public const GOV_SUPPORT_DEPOSIT_INTEREST_PERCENT = 5.0;
     public const CONTRACT_STATUS_INTEREST_PAID = 'interest_paid';
 
@@ -207,6 +208,33 @@ class GameEconomyConfig
     public static function calculateGovSupportInterest(float $principal): float
     {
         return self::calculateDepositInterest($principal, self::GOV_SUPPORT_DEPOSIT_INTEREST_PERCENT);
+    }
+
+    /**
+     * @return float[]
+     */
+    public static function govSupportDepositAmounts(): array
+    {
+        return [
+            self::GOV_SUPPORT_DEPOSIT_AMOUNT_PROGNOBAKS,
+            self::GOV_SUPPORT_DEPOSIT_LARGE_AMOUNT_PROGNOBAKS,
+        ];
+    }
+
+    public static function resolveGovSupportDepositAmount(float $amount): float
+    {
+        $amount = round($amount, 1);
+        if ($amount <= 0) {
+            return self::GOV_SUPPORT_DEPOSIT_AMOUNT_PROGNOBAKS;
+        }
+
+        foreach (self::govSupportDepositAmounts() as $allowed) {
+            if (abs($amount - $allowed) < 0.01) {
+                return $allowed;
+            }
+        }
+
+        throw new \InvalidArgumentException('Недопустимая сумма гос. вклада');
     }
 
     /**

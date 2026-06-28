@@ -23,13 +23,13 @@ class GovSupportDepositService
         $this->scopeService = $scopeService ?? new GameEventScopeService();
     }
 
-    public function createDeposit(int $userId, int $bankId, ?int $eventId = null): array
+    public function createDeposit(int $userId, int $bankId, ?int $eventId = null, float $amount = 0): array
     {
         if ($userId <= 0 || $bankId <= 0) {
             throw new \InvalidArgumentException('Некорректные параметры вклада');
         }
 
-        $amount = GameEconomyConfig::GOV_SUPPORT_DEPOSIT_AMOUNT_PROGNOBAKS;
+        $amount = GameEconomyConfig::resolveGovSupportDepositAmount($amount);
 
         $bank = $this->repository->getUserBankById($bankId);
         if (!$bank || ($bank['UF_ACTIVE'] ?? '') !== GameEconomyConfig::USER_BANK_STATUS_ACTIVE) {
@@ -396,7 +396,9 @@ class GovSupportDepositService
         } else {
             $formatted['owner_return_hint'] = self::getOwnerReturnBlockMessage($returnCheck['reason'] ?? '');
         }
-        $formatted['label'] = 'Гос. вклад поддержки';
+        $formatted['label'] = 'Гос. вклад поддержки · '
+            . (int)round((float)($row['UF_PRINCIPAL'] ?? 0), 0)
+            . ' 🪙';
         $formatted['is_gov_support'] = true;
         $status = (string)($row['UF_STATUS'] ?? '');
         $interestAmount = (float)($formatted['interest_amount'] ?? 0);
