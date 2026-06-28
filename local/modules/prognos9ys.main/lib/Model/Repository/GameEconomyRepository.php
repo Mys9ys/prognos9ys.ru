@@ -3287,6 +3287,35 @@ class GameEconomyRepository
     }
 
     /**
+     * Активные лоты материалов на бирже: код → остаток штук.
+     *
+     * @return array<string, int>
+     */
+    public function getActiveExchangeMaterialQtyByCode(): array
+    {
+        $dataClass = $this->getExchangeListingDataClass();
+        $map = [];
+        $response = $dataClass::getList([
+            'select' => ['UF_ITEM_CODE', 'UF_QTY_REMAINING'],
+            'filter' => [
+                '=UF_STATUS' => ExchangeConfig::STATUS_ACTIVE,
+                '>UF_QTY_REMAINING' => 0,
+                '=UF_ITEM_KIND' => ExchangeConfig::KIND_MATERIAL,
+            ],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $code = (string)($row['UF_ITEM_CODE'] ?? '');
+            if ($code === '') {
+                continue;
+            }
+            $map[$code] = ($map[$code] ?? 0) + (int)($row['UF_QTY_REMAINING'] ?? 0);
+        }
+
+        return $map;
+    }
+
+    /**
      * @return array<int, array<string, mixed>>
      */
     public function findActiveExchangeListingsForSku(

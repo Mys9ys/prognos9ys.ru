@@ -212,7 +212,16 @@
 
             <div class="warehouse_items" v-if="activeWarehouseGroup">
               <div class="subsection_title">
-                {{ activeWarehouseGroup.label }} — всего {{ activeWarehouseGroup.total_qty }} ед.
+                {{ activeWarehouseGroup.label }}
+                — казна {{ activeWarehouseGroup.total_qty }},
+                на руках {{ activeWarehouseGroup.total_hands_qty || 0 }},
+                биржа {{ activeWarehouseGroup.total_exchange_qty || 0 }}
+              </div>
+              <div class="stock_header">
+                <span class="stock_header_label">Материал</span>
+                <span class="stock_header_qty" title="Государственный склад">Казна</span>
+                <span class="stock_header_qty" title="У всех игроков в инвентаре">На руках</span>
+                <span class="stock_header_qty" title="Активные лоты на бирже">Биржа</span>
               </div>
               <div
                 v-for="item in activeWarehouseGroup.items"
@@ -225,6 +234,8 @@
                   <span v-if="item.is_premium" class="premium_tag">★</span>
                 </span>
                 <span class="stock_qty" :class="{ zero: item.qty <= 0 }">{{ item.qty }}</span>
+                <span class="stock_qty" :class="{ zero: (item.hands_qty || 0) <= 0 }">{{ item.hands_qty || 0 }}</span>
+                <span class="stock_qty" :class="{ zero: (item.exchange_qty || 0) <= 0 }">{{ item.exchange_qty || 0 }}</span>
               </div>
             </div>
 
@@ -723,9 +734,32 @@ export default {
   margin-bottom: 10px;
 }
 
+.stock_header {
+  display: grid;
+  grid-template-columns: 1fr 52px 52px 52px;
+  gap: 6px;
+  align-items: center;
+  font-size: 10px;
+  color: @colorBlur;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 0 0 4px;
+  border-bottom: 1px solid fade(@colorBlur, 25%);
+  margin-bottom: 2px;
+}
+
+.stock_header_label {
+  min-width: 0;
+}
+
+.stock_header_qty {
+  text-align: right;
+}
+
 .stock_row {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr 52px 52px 52px;
+  gap: 6px;
   align-items: center;
   font-size: 12px;
   color: @colorBlur;
@@ -752,6 +786,7 @@ export default {
 .stock_qty {
   font-weight: 600;
   color: @colorText;
+  text-align: right;
 
   &.zero {
     color: fade(@colorBlur, 70%);

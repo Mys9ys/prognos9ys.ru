@@ -534,6 +534,31 @@ class ProfessionRepository
     }
 
     /**
+     * Сумма материалов у всех игроков по коду (инвентарь фарма).
+     *
+     * @return array<string, int>
+     */
+    public function getGlobalUserMaterialQtyByCode(): array
+    {
+        $dataClass = $this->getUserMaterialDataClass();
+        $map = [];
+        $response = $dataClass::getList([
+            'select' => ['UF_MATERIAL_CODE', 'UF_QTY'],
+            'filter' => ['>UF_QTY' => 0],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $code = (string)($row['UF_MATERIAL_CODE'] ?? '');
+            if ($code === '') {
+                continue;
+            }
+            $map[$code] = ($map[$code] ?? 0) + (int)($row['UF_QTY'] ?? 0);
+        }
+
+        return $map;
+    }
+
+    /**
      * Схлопывает дубли UF_MATERIAL_CODE (после гонок при параллельной добыче).
      *
      * @return array<string, int> сколько строк удалено по коду

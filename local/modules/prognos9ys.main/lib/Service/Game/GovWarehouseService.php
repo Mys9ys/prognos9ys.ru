@@ -21,22 +21,32 @@ class GovWarehouseService
     public function getState(): array
     {
         $qtyMap = $this->professionRepository->getGovWarehouseQtyMap();
+        $handsMap = $this->professionRepository->getGlobalUserMaterialQtyByCode();
+        $exchangeMap = $this->economyRepository->getActiveExchangeMaterialQtyByCode();
 
         $groups = [];
         foreach ($this->buildGroups() as $group) {
             $items = [];
             $totalQty = 0;
+            $totalHands = 0;
+            $totalExchange = 0;
             foreach ($group['codes'] as $code) {
                 $meta = ProfessionMaterialConfig::materialCatalog()[$code] ?? null;
                 if (!$meta) {
                     continue;
                 }
                 $qty = (int)($qtyMap[$code] ?? 0);
+                $handsQty = (int)($handsMap[$code] ?? 0);
+                $exchangeQty = (int)($exchangeMap[$code] ?? 0);
                 $totalQty += $qty;
+                $totalHands += $handsQty;
+                $totalExchange += $exchangeQty;
                 $items[] = [
                     'code' => $code,
                     'label' => $meta['label'],
                     'qty' => $qty,
+                    'hands_qty' => $handsQty,
+                    'exchange_qty' => $exchangeQty,
                     'nominal' => (float)$meta['nominal'],
                     'is_premium' => (bool)$meta['is_premium'],
                     'emoji' => (string)($meta['emoji'] ?? ProfessionMaterialConfig::materialEmoji($code)),
@@ -47,6 +57,8 @@ class GovWarehouseService
                 'id' => $group['id'],
                 'label' => $group['label'],
                 'total_qty' => $totalQty,
+                'total_hands_qty' => $totalHands,
+                'total_exchange_qty' => $totalExchange,
                 'items' => $items,
             ];
         }
@@ -65,6 +77,8 @@ class GovWarehouseService
             'totals' => [
                 'items_with_stock' => count(array_filter($qtyMap, static fn(int $qty) => $qty > 0)),
                 'total_units' => array_sum($qtyMap),
+                'total_hands_units' => array_sum($handsMap),
+                'total_exchange_units' => array_sum($exchangeMap),
             ],
             'flows' => [
                 'profession' => [
