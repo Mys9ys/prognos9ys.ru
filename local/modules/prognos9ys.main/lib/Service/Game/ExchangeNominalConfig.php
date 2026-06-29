@@ -108,6 +108,18 @@ class ExchangeNominalConfig
                 : ExchangeConfig::OPEN_SCARF_BASE;
         }
 
+        if ($category === ChestLootConfig::CATEGORY_ALBUM) {
+            return 45.0;
+        }
+
+        if ($category === ChestLootConfig::CATEGORY_RECIPE) {
+            if ($itemCode === AlbumConfig::RECIPE_ITEM_CODE) {
+                return AlbumConfig::RECIPE_NOMINAL;
+            }
+
+            return 10.0;
+        }
+
         if ($teamCode !== null && $teamCode !== '') {
             if (self::isScarfCode($itemCode)) {
                 return self::getOpenTeamItemNominal(ExchangeConfig::OPEN_SCARF_BASE, $teamCode);

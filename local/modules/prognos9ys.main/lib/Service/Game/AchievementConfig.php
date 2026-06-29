@@ -373,7 +373,8 @@ class AchievementConfig
             $base,
             ProfessionAchievementConfig::getCatalogEntries(),
             XpBankAchievementConfig::getCatalogEntries(),
-            ExchangeBuyAchievementConfig::getCatalogEntries()
+            ExchangeBuyAchievementConfig::getCatalogEntries(),
+            CollectionMegaAchievementConfig::getCatalogEntries()
         );
     }
 
@@ -382,7 +383,11 @@ class AchievementConfig
      */
     public static function grantsWc26Chest(string $code): bool
     {
-        return $code === 'chm2026';
+        return in_array($code, [
+            'chm2026',
+            CollectionMegaAchievementConfig::CODE_PENNANT,
+            CollectionMegaAchievementConfig::CODE_SCARF,
+        ], true);
     }
 
     public static function grantsProfessionChest(string $code): bool

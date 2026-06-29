@@ -33,7 +33,7 @@
           v-if="item.openable && item.count > 0 && hoveredSlotId === item.id"
           class="slot_actions"
         >
-          <button type="button" class="slot_action_btn" :disabled="opening" @click.stop="openInventoryItem(item, false)">
+          <button type="button" class="slot_action_btn" :disabled="opening || item.actionDisabled" @click.stop="openInventoryItem(item, false)">
             {{ item.actionLabel || 'Открыть' }}
           </button>
           <button
@@ -92,6 +92,8 @@ const LOOT_EMOJI = {
   xp_bank: '🧪',
   cert: '📜',
   pack: '📦',
+  album: '📔',
+  recipe: '📋',
   pennant: '🏴',
   scarf: '🧣',
   material: '📦',
@@ -101,16 +103,33 @@ const LOOT_CAPTION = {
   xp_bank: 'XP',
   cert: 'Серт',
   pack: 'Пак',
+  album: 'Альбом',
+  recipe: 'Рецепт',
   pennant: 'Вымпел',
   scarf: 'Шарф',
 };
 
 const OPENABLE_PACK_CODES = new Set([
   'pack_pennant_wc26',
-  'pack_pennant',
   'pack_scarf_wc26',
+]);
+
+const STUB_PACK_CODES = new Set([
+  'pack_pennant',
   'pack_scarf',
 ]);
+
+function isWc26Collectible(item) {
+  const code = String(item?.code || '');
+  return (item?.category === 'pennant' && /^pennant_wc26_[a-z0-9]+$/.test(code))
+    || (item?.category === 'scarf' && /^scarf_wc26_[a-z0-9]+$/.test(code));
+}
+
+function teamSlugFromCollectibleCode(code) {
+  const match = String(code).match(/^pennant_wc26_([a-z0-9]+)$/)
+    || String(code).match(/^scarf_wc26_([a-z0-9]+)$/);
+  return match ? match[1] : '';
+}
 
 export default {
   name: 'ProfileInventoryBlock',
@@ -181,14 +200,27 @@ export default {
     },
     lootSlots() {
       const items = Array.isArray(this.game?.inventory_items) ? this.game.inventory_items : [];
+      const learnedRecipes = Array.isArray(this.game?.learned_recipes) ? this.game.learned_recipes : [];
 
       return items
         .filter((item) => Number(item.count) > 0)
         .map((item) => {
           const isProfessionCert = item.code === 'cert_profession' && item.category === 'cert';
+          const isAlbumRecipe = item.code === 'recipe_album' && item.category === 'recipe';
+          const recipeLearned = isAlbumRecipe && learnedRecipes.includes('recipe_album');
           const isOpenablePack = item.category === 'pack'
             && item.sealed
             && OPENABLE_PACK_CODES.has(item.code);
+          const isStubPack = item.category === 'pack'
+            && item.sealed
+            && STUB_PACK_CODES.has(item.code);
+          const isWc26Glueable = isWc26Collectible(item);
+          const teamSlug = isWc26Glueable ? teamSlugFromCollectibleCode(item.code) : '';
+          const collectionKey = item.code?.startsWith('pennant_wc26_')
+            ? 'pennant_wc26'
+            : (item.code?.startsWith('scarf_wc26_') ? 'scarf_wc26' : '');
+          const gluedTeams = this.game?.album_meta?.glued_teams?.[collectionKey] || [];
+          const teamAlreadyGlued = Boolean(teamSlug && gluedTeams.includes(teamSlug));
 
           return {
             id: `loot_${item.code}${item.is_premium ? '_p' : ''}${item.sealed ? '_s' : ''}`,
@@ -196,12 +228,26 @@ export default {
             emoji: item.emoji || LOOT_EMOJI[item.category] || '📦',
             caption: item.type_caption || LOOT_CAPTION[item.category] || 'Лут',
             label: item.label || item.code,
-            openable: item.category === 'xp_bank' || isProfessionCert || isOpenablePack,
+            code: item.code,
+            category: item.category,
+            openable: item.category === 'xp_bank' || isProfessionCert || isOpenablePack || isStubPack || isAlbumRecipe || isWc26Glueable,
             xpBankCode: item.category === 'xp_bank' ? item.code : null,
             packCode: isOpenablePack ? item.code : null,
+            packStub: isStubPack,
             professionCert: isProfessionCert,
-            actionLabel: isProfessionCert ? 'Активировать' : null,
-            allowOpenAll: !isProfessionCert,
+            albumRecipe: isAlbumRecipe,
+            glueableCollectible: isWc26Glueable,
+            teamAlreadyGlued,
+            recipeLearned,
+            actionDisabled: (isAlbumRecipe && recipeLearned) || (isWc26Glueable && teamAlreadyGlued),
+            actionLabel: isWc26Glueable
+              ? (teamAlreadyGlued ? 'В альбоме' : 'В альбом')
+              : (isStubPack
+                ? 'Скоро'
+                : (isAlbumRecipe
+                  ? (recipeLearned ? 'Изучено' : 'Изучить')
+                  : (isProfessionCert ? 'Активировать' : null))),
+            allowOpenAll: !isProfessionCert && !isAlbumRecipe && !isStubPack && !isWc26Glueable,
           };
         });
     },
@@ -291,6 +337,23 @@ export default {
     openInventoryItem(item, openAll) {
       if (item.professionCert) {
         this.activateProfessionCertificate(item);
+        return;
+      }
+
+      if (item.albumRecipe) {
+        if (!item.recipeLearned) {
+          this.learnAlbumRecipe(item);
+        }
+        return;
+      }
+
+      if (item.glueableCollectible) {
+        this.glueCollectibleToAlbum(item);
+        return;
+      }
+
+      if (item.packStub) {
+        this.showPackStub(item);
         return;
       }
 
@@ -446,6 +509,151 @@ export default {
       } finally {
         this.opening = false;
       }
+    },
+
+    async learnAlbumRecipe(slot) {
+      if (!this.authData?.token || this.opening || !slot || slot.count <= 0 || slot.recipeLearned) {
+        return;
+      }
+
+      this.opening = true;
+      this.hoveredSlotId = null;
+      this.openModalVisible = true;
+      this.openModalDone = false;
+      this.openModalTitle = 'Изучение рецепта';
+      this.openLines = [{ text: 'Запоминаем рецепт альбома…', status: 'pending' }];
+      this.openProgressCurrent = 0;
+      this.openProgressTotal = 1;
+
+      try {
+        const data = await apiActions.game.learnAlbumRecipe(this.authData.token);
+
+        if (data?.status === 'ok') {
+          this.openLines = Array.isArray(data.lines) ? data.lines : [];
+          this.openProgressCurrent = 1;
+          this.openModalDone = true;
+
+          if (data.game) {
+            this.setUserInfo({
+              ...this.$store.state.auth.userInfo,
+              game_info: data.game,
+            });
+          } else {
+            await this.refreshGameInfo();
+          }
+        } else {
+          this.openLines = [{ text: 'Не удалось изучить рецепт', status: 'fail' }];
+          this.openModalDone = true;
+        }
+      } catch (e) {
+        this.openLines = [{ text: e.message || 'Ошибка изучения рецепта', status: 'fail' }];
+        this.openModalDone = true;
+      } finally {
+        this.opening = false;
+      }
+    },
+
+    async glueCollectibleToAlbum(slot) {
+      if (!this.authData?.token || this.opening || !slot?.code || slot.count <= 0 || slot.teamAlreadyGlued) {
+        return;
+      }
+
+      this.opening = true;
+      this.hoveredSlotId = null;
+      this.openModalVisible = true;
+      this.openModalDone = false;
+      this.openModalTitle = 'Вклейка в альбом';
+      this.openLines = [{ text: 'Ищем альбом…', status: 'pending' }];
+      this.openProgressCurrent = 0;
+      this.openProgressTotal = 1;
+
+      const itemCode = slot.code;
+      const collection = itemCode.startsWith('pennant_wc26_') ? 'pennant_wc26' : 'scarf_wc26';
+      const teamSlug = teamSlugFromCollectibleCode(itemCode);
+
+      try {
+        const stateData = await apiActions.game.getAlbumState(this.authData.token);
+        const albums = stateData?.album?.albums || [];
+
+        if (!albums.length) {
+          this.openLines = [{
+            text: 'Сначала активируйте альбом на вкладке «Коллекция»',
+            status: 'fail',
+          }];
+          this.openModalDone = true;
+          this.openProgressCurrent = 1;
+          return;
+        }
+
+        let targetAlbum = null;
+        for (const album of albums) {
+          const albumCollection = album.collection || '';
+          if (albumCollection && albumCollection !== collection) {
+            continue;
+          }
+          const teamSlot = (album.slots || []).find((s) => s.team_slug === teamSlug);
+          if (teamSlot && !teamSlot.glued) {
+            targetAlbum = album;
+            break;
+          }
+        }
+
+        if (!targetAlbum) {
+          this.openLines = [{
+            text: 'Нет свободного слота для этой сборной в подходящем альбоме',
+            status: 'fail',
+          }];
+          this.openModalDone = true;
+          this.openProgressCurrent = 1;
+          return;
+        }
+
+        const data = await apiActions.game.glueAlbumItem(
+          this.authData.token,
+          targetAlbum.id,
+          itemCode,
+        );
+
+        if (data?.status === 'ok') {
+          this.openLines = Array.isArray(data.lines) ? data.lines : [{ text: 'Вклеено в альбом', status: 'ok' }];
+          this.openProgressCurrent = 1;
+          this.openModalDone = true;
+          if (data.game) {
+            this.setUserInfo({
+              ...this.$store.state.auth.userInfo,
+              game_info: data.game,
+            });
+          } else {
+            await this.refreshGameInfo();
+          }
+          window.dispatchEvent(new CustomEvent('prognos9ys:album-refresh'));
+        } else {
+          this.openLines = [{ text: data?.message || 'Не удалось вклеить', status: 'fail' }];
+          this.openModalDone = true;
+        }
+      } catch (e) {
+        this.openLines = [{ text: e.message || 'Ошибка вклейки', status: 'fail' }];
+        this.openModalDone = true;
+      } finally {
+        this.opening = false;
+      }
+    },
+
+    showPackStub(slot) {
+      if (!slot || slot.count <= 0) {
+        return;
+      }
+
+      this.hoveredSlotId = null;
+      this.openModalVisible = true;
+      this.openModalDone = true;
+      this.openModalTitle = 'Распаковка паков';
+      this.openLines = [{
+        text: 'Распаковка паков этой коллекции пока в разработке. Сейчас доступны только паки ЧМ-26.',
+        status: 'pending',
+      }];
+      this.openProgressCurrent = 1;
+      this.openProgressTotal = 1;
     },
 
     async openLootPack(code, openAll, slot) {

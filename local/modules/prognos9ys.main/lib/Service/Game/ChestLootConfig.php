@@ -15,6 +15,8 @@ class ChestLootConfig
     public const CATEGORY_PACK = 'pack';
     public const CATEGORY_PENNANT = 'pennant';
     public const CATEGORY_SCARF = 'scarf';
+    public const CATEGORY_ALBUM = 'album';
+    public const CATEGORY_RECIPE = 'recipe';
 
     /** Лут без привязки к событию (паки level / классические ачивки). */
     public const LOOT_EVENT_GLOBAL = 0;
@@ -132,6 +134,14 @@ class ChestLootConfig
             return Wc26CollectibleConfig::getScarfLabel($code);
         }
 
+        if ($code === AlbumConfig::ITEM_CODE) {
+            return AlbumConfig::itemLabel();
+        }
+
+        if ($code === AlbumConfig::RECIPE_ITEM_CODE) {
+            return AlbumConfig::recipeLabel();
+        }
+
         return $code;
     }
 
@@ -142,7 +152,7 @@ class ChestLootConfig
 
     public static function isOpenablePackCode(string $code): bool
     {
-        return PackOpenConfig::isSupported(trim($code));
+        return PackOpenConfig::isFullyOpenable(trim($code));
     }
 
     public static function getCollectibleTypeCaption(string $category): string
@@ -163,7 +173,9 @@ class ChestLootConfig
         $category = trim($category);
 
         return $category === self::CATEGORY_XP_BANK
-            || $category === self::CATEGORY_CERT;
+            || $category === self::CATEGORY_CERT
+            || $category === self::CATEGORY_ALBUM
+            || $category === self::CATEGORY_RECIPE;
     }
 
     /**

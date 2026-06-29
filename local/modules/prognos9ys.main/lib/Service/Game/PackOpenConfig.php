@@ -11,23 +11,42 @@ class PackOpenConfig
     public const REWARD_SCARF = 'scarf';
 
     /** @var array<string, string> pack_code => reward kind */
-    private const SUPPORTED = [
+    private const OPENABLE = [
         'pack_pennant_wc26' => self::REWARD_PENNANT,
-        'pack_pennant' => self::REWARD_PENNANT,
         'pack_scarf_wc26' => self::REWARD_SCARF,
+    ];
+
+    /** Generic-паки: пока только заглушка, без распаковки. */
+    private const STUB = [
+        'pack_pennant' => self::REWARD_PENNANT,
         'pack_scarf' => self::REWARD_SCARF,
     ];
 
+    public static function isFullyOpenable(string $packCode): bool
+    {
+        return isset(self::OPENABLE[trim($packCode)]);
+    }
+
+    public static function isStubPack(string $packCode): bool
+    {
+        return isset(self::STUB[trim($packCode)]);
+    }
+
     public static function isSupported(string $packCode): bool
     {
-        return isset(self::SUPPORTED[trim($packCode)]);
+        return self::isFullyOpenable($packCode) || self::isStubPack($packCode);
+    }
+
+    public static function getStubMessage(string $packCode = ''): string
+    {
+        return 'Распаковка паков этой коллекции пока в разработке. Сейчас доступны только паки ЧМ-26.';
     }
 
     public static function getRewardKind(string $packCode): ?string
     {
         $packCode = trim($packCode);
 
-        return self::SUPPORTED[$packCode] ?? null;
+        return self::OPENABLE[$packCode] ?? self::STUB[$packCode] ?? null;
     }
 
     /**
@@ -66,5 +85,29 @@ class PackOpenConfig
     public static function usesAnchorEvent(string $packCode): bool
     {
         return strpos($packCode, '_wc26') !== false;
+    }
+
+    public static function isSouvenirPack(string $packCode): bool
+    {
+        return self::isFullyOpenable($packCode);
+    }
+
+    /**
+     * Бонусный «второй блок» при распаковке сувенирных паков.
+     *
+     * @return array{code:string,category:string,label:string,team_slug:string}|null
+     */
+    public static function rollAlbumRecipeBonus(): ?array
+    {
+        if (random_int(1, 100) > AlbumConfig::RECIPE_DROP_CHANCE_PERCENT) {
+            return null;
+        }
+
+        return [
+            'code' => AlbumConfig::RECIPE_ITEM_CODE,
+            'category' => ChestLootConfig::CATEGORY_RECIPE,
+            'label' => AlbumConfig::recipeLabel(),
+            'team_slug' => '',
+        ];
     }
 }

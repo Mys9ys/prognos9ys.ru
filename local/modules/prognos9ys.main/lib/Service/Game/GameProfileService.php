@@ -102,6 +102,11 @@ class GameProfileService
                 'pending_xp' => (new ExperienceService())->getPendingSummaryForUser($userId),
                 'treasure' => $this->treasureService->getTreasureSummary($userId),
                 'inventory_items' => $inventoryItems,
+                'learned_recipes' => $this->repository->getLearnedRecipes($userId),
+                'album_meta' => [
+                    'glued_teams' => (new AlbumService())->getGluedTeamsByCollection($userId),
+                    'activate' => (new AlbumService())->buildActivateInfo($userId),
+                ],
                 'bank' => $bankBlock,
             ];
         } catch (\Throwable $exception) {
@@ -129,6 +134,14 @@ class GameProfileService
                     'pennant_chm2026' => 0,
                 ],
                 'inventory_items' => [],
+                'learned_recipes' => [],
+                'album_meta' => [
+                    'glued_teams' => [
+                        AlbumConfig::COLLECTION_PENNANT_WC26 => [],
+                        AlbumConfig::COLLECTION_SCARF_WC26 => [],
+                    ],
+                    'activate' => ['allowed' => true, 'reason' => '', 'has_pennant' => false, 'has_scarf' => false, 'has_pending' => false],
+                ],
                 'bank' => [
                     'has_bank' => false,
                     'my_bank' => null,

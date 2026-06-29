@@ -4,6 +4,7 @@ namespace Prognos9ys\Main\Service\Game;
 
 use Bitrix\Main\Loader;
 use Bitrix\Main\Type\DateTime;
+use Prognos9ys\Main\Model\Repository\AlbumRepository;
 use Prognos9ys\Main\Model\Repository\FootballResultsRepository;
 use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
 use Prognos9ys\Main\Model\Repository\ProfessionRepository;
@@ -15,6 +16,7 @@ class AchievementService
     private WalletService $walletService;
     private TreasureService $treasureService;
     private ProfessionRepository $professionRepository;
+    private AlbumRepository $albumRepository;
 
     /** @var array<int, array<string, int|float>>|null */
     private static ?array $batchStatsCache = null;
@@ -31,6 +33,7 @@ class AchievementService
         $this->walletService = new WalletService($this->repository);
         $this->treasureService = new TreasureService($this->repository);
         $this->professionRepository = new ProfessionRepository();
+        $this->albumRepository = new AlbumRepository();
     }
 
     public function getForUser(int $userId): array
@@ -562,6 +565,7 @@ class AchievementService
         ]);
 
         $given = [
+            'prognobaks' => 0.0,
             'rublius' => 0.0,
             'chests' => 0,
             'pennant' => null,
@@ -569,6 +573,19 @@ class AchievementService
         ];
 
         $reward = is_array($reward) ? $reward : [];
+
+        $prognobaks = (float)($reward['prognobaks'] ?? 0);
+        if ($prognobaks > 0) {
+            $this->walletService->credit(
+                $userId,
+                GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                $prognobaks,
+                'achievement_' . $code . '_' . $targetThreshold,
+                'achievement',
+                $targetThreshold
+            );
+            $given['prognobaks'] = $prognobaks;
+        }
 
         $rublius = (float)($reward['rublius'] ?? 0);
         if ($rublius > 0) {
@@ -585,7 +602,8 @@ class AchievementService
 
         $chests = (int)($reward['chests'] ?? 0);
         if ($chests > 0) {
-            if (AchievementConfig::grantsWc26Chest($code)) {
+            if (AchievementConfig::grantsWc26Chest($code)
+                || (($reward['chest_type'] ?? '') === 'wc26')) {
                 $granted = $this->treasureService->grantWc26AchievementChests(
                     $userId,
                     $code,
@@ -669,6 +687,14 @@ class AchievementService
             'chests_opened' => $this->repository->sumOpenedTreasureChestsForUser($userId),
             'chests_earned' => $this->repository->sumEarnedTreasureChestsForUser($userId),
             'rublius_earned' => (int)round($this->repository->sumRubliusEarnedForUser($userId)),
+            'album_pennant_glued' => $this->albumRepository->countGluedByUserAndCollection(
+                $userId,
+                AlbumConfig::COLLECTION_PENNANT_WC26
+            ),
+            'album_scarf_glued' => $this->albumRepository->countGluedByUserAndCollection(
+                $userId,
+                AlbumConfig::COLLECTION_SCARF_WC26
+            ),
         ], $metrics, $this->professionRepository->getYieldStatsByUserId($userId), $this->repository->getXpBankDrinkStatsForUser($userId), $this->repository->getExchangeBuyStatsForUser($userId));
     }
 

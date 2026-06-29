@@ -5,6 +5,9 @@ namespace Prognos9ys\Main\Controller;
 use Prognos9ys\Main\Service\Auth\ImpersonationService;
 use Prognos9ys\Main\Service\Auth\TokenAuthService;
 use Prognos9ys\Main\Service\Game\AchievementService;
+use Prognos9ys\Main\Service\Game\AlbumCraftService;
+use Prognos9ys\Main\Service\Game\AlbumRecipeService;
+use Prognos9ys\Main\Service\Game\AlbumService;
 use Prognos9ys\Main\Service\Game\BankConsignmentService;
 use Prognos9ys\Main\Service\Game\BankContractLifecycleService;
 use Prognos9ys\Main\Service\Game\BankDepositService;
@@ -73,6 +76,7 @@ class GameController extends BaseController
             'openChests' => $this->getDefaultConfigureForPostToken(),
             'openXpBanks' => $this->getDefaultConfigureForPostToken(),
             'activateProfessionCertificate' => $this->getDefaultConfigureForPostToken(),
+            'learnAlbumRecipe' => $this->getDefaultConfigureForPostToken(),
             'openLootPacks' => $this->getDefaultConfigureForPostToken(),
             'getChestOpenLogMeta' => $this->getDefaultConfigureForPostToken(),
             'getChestOpenLogs' => $this->getDefaultConfigureForPostToken(),
@@ -83,6 +87,10 @@ class GameController extends BaseController
             'pickFarmProfessions' => $this->getDefaultConfigureForPostToken(),
             'startFarmWork' => $this->getDefaultConfigureForPostToken(),
             'cancelFarmWork' => $this->getDefaultConfigureForPostToken(),
+            'getAlbumState' => $this->getDefaultConfigureForPostToken(),
+            'craftAlbums' => $this->getDefaultConfigureForPostToken(),
+            'activateAlbum' => $this->getDefaultConfigureForPostToken(),
+            'glueAlbumItem' => $this->getDefaultConfigureForPostToken(),
         ];
     }
 
@@ -788,6 +796,26 @@ class GameController extends BaseController
         ]);
     }
 
+    public function learnAlbumRecipeAction(): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        try {
+            $result = (new AlbumRecipeService())->learn($userId);
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok'], $result, [
+            'game' => (new GameProfileService())->getSummary($userId),
+        ]);
+    }
+
     public function openLootPacksAction(string $code, int $openAll = 0): array
     {
         $userId = TokenAuthService::getCurrentUserId();
@@ -900,6 +928,83 @@ class GameController extends BaseController
             'status' => 'ok',
             'farm' => $farm,
         ];
+    }
+
+    public function getAlbumStateAction(): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        return array_merge(
+            ['status' => 'ok'],
+            ['album' => (new AlbumService())->getState($userId)]
+        );
+    }
+
+    public function craftAlbumsAction(string $professionCode = ''): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        try {
+            $result = (new AlbumCraftService())->craft($userId, $professionCode);
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok'], $result, [
+            'album' => (new AlbumService())->getState($userId),
+            'farm' => (new ProfessionFarmService())->getState($userId),
+            'game' => (new GameProfileService())->getSummary($userId),
+        ]);
+    }
+
+    public function activateAlbumAction(): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        try {
+            $result = (new AlbumService())->activate($userId);
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok'], $result, [
+            'album' => (new AlbumService())->getState($userId),
+            'game' => (new GameProfileService())->getSummary($userId),
+        ]);
+    }
+
+    public function glueAlbumItemAction(int $albumId = 0, string $itemCode = ''): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        try {
+            $result = (new AlbumService())->glue($userId, $albumId, $itemCode);
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok'], $result, [
+            'album_state' => (new AlbumService())->getState($userId),
+            'game' => (new GameProfileService())->getSummary($userId),
+        ]);
     }
 
     private function resolveTargetUserId(int $actorId, int $targetUserId): int

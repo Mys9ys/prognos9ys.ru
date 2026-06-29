@@ -21,6 +21,9 @@ class GameEconomyRepository
     /** @var bool */
     private static $professionCertSchemaReady = false;
 
+    /** @var bool */
+    private static $learnedRecipesSchemaReady = false;
+
     private ?string $walletDataClass = null;
     private ?string $walletTxDataClass = null;
     private ?string $levelTierDataClass = null;
@@ -641,7 +644,7 @@ class GameEconomyRepository
         $dataClass = $this->getUserProgressDataClass();
         $row = $dataClass::getList([
             'filter' => ['=UF_USER_ID' => $userId],
-            'select' => ['ID', 'UF_USER_ID', 'UF_XP', 'UF_PROFESSION_CERT_SLOTS'],
+            'select' => ['ID', 'UF_USER_ID', 'UF_XP', 'UF_PROFESSION_CERT_SLOTS', 'UF_LEARNED_RECIPES'],
             'limit' => 1,
         ])->fetch();
 
@@ -737,6 +740,85 @@ class GameEconomyRepository
         $newValue = max(0, $current - $qty);
         $this->updateProgress((int)$row['ID'], [
             'UF_PROFESSION_CERT_SLOTS' => $newValue,
+        ]);
+        $this->userProgressDataClass = null;
+    }
+
+    public function ensureLearnedRecipesSchema(): void
+    {
+        if (self::$learnedRecipesSchemaReady) {
+            return;
+        }
+
+        (new GameEconomyHlInstaller())->upgradeLearnedRecipesHl();
+        $this->userProgressDataClass = null;
+        self::$learnedRecipesSchemaReady = true;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function getLearnedRecipes(int $userId): array
+    {
+        if ($userId <= 0) {
+            return [];
+        }
+
+        $this->ensureLearnedRecipesSchema();
+        $row = $this->getProgressByUserId($userId);
+        if (!$row) {
+            return [];
+        }
+
+        $raw = trim((string)($row['UF_LEARNED_RECIPES'] ?? ''));
+        if ($raw === '') {
+            return [];
+        }
+
+        $parts = array_filter(array_map('trim', explode(',', $raw)));
+
+        return array_values(array_unique($parts));
+    }
+
+    public function hasLearnedRecipe(int $userId, string $recipeCode): bool
+    {
+        $recipeCode = trim($recipeCode);
+        if ($recipeCode === '') {
+            return false;
+        }
+
+        return in_array($recipeCode, $this->getLearnedRecipes($userId), true);
+    }
+
+    public function addLearnedRecipe(int $userId, string $recipeCode): void
+    {
+        $recipeCode = trim($recipeCode);
+        if ($userId <= 0 || $recipeCode === '') {
+            throw new \InvalidArgumentException('Некорректные данные рецепта');
+        }
+
+        $this->ensureLearnedRecipesSchema();
+
+        if ($this->hasLearnedRecipe($userId, $recipeCode)) {
+            return;
+        }
+
+        $row = $this->getProgressByUserId($userId);
+        if (!$row) {
+            (new UserProgressService($this))->ensureProgress($userId);
+            $this->userProgressDataClass = null;
+            $row = $this->getProgressByUserId($userId);
+        }
+
+        if (!$row) {
+            throw new \RuntimeException('Не удалось создать прогресс игрока');
+        }
+
+        $learned = $this->getLearnedRecipes($userId);
+        $learned[] = $recipeCode;
+
+        $this->updateProgress((int)$row['ID'], [
+            'UF_LEARNED_RECIPES' => implode(',', array_values(array_unique($learned))),
         ]);
         $this->userProgressDataClass = null;
     }
@@ -1600,9 +1682,15 @@ class GameEconomyRepository
             $category = (string)($row['UF_CATEGORY'] ?? '');
             $typeCaption = $category === ChestLootConfig::CATEGORY_PACK
                 ? ChestLootConfig::getPackTypeCaption($code)
-                : (in_array($category, [ChestLootConfig::CATEGORY_PENNANT, ChestLootConfig::CATEGORY_SCARF], true)
-                    ? ChestLootConfig::getCollectibleTypeCaption($category)
-                    : ($category === ChestLootConfig::CATEGORY_XP_BANK ? 'XP' : ($category === ChestLootConfig::CATEGORY_CERT ? 'Серт' : 'Лут')));
+                : ($category === ChestLootConfig::CATEGORY_ALBUM
+                    ? 'Альбом'
+                    : ($category === ChestLootConfig::CATEGORY_RECIPE
+                        ? 'Рецепт'
+                        : (in_array($category, [ChestLootConfig::CATEGORY_PENNANT, ChestLootConfig::CATEGORY_SCARF], true)
+                            ? ChestLootConfig::getCollectibleTypeCaption($category)
+                            : ($category === ChestLootConfig::CATEGORY_XP_BANK
+                                ? 'XP'
+                                : ($category === ChestLootConfig::CATEGORY_CERT ? 'Серт' : 'Лут')))));
 
             $items[] = [
                 'code' => $code,

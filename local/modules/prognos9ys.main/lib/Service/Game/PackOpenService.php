@@ -35,7 +35,10 @@ class PackOpenService
         }
 
         $packCode = trim($packCode);
-        if (!PackOpenConfig::isSupported($packCode)) {
+        if (PackOpenConfig::isStubPack($packCode)) {
+            throw new \RuntimeException(PackOpenConfig::getStubMessage($packCode));
+        }
+        if (!PackOpenConfig::isFullyOpenable($packCode)) {
             throw new \InvalidArgumentException('Этот пак пока нельзя распаковать');
         }
 
@@ -61,6 +64,21 @@ class PackOpenService
                 'N'
             );
             $rewards[] = $reward;
+
+            if (PackOpenConfig::isSouvenirPack($packCode)) {
+                $bonusReward = PackOpenConfig::rollAlbumRecipeBonus();
+                if ($bonusReward !== null) {
+                    $this->repository->incrementLootItem(
+                        $userId,
+                        ChestLootConfig::LOOT_EVENT_GLOBAL,
+                        $bonusReward['code'],
+                        $bonusReward['category'],
+                        1,
+                        'N'
+                    );
+                    $rewards[] = $bonusReward;
+                }
+            }
         }
 
         $lines = [

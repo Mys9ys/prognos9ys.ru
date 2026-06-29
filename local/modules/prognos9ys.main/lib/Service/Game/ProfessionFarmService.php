@@ -54,6 +54,7 @@ class ProfessionFarmService
                 'max_iterations' => ProfessionEconomyConfig::FREE_ITERATIONS_PER_SESSION,
                 'profession_level_cap' => $this->getPlayerLevel($userId),
             ],
+            'album_craft' => (new AlbumCraftService($this->repository, null))->getCraftState($userId),
         ];
     }
 

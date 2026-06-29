@@ -154,7 +154,8 @@ export default {
         return group !== 'welcome'
           && group !== 'profession'
           && group !== 'potion'
-          && group !== 'exchange';
+          && group !== 'exchange'
+          && group !== 'collection';
       });
     },
     professionItems() {

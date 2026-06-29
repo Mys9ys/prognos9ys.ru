@@ -129,6 +129,13 @@
       <ProfileInventoryBlock :game="gameInfo" v-if="gameInfo" />
     </div>
 
+    <div class="body_item" v-if="active === 'collection'">
+      <div class="title_wrapper">
+        <div class="title">Коллекция</div>
+      </div>
+      <ProfileAlbumBlock v-if="gameInfo" />
+    </div>
+
     <div class="body_item" v-if="active === 'achievement'">
       <div class="title_wrapper">
         <div class="title">
@@ -170,6 +177,7 @@ import ProfileGameBlock from "@/components/profile/ProfileGameBlock";
 import ProfileEconomyBlock from "@/components/profile/ProfileEconomyBlock";
 import ProfileRulesBlock from "@/components/profile/ProfileRulesBlock";
 import ProfileInventoryBlock from "@/components/profile/ProfileInventoryBlock";
+import ProfileAlbumBlock from "@/components/profile/ProfileAlbumBlock";
 import ImpersonationPanel from "@/components/profile/ImpersonationPanel";
 import AppIcon from '@/components/ui/AppIcon.vue';
 
@@ -185,6 +193,7 @@ export default {
     ProfileEconomyBlock,
     ProfileRulesBlock,
     ProfileInventoryBlock,
+    ProfileAlbumBlock,
     ImpersonationPanel,
     AppIcon,
   },
@@ -202,6 +211,7 @@ export default {
         prognosis: {title: 'Прогнозы', icon: 'prognosis'},
         economy: {title: 'Богатство', icon: 'wealth'},
         inventory: {title: 'Инвентарь', emoji: '🎒'},
+        collection: {title: 'Коллекция', emoji: '📔'},
         achievement: {title: 'Награды', icon: 'achievement'},
         settings: {title: 'Настройки', icon: 'settings'},
       }
@@ -357,7 +367,7 @@ export default {
       },
     },
     active(tab) {
-      if (tab === 'inventory' || tab === 'economy') {
+      if (tab === 'inventory' || tab === 'economy' || tab === 'collection') {
         this.refreshGameInfo();
       }
     },

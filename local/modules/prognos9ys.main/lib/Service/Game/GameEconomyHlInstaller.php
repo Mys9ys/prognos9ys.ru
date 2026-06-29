@@ -36,6 +36,8 @@ class GameEconomyHlInstaller
     public const TABLE_CONSTRUCTION_PROJECT = 'prognos9ys_construction_project';
     public const TABLE_TREASURY_TX = 'prognos9ys_treasury_tx';
     public const TABLE_LABOR_ORDER = 'prognos9ys_labor_order';
+    public const TABLE_USER_ALBUM = 'prognos9ys_user_album';
+    public const TABLE_ALBUM_SLOT = 'prognos9ys_album_slot';
 
     public function install(): array
     {
@@ -622,6 +624,66 @@ class GameEconomyHlInstaller
         }
 
         return [];
+    }
+
+    /**
+     * HL изученных рецептов (альбом и др.) на user_progress.
+     */
+    public function upgradeLearnedRecipesHl(): array
+    {
+        if (!Loader::includeModule('highloadblock')) {
+            throw new \RuntimeException('Модуль highloadblock не установлен');
+        }
+
+        $this->ensureHlBlock('Prognos9ysUserProgress', self::TABLE_USER_PROGRESS, [
+            'UF_LEARNED_RECIPES' => ['USER_TYPE_ID' => 'string'],
+        ]);
+
+        if (class_exists(\Bitrix\Main\Application::class)) {
+            $app = \Bitrix\Main\Application::getInstance();
+            if ($app) {
+                $app->getManagedCache()->cleanDir('orm');
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * HL альбомов коллекции (вымпелы / шарфы ЧМ-26).
+     */
+    public function upgradeCollectionAlbumHl(): array
+    {
+        if (!Loader::includeModule('highloadblock')) {
+            throw new \RuntimeException('Модуль highloadblock не установлен');
+        }
+
+        $albumHlId = $this->ensureHlBlock('Prognos9ysUserAlbum', self::TABLE_USER_ALBUM, [
+            'UF_USER_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_COLLECTION' => ['USER_TYPE_ID' => 'string'],
+            'UF_EVENT_ID' => ['USER_TYPE_ID' => 'integer'],
+            'UF_CREATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+            'UF_UPDATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+        ]);
+
+        $slotHlId = $this->ensureHlBlock('Prognos9ysAlbumSlot', self::TABLE_ALBUM_SLOT, [
+            'UF_ALBUM_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_TEAM_SLUG' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_ITEM_CODE' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_GLUED_AT' => ['USER_TYPE_ID' => 'datetime'],
+        ]);
+
+        if (class_exists(\Bitrix\Main\Application::class)) {
+            $app = \Bitrix\Main\Application::getInstance();
+            if ($app) {
+                $app->getManagedCache()->cleanDir('orm');
+            }
+        }
+
+        return [
+            'user_album_hl_id' => $albumHlId,
+            'album_slot_hl_id' => $slotHlId,
+        ];
     }
 
     private function ensureStateTreasurySeed(): void

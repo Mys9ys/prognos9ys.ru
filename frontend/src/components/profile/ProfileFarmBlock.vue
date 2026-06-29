@@ -244,6 +244,28 @@
           </button>
         </div>
 
+        <div class="section" v-if="showAlbumCraftSection">
+          <div class="section_title">Крафт альбомов</div>
+          <p class="hint">
+            {{ farm.album_craft.plank_need }} доски + {{ farm.album_craft.cloth_need }} ткани →
+            {{ farm.album_craft.output_count }} альбома (из инвентаря)
+          </p>
+          <p class="hint">
+            На складе: доска {{ farm.album_craft.plank_have ?? 0 }},
+            ткань {{ farm.album_craft.cloth_have ?? 0 }}
+          </p>
+          <p class="hint">
+            Опыт профессии «{{ albumCraftProfessionLabel }}»: +{{ farm.album_craft.xp_gain }}
+          </p>
+          <button
+            class="btn"
+            :disabled="actionLoading || !farm.album_craft.can_craft || !albumCraftProfessionCode"
+            @click="onCraftAlbums"
+          >
+            Скрафтить альбомы
+          </button>
+        </div>
+
         <div class="section" v-if="farm.materials?.length">
           <div class="section_title">Инвентарь материалов</div>
           <div class="mat_row" v-for="m in farm.materials" :key="m.code + (m.is_premium ? 'p' : '')">
@@ -260,9 +282,11 @@
 </template>
 
 <script>
-import { mapActions, mapState } from 'vuex';
+import { mapActions, mapMutations, mapState } from 'vuex';
 import PreLoader from '@/components/main/PreLoader';
 import { apiActions } from '@/api/bitrixClient';
+
+const ALBUM_CRAFT_PROFESSION_CODES = new Set(['carpenter', 'weaver']);
 
 const MATERIAL_EMOJI = {
   log: '🪵',
@@ -382,6 +406,33 @@ export default {
       }
       return Math.min(max, available);
     },
+    showAlbumCraftSection() {
+      const craft = this.farm?.album_craft;
+      const eligible = craft?.profession_codes || [];
+      const code = this.selectedProfession;
+      return Boolean(
+        craft?.recipe_learned
+        && !this.farm?.session
+        && ALBUM_CRAFT_PROFESSION_CODES.has(code)
+        && eligible.includes(code),
+      );
+    },
+    albumCraftProfessionCode() {
+      const eligible = this.farm?.album_craft?.profession_codes || [];
+      const code = this.selectedProfession;
+      if (!ALBUM_CRAFT_PROFESSION_CODES.has(code) || !eligible.includes(code)) {
+        return '';
+      }
+      return code;
+    },
+    albumCraftProfessionLabel() {
+      const code = this.albumCraftProfessionCode;
+      if (!code) {
+        return '';
+      }
+      const prof = (this.farm?.professions || []).find(p => p.code === code);
+      return prof?.label || code;
+    },
     workModeHint() {
       const minutes = Number(this.farm?.economy?.iteration_minutes) || 5;
       const prof = this.selectedProfessionDef;
@@ -485,6 +536,7 @@ export default {
   },
   methods: {
     ...mapActions('auth', ['refreshGameInfo']),
+    ...mapMutations('auth', ['setUserInfo']),
 
     async refresh(silent = false) {
       const token = this.authData?.token;
@@ -795,6 +847,41 @@ export default {
         }
       } catch (e) {
         this.error = e.message || 'Не удалось начать смену';
+      } finally {
+        this.actionLoading = false;
+      }
+    },
+
+    async onCraftAlbums() {
+      const token = this.authData?.token;
+      const professionCode = this.albumCraftProfessionCode;
+      if (!token || !professionCode || !this.farm?.album_craft?.can_craft) {
+        return;
+      }
+
+      this.actionLoading = true;
+      this.error = '';
+      this.message = '';
+      try {
+        const data = await apiActions.game.craftAlbums(token, professionCode);
+        if (data?.status === 'ok') {
+          if (data.farm) {
+            this.farm = data.farm;
+          }
+          const lineText = (data.lines || []).map((line) => line.text).filter(Boolean).join(' · ');
+          this.message = lineText || 'Альбомы скрафчены';
+          if (data.game) {
+            this.setUserInfo({
+              ...this.$store.state.auth.userInfo,
+              game_info: data.game,
+            });
+          }
+          window.dispatchEvent(new CustomEvent('prognos9ys:album-refresh'));
+        } else {
+          this.error = data?.message || 'Не удалось скрафтить альбомы';
+        }
+      } catch (e) {
+        this.error = e.message || 'Не удалось скрафтить альбомы';
       } finally {
         this.actionLoading = false;
       }

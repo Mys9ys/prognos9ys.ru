@@ -260,6 +260,22 @@ export const apiActions = {
             'prognos9ys:main.GameController.cancelFarmWork',
             { userToken }
         ),
+        getAlbumState: (userToken) => runBitrixAction(
+            'prognos9ys:main.GameController.getAlbumState',
+            { userToken }
+        ),
+        craftAlbums: (userToken, professionCode) => runBitrixAction(
+            'prognos9ys:main.GameController.craftAlbums',
+            { userToken, professionCode }
+        ),
+        activateAlbum: (userToken) => runBitrixAction(
+            'prognos9ys:main.GameController.activateAlbum',
+            { userToken }
+        ),
+        glueAlbumItem: (userToken, albumId, itemCode) => runBitrixAction(
+            'prognos9ys:main.GameController.glueAlbumItem',
+            { userToken, albumId, itemCode }
+        ),
         moderatorBulkAction: (userToken, bulkAction) => runBitrixAction(
             'prognos9ys:main.GameController.moderatorBulkAction',
             { userToken, bulkAction }
@@ -350,6 +366,10 @@ export const apiActions = {
         ),
         activateProfessionCertificate: (userToken) => runBitrixAction(
             'prognos9ys:main.GameController.activateProfessionCertificate',
+            { userToken }
+        ),
+        learnAlbumRecipe: (userToken) => runBitrixAction(
+            'prognos9ys:main.GameController.learnAlbumRecipe',
             { userToken }
         ),
         openLootPacks: (userToken, code, openAll = false) => runBitrixAction(

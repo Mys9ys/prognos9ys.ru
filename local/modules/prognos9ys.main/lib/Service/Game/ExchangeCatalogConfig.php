@@ -77,6 +77,9 @@ class ExchangeCatalogConfig
             if ($category === ChestLootConfig::CATEGORY_CERT) {
                 return self::TAB_CERT;
             }
+            if ($category === ChestLootConfig::CATEGORY_RECIPE) {
+                return self::TAB_SOUVENIR;
+            }
             if ($category === ChestLootConfig::CATEGORY_PACK) {
                 return self::TAB_LOOT;
             }
