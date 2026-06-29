@@ -44,13 +44,13 @@ class BankConsignmentConfig
     /**
      * @param array<string, mixed> $bank
      */
-    public static function isCategoryAccepted(array $bank, string $kind, string $category = ''): bool
+    public static function isCategoryAccepted(array $bank, string $kind, string $category = '', string $code = ''): bool
     {
         if (!self::isConsignmentEnabled($bank)) {
             return false;
         }
 
-        $tab = ExchangeCatalogConfig::resolveTab($kind, $category);
+        $tab = ExchangeCatalogConfig::resolveTab($kind, $category, $code);
         $flags = self::parseCategoryFlags((string)($bank['UF_CONSIGNMENT_CATEGORIES'] ?? ''));
 
         return !empty($flags[$tab]);

@@ -85,7 +85,7 @@ class BankConsignmentService
         foreach ($chunks as $chunkQty) {
             $chunkInstant = round($instantPerUnit * $chunkQty, 1);
             $totalInstant = round($totalInstant + $chunkInstant, 1);
-            if ($this->repository->getEligibleConsignmentBanks($kind, $chunkInstant, $category) === []) {
+            if ($this->repository->getEligibleConsignmentBanks($kind, $chunkInstant, $category, $code) === []) {
                 throw new \RuntimeException('Нет банка');
             }
         }
@@ -259,7 +259,7 @@ class BankConsignmentService
         $pricePerUnit = $this->resolveConsignmentPrice($kind, $code, $category, $eventId, $teamCode);
         $instantPaid = round($pricePerUnit * $chunkQty * BankConsignmentConfig::INSTANT_PAYOUT_PERCENT / 100, 1);
 
-        $eligibleBanks = $this->repository->getEligibleConsignmentBanks($kind, $instantPaid, $category);
+        $eligibleBanks = $this->repository->getEligibleConsignmentBanks($kind, $instantPaid, $category, $code);
         if ($eligibleBanks === []) {
             throw new \RuntimeException('Нет банка');
         }
@@ -394,10 +394,10 @@ class BankConsignmentService
         $labels = [
             ExchangeCatalogConfig::TAB_CHEST => 'Сундуки',
             ExchangeCatalogConfig::TAB_PREMIUM_SCROLL => 'Премиум-свитки',
-            ExchangeCatalogConfig::TAB_LOOT => 'Лут',
+            ExchangeCatalogConfig::TAB_LOOT => 'ККИ (паки)',
+            ExchangeCatalogConfig::TAB_SOUVENIR => 'Сувениры',
             ExchangeCatalogConfig::TAB_XP_BANK => 'Банки XP',
             ExchangeCatalogConfig::TAB_CERT => 'Лицензии и сертификаты',
-            ExchangeCatalogConfig::TAB_PENNANT => 'Вымпелы',
             ExchangeCatalogConfig::TAB_MATERIAL => 'Материалы',
         ];
 

@@ -53,7 +53,8 @@ class ExchangeService
             if (!ExchangeCatalogConfig::matchesTab(
                 $catalogTab,
                 (string)($formatted['kind'] ?? ''),
-                (string)($formatted['category'] ?? '')
+                (string)($formatted['category'] ?? ''),
+                (string)($formatted['code'] ?? '')
             )) {
                 continue;
             }
@@ -86,7 +87,8 @@ class ExchangeService
                     'label' => (string)($formatted['label'] ?? ''),
                     'catalog_tab' => ExchangeCatalogConfig::resolveTab(
                         (string)($formatted['kind'] ?? ''),
-                        (string)($formatted['category'] ?? '')
+                        (string)($formatted['category'] ?? ''),
+                        (string)($formatted['code'] ?? '')
                     ),
                     'price_per_unit' => $price,
                     'qty_total' => 0,
@@ -812,7 +814,7 @@ class ExchangeService
                 $consignPrice * BankConsignmentConfig::INSTANT_PAYOUT_PERCENT / 100,
                 1
             ),
-            'catalog_tab' => ExchangeCatalogConfig::resolveTab($kind, $category),
+            'catalog_tab' => ExchangeCatalogConfig::resolveTab($kind, $category, $code),
         ];
     }
 

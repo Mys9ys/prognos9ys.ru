@@ -10,11 +10,14 @@ class ExchangeCatalogConfig
     public const TAB_ALL = 'all';
     public const TAB_CHEST = 'chest';
     public const TAB_PREMIUM_SCROLL = 'premium_scroll';
-    public const TAB_PENNANT = 'pennant';
-    public const TAB_MATERIAL = 'material';
+    /** @deprecated ID сохранён для флагов комиссионки; в UI — «ККИ» (паки) */
     public const TAB_LOOT = 'loot';
+    public const TAB_SOUVENIR = 'souvenir';
     public const TAB_XP_BANK = 'xp_bank';
     public const TAB_CERT = 'cert';
+    /** @deprecated вкладка объединена с TAB_SOUVENIR */
+    public const TAB_PENNANT = 'pennant';
+    public const TAB_MATERIAL = 'material';
 
     /**
      * @return array<int, array{id: string, label: string}>
@@ -25,10 +28,10 @@ class ExchangeCatalogConfig
             ['id' => self::TAB_ALL, 'label' => 'Все'],
             ['id' => self::TAB_CHEST, 'label' => 'Сундуки'],
             ['id' => self::TAB_PREMIUM_SCROLL, 'label' => 'Премиум'],
-            ['id' => self::TAB_LOOT, 'label' => 'Лут'],
+            ['id' => self::TAB_LOOT, 'label' => 'ККИ'],
+            ['id' => self::TAB_SOUVENIR, 'label' => 'Сувениры'],
             ['id' => self::TAB_XP_BANK, 'label' => 'Банки XP'],
             ['id' => self::TAB_CERT, 'label' => 'Лицензии'],
-            ['id' => self::TAB_PENNANT, 'label' => 'Вымпелы'],
             ['id' => self::TAB_MATERIAL, 'label' => 'Материалы'],
         ];
     }
@@ -44,17 +47,28 @@ class ExchangeCatalogConfig
             self::TAB_CHEST,
             self::TAB_PREMIUM_SCROLL,
             self::TAB_LOOT,
+            self::TAB_SOUVENIR,
             self::TAB_XP_BANK,
             self::TAB_CERT,
-            self::TAB_PENNANT,
             self::TAB_MATERIAL,
         ];
     }
 
-    public static function resolveTab(string $kind, string $category = ''): string
+    public static function isSouvenirLootCode(string $code): bool
+    {
+        $code = strtolower(trim($code));
+        if ($code === '' || strpos($code, 'pack_') === 0) {
+            return false;
+        }
+
+        return strpos($code, 'scarf') !== false || strpos($code, 'pennant') !== false;
+    }
+
+    public static function resolveTab(string $kind, string $category = '', string $code = ''): string
     {
         $kind = trim($kind);
         $category = trim($category);
+        $code = trim($code);
 
         if ($kind === ExchangeConfig::KIND_LOOT) {
             if ($category === ChestLootConfig::CATEGORY_XP_BANK) {
@@ -63,8 +77,18 @@ class ExchangeCatalogConfig
             if ($category === ChestLootConfig::CATEGORY_CERT) {
                 return self::TAB_CERT;
             }
+            if ($category === ChestLootConfig::CATEGORY_PACK) {
+                return self::TAB_LOOT;
+            }
+            if (self::isSouvenirLootCode($code)) {
+                return self::TAB_SOUVENIR;
+            }
 
             return self::TAB_LOOT;
+        }
+
+        if ($kind === ExchangeConfig::KIND_PENNANT) {
+            return self::TAB_SOUVENIR;
         }
 
         if (in_array($kind, self::consignmentTabIds(), true)) {
@@ -74,14 +98,14 @@ class ExchangeCatalogConfig
         return $kind;
     }
 
-    public static function matchesTab(string $tab, string $kind, string $category = ''): bool
+    public static function matchesTab(string $tab, string $kind, string $category = '', string $code = ''): bool
     {
         $tab = trim($tab);
         if ($tab === '' || $tab === self::TAB_ALL) {
             return true;
         }
 
-        return self::resolveTab($kind, $category) === $tab;
+        return self::resolveTab($kind, $category, $code) === $tab;
     }
 
     /**
@@ -112,7 +136,7 @@ class ExchangeCatalogConfig
             return $flags;
         }
 
-        // Миграция: старый единый «loot» → xp_bank + cert
+        // Миграция: старый единый «loot» → xp_bank + cert + сувениры
         if (array_key_exists(self::TAB_LOOT, $decoded)) {
             if (!array_key_exists(self::TAB_XP_BANK, $decoded)) {
                 $decoded[self::TAB_XP_BANK] = $decoded[self::TAB_LOOT];
@@ -120,6 +144,13 @@ class ExchangeCatalogConfig
             if (!array_key_exists(self::TAB_CERT, $decoded)) {
                 $decoded[self::TAB_CERT] = $decoded[self::TAB_LOOT];
             }
+            if (!array_key_exists(self::TAB_SOUVENIR, $decoded)) {
+                $decoded[self::TAB_SOUVENIR] = $decoded[self::TAB_LOOT];
+            }
+        }
+
+        if (array_key_exists(self::TAB_PENNANT, $decoded) && !array_key_exists(self::TAB_SOUVENIR, $decoded)) {
+            $decoded[self::TAB_SOUVENIR] = $decoded[self::TAB_PENNANT];
         }
 
         foreach ($flags as $tabId => $defaultValue) {

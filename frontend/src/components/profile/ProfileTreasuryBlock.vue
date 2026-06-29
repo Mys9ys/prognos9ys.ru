@@ -504,10 +504,11 @@ export default {
         'material:normal': 'Материалы',
         'material:premium': 'Премиум',
         'loot:xp_bank': 'XP-банки',
-        'loot:pack': 'Паки ККИ',
+        'loot:pack': 'ККИ (паки)',
         'loot:cert': 'Лицензии',
         chest: 'Сундуки',
-        pennant: 'Вымпелы',
+        pennant: 'Сувениры',
+        souvenir: 'Сувениры',
       };
 
       return labels[key] || key;

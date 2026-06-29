@@ -4115,13 +4115,17 @@ class GameEconomyRepository
     /**
      * @return array<int, array<string, mixed>>
      */
-    public function getEligibleConsignmentBanks(string $kind, float $requiredLiquid, string $category = ''): array
-    {
+    public function getEligibleConsignmentBanks(
+        string $kind,
+        float $requiredLiquid,
+        string $category = '',
+        string $code = ''
+    ): array {
         $requiredLiquid = round($requiredLiquid, 1);
         $eligible = [];
 
         foreach ($this->getActiveUserBanks(500) as $bank) {
-            if (!BankConsignmentConfig::isCategoryAccepted($bank, $kind, $category)) {
+            if (!BankConsignmentConfig::isCategoryAccepted($bank, $kind, $category, $code)) {
                 continue;
             }
 
@@ -4150,6 +4154,12 @@ class GameEconomyRepository
         if ($catalogTab !== '' && $catalogTab !== ExchangeCatalogConfig::TAB_ALL) {
             if ($catalogTab === ExchangeCatalogConfig::TAB_LOOT) {
                 $filter['=UF_ITEM_KIND'] = ExchangeConfig::KIND_LOOT;
+                $filter['=UF_ITEM_CATEGORY'] = ChestLootConfig::CATEGORY_PACK;
+            } elseif ($catalogTab === ExchangeCatalogConfig::TAB_SOUVENIR) {
+                $filter['@UF_ITEM_KIND'] = [
+                    ExchangeConfig::KIND_PENNANT,
+                    ExchangeConfig::KIND_LOOT,
+                ];
             } elseif ($catalogTab === ExchangeCatalogConfig::TAB_XP_BANK) {
                 $filter['=UF_ITEM_KIND'] = ExchangeConfig::KIND_LOOT;
                 $filter['=UF_ITEM_CATEGORY'] = ChestLootConfig::CATEGORY_XP_BANK;
