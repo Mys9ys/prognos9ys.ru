@@ -516,6 +516,78 @@ class ProfessionRepository
         }
     }
 
+    public function getGovWarehouseQty(string $materialCode): int
+    {
+        if ($materialCode === '') {
+            return 0;
+        }
+
+        return (int)($this->getGovWarehouseQtyMap()[$materialCode] ?? 0);
+    }
+
+    public function consumeGovWarehouseQty(string $materialCode, int $qty): void
+    {
+        if ($materialCode === '' || $qty <= 0) {
+            throw new \InvalidArgumentException('Некорректное количество материала');
+        }
+
+        $connection = Application::getConnection();
+        $helper = $connection->getSqlHelper();
+        $lockName = $helper->forSql('p9_gov_wh_' . md5($materialCode));
+        $lockRow = $connection->query("SELECT GET_LOCK('{$lockName}', 5) AS L")->fetch();
+        if ((int)($lockRow['L'] ?? 0) !== 1) {
+            throw new \RuntimeException('Не удалось заблокировать госсклад');
+        }
+
+        try {
+            $dataClass = $this->getGovWarehouseDataClass();
+            $rows = [];
+            $response = $dataClass::getList([
+                'filter' => ['=UF_MATERIAL_CODE' => $materialCode],
+                'order' => ['ID' => 'ASC'],
+            ]);
+
+            while ($row = $response->fetch()) {
+                $rows[] = $row;
+            }
+
+            $current = 0;
+            foreach ($rows as $row) {
+                $current += (int)($row['UF_QTY'] ?? 0);
+            }
+
+            if ($current < $qty) {
+                throw new \RuntimeException('Недостаточно материалов на госскладе');
+            }
+
+            $left = $current - $qty;
+            $now = new DateTime();
+
+            if (!$rows) {
+                throw new \RuntimeException('Недостаточно материалов на госскладе');
+            }
+
+            if ($left > 0) {
+                $dataClass::update((int)$rows[0]['ID'], [
+                    'UF_QTY' => $left,
+                    'UF_UPDATED_AT' => $now,
+                ]);
+
+                for ($i = 1, $count = count($rows); $i < $count; $i++) {
+                    $dataClass::delete((int)$rows[$i]['ID']);
+                }
+
+                return;
+            }
+
+            foreach ($rows as $row) {
+                $dataClass::delete((int)$row['ID']);
+            }
+        } finally {
+            $connection->query("SELECT RELEASE_LOCK('{$lockName}')");
+        }
+    }
+
     /**
      * @return array<string, int>
      */

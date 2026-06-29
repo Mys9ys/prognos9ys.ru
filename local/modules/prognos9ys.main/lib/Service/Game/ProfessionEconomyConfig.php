@@ -17,11 +17,14 @@ class ProfessionEconomyConfig
 
     public const NOMINAL_RAW = 5.0;
 
-    public const NOMINAL_PROCESSED = 9.0;
+    public const NOMINAL_PROCESSED = 10.0;
 
     public const NAILS_PER_INGOT = 20;
 
     public const PROFESSION_LEVEL_ABSOLUTE_MAX = 10;
+
+    /** Премиум-дроп при добыче доступен с этого уровня профессии. */
+    public const PREMIUM_DROP_MIN_LEVEL = 2;
 
     /** XP за 1 ед. обычного ресурса (× комбо). */
     public const XP_PER_NORMAL_UNIT = 2;
@@ -49,7 +52,28 @@ class ProfessionEconomyConfig
     {
         $level = max(1, $level);
 
-        return (0.0005 + $level * 0.0012);
+        if ($level < self::PREMIUM_DROP_MIN_LEVEL) {
+            return 0.0;
+        }
+
+        return 0.0005 + $level * 0.0012;
+    }
+
+    /**
+     * Шансы комбо и премиума для отображения в UI (уровень 0 → как ур. 1).
+     *
+     * @return array{combo_x2:float,combo_x3:float,premium:float,premium_min_level:int}
+     */
+    public static function chancesForLevel(int $level): array
+    {
+        $level = max(1, $level);
+
+        return [
+            'combo_x2' => round(self::comboDoubleChance($level) * 100, 2),
+            'combo_x3' => round(self::comboTripleChance($level) * 100, 2),
+            'premium' => round(self::premiumDropChance($level) * 100, 3),
+            'premium_min_level' => self::PREMIUM_DROP_MIN_LEVEL,
+        ];
     }
 
     /**

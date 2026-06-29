@@ -100,7 +100,9 @@ class ProfessionMaterialConfig
      *   output:string,
      *   output_label:string,
      *   premium:string,
-     *   premium_label:string
+     *   premium_label:string,
+     *   input?:string,
+     *   input_label?:string
      * }>
      */
     public static function processingProfessions(): array
@@ -113,7 +115,9 @@ class ProfessionMaterialConfig
                 'plank',
                 'Доска',
                 'fine_plank',
-                'Эбеновая доска'
+                'Эбеновая доска',
+                'log',
+                'Бревно'
             ),
             'stonemason' => self::professionRow(
                 'stonemason',
@@ -122,7 +126,9 @@ class ProfessionMaterialConfig
                 'block',
                 'Блок',
                 'fine_block',
-                'Гранитный блок'
+                'Гранитный блок',
+                'stone',
+                'Камень'
             ),
             'smelter' => self::professionRow(
                 'smelter',
@@ -131,7 +137,9 @@ class ProfessionMaterialConfig
                 'ingot',
                 'Слиток',
                 'fine_ingot',
-                'Закалённый слиток'
+                'Закалённый слиток',
+                'ore',
+                'Руда'
             ),
             'glassblower' => self::professionRow(
                 'glassblower',
@@ -140,7 +148,9 @@ class ProfessionMaterialConfig
                 'glass',
                 'Стекло',
                 'fine_glass',
-                'Хрусталь'
+                'Хрусталь',
+                'sand',
+                'Песок'
             ),
             'weaver' => self::professionRow(
                 'weaver',
@@ -149,7 +159,9 @@ class ProfessionMaterialConfig
                 'cloth',
                 'Ткань',
                 'fine_cloth',
-                'Парча'
+                'Парча',
+                'cotton',
+                'Хлопок'
             ),
         ];
     }
@@ -177,9 +189,11 @@ class ProfessionMaterialConfig
         string $output,
         string $outputLabel,
         string $premium,
-        string $premiumLabel
+        string $premiumLabel,
+        string $input = '',
+        string $inputLabel = ''
     ): array {
-        return [
+        $row = [
             'code' => $code,
             'label' => $label,
             'type' => $type,
@@ -188,6 +202,30 @@ class ProfessionMaterialConfig
             'premium' => $premium,
             'premium_label' => $premiumLabel,
         ];
+
+        if ($input !== '') {
+            $row['input'] = $input;
+            $row['input_label'] = $inputLabel;
+        }
+
+        return $row;
+    }
+
+    public static function isProcessingProfession(?array $definition): bool
+    {
+        return is_array($definition) && ($definition['type'] ?? '') === 'process';
+    }
+
+    public static function getProfessionInput(string $professionCode): ?string
+    {
+        $definition = self::getProfession($professionCode);
+        if (!$definition || !self::isProcessingProfession($definition)) {
+            return null;
+        }
+
+        $input = (string)($definition['input'] ?? '');
+
+        return $input !== '' ? $input : null;
     }
 
     public static function getProfession(string $code): ?array

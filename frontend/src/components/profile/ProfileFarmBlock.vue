@@ -18,7 +18,7 @@
           class="farm_tab"
           :class="{ active: activeFarmTab === 'work' }"
           @click="activeFarmTab = 'work'"
-        >Работа</button>
+        >Запуски</button>
       </div>
 
       <div
@@ -56,9 +56,9 @@
             @click="onProfessionCardClick(card)"
           >
             <div class="prof_card_head">
-              <div class="prof_card_info">
+              <div class="prof_card_title_row">
                 <span class="pick_label">{{ card.label }}</span>
-                <span class="pick_meta">{{ card.output_label }} · {{ card.premium_label }}</span>
+                <span class="pick_meta">{{ professionMetaLine(card) }}</span>
               </div>
               <span v-if="card.locked" class="prof_locked" title="Нет свободных слотов">🔒</span>
               <label
@@ -75,6 +75,33 @@
                 >
               </label>
             </div>
+            <div v-if="card.owned" class="prof_chances_wrap" @click.stop>
+              <button
+                type="button"
+                class="chances_btn"
+                :class="{ open: expandedChancesCode === card.code }"
+                @click="toggleChances(card.code)"
+              >
+                Шансы
+                <span class="chances_chevron">{{ expandedChancesCode === card.code ? '▲' : '▼' }}</span>
+              </button>
+              <div v-if="expandedChancesCode === card.code" class="chances_panel">
+                <div class="chances_row">
+                  <span>Комбо ×2 за цикл</span>
+                  <strong>{{ formatChancePercent(card.combo_x2_percent) }}</strong>
+                </div>
+                <div class="chances_row">
+                  <span>Комбо ×3 за цикл</span>
+                  <strong>{{ formatChancePercent(card.combo_x3_percent) }}</strong>
+                </div>
+                <div class="chances_row">
+                  <span>Премиум {{ card.premium_label }}</span>
+                  <strong v-if="card.premium_percent > 0">{{ formatChancePercent(card.premium_percent, 3) }}</strong>
+                  <strong v-else class="chances_na">с ур. {{ card.premium_min_level || 2 }}</strong>
+                </div>
+                <p class="chances_hint">{{ chancesHint(card) }}</p>
+              </div>
+            </div>
             <div class="prof_card_stats">
               <div class="prof_xp_row">
                 <span>
@@ -89,7 +116,7 @@
                 />
               </div>
               <div class="prof_yield" v-if="card.owned">
-                <span class="yield_label">Добыто:</span>
+                <span class="yield_label">{{ card.type === 'process' ? 'Изготовлено' : 'Добыто' }}:</span>
                 <span class="yield_item">
                   <strong>{{ card.normal_yield }}</strong>
                   <span class="yield_emoji">{{ card.output_emoji }}</span>
@@ -180,7 +207,7 @@
               class="work_mode_tab"
               :class="{ active: workMode === 'self' }"
               @click="workMode = 'self'"
-            >Для себя (−{{ farm.economy?.fee_self }} 🪙)</button>
+            >Для себя (−{{ farm.economy?.fee_self }} 🪙/цикл, после смены)</button>
           </div>
           <div class="iter_row">
             <span class="iter_label">Циклов за смену</span>
@@ -191,22 +218,34 @@
                 type="button"
                 class="iter_btn"
                 :class="{ active: selectedIterations === n }"
+                :disabled="n > maxIterationsForWork"
                 @click="selectedIterations = n"
               >{{ n }}</button>
             </div>
           </div>
-          <p class="hint">
-            Один цикл {{ farm.economy?.iteration_minutes }} мин.
-            Несколько циклов — одна смена: таймер до конца, расчёт и выплата разом.
-            На казну — 1 ресурс за цикл и базовая оплата; комбо и премиум остаются вам.
+          <p class="hint" v-if="selectedProfessionDef?.type === 'process' && selectedProfessionDef?.input">
+            Крафт 1:1 — на {{ selectedIterations }}
+            {{ cycleLabel(selectedIterations) }}
+            нужно {{ selectedIterations }} {{ selectedProfessionDef.input_label }}
+            <template v-if="workMode === 'self'">
+              в инвентаре (есть: {{ craftInputAvailable }}).
+            </template>
+            <template v-else>
+              на госскладе (есть: {{ craftInputAvailable }}).
+            </template>
           </p>
-          <button class="btn" :disabled="actionLoading || !selectedProfession" @click="onStartWork">
+          <p class="hint">{{ workModeHint }}</p>
+          <button
+            class="btn"
+            :disabled="actionLoading || !selectedProfession || maxIterationsForWork <= 0"
+            @click="onStartWork"
+          >
             Начать смену
           </button>
         </div>
 
         <div class="section" v-if="farm.materials?.length">
-          <div class="section_title">Материалы</div>
+          <div class="section_title">Инвентарь материалов</div>
           <div class="mat_row" v-for="m in farm.materials" :key="m.code + (m.is_premium ? 'p' : '')">
             <span class="mat_label">
               <span class="mat_emoji">{{ m.emoji || '📦' }}</span>
@@ -272,6 +311,7 @@ export default {
       countdownTimer: null,
       countdownDeadlineTs: 0,
       visibilityHandler: null,
+      expandedChancesCode: '',
       tickRefreshInFlight: false,
       lastCompletedShiftId: 0,
     };
@@ -306,7 +346,54 @@ export default {
     },
     iterationOptions() {
       const max = Math.min(5, Number(this.farm?.economy?.max_iterations) || 5);
-      return Array.from({ length: max }, (_, i) => i + 1);
+      const cap = Math.min(max, this.maxIterationsForWork || max);
+      return Array.from({ length: cap }, (_, i) => i + 1);
+    },
+    selectedProfessionDef() {
+      const code = this.selectedProfession;
+      if (!code) {
+        return null;
+      }
+      return (this.farm?.professions || []).find(p => p.code === code)
+        || (this.farm?.catalog || []).find(p => p.code === code)
+        || null;
+    },
+    craftInputAvailable() {
+      const prof = this.selectedProfessionDef;
+      if (!prof || prof.type !== 'process' || !prof.input) {
+        return 0;
+      }
+      if (this.workMode === 'treasury') {
+        const row = (this.farm?.gov_materials || []).find(m => m.code === prof.input);
+        return Number(row?.qty ?? 0);
+      }
+      const row = (this.farm?.materials || []).find(m => m.code === prof.input && !m.is_premium);
+      return Number(row?.qty ?? 0);
+    },
+    maxIterationsForWork() {
+      const max = Math.min(5, Number(this.farm?.economy?.max_iterations) || 5);
+      const prof = this.selectedProfessionDef;
+      if (!prof || prof.type !== 'process' || !prof.input) {
+        return max;
+      }
+      const available = this.craftInputAvailable;
+      if (available <= 0) {
+        return 0;
+      }
+      return Math.min(max, available);
+    },
+    workModeHint() {
+      const minutes = Number(this.farm?.economy?.iteration_minutes) || 5;
+      const prof = this.selectedProfessionDef;
+      const isCraft = prof?.type === 'process';
+      if (this.workMode === 'treasury') {
+        return isCraft
+          ? `Один цикл ${minutes} мин. Крафт на казну: сырьё с госсклада, продукт на госсклад, +${this.farm?.economy?.pay_treasury || 2} 🪙/цикл. Комбо — вам.`
+          : `Один цикл ${minutes} мин. Добыча на казну: +${this.farm?.economy?.pay_treasury || 2} 🪙/цикл, ресурс на госсклад; комбо и премиум — вам.`;
+      }
+      return isCraft
+        ? `Один цикл ${minutes} мин. Крафт для себя: сырьё из инвентаря, продукт вам; ${this.farm?.economy?.fee_self || 0.5} 🪙/цикл списывается после успешной смены.`
+        : `Один цикл ${minutes} мин. Добыча для себя: ресурс в инвентарь; ${this.farm?.economy?.fee_self || 0.5} 🪙/цикл после смены.`;
     },
     professionCards() {
       const ownedMap = {};
@@ -328,6 +415,9 @@ export default {
         return {
           code: item.code,
           label: item.label,
+          type: item.type || 'gather',
+          input: item.input || '',
+          input_label: item.input_label || '',
           output_label: item.output_label,
           premium_label: item.premium_label,
           owned: Boolean(owned),
@@ -348,8 +438,32 @@ export default {
           premium_yield: owned?.premium_yield ?? 0,
           output_emoji: owned?.output_emoji || materialEmoji(item.output),
           premium_emoji: owned?.premium_emoji || materialEmoji(item.premium),
+          combo_x2_percent: owned?.combo_x2_percent ?? 0,
+          combo_x3_percent: owned?.combo_x3_percent ?? 0,
+          premium_percent: owned?.premium_percent ?? 0,
+          has_premium_drop: owned?.has_premium_drop ?? true,
+          premium_min_level: owned?.premium_min_level ?? 2,
         };
       });
+    },
+  },
+  watch: {
+    maxIterationsForWork(max) {
+      if (max > 0 && this.selectedIterations > max) {
+        this.selectedIterations = max;
+      }
+    },
+    workMode() {
+      if (this.maxIterationsForWork > 0 && this.selectedIterations > this.maxIterationsForWork) {
+        this.selectedIterations = this.maxIterationsForWork;
+      }
+    },
+    selectedProfession() {
+      if (this.maxIterationsForWork > 0 && this.selectedIterations > this.maxIterationsForWork) {
+        this.selectedIterations = this.maxIterationsForWork;
+      } else if (this.maxIterationsForWork > 0 && this.selectedIterations < 1) {
+        this.selectedIterations = 1;
+      }
     },
   },
   created() {
@@ -512,6 +626,34 @@ export default {
 
     workModeLabel(mode) {
       return mode === 'self' ? 'для себя' : 'на казну';
+    },
+
+    professionMetaLine(card) {
+      if (card.type === 'process' && card.input_label) {
+        return `${card.input_label} → ${card.output_label}`;
+      }
+      return `${card.output_label} · ${card.premium_label}`;
+    },
+
+    toggleChances(code) {
+      this.expandedChancesCode = this.expandedChancesCode === code ? '' : code;
+    },
+
+    formatChancePercent(value, digits = 2) {
+      const n = Number(value);
+      if (!Number.isFinite(n)) {
+        return '0%';
+      }
+      const text = n.toFixed(digits).replace(/\.?0+$/, '');
+      return `${text}%`;
+    },
+
+    chancesHint(card) {
+      const lvl = Math.max(1, card.level);
+      if (card.type === 'process') {
+        return `Ур. ${lvl}. Крафт: комбо и премиум (${card.premium_label}) — как у добычи; на казну премиум вам.`;
+      }
+      return `Ур. ${lvl}. Добыча: комбо даёт доп. ${card.output_label}; премиум с ур. ${card.premium_min_level || 2}.`;
     },
 
     cycleLabel(count) {
@@ -770,10 +912,80 @@ export default {
 
 .prof_card_head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
+  margin-bottom: 4px;
+}
+
+.prof_card_title_row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.prof_chances_wrap {
   margin-bottom: 6px;
+}
+
+.chances_btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  color: @colorText;
+  background: fade(@darkbg, 80%);
+  border: 1px solid fade(@orange, 35%);
+  border-radius: 4px;
+  cursor: pointer;
+
+  &.open {
+    border-color: @orange;
+    color: @orange;
+  }
+}
+
+.chances_chevron {
+  font-size: 9px;
+  opacity: 0.8;
+}
+
+.chances_panel {
+  margin-top: 6px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: fade(@darkbg, 50%);
+  border: 1px solid fade(@orange, 20%);
+}
+
+.chances_row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: @colorBlur;
+
+  strong {
+    color: @colorText;
+    font-weight: 600;
+
+    &.chances_na {
+      color: @colorBlur;
+      font-weight: 500;
+    }
+  }
+}
+
+.chances_hint {
+  margin: 6px 0 0;
+  font-size: 10px;
+  line-height: 1.35;
+  color: fade(@colorBlur, 85%);
 }
 
 .prof_card_info {
@@ -887,12 +1099,17 @@ export default {
 
 .pick_label {
   font-size: 13px;
+  font-weight: 600;
   color: @colorText;
+  flex-shrink: 0;
 }
 
 .pick_meta {
   font-size: 11px;
   color: @colorBlur;
+  text-align: right;
+  flex-shrink: 1;
+  min-width: 0;
 }
 
 .mat_row {

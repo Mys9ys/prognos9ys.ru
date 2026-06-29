@@ -40,8 +40,9 @@ class ProfessionFarmService
 
         return [
             'professions' => $this->formatProfessions($userId),
-            'catalog' => array_values(ProfessionMaterialConfig::gatheringProfessions()),
+            'catalog' => $this->formatCatalog(),
             'materials' => $this->formatMaterials($userId),
+            'gov_materials' => $this->formatGovMaterials(),
             'session' => $this->formatSession($this->repository->getActiveSessionByUserId($userId)),
             'last_shift' => $this->formatLastShift($userId),
             'slots' => $this->getSlotInfo($userId),
@@ -96,7 +97,7 @@ class ProfessionFarmService
             $ownedCodes[] = (string)($row['UF_PROFESSION_CODE'] ?? '');
         }
 
-        $gathering = ProfessionMaterialConfig::gatheringProfessions();
+        $gathering = ProfessionMaterialConfig::allProfessions();
         foreach ($codes as $code) {
             if (in_array($code, $ownedCodes, true)) {
                 throw new \InvalidArgumentException('Профессия уже изучена: ' . $code);
@@ -145,6 +146,11 @@ class ProfessionFarmService
         $iterations = $iterations > 0
             ? min(ProfessionEconomyConfig::FREE_ITERATIONS_PER_SESSION, $iterations)
             : ProfessionEconomyConfig::FREE_ITERATIONS_PER_SESSION;
+
+        $iterations = $this->resolveIterationsForMaterials($userId, $professionCode, $workMode, $iterations);
+        if ($iterations <= 0) {
+            throw new \RuntimeException('Недостаточно сырья для начала смены');
+        }
 
         $now = new DateTime();
         $shiftMinutes = $iterations * ProfessionEconomyConfig::ITERATION_MINUTES;
@@ -265,6 +271,9 @@ class ProfessionFarmService
         $comboLevel = max(1, $level);
         $outputCode = $definition['output'];
         $premiumCode = $definition['premium'];
+        $isProcessing = ProfessionMaterialConfig::isProcessingProfession($definition);
+        $inputCode = ProfessionMaterialConfig::getProfessionInput($professionCode);
+        $inputLabel = $isProcessing ? (string)($definition['input_label'] ?? '') : '';
 
         $totalComboYield = 0;
         $totalGovOutput = 0;
@@ -292,10 +301,32 @@ class ProfessionFarmService
         $payCoins = 0.0;
         $feeCoins = 0.0;
         $message = '';
+        $inputConsumed = 0;
 
         try {
-            if ($workMode === ProfessionMaterialConfig::WORK_MODE_TREASURY) {
+            if ($workMode === ProfessionMaterialConfig::WORK_MODE_SELF) {
+                $feeCoins = $iterations * ProfessionEconomyConfig::FEE_SELF_PER_ITERATION;
+                $wallet = $this->walletService->ensureWallet($userId);
+                if ((float)($wallet['prognobaks'] ?? 0) < $feeCoins) {
+                    throw new \RuntimeException('Недостаточно 🪙 для оплаты мастерской после смены');
+                }
+            } else {
                 $payCoins = $iterations * ProfessionEconomyConfig::PAY_TREASURY_PER_ITERATION;
+                if (!$this->treasuryService->hasFunds(GameEconomyConfig::CURRENCY_PROGNOBAKS, $payCoins)) {
+                    throw new \RuntimeException('В казне недостаточно средств для оплаты смены');
+                }
+            }
+
+            if ($isProcessing && $inputCode) {
+                $inputConsumed = $iterations;
+                if ($workMode === ProfessionMaterialConfig::WORK_MODE_TREASURY) {
+                    $this->repository->consumeGovWarehouseQty($inputCode, $inputConsumed);
+                } else {
+                    $this->repository->consumeUserMaterialQty($userId, $inputCode, $inputConsumed, false);
+                }
+            }
+
+            if ($workMode === ProfessionMaterialConfig::WORK_MODE_TREASURY) {
                 if ($totalGovOutput > 0) {
                     $this->repository->addGovWarehouseQty($outputCode, $totalGovOutput);
                 }
@@ -322,7 +353,10 @@ class ProfessionFarmService
                     $this->repository->addUserMaterialQty($userId, $premiumCode, $totalPremiumQty, true);
                 }
                 $message = '+' . $payCoins . ' 🪙, ' . $totalGovOutput . ' '
-                    . $definition['output_label'] . ' на склад';
+                    . $definition['output_label'] . ($isProcessing ? ' на госсклад' : ' на склад');
+                if ($inputConsumed > 0) {
+                    $message .= ', −' . $inputConsumed . ' ' . $inputLabel;
+                }
                 if ($totalUserBonusOutput > 0) {
                     $message .= ', +' . $totalUserBonusOutput . ' ' . $definition['output_label'] . ' вам (комбо)';
                 }
@@ -330,7 +364,12 @@ class ProfessionFarmService
                     $message .= ', +' . $totalPremiumQty . ' ' . $definition['premium_label'];
                 }
             } else {
-                $feeCoins = $iterations * ProfessionEconomyConfig::FEE_SELF_PER_ITERATION;
+                if ($totalUserSelfOutput > 0) {
+                    $this->repository->addUserMaterialQty($userId, $outputCode, $totalUserSelfOutput, false);
+                }
+                if ($totalPremiumQty > 0) {
+                    $this->repository->addUserMaterialQty($userId, $premiumCode, $totalPremiumQty, true);
+                }
                 $this->walletService->debit(
                     $userId,
                     GameEconomyConfig::CURRENCY_PROGNOBAKS,
@@ -347,13 +386,13 @@ class ProfessionFarmService
                     $userId,
                     'profession_session'
                 );
-                if ($totalUserSelfOutput > 0) {
-                    $this->repository->addUserMaterialQty($userId, $outputCode, $totalUserSelfOutput, false);
-                }
-                if ($totalPremiumQty > 0) {
-                    $this->repository->addUserMaterialQty($userId, $premiumCode, $totalPremiumQty, true);
-                }
                 $message = $totalUserSelfOutput . ' ' . $definition['output_label'] . ' в инвентарь';
+                if ($inputConsumed > 0) {
+                    $message .= ', −' . $inputConsumed . ' ' . $inputLabel;
+                }
+                if ($feeCoins > 0) {
+                    $message .= ', −' . $feeCoins . ' 🪙 (мастерская)';
+                }
                 if ($totalPremiumQty > 0) {
                     $message .= ', +' . $totalPremiumQty . ' ' . $definition['premium_label'];
                 }
@@ -393,6 +432,8 @@ class ProfessionFarmService
         $resultJson = json_encode([
             'iterations' => $iterations,
             'output_code' => $outputCode,
+            'input_code' => $inputCode ?? '',
+            'input_consumed' => $inputConsumed,
             'gov_output_qty' => $totalGovOutput,
             'user_output_qty' => $workMode === ProfessionMaterialConfig::WORK_MODE_TREASURY
                 ? $totalUserBonusOutput
@@ -457,10 +498,15 @@ class ProfessionFarmService
             $xp = (float)($row['UF_XP'] ?? 0);
             $progress = $this->levelService->getProgressSummary($xp);
             $maxXp = $this->repository->maxXpForProfessionLevel($playerLevel);
+            $chanceLevel = max(1, $effectiveLevel);
+            $chances = ProfessionEconomyConfig::chancesForLevel($chanceLevel);
 
             $items[] = [
                 'code' => $code,
                 'label' => $definition['label'],
+                'type' => (string)($definition['type'] ?? 'gather'),
+                'input' => (string)($definition['input'] ?? ''),
+                'input_label' => (string)($definition['input_label'] ?? ''),
                 'level' => $effectiveLevel,
                 'stored_level' => $storedLevel,
                 'level_cap' => $playerLevel,
@@ -482,10 +528,93 @@ class ProfessionFarmService
                 'premium' => $definition['premium'],
                 'premium_label' => $definition['premium_label'],
                 'premium_emoji' => ProfessionMaterialConfig::materialEmoji($definition['premium']),
+                'combo_x2_percent' => $chances['combo_x2'],
+                'combo_x3_percent' => $chances['combo_x3'],
+                'premium_percent' => $chances['premium'],
+                'has_premium_drop' => true,
+                'premium_min_level' => ProfessionEconomyConfig::PREMIUM_DROP_MIN_LEVEL,
             ];
         }
 
         return $items;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function formatCatalog(): array
+    {
+        $items = [];
+        foreach (ProfessionMaterialConfig::allProfessions() as $definition) {
+            $items[] = [
+                'code' => $definition['code'],
+                'label' => $definition['label'],
+                'type' => (string)($definition['type'] ?? 'gather'),
+                'output' => $definition['output'],
+                'output_label' => $definition['output_label'],
+                'premium' => $definition['premium'],
+                'premium_label' => $definition['premium_label'],
+                'input' => (string)($definition['input'] ?? ''),
+                'input_label' => (string)($definition['input_label'] ?? ''),
+                'output_emoji' => ProfessionMaterialConfig::materialEmoji($definition['output']),
+                'premium_emoji' => ProfessionMaterialConfig::materialEmoji($definition['premium']),
+            ];
+        }
+
+        return $items;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function formatGovMaterials(): array
+    {
+        $qtyMap = $this->repository->getGovWarehouseQtyMap();
+        $catalog = ProfessionMaterialConfig::materialCatalog();
+        $items = [];
+
+        foreach ($qtyMap as $code => $qty) {
+            if ($qty <= 0) {
+                continue;
+            }
+
+            $meta = $catalog[$code] ?? null;
+            if (!$meta) {
+                continue;
+            }
+
+            $items[] = [
+                'code' => $code,
+                'label' => $meta['label'] ?? $code,
+                'qty' => $qty,
+                'nominal' => $meta['nominal'] ?? 0,
+                'emoji' => $meta['emoji'] ?? ProfessionMaterialConfig::materialEmoji($code),
+            ];
+        }
+
+        return $items;
+    }
+
+    private function resolveIterationsForMaterials(
+        int $userId,
+        string $professionCode,
+        string $workMode,
+        int $requestedIterations
+    ): int {
+        $inputCode = ProfessionMaterialConfig::getProfessionInput($professionCode);
+        if (!$inputCode) {
+            return $requestedIterations;
+        }
+
+        $available = $workMode === ProfessionMaterialConfig::WORK_MODE_TREASURY
+            ? $this->repository->getGovWarehouseQty($inputCode)
+            : $this->repository->getUserMaterialQty($userId, $inputCode, false);
+
+        if ($available <= 0) {
+            return 0;
+        }
+
+        return min($requestedIterations, $available);
     }
 
     /**

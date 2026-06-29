@@ -51,7 +51,7 @@ export default {
         { id: 'bank', label: 'Банк' },
         { id: 'treasury', label: 'Казна' },
         { id: 'exchange', label: 'Биржа' },
-        { id: 'farm', label: 'Фарм' },
+        { id: 'farm', label: 'Работа' },
       ];
     },
   },
