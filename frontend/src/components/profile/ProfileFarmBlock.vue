@@ -469,11 +469,16 @@ export default {
   created() {
     this.visibilityHandler = () => this.onVisibilityChange();
     document.addEventListener('visibilitychange', this.visibilityHandler);
+    this.farmRefreshHandler = () => this.refresh(true);
+    window.addEventListener('prognos9ys:farm-refresh', this.farmRefreshHandler);
     this.refresh();
   },
   beforeUnmount() {
     if (this.visibilityHandler) {
       document.removeEventListener('visibilitychange', this.visibilityHandler);
+    }
+    if (this.farmRefreshHandler) {
+      window.removeEventListener('prognos9ys:farm-refresh', this.farmRefreshHandler);
     }
     this.clearPoll();
     this.clearCountdown();
@@ -505,6 +510,8 @@ export default {
             this.selectedProfession = this.farm.professions[0].code;
           }
           if (this.farm?.slots?.needs_pick) {
+            this.activeFarmTab = 'professions';
+          } else if (this.farm?.slots?.can_add_profession) {
             this.activeFarmTab = 'professions';
           } else if (this.farm?.session) {
             this.activeFarmTab = 'work';

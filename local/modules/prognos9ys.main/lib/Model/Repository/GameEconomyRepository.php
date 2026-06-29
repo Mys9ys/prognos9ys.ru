@@ -12,6 +12,7 @@ use Prognos9ys\Main\Service\Game\GameEconomyConfig;
 use Prognos9ys\Main\Service\Game\GameEconomyHlInstaller;
 use Prognos9ys\Main\Service\Game\GameEventScopeService;
 use Prognos9ys\Main\Service\Game\TreasureService;
+use Prognos9ys\Main\Service\Game\UserProgressService;
 use Prognos9ys\Main\Service\Game\XpBankAchievementConfig;
 use Prognos9ys\Main\Service\Game\ExchangeBuyAchievementConfig;
 
@@ -663,6 +664,33 @@ class GameEconomyRepository
         if (!$result->isSuccess()) {
             throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
         }
+    }
+
+    public function getProfessionCertSlots(int $userId): int
+    {
+        $row = $this->getProgressByUserId($userId);
+
+        return max(0, (int)($row['UF_PROFESSION_CERT_SLOTS'] ?? 0));
+    }
+
+    public function incrementProfessionCertSlots(int $userId): int
+    {
+        $row = $this->getProgressByUserId($userId);
+        if (!$row) {
+            (new UserProgressService($this))->ensureProgress($userId);
+            $row = $this->getProgressByUserId($userId);
+        }
+
+        if (!$row) {
+            throw new \RuntimeException('Не удалось создать прогресс игрока');
+        }
+
+        $newValue = max(0, (int)($row['UF_PROFESSION_CERT_SLOTS'] ?? 0)) + 1;
+        $this->updateProgress((int)$row['ID'], [
+            'UF_PROFESSION_CERT_SLOTS' => $newValue,
+        ]);
+
+        return $newValue;
     }
 
     public function resetAllUserProgressXp(): int

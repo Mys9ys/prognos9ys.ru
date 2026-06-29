@@ -34,10 +34,10 @@
           class="slot_actions"
         >
           <button type="button" class="slot_action_btn" :disabled="opening" @click.stop="openInventoryItem(item, false)">
-            Открыть
+            {{ item.actionLabel || 'Открыть' }}
           </button>
           <button
-            v-if="item.count > 1"
+            v-if="item.count > 1 && item.allowOpenAll !== false"
             type="button"
             class="slot_action_btn slot_action_btn_all"
             :disabled="opening"
@@ -173,15 +173,22 @@ export default {
 
       return items
         .filter((item) => Number(item.count) > 0)
-        .map((item) => ({
-          id: `loot_${item.code}${item.is_premium ? '_p' : ''}`,
-          count: Number(item.count),
-          emoji: item.emoji || LOOT_EMOJI[item.category] || '📦',
-          caption: item.type_caption || LOOT_CAPTION[item.category] || 'Лут',
-          label: item.label || item.code,
-          openable: item.category === 'xp_bank',
-          xpBankCode: item.category === 'xp_bank' ? item.code : null,
-        }));
+        .map((item) => {
+          const isProfessionCert = item.code === 'cert_profession' && item.category === 'cert';
+
+          return {
+            id: `loot_${item.code}${item.is_premium ? '_p' : ''}`,
+            count: Number(item.count),
+            emoji: item.emoji || LOOT_EMOJI[item.category] || '📦',
+            caption: item.type_caption || LOOT_CAPTION[item.category] || 'Лут',
+            label: item.label || item.code,
+            openable: item.category === 'xp_bank' || isProfessionCert,
+            xpBankCode: item.category === 'xp_bank' ? item.code : null,
+            professionCert: isProfessionCert,
+            actionLabel: isProfessionCert ? 'Активировать' : null,
+            allowOpenAll: !isProfessionCert,
+          };
+        });
     },
     displayItems() {
       return [...this.chestSlots, ...this.lootSlots];
@@ -267,6 +274,11 @@ export default {
     },
 
     openInventoryItem(item, openAll) {
+      if (item.professionCert) {
+        this.activateProfessionCertificate(item);
+        return;
+      }
+
       if (item.xpBankCode) {
         this.openXpBank(item.xpBankCode, openAll, item);
         return;
@@ -366,6 +378,50 @@ export default {
         }
       } catch (e) {
         this.openLines = [{ text: e.message || 'Ошибка открытия банки опыта', status: 'fail' }];
+        this.openModalDone = true;
+      } finally {
+        this.opening = false;
+      }
+    },
+
+    async activateProfessionCertificate(slot) {
+      if (!this.authData?.token || this.opening || !slot || slot.count <= 0) {
+        return;
+      }
+
+      this.opening = true;
+      this.hoveredSlotId = null;
+      this.openModalVisible = true;
+      this.openModalDone = false;
+      this.openModalTitle = 'Активация сертификата';
+      this.openLines = [{ text: 'Открываем дополнительный слот профессии…', status: 'pending' }];
+      this.openProgressCurrent = 0;
+      this.openProgressTotal = 1;
+
+      try {
+        const data = await apiActions.game.activateProfessionCertificate(this.authData.token);
+
+        if (data?.status === 'ok') {
+          this.openLines = Array.isArray(data.lines) ? data.lines : [];
+          this.openProgressCurrent = 1;
+          this.openModalDone = true;
+
+          if (data.game) {
+            this.setUserInfo({
+              ...this.$store.state.auth.userInfo,
+              game_info: data.game,
+            });
+          } else {
+            await this.refreshGameInfo();
+          }
+
+          window.dispatchEvent(new CustomEvent('prognos9ys:farm-refresh'));
+        } else {
+          this.openLines = [{ text: 'Не удалось активировать сертификат', status: 'fail' }];
+          this.openModalDone = true;
+        }
+      } catch (e) {
+        this.openLines = [{ text: e.message || 'Ошибка активации сертификата', status: 'fail' }];
         this.openModalDone = true;
       } finally {
         this.opening = false;

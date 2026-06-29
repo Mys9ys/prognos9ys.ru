@@ -65,7 +65,8 @@ class ProfessionFarmService
         $existing = $this->repository->getProfessionsByUserId($userId);
         $used = count($existing);
         $playerLevel = $this->getPlayerLevel($userId);
-        $max = ProfessionMaterialConfig::maxProfessionSlots($playerLevel);
+        $certBonus = $this->getCertificateBonus($userId);
+        $max = ProfessionMaterialConfig::maxProfessionSlots($playerLevel, $certBonus);
         $available = $max - $used;
 
         if ($available <= 0) {
@@ -748,7 +749,8 @@ class ProfessionFarmService
         $professions = $this->repository->getProfessionsByUserId($userId);
         $used = count($professions);
         $playerLevel = $this->getPlayerLevel($userId);
-        $max = ProfessionMaterialConfig::maxProfessionSlots($playerLevel);
+        $certBonus = $this->getCertificateBonus($userId);
+        $max = ProfessionMaterialConfig::maxProfessionSlots($playerLevel, $certBonus);
         $available = max(0, $max - $used);
         $maxInitialPick = min(ProfessionMaterialConfig::STARTER_PROFESSION_SLOTS, $available);
         $pickMax = $used === 0 ? $maxInitialPick : $available;
@@ -765,7 +767,13 @@ class ProfessionFarmService
             'needs_pick' => $used === 0,
             'can_add_profession' => $used > 0 && $available > 0,
             'slots_full' => $used >= $max,
+            'certificate_bonus' => $certBonus,
         ];
+    }
+
+    public function getCertificateBonus(int $userId): int
+    {
+        return $this->economyRepository->getProfessionCertSlots($userId);
     }
 
     private function getPlayerLevel(int $userId): int

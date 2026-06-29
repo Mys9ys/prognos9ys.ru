@@ -348,6 +348,10 @@ export const apiActions = {
             'prognos9ys:main.GameController.openXpBanks',
             { userToken, code, openAll: openAll ? 1 : 0 }
         ),
+        activateProfessionCertificate: (userToken) => runBitrixAction(
+            'prognos9ys:main.GameController.activateProfessionCertificate',
+            { userToken }
+        ),
         getChestOpenLogMeta: (userToken) => runBitrixAction(
             'prognos9ys:main.GameController.getChestOpenLogMeta',
             { userToken }

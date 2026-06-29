@@ -601,6 +601,22 @@ class GameEconomyHlInstaller
         ];
     }
 
+    /**
+     * Счётчик активированных сертификатов на профессию (доп. слоты).
+     */
+    public function upgradeProfessionCertificateHl(): array
+    {
+        if (!Loader::includeModule('highloadblock')) {
+            throw new \RuntimeException('Модуль highloadblock не установлен');
+        }
+
+        $this->ensureHlBlock('Prognos9ysUserProgress', self::TABLE_USER_PROGRESS, [
+            'UF_PROFESSION_CERT_SLOTS' => ['USER_TYPE_ID' => 'integer'],
+        ]);
+
+        return [];
+    }
+
     private function ensureStateTreasurySeed(): void
     {
         $repository = new GameEconomyRepository();
