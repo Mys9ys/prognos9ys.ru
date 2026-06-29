@@ -92,6 +92,22 @@ class ExchangeNominalConfig
             return self::getXpBankNominal($itemCode);
         }
 
+        if ($category === ChestLootConfig::CATEGORY_PENNANT) {
+            $teamSlug = Wc26CollectibleConfig::extractTeamSlugFromCollectibleCode($itemCode);
+
+            return $teamSlug !== null
+                ? self::getOpenTeamItemNominal(ExchangeConfig::OPEN_PENNANT_BASE, $teamSlug)
+                : ExchangeConfig::OPEN_PENNANT_BASE;
+        }
+
+        if ($category === ChestLootConfig::CATEGORY_SCARF) {
+            $teamSlug = Wc26CollectibleConfig::extractTeamSlugFromCollectibleCode($itemCode);
+
+            return $teamSlug !== null
+                ? self::getOpenTeamItemNominal(ExchangeConfig::OPEN_SCARF_BASE, $teamSlug)
+                : ExchangeConfig::OPEN_SCARF_BASE;
+        }
+
         if ($teamCode !== null && $teamCode !== '') {
             if (self::isScarfCode($itemCode)) {
                 return self::getOpenTeamItemNominal(ExchangeConfig::OPEN_SCARF_BASE, $teamCode);

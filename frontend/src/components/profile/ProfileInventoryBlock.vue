@@ -92,6 +92,8 @@ const LOOT_EMOJI = {
   xp_bank: '🧪',
   cert: '📜',
   pack: '📦',
+  pennant: '🏴',
+  scarf: '🧣',
   material: '📦',
 };
 
@@ -99,7 +101,16 @@ const LOOT_CAPTION = {
   xp_bank: 'XP',
   cert: 'Серт',
   pack: 'Пак',
+  pennant: 'Вымпел',
+  scarf: 'Шарф',
 };
+
+const OPENABLE_PACK_CODES = new Set([
+  'pack_pennant_wc26',
+  'pack_pennant',
+  'pack_scarf_wc26',
+  'pack_scarf',
+]);
 
 export default {
   name: 'ProfileInventoryBlock',
@@ -175,15 +186,19 @@ export default {
         .filter((item) => Number(item.count) > 0)
         .map((item) => {
           const isProfessionCert = item.code === 'cert_profession' && item.category === 'cert';
+          const isOpenablePack = item.category === 'pack'
+            && item.sealed
+            && OPENABLE_PACK_CODES.has(item.code);
 
           return {
-            id: `loot_${item.code}${item.is_premium ? '_p' : ''}`,
+            id: `loot_${item.code}${item.is_premium ? '_p' : ''}${item.sealed ? '_s' : ''}`,
             count: Number(item.count),
             emoji: item.emoji || LOOT_EMOJI[item.category] || '📦',
             caption: item.type_caption || LOOT_CAPTION[item.category] || 'Лут',
             label: item.label || item.code,
-            openable: item.category === 'xp_bank' || isProfessionCert,
+            openable: item.category === 'xp_bank' || isProfessionCert || isOpenablePack,
             xpBankCode: item.category === 'xp_bank' ? item.code : null,
+            packCode: isOpenablePack ? item.code : null,
             professionCert: isProfessionCert,
             actionLabel: isProfessionCert ? 'Активировать' : null,
             allowOpenAll: !isProfessionCert,
@@ -276,6 +291,11 @@ export default {
     openInventoryItem(item, openAll) {
       if (item.professionCert) {
         this.activateProfessionCertificate(item);
+        return;
+      }
+
+      if (item.packCode) {
+        this.openLootPack(item.packCode, openAll, item);
         return;
       }
 
@@ -422,6 +442,48 @@ export default {
         }
       } catch (e) {
         this.openLines = [{ text: e.message || 'Ошибка активации сертификата', status: 'fail' }];
+        this.openModalDone = true;
+      } finally {
+        this.opening = false;
+      }
+    },
+
+    async openLootPack(code, openAll, slot) {
+      if (!this.authData?.token || this.opening || !code || !slot || slot.count <= 0) {
+        return;
+      }
+
+      this.opening = true;
+      this.hoveredSlotId = null;
+      this.openModalVisible = true;
+      this.openModalDone = false;
+      this.openModalTitle = openAll ? 'Открытие паков' : 'Открытие пака';
+      this.openLines = [{ text: 'Распаковываем…', status: 'pending' }];
+      this.openProgressCurrent = 0;
+      this.openProgressTotal = openAll ? Math.min(slot.count, 30) : 1;
+
+      try {
+        const data = await apiActions.game.openLootPacks(this.authData.token, code, openAll);
+
+        if (data?.status === 'ok') {
+          this.openLines = Array.isArray(data.lines) ? data.lines : [];
+          this.openProgressCurrent = Number(data.opened_count ?? this.openProgressTotal);
+          this.openModalDone = true;
+
+          if (data.game) {
+            this.setUserInfo({
+              ...this.$store.state.auth.userInfo,
+              game_info: data.game,
+            });
+          } else {
+            await this.refreshGameInfo();
+          }
+        } else {
+          this.openLines = [{ text: 'Не удалось открыть пак', status: 'fail' }];
+          this.openModalDone = true;
+        }
+      } catch (e) {
+        this.openLines = [{ text: e.message || 'Ошибка открытия пака', status: 'fail' }];
         this.openModalDone = true;
       } finally {
         this.opening = false;

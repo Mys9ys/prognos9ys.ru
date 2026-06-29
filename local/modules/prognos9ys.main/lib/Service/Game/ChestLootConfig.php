@@ -13,6 +13,8 @@ class ChestLootConfig
     public const CATEGORY_XP_BANK = 'xp_bank';
     public const CATEGORY_CERT = 'cert';
     public const CATEGORY_PACK = 'pack';
+    public const CATEGORY_PENNANT = 'pennant';
+    public const CATEGORY_SCARF = 'scarf';
 
     /** Лут без привязки к событию (паки level / классические ачивки). */
     public const LOOT_EVENT_GLOBAL = 0;
@@ -122,12 +124,37 @@ class ChestLootConfig
             }
         }
 
+        if (Wc26CollectibleConfig::parsePennantSlug($code) !== null) {
+            return Wc26CollectibleConfig::getPennantLabel($code);
+        }
+
+        if (Wc26CollectibleConfig::parseScarfSlug($code) !== null) {
+            return Wc26CollectibleConfig::getScarfLabel($code);
+        }
+
         return $code;
     }
 
     public static function isXpBankCode(string $code): bool
     {
         return self::parseXpBankCode($code) !== null;
+    }
+
+    public static function isOpenablePackCode(string $code): bool
+    {
+        return PackOpenConfig::isSupported(trim($code));
+    }
+
+    public static function getCollectibleTypeCaption(string $category): string
+    {
+        if ($category === self::CATEGORY_PENNANT) {
+            return 'Вымпел';
+        }
+        if ($category === self::CATEGORY_SCARF) {
+            return 'Шарф';
+        }
+
+        return 'Лут';
     }
 
     /** Лут без привязки к событию в каталоге биржи (стаки могут лежать с event_id 0 или якорным). */

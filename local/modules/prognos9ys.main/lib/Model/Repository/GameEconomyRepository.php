@@ -1552,7 +1552,9 @@ class GameEconomyRepository
             $category = (string)($row['UF_CATEGORY'] ?? '');
             $typeCaption = $category === ChestLootConfig::CATEGORY_PACK
                 ? ChestLootConfig::getPackTypeCaption($code)
-                : ($category === ChestLootConfig::CATEGORY_XP_BANK ? 'XP' : ($category === ChestLootConfig::CATEGORY_CERT ? 'Серт' : 'Лут'));
+                : (in_array($category, [ChestLootConfig::CATEGORY_PENNANT, ChestLootConfig::CATEGORY_SCARF], true)
+                    ? ChestLootConfig::getCollectibleTypeCaption($category)
+                    : ($category === ChestLootConfig::CATEGORY_XP_BANK ? 'XP' : ($category === ChestLootConfig::CATEGORY_CERT ? 'Серт' : 'Лут')));
 
             $items[] = [
                 'code' => $code,
@@ -3672,6 +3674,107 @@ class GameEconomyRepository
 
         if ($remaining > 0) {
             throw new \RuntimeException('Недостаточно предметов');
+        }
+    }
+
+    public function getSealedPackCount(int $userId, string $packCode): int
+    {
+        if ($userId <= 0 || $packCode === '') {
+            return 0;
+        }
+
+        $total = 0;
+        foreach ($this->resolveLootLookupEventIds() as $eventId) {
+            $total += $this->getSealedPackCountForEvent($userId, $eventId, $packCode);
+        }
+
+        return $total;
+    }
+
+    public function decrementSealedPack(int $userId, string $packCode, int $qty): void
+    {
+        if ($userId <= 0 || $packCode === '' || $qty <= 0) {
+            return;
+        }
+
+        $remaining = $qty;
+        foreach ($this->resolveLootLookupEventIds() as $eventId) {
+            if ($remaining <= 0) {
+                break;
+            }
+
+            $available = $this->getSealedPackCountForEvent($userId, $eventId, $packCode);
+            if ($available <= 0) {
+                continue;
+            }
+
+            $take = min($remaining, $available);
+            $this->decrementSealedPackForEvent($userId, $eventId, $packCode, $take);
+            $remaining -= $take;
+        }
+
+        if ($remaining > 0) {
+            throw new \RuntimeException('Недостаточно запечатанных паков');
+        }
+    }
+
+    private function getSealedPackCountForEvent(int $userId, int $eventId, string $packCode): int
+    {
+        $dataClass = $this->getLootItemDataClass();
+        $row = $dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '=UF_EVENT_ID' => $eventId,
+                '=UF_ITEM_CODE' => $packCode,
+                '=UF_CATEGORY' => ChestLootConfig::CATEGORY_PACK,
+                '=UF_SEALED' => 'Y',
+                '>UF_COUNT' => 0,
+            ],
+            'select' => ['UF_COUNT'],
+            'limit' => 1,
+        ])->fetch();
+
+        return (int)($row['UF_COUNT'] ?? 0);
+    }
+
+    private function decrementSealedPackForEvent(
+        int $userId,
+        int $eventId,
+        string $packCode,
+        int $qty
+    ): void {
+        $dataClass = $this->getLootItemDataClass();
+        $row = $dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '=UF_EVENT_ID' => $eventId,
+                '=UF_ITEM_CODE' => $packCode,
+                '=UF_CATEGORY' => ChestLootConfig::CATEGORY_PACK,
+                '=UF_SEALED' => 'Y',
+                '>UF_COUNT' => 0,
+            ],
+            'limit' => 1,
+        ])->fetch();
+
+        if (!$row) {
+            throw new \RuntimeException('Запечатанный пак не найден');
+        }
+
+        $count = (int)($row['UF_COUNT'] ?? 0);
+        if ($count < $qty) {
+            throw new \RuntimeException('Недостаточно запечатанных паков');
+        }
+
+        $now = new \Bitrix\Main\Type\DateTime();
+        $newCount = $count - $qty;
+
+        if ($newCount <= 0) {
+            $dataClass::delete((int)$row['ID']);
+        } else {
+            $dataClass::update((int)$row['ID'], [
+                'UF_COUNT' => $newCount,
+                'UF_UPDATED_AT' => $now,
+            ]);
         }
     }
 

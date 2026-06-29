@@ -352,6 +352,10 @@ export const apiActions = {
             'prognos9ys:main.GameController.activateProfessionCertificate',
             { userToken }
         ),
+        openLootPacks: (userToken, code, openAll = false) => runBitrixAction(
+            'prognos9ys:main.GameController.openLootPacks',
+            { userToken, code, openAll: openAll ? 1 : 0 }
+        ),
         getChestOpenLogMeta: (userToken) => runBitrixAction(
             'prognos9ys:main.GameController.getChestOpenLogMeta',
             { userToken }

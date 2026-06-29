@@ -23,6 +23,7 @@ use Prognos9ys\Main\Service\Game\LaborExchangeConfig;
 use Prognos9ys\Main\Service\Game\LaborExchangeService;
 use Prognos9ys\Main\Service\Game\MacroEconomyService;
 use Prognos9ys\Main\Service\Game\ProfessionFarmService;
+use Prognos9ys\Main\Service\Game\PackOpenService;
 use Prognos9ys\Main\Service\Game\ProfessionCertificateService;
 use Prognos9ys\Main\Service\Game\TreasuryService;
 use Prognos9ys\Main\Service\Game\TreasuryShopService;
@@ -72,6 +73,7 @@ class GameController extends BaseController
             'openChests' => $this->getDefaultConfigureForPostToken(),
             'openXpBanks' => $this->getDefaultConfigureForPostToken(),
             'activateProfessionCertificate' => $this->getDefaultConfigureForPostToken(),
+            'openLootPacks' => $this->getDefaultConfigureForPostToken(),
             'getChestOpenLogMeta' => $this->getDefaultConfigureForPostToken(),
             'getChestOpenLogs' => $this->getDefaultConfigureForPostToken(),
             'moderatorBulkAction' => $this->getDefaultConfigureForPostToken(),
@@ -775,6 +777,27 @@ class GameController extends BaseController
 
         try {
             $result = (new ProfessionCertificateService())->activate($userId);
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok'], $result, [
+            'game' => (new GameProfileService())->getSummary($userId),
+        ]);
+    }
+
+    public function openLootPacksAction(string $code, int $openAll = 0): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        try {
+            $qty = $openAll > 0 ? 30 : 1;
+            $result = (new PackOpenService())->open($userId, $code, $qty);
         } catch (\InvalidArgumentException $e) {
             throw new ApiException($e->getMessage(), 400);
         } catch (\RuntimeException $e) {
