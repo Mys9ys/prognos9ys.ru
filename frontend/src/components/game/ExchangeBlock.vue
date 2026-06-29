@@ -150,6 +150,153 @@
       <div class="empty" v-else>Нет активных лотов</div>
     </div>
 
+    <!-- Работы -->
+    <div v-if="activeTab === 'labor'" class="panel">
+      <div class="labor_hint" v-if="laborState">
+        Цикл {{ laborState.iteration_minutes }} мин · 1–{{ laborState.max_cycles_per_claim }} циклов на смену ·
+        комиссия 0%
+      </div>
+
+      <div class="labor_create" v-if="laborState">
+        <div class="labor_section_title">Разместить заказ</div>
+        <div class="row_actions labor_create_form">
+          <select v-model="laborForm.professionCode" class="labor_select">
+            <option value="">Профессия</option>
+            <option
+              v-for="prof in laborState.professions"
+              :key="'post-' + prof.code"
+              :value="prof.code"
+            >
+              {{ prof.label }}
+              <template v-if="prof.input_label"> ({{ prof.input_label }} → {{ prof.output_label }})</template>
+              <template v-else> ({{ prof.output_label }})</template>
+            </option>
+          </select>
+          <input
+            v-model.number="laborForm.iterations"
+            type="number"
+            min="1"
+            class="qty_input"
+            placeholder="Циклов"
+          />
+          <input
+            v-model.number="laborForm.payPerCycle"
+            type="number"
+            step="0.1"
+            min="0.1"
+            class="price_input"
+            placeholder="🪙/цикл"
+          />
+          <button type="button" class="action_btn" :disabled="busy" @click="createLaborOrder">
+            Разместить
+          </button>
+        </div>
+        <div class="labor_create_note" v-if="selectedLaborProfession">
+          <span v-if="selectedLaborProfession.input_label">
+            Эскроу: {{ laborForm.iterations || 0 }} {{ selectedLaborProfession.input_label }} +
+          </span>
+          {{ laborPayTotal }} 🪙 оплаты труда
+        </div>
+      </div>
+
+      <div class="labor_section_title">Мои заказы</div>
+      <div class="catalog_list" v-if="myLaborOrders.length">
+        <div v-for="order in myLaborOrders" :key="'my-labor-' + order.id" class="catalog_row">
+          <div class="row_main">
+            <div class="row_label">{{ order.profession_label }} → {{ order.output_label }}</div>
+            <div class="row_meta">
+              {{ order.iterations_done }}/{{ order.iterations_total }} циклов ·
+              {{ order.pay_per_cycle }} 🪙/цикл
+              <span v-if="order.has_active_worker" class="badge_consignment">в работе</span>
+              <span v-else-if="order.status === 'open'"> · осталось {{ order.iterations_remaining }}</span>
+              · {{ orderStatusLabel(order.status) }}
+            </div>
+          </div>
+          <div class="row_actions" v-if="order.can_workshop || order.can_claim">
+            <input
+              v-model.number="laborClaimQty[order.id]"
+              type="number"
+              min="1"
+              :max="laborMaxClaim(order)"
+              class="qty_input"
+              title="Циклов за смену"
+            />
+            <button
+              v-if="order.can_workshop"
+              type="button"
+              class="action_btn"
+              :disabled="busy"
+              @click="startLaborWorkshop(order.id)"
+            >
+              Мастерская
+            </button>
+            <button
+              v-if="order.can_claim"
+              type="button"
+              class="action_btn"
+              :disabled="busy"
+              @click="claimLaborOrder(order.id)"
+            >
+              Взять
+            </button>
+          </div>
+          <div class="row_actions" v-else-if="order.can_cancel">
+            <button
+              type="button"
+              class="action_btn danger"
+              :disabled="busy"
+              @click="cancelLaborOrder(order.id)"
+            >
+              Снять
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="empty" v-else>У вас нет заказов на работу</div>
+
+      <div class="labor_section_title">Открытые заказы</div>
+      <div class="catalog_list" v-if="laborOrders.length">
+        <div v-for="order in laborOrders" :key="'labor-' + order.id" class="catalog_row">
+          <div class="row_main">
+            <div class="row_label">{{ order.profession_label }} → {{ order.output_label }}</div>
+            <div class="row_meta">
+              {{ order.poster_name }}<span v-if="order.is_treasury" class="badge_consignment">казна</span> · {{ order.iterations_remaining }} цикл.
+              · {{ order.pay_per_cycle }} 🪙/цикл
+              <span v-if="order.input_label"> · сырьё в эскроу</span>
+            </div>
+          </div>
+          <div class="row_actions" v-if="order.can_claim">
+            <input
+              v-model.number="laborClaimQty[order.id]"
+              type="number"
+              min="1"
+              :max="laborMaxClaim(order)"
+              class="qty_input"
+              title="Циклов за смену"
+            />
+            <button
+              type="button"
+              class="action_btn"
+              :disabled="busy"
+              @click="claimLaborOrder(order.id)"
+            >
+              Взять
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="empty" v-else>Открытых заказов нет</div>
+      <button
+        v-if="laborPagination.has_more"
+        type="button"
+        class="more_btn"
+        :disabled="loading"
+        @click="loadMoreLaborOrders"
+      >
+        Ещё
+      </button>
+    </div>
+
     <!-- История -->
     <div v-if="activeTab === 'history'" class="panel">
       <div class="history_list" v-if="historyItems.length">
@@ -182,6 +329,7 @@ export default {
         { id: 'catalog', label: 'Каталог' },
         { id: 'sell', label: 'Продать' },
         { id: 'my', label: 'Мои лоты' },
+        { id: 'labor', label: 'Работы' },
         { id: 'history', label: 'История' },
       ],
       loading: false,
@@ -196,12 +344,32 @@ export default {
       buyQty: {},
       expandedGroups: {},
       sellForm: {},
+      laborState: null,
+      laborOrders: [],
+      myLaborOrders: [],
+      laborPagination: { offset: 0, limit: 25, has_more: false },
+      laborForm: {
+        professionCode: '',
+        iterations: 5,
+        payPerCycle: 2,
+      },
+      laborClaimQty: {},
     };
   },
   computed: {
     ...mapState({
       authData: (state) => state.auth.authData,
     }),
+    selectedLaborProfession() {
+      const code = this.laborForm.professionCode;
+      const list = Array.isArray(this.laborState?.professions) ? this.laborState.professions : [];
+      return list.find((item) => item.code === code) || null;
+    },
+    laborPayTotal() {
+      const iterations = Number(this.laborForm.iterations) || 0;
+      const pay = Number(this.laborForm.payPerCycle) || 0;
+      return (iterations * pay).toFixed(1).replace(/\.0$/, '');
+    },
     sellable() {
       return Array.isArray(this.state?.sellable) ? this.state.sellable : [];
     },
@@ -224,6 +392,8 @@ export default {
         this.loadMyListings();
       } else if (tab === 'history') {
         this.loadHistory();
+      } else if (tab === 'labor') {
+        this.loadLabor(true);
       }
     },
     sellable: {
@@ -386,6 +556,201 @@ export default {
         }
       } catch (e) {
         this.error = e.message || 'Ошибка истории';
+      }
+    },
+
+    orderStatusLabel(status) {
+      if (status === 'completed') {
+        return 'выполнен';
+      }
+      if (status === 'cancelled') {
+        return 'снят';
+      }
+      return 'открыт';
+    },
+
+    laborMaxClaim(order) {
+      const maxPerClaim = Number(this.laborState?.max_cycles_per_claim) || 5;
+      const remaining = Number(order?.max_claim_cycles ?? order?.iterations_remaining ?? maxPerClaim);
+      return Math.max(1, Math.min(maxPerClaim, remaining));
+    },
+
+    ensureLaborClaimQty(orders) {
+      const qty = { ...this.laborClaimQty };
+      (orders || []).forEach((order) => {
+        const id = order.id;
+        const max = this.laborMaxClaim(order);
+        if (!qty[id] || qty[id] < 1 || qty[id] > max) {
+          qty[id] = max;
+        }
+      });
+      this.laborClaimQty = qty;
+    },
+
+    resolveLaborClaimIterations(orderId) {
+      const order = [...this.laborOrders, ...this.myLaborOrders].find((item) => item.id === orderId);
+      const max = order ? this.laborMaxClaim(order) : 5;
+      const raw = Number(this.laborClaimQty[orderId]) || max;
+      return Math.max(1, Math.min(max, raw));
+    },
+
+    async loadLabor(reset = false) {
+      if (!this.authData?.token) {
+        return;
+      }
+
+      if (reset) {
+        this.laborPagination.offset = 0;
+        this.laborOrders = [];
+      }
+
+      this.loading = true;
+      this.error = '';
+
+      try {
+        const [stateData, myData, ordersData] = await Promise.all([
+          apiActions.exchange.getLaborState(this.authData.token),
+          apiActions.exchange.getMyLaborOrders(this.authData.token),
+          apiActions.exchange.getLaborOrders(
+            this.authData.token,
+            this.laborPagination.offset,
+            this.laborPagination.limit
+          ),
+        ]);
+
+        if (stateData?.status === 'ok' && stateData.labor) {
+          this.laborState = stateData.labor;
+          if (!this.laborForm.payPerCycle && stateData.labor.default_pay_per_cycle) {
+            this.laborForm.payPerCycle = stateData.labor.default_pay_per_cycle;
+          }
+        }
+
+        if (myData?.status === 'ok') {
+          this.myLaborOrders = Array.isArray(myData.items) ? myData.items : [];
+          this.ensureLaborClaimQty(this.myLaborOrders);
+        }
+
+        if (ordersData?.status === 'ok') {
+          const items = Array.isArray(ordersData.items) ? ordersData.items : [];
+          this.laborOrders = reset ? items : [...this.laborOrders, ...items];
+          this.ensureLaborClaimQty(this.laborOrders);
+          this.laborPagination = {
+            ...this.laborPagination,
+            ...(ordersData.pagination || {}),
+          };
+        }
+      } catch (e) {
+        this.error = e.message || 'Ошибка загрузки работ';
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    loadMoreLaborOrders() {
+      this.laborPagination.offset += this.laborPagination.limit;
+      this.loadLabor(false);
+    },
+
+    async createLaborOrder() {
+      const professionCode = (this.laborForm.professionCode || '').trim();
+      const iterations = Number(this.laborForm.iterations) || 0;
+      const payPerCycle = Number(this.laborForm.payPerCycle) || 0;
+
+      if (!professionCode || iterations < 1 || payPerCycle <= 0) {
+        this.error = 'Заполните профессию, циклы и оплату';
+        return;
+      }
+
+      this.busy = true;
+      this.error = '';
+      this.message = '';
+
+      try {
+        const data = await apiActions.exchange.createLaborOrder(
+          this.authData.token,
+          professionCode,
+          iterations,
+          payPerCycle
+        );
+
+        if (data?.status === 'ok') {
+          this.message = 'Заказ размещён';
+          this.applyGame(data.game);
+          await this.refreshState();
+          await this.loadLabor(true);
+        }
+      } catch (e) {
+        this.error = e.message || 'Не удалось разместить заказ';
+      } finally {
+        this.busy = false;
+      }
+    },
+
+    async cancelLaborOrder(orderId) {
+      this.busy = true;
+      this.error = '';
+      this.message = '';
+
+      try {
+        const data = await apiActions.exchange.cancelLaborOrder(this.authData.token, orderId);
+        if (data?.status === 'ok') {
+          this.message = 'Заказ снят, эскроу возвращено';
+          this.applyGame(data.game);
+          await this.refreshState();
+          await this.loadLabor(true);
+        }
+      } catch (e) {
+        this.error = e.message || 'Не удалось снять заказ';
+      } finally {
+        this.busy = false;
+      }
+    },
+
+    async claimLaborOrder(orderId) {
+      const iterations = this.resolveLaborClaimIterations(orderId);
+      this.busy = true;
+      this.error = '';
+      this.message = '';
+
+      try {
+        const data = await apiActions.exchange.claimLaborOrder(
+          this.authData.token,
+          orderId,
+          iterations
+        );
+        if (data?.status === 'ok') {
+          this.message = `Смена на ${iterations} цикл. — вкладка «Работа»`;
+          this.applyGame(data.game);
+          await this.loadLabor(true);
+        }
+      } catch (e) {
+        this.error = e.message || 'Не удалось взять заказ';
+      } finally {
+        this.busy = false;
+      }
+    },
+
+    async startLaborWorkshop(orderId) {
+      const iterations = this.resolveLaborClaimIterations(orderId);
+      this.busy = true;
+      this.error = '';
+      this.message = '';
+
+      try {
+        const data = await apiActions.exchange.startLaborWorkshop(
+          this.authData.token,
+          orderId,
+          iterations
+        );
+        if (data?.status === 'ok') {
+          this.message = `Мастерская: ${iterations} цикл. — вкладка «Работа»`;
+          this.applyGame(data.game);
+          await this.loadLabor(true);
+        }
+      } catch (e) {
+        this.error = e.message || 'Не удалось начать смену';
+      } finally {
+        this.busy = false;
       }
     },
 
@@ -809,5 +1174,44 @@ export default {
   grid-column: 1 / -1;
   color: @colorBlur;
   font-size: 10px;
+}
+
+.labor_hint {
+  font-size: 11px;
+  color: @colorBlur;
+  margin-bottom: 10px;
+}
+
+.labor_section_title {
+  font-size: 12px;
+  font-weight: 700;
+  color: @colorText;
+  margin: 12px 0 6px;
+}
+
+.labor_create {
+  margin-bottom: 8px;
+}
+
+.labor_create_form {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.labor_select {
+  min-width: 140px;
+  flex: 1;
+  padding: 4px 6px;
+  border-radius: 4px;
+  border: 1px solid fade(@colorBlur, 35%);
+  background: fade(@darkbg, 90%);
+  color: @colorText;
+  font-size: 11px;
+}
+
+.labor_create_note {
+  margin-top: 6px;
+  font-size: 11px;
+  color: @colorBlur;
 }
 </style>

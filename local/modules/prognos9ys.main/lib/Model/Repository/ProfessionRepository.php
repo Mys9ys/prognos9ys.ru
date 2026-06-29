@@ -763,7 +763,7 @@ class ProfessionRepository
             ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_USER_PROFESSION);
     }
 
-    private function getProfessionSessionDataClass(): string
+    public function getProfessionSessionDataClass(): string
     {
         return $this->professionSessionDataClass
             ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_PROFESSION_SESSION);

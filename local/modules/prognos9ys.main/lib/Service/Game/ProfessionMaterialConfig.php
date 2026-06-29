@@ -9,6 +9,8 @@ class ProfessionMaterialConfig
 {
     public const WORK_MODE_SELF = 'self';
     public const WORK_MODE_TREASURY = 'treasury';
+    public const WORK_MODE_LABOR = 'labor';
+    public const WORK_MODE_LABOR_POSTER = 'labor_poster';
 
     public const SESSION_STATUS_ACTIVE = 'active';
     public const SESSION_STATUS_COMPLETED = 'completed';

@@ -2,10 +2,13 @@
 
 namespace Prognos9ys\Main\Controller;
 
+use Prognos9ys\Main\Model\Repository\ProfessionRepository;
 use Prognos9ys\Main\Service\Auth\ImpersonationService;
 use Prognos9ys\Main\Service\Auth\TokenAuthService;
 use Prognos9ys\Main\Service\Game\ExchangeService;
 use Prognos9ys\Main\Service\Game\GameProfileService;
+use Prognos9ys\Main\Service\Game\LaborExchangeConfig;
+use Prognos9ys\Main\Service\Game\LaborExchangeService;
 
 class ExchangeController extends BaseController
 {
@@ -21,6 +24,13 @@ class ExchangeController extends BaseController
             'getTradeHistory' => $this->getDefaultConfigureForPostToken(),
             'consignToBank' => $this->getDefaultConfigureForPostToken(),
             'moderatorRemoveListing' => $this->getDefaultConfigureForPostToken(),
+            'getLaborState' => $this->getDefaultConfigureForPostToken(),
+            'getLaborOrders' => $this->getDefaultConfigureForPostToken(),
+            'getMyLaborOrders' => $this->getDefaultConfigureForPostToken(),
+            'createLaborOrder' => $this->getDefaultConfigureForPostToken(),
+            'cancelLaborOrder' => $this->getDefaultConfigureForPostToken(),
+            'claimLaborOrder' => $this->getDefaultConfigureForPostToken(),
+            'startLaborWorkshop' => $this->getDefaultConfigureForPostToken(),
         ];
     }
 
@@ -217,5 +227,155 @@ class ExchangeController extends BaseController
         }
 
         return array_merge(['status' => 'ok'], $result);
+    }
+
+    public function getLaborStateAction(): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        $service = new LaborExchangeService();
+
+        return [
+            'status' => 'ok',
+            'labor' => array_merge($service->getLaborMeta(), [
+                'professions' => $service->getPostableProfessions(),
+                'my_profession_codes' => $this->resolveUserProfessionCodes($userId),
+            ]),
+        ];
+    }
+
+    public function getLaborOrdersAction(int $offset = 0, int $limit = 25): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        return array_merge(
+            ['status' => 'ok'],
+            (new LaborExchangeService())->getOpenOrders($userId, $offset, $limit)
+        );
+    }
+
+    public function getMyLaborOrdersAction(): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        return [
+            'status' => 'ok',
+            'items' => (new LaborExchangeService())->getMyOrders($userId),
+        ];
+    }
+
+    public function createLaborOrderAction(
+        string $professionCode,
+        int $iterations,
+        float $payPerCycle = 0
+    ): array {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        if ($payPerCycle <= 0) {
+            $payPerCycle = LaborExchangeConfig::DEFAULT_PAY_PER_CYCLE;
+        }
+
+        try {
+            $order = (new LaborExchangeService())->createOrder(
+                $userId,
+                $professionCode,
+                $iterations,
+                $payPerCycle
+            );
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok', 'order' => $order], [
+            'game' => (new GameProfileService())->getSummary($userId),
+        ]);
+    }
+
+    public function cancelLaborOrderAction(int $orderId): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        try {
+            $order = (new LaborExchangeService())->cancelOrder($userId, $orderId);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok', 'order' => $order], [
+            'game' => (new GameProfileService())->getSummary($userId),
+        ]);
+    }
+
+    public function claimLaborOrderAction(int $orderId, int $iterations = 0): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        try {
+            $result = (new LaborExchangeService())->claimOrder($userId, $orderId, $iterations);
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok'], $result, [
+            'game' => (new GameProfileService())->getSummary($userId),
+        ]);
+    }
+
+    public function startLaborWorkshopAction(int $orderId, int $iterations = 0): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        try {
+            $result = (new LaborExchangeService())->startPosterWorkshop($userId, $orderId, $iterations);
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok'], $result, [
+            'game' => (new GameProfileService())->getSummary($userId),
+        ]);
+    }
+
+    /**
+     * @return string[]
+     */
+    private function resolveUserProfessionCodes(int $userId): array
+    {
+        $codes = [];
+        foreach ((new ProfessionRepository())->getProfessionsByUserId($userId) as $row) {
+            $code = (string)($row['UF_PROFESSION_CODE'] ?? '');
+            if ($code !== '') {
+                $codes[] = $code;
+            }
+        }
+
+        return $codes;
     }
 }

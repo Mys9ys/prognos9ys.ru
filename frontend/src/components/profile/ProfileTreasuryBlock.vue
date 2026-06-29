@@ -299,6 +299,88 @@
               </div>
             </div>
 
+            <div class="labor_treasury_section" v-if="canImpersonate && laborState">
+              <div class="subsection_title">Заказы на работу (казна)</div>
+              <p class="hint">
+                Сырьё списывается с госсклада, оплата — из казны. Исполнители берут заказ на бирже → «Работы».
+                Продукт возвращается на госсклад.
+              </p>
+              <div class="labor_create_form">
+                <select v-model="laborForm.professionCode" class="labor_select">
+                  <option value="">Профессия</option>
+                  <option
+                    v-for="prof in laborState.professions"
+                    :key="'treasury-labor-' + prof.code"
+                    :value="prof.code"
+                  >
+                    {{ prof.label }}
+                    <template v-if="prof.input_label"> ({{ prof.input_label }} → {{ prof.output_label }})</template>
+                    <template v-else> ({{ prof.output_label }})</template>
+                  </option>
+                </select>
+                <input
+                  v-model.number="laborForm.iterations"
+                  type="number"
+                  min="1"
+                  class="qty_input"
+                  placeholder="Циклов"
+                />
+                <input
+                  v-model.number="laborForm.payPerCycle"
+                  type="number"
+                  step="0.1"
+                  min="0.1"
+                  class="price_input"
+                  placeholder="🪙/цикл"
+                />
+                <button
+                  type="button"
+                  class="action_btn"
+                  :disabled="actionLoading"
+                  @click="createTreasuryLaborOrder"
+                >
+                  Разместить
+                </button>
+              </div>
+              <p class="hint labor_escrow_hint" v-if="selectedLaborProfession">
+                <span v-if="selectedLaborProfession.input_label">
+                  Со склада: {{ laborForm.iterations || 0 }} {{ selectedLaborProfession.input_label }} ·
+                </span>
+                Из казны: {{ laborPayTotal }} 🪙
+              </p>
+
+              <div class="labor_orders_list" v-if="treasuryLaborOrders.length">
+                <div
+                  v-for="order in treasuryLaborOrders"
+                  :key="'treasury-order-' + order.id"
+                  class="labor_order_row"
+                >
+                  <div class="labor_order_main">
+                    <div class="labor_order_label">
+                      {{ order.profession_label }} → {{ order.output_label }}
+                    </div>
+                    <div class="labor_order_meta">
+                      {{ order.iterations_done }}/{{ order.iterations_total }} ·
+                      {{ order.pay_per_cycle }} 🪙/цикл
+                      <span v-if="order.has_active_worker" class="badge_active">в работе</span>
+                      <span v-else-if="order.status === 'open'"> · осталось {{ order.iterations_remaining }}</span>
+                      · {{ orderStatusLabel(order.status) }}
+                    </div>
+                  </div>
+                  <button
+                    v-if="order.can_cancel"
+                    type="button"
+                    class="action_btn danger"
+                    :disabled="actionLoading"
+                    @click="cancelTreasuryLaborOrder(order.id)"
+                  >
+                    Снять
+                  </button>
+                </div>
+              </div>
+              <p v-else class="hint section_hint">Нет заказов казны на бирже труда.</p>
+            </div>
+
             <div class="macro_block macro_monitor" v-if="warehouseFlows">
               <div class="macro_currency_title">Оборот по фарму (🪙)</div>
               <div class="macro_row">
@@ -344,7 +426,7 @@
 </template>
 
 <script>
-import { mapActions, mapState } from 'vuex';
+import { mapActions, mapGetters, mapState } from 'vuex';
 import PreLoader from '@/components/main/PreLoader';
 import AppIcon from '@/components/ui/AppIcon.vue';
 import BankContractCard from '@/components/profile/BankContractCard.vue';
@@ -374,12 +456,30 @@ export default {
       selectedEventId: 0,
       error: '',
       message: '',
+      laborState: null,
+      treasuryLaborOrders: [],
+      laborForm: {
+        professionCode: '',
+        iterations: 5,
+        payPerCycle: 2,
+      },
     };
   },
   computed: {
     ...mapState({
       authData: state => state.auth.authData,
     }),
+    ...mapGetters('auth', ['canImpersonate']),
+    selectedLaborProfession() {
+      const code = this.laborForm.professionCode;
+      const list = Array.isArray(this.laborState?.professions) ? this.laborState.professions : [];
+      return list.find((item) => item.code === code) || null;
+    },
+    laborPayTotal() {
+      const iterations = Number(this.laborForm.iterations) || 0;
+      const pay = Number(this.laborForm.payPerCycle) || 0;
+      return (iterations * pay).toFixed(1).replace(/\.0$/, '');
+    },
     bankInfo() {
       return this.game?.bank || {};
     },
@@ -518,13 +618,100 @@ export default {
       return Number(this.treasury?.prognobaks ?? 0) >= Number(amount || 0);
     },
 
+    orderStatusLabel(status) {
+      if (status === 'completed') {
+        return 'выполнен';
+      }
+      if (status === 'cancelled') {
+        return 'снят';
+      }
+      return 'открыт';
+    },
+
     async refresh() {
       this.error = '';
       await Promise.all([
         this.loadTreasury(),
         this.loadBanks(),
         this.loadGovDeposits(),
+        this.loadTreasuryLaborOrders(),
       ]);
+    },
+
+    async loadTreasuryLaborOrders() {
+      if (!this.canImpersonate || !this.authData?.token) {
+        this.laborState = null;
+        this.treasuryLaborOrders = [];
+        return;
+      }
+
+      try {
+        const data = await apiActions.game.getTreasuryLaborOrders(this.authData.token);
+        if (data?.status === 'ok') {
+          this.laborState = data.labor || null;
+          this.treasuryLaborOrders = Array.isArray(data.items) ? data.items : [];
+          if (this.laborState?.default_pay_per_cycle && !this.laborForm.payPerCycle) {
+            this.laborForm.payPerCycle = this.laborState.default_pay_per_cycle;
+          }
+        }
+      } catch (e) {
+        console.log('treasury labor orders load error', e);
+      }
+    },
+
+    async createTreasuryLaborOrder() {
+      const professionCode = (this.laborForm.professionCode || '').trim();
+      const iterations = Number(this.laborForm.iterations) || 0;
+      const payPerCycle = Number(this.laborForm.payPerCycle) || 0;
+
+      if (!professionCode || iterations < 1 || payPerCycle <= 0) {
+        this.error = 'Заполните профессию, циклы и оплату';
+        return;
+      }
+
+      this.actionLoading = true;
+      this.error = '';
+      this.message = '';
+
+      try {
+        const data = await apiActions.game.createTreasuryLaborOrder(
+          this.authData.token,
+          professionCode,
+          iterations,
+          payPerCycle
+        );
+
+        if (data?.status === 'ok') {
+          this.message = 'Заказ казны размещён на бирже труда';
+          this.treasury = data.treasury || this.treasury;
+          this.warehouses = data.warehouses || this.warehouses;
+          await this.loadTreasuryLaborOrders();
+        }
+      } catch (e) {
+        this.error = e.message || 'Не удалось разместить заказ';
+      } finally {
+        this.actionLoading = false;
+      }
+    },
+
+    async cancelTreasuryLaborOrder(orderId) {
+      this.actionLoading = true;
+      this.error = '';
+      this.message = '';
+
+      try {
+        const data = await apiActions.game.cancelTreasuryLaborOrder(this.authData.token, orderId);
+        if (data?.status === 'ok') {
+          this.message = 'Заказ снят, эскроу возвращено на склад и в казну';
+          this.treasury = data.treasury || this.treasury;
+          this.warehouses = data.warehouses || this.warehouses;
+          await this.loadTreasuryLaborOrders();
+        }
+      } catch (e) {
+        this.error = e.message || 'Не удалось снять заказ';
+      } finally {
+        this.actionLoading = false;
+      }
     },
 
     async loadTreasury() {
@@ -904,6 +1091,98 @@ export default {
     color: fade(@colorBlur, 70%);
     font-weight: 400;
   }
+}
+
+.labor_treasury_section {
+  margin: 12px 0;
+  padding-top: 10px;
+  border-top: 1px solid fade(@colorBlur, 25%);
+}
+
+.labor_create_form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.labor_select,
+.qty_input,
+.price_input {
+  padding: 4px 6px;
+  border-radius: 4px;
+  border: 1px solid fade(@colorBlur, 35%);
+  background: fade(@darkbg, 90%);
+  color: @colorText;
+  font-size: 11px;
+}
+
+.labor_select {
+  min-width: 160px;
+  flex: 1;
+}
+
+.action_btn {
+  border: 1px solid fade(@orange, 60%);
+  background: fade(@orange, 20%);
+  color: @colorText;
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-size: 11px;
+  cursor: pointer;
+
+  &.danger {
+    border-color: fade(@NoWrite, 60%);
+    background: fade(@NoWrite, 15%);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+}
+
+.labor_orders_list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.labor_order_row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-start;
+  justify-content: space-between;
+  border: 1px solid fade(@colorBlur, 25%);
+  border-radius: 4px;
+  padding: 8px;
+}
+
+.labor_order_label {
+  font-size: 13px;
+  font-weight: 700;
+  color: @colorText;
+}
+
+.labor_order_meta {
+  font-size: 11px;
+  color: @colorBlur;
+}
+
+.badge_active {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-size: 10px;
+  background: fade(@orange, 25%);
+  color: @colorText;
+}
+
+.labor_escrow_hint {
+  margin-top: 4px;
 }
 
 .ledger_section {

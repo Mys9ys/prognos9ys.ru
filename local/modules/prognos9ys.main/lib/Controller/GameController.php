@@ -19,6 +19,8 @@ use Prognos9ys\Main\Service\Game\GameProfileService;
 use Prognos9ys\Main\Service\Game\GovSupportDepositService;
 use Prognos9ys\Main\Service\Game\GovWarehouseService;
 use Prognos9ys\Main\Service\Game\ModeratorBulkActionsService;
+use Prognos9ys\Main\Service\Game\LaborExchangeConfig;
+use Prognos9ys\Main\Service\Game\LaborExchangeService;
 use Prognos9ys\Main\Service\Game\MacroEconomyService;
 use Prognos9ys\Main\Service\Game\ProfessionFarmService;
 use Prognos9ys\Main\Service\Game\TreasuryService;
@@ -40,6 +42,9 @@ class GameController extends BaseController
             'getWealthRating' => $this->getDefaultConfigureForPostPublic(),
             'getGameBank' => $this->getDefaultConfigureForPostToken(),
             'getTreasury' => $this->getDefaultConfigureForPostToken(),
+            'getTreasuryLaborOrders' => $this->getDefaultConfigureForPostToken(),
+            'createTreasuryLaborOrder' => $this->getDefaultConfigureForPostToken(),
+            'cancelTreasuryLaborOrder' => $this->getDefaultConfigureForPostToken(),
             'getTreasuryShop' => $this->getDefaultConfigureForPostToken(),
             'buyTreasuryChest' => $this->getDefaultConfigureForPostToken(),
             'buyTreasuryPremium' => $this->getDefaultConfigureForPostToken(),
@@ -171,6 +176,91 @@ class GameController extends BaseController
                 ['ledger' => (new TreasuryService())->getRecentLedger(40)]
             ),
             'macro' => (new MacroEconomyService())->getSummary(),
+            'warehouses' => (new GovWarehouseService())->getState(),
+        ];
+    }
+
+    public function getTreasuryLaborOrdersAction(): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        if (!(new ImpersonationService())->canImpersonate($userId)) {
+            throw new ApiException('Нет доступа', 403);
+        }
+
+        $service = new LaborExchangeService();
+
+        return [
+            'status' => 'ok',
+            'labor' => array_merge($service->getLaborMeta(), [
+                'professions' => $service->getPostableProfessions(),
+            ]),
+            'items' => $service->getTreasuryOrders(),
+        ];
+    }
+
+    public function createTreasuryLaborOrderAction(
+        string $professionCode,
+        int $iterations,
+        float $payPerCycle = 0
+    ): array {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        if (!(new ImpersonationService())->canImpersonate($userId)) {
+            throw new ApiException('Нет доступа', 403);
+        }
+
+        if ($payPerCycle <= 0) {
+            $payPerCycle = LaborExchangeConfig::DEFAULT_PAY_PER_CYCLE;
+        }
+
+        try {
+            $order = (new LaborExchangeService())->createTreasuryOrder(
+                $professionCode,
+                $iterations,
+                $payPerCycle
+            );
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return [
+            'status' => 'ok',
+            'order' => $order,
+            'treasury' => (new TreasuryService())->getSummary(),
+            'warehouses' => (new GovWarehouseService())->getState(),
+        ];
+    }
+
+    public function cancelTreasuryLaborOrderAction(int $orderId): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        if (!(new ImpersonationService())->canImpersonate($userId)) {
+            throw new ApiException('Нет доступа', 403);
+        }
+
+        try {
+            $order = (new LaborExchangeService())->cancelTreasuryOrder($orderId);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return [
+            'status' => 'ok',
+            'order' => $order,
+            'treasury' => (new TreasuryService())->getSummary(),
             'warehouses' => (new GovWarehouseService())->getState(),
         ];
     }

@@ -195,6 +195,23 @@ export const apiActions = {
             'prognos9ys:main.GameController.getTreasury',
             { userToken }
         ),
+        getTreasuryLaborOrders: (userToken) => runBitrixAction(
+            'prognos9ys:main.GameController.getTreasuryLaborOrders',
+            { userToken }
+        ),
+        createTreasuryLaborOrder: (userToken, professionCode, iterations, payPerCycle) => runBitrixAction(
+            'prognos9ys:main.GameController.createTreasuryLaborOrder',
+            {
+                userToken,
+                professionCode,
+                iterations,
+                payPerCycle,
+            }
+        ),
+        cancelTreasuryLaborOrder: (userToken, orderId) => runBitrixAction(
+            'prognos9ys:main.GameController.cancelTreasuryLaborOrder',
+            { userToken, orderId }
+        ),
         getTreasuryShop: (userToken) => runBitrixAction(
             'prognos9ys:main.GameController.getTreasuryShop',
             { userToken }
@@ -404,6 +421,39 @@ export const apiActions = {
                 eventId: eventId || undefined,
                 teamCode: teamCode || undefined,
             }
+        ),
+        getLaborState: (userToken) => runBitrixAction(
+            'prognos9ys:main.ExchangeController.getLaborState',
+            { userToken }
+        ),
+        getLaborOrders: (userToken, offset = 0, limit = 25) => runBitrixAction(
+            'prognos9ys:main.ExchangeController.getLaborOrders',
+            { userToken, offset, limit }
+        ),
+        getMyLaborOrders: (userToken) => runBitrixAction(
+            'prognos9ys:main.ExchangeController.getMyLaborOrders',
+            { userToken }
+        ),
+        createLaborOrder: (userToken, professionCode, iterations, payPerCycle) => runBitrixAction(
+            'prognos9ys:main.ExchangeController.createLaborOrder',
+            {
+                userToken,
+                professionCode,
+                iterations,
+                payPerCycle,
+            }
+        ),
+        cancelLaborOrder: (userToken, orderId) => runBitrixAction(
+            'prognos9ys:main.ExchangeController.cancelLaborOrder',
+            { userToken, orderId }
+        ),
+        claimLaborOrder: (userToken, orderId, iterations = 0) => runBitrixAction(
+            'prognos9ys:main.ExchangeController.claimLaborOrder',
+            { userToken, orderId, iterations: iterations > 0 ? iterations : undefined }
+        ),
+        startLaborWorkshop: (userToken, orderId, iterations = 0) => runBitrixAction(
+            'prognos9ys:main.ExchangeController.startLaborWorkshop',
+            { userToken, orderId, iterations: iterations > 0 ? iterations : undefined }
         ),
     },
     impersonation: {

@@ -35,6 +35,7 @@ class GameEconomyHlInstaller
     public const TABLE_GOV_WAREHOUSE = 'prognos9ys_gov_warehouse';
     public const TABLE_CONSTRUCTION_PROJECT = 'prognos9ys_construction_project';
     public const TABLE_TREASURY_TX = 'prognos9ys_treasury_tx';
+    public const TABLE_LABOR_ORDER = 'prognos9ys_labor_order';
 
     public function install(): array
     {
@@ -563,6 +564,40 @@ class GameEconomyHlInstaller
             'user_material_hl_id' => $materialHlId,
             'gov_warehouse_hl_id' => $warehouseHlId,
             'construction_project_hl_id' => $projectHlId,
+        ];
+    }
+
+    /**
+     * HL биржи труда + поле заказа на сессии фарма.
+     */
+    public function upgradeLaborExchangeHl(): array
+    {
+        if (!Loader::includeModule('highloadblock')) {
+            throw new \RuntimeException('Модуль highloadblock не установлен');
+        }
+
+        $laborOrderHlId = $this->ensureHlBlock('Prognos9ysLaborOrder', self::TABLE_LABOR_ORDER, [
+            'UF_POSTER_USER_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_POSTER_KIND' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_PROFESSION_CODE' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_OUTPUT_CODE' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_INPUT_CODE' => ['USER_TYPE_ID' => 'string'],
+            'UF_ITERATIONS_TOTAL' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_ITERATIONS_DONE' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_INPUT_ESCROW_QTY' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_PAY_PER_CYCLE' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
+            'UF_COIN_ESCROW' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
+            'UF_STATUS' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_CREATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+            'UF_UPDATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+        ]);
+
+        $this->ensureHlBlock('Prognos9ysProfessionSession', self::TABLE_PROFESSION_SESSION, [
+            'UF_LABOR_ORDER_ID' => ['USER_TYPE_ID' => 'integer'],
+        ]);
+
+        return [
+            'labor_order_hl_id' => $laborOrderHlId,
         ];
     }
 

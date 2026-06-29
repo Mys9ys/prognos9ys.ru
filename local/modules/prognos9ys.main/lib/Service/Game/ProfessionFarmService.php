@@ -302,9 +302,34 @@ class ProfessionFarmService
         $feeCoins = 0.0;
         $message = '';
         $inputConsumed = 0;
+        $isLabor = in_array($workMode, [
+            ProfessionMaterialConfig::WORK_MODE_LABOR,
+            ProfessionMaterialConfig::WORK_MODE_LABOR_POSTER,
+        ], true);
 
         try {
-            if ($workMode === ProfessionMaterialConfig::WORK_MODE_SELF) {
+            if ($isLabor) {
+                $laborResult = (new LaborExchangeService(
+                    null,
+                    $this->repository,
+                    $this->walletService,
+                    $this->treasuryService
+                ))->applySessionCompletion(
+                    $userId,
+                    $session,
+                    $iterations,
+                    $totalComboYield,
+                    $totalPremiumQty,
+                    $outputCode,
+                    $premiumCode,
+                    $inputCode ?? '',
+                    $isProcessing
+                );
+                $message = (string)($laborResult['message'] ?? '');
+                $payCoins = (float)($laborResult['pay_coins'] ?? 0);
+                $feeCoins = (float)($laborResult['fee_coins'] ?? 0);
+                $inputConsumed = $isProcessing && $inputCode ? $iterations : 0;
+            } elseif ($workMode === ProfessionMaterialConfig::WORK_MODE_SELF) {
                 $feeCoins = $iterations * ProfessionEconomyConfig::FEE_SELF_PER_ITERATION;
                 $wallet = $this->walletService->ensureWallet($userId);
                 if ((float)($wallet['prognobaks'] ?? 0) < $feeCoins) {
@@ -317,7 +342,7 @@ class ProfessionFarmService
                 }
             }
 
-            if ($isProcessing && $inputCode) {
+            if (!$isLabor && $isProcessing && $inputCode) {
                 $inputConsumed = $iterations;
                 if ($workMode === ProfessionMaterialConfig::WORK_MODE_TREASURY) {
                     $this->repository->consumeGovWarehouseQty($inputCode, $inputConsumed);
@@ -326,7 +351,7 @@ class ProfessionFarmService
                 }
             }
 
-            if ($workMode === ProfessionMaterialConfig::WORK_MODE_TREASURY) {
+            if (!$isLabor && $workMode === ProfessionMaterialConfig::WORK_MODE_TREASURY) {
                 if ($totalGovOutput > 0) {
                     $this->repository->addGovWarehouseQty($outputCode, $totalGovOutput);
                 }
@@ -363,7 +388,7 @@ class ProfessionFarmService
                 if ($totalPremiumQty > 0) {
                     $message .= ', +' . $totalPremiumQty . ' ' . $definition['premium_label'];
                 }
-            } else {
+            } elseif (!$isLabor) {
                 if ($totalUserSelfOutput > 0) {
                     $this->repository->addUserMaterialQty($userId, $outputCode, $totalUserSelfOutput, false);
                 }
@@ -678,6 +703,7 @@ class ProfessionFarmService
             'profession_code' => (string)($session['UF_PROFESSION_CODE'] ?? ''),
             'profession_label' => $definition['label'] ?? '',
             'work_mode' => (string)($session['UF_WORK_MODE'] ?? ''),
+            'labor_order_id' => (int)($session['UF_LABOR_ORDER_ID'] ?? 0),
             'status' => (string)($session['UF_STATUS'] ?? ''),
             'iterations_done' => (int)($session['UF_ITERATIONS_DONE'] ?? 0),
             'iterations_total' => (int)($session['UF_ITERATIONS_TOTAL'] ?? 0),
