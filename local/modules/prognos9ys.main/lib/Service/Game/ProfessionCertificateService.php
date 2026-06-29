@@ -34,6 +34,8 @@ class ProfessionCertificateService
             throw new \InvalidArgumentException('Некорректный пользователь');
         }
 
+        $this->repository->ensureProfessionCertSlotsSchema();
+
         $available = $this->repository->getEventAgnosticLootItemCount(
             $userId,
             self::CERT_CODE,
@@ -49,14 +51,40 @@ class ProfessionCertificateService
             $this->repository
         );
         $slotsBefore = $farmService->getState($userId)['slots'] ?? [];
+        $maxBefore = (int)($slotsBefore['max'] ?? ProfessionMaterialConfig::STARTER_PROFESSION_SLOTS);
 
-        $this->repository->decrementEventAgnosticLootItem(
-            $userId,
-            self::CERT_CODE,
-            ChestLootConfig::CATEGORY_CERT,
-            1
-        );
-        $certificateBonus = $this->repository->incrementProfessionCertSlots($userId);
+        $certificateBonus = 0;
+        $certConsumed = false;
+
+        try {
+            $certificateBonus = $this->repository->incrementProfessionCertSlots($userId);
+            $slotsAfterCheck = $farmService->getState($userId)['slots'] ?? [];
+            $maxAfter = (int)($slotsAfterCheck['max'] ?? $maxBefore);
+
+            if ($maxAfter <= $maxBefore) {
+                throw new \RuntimeException(
+                    'Слот профессии не открылся. Администратору: php7.4 local/modules/prognos9ys.main/install_profession_certificate_hl.php'
+                );
+            }
+
+            $this->repository->decrementEventAgnosticLootItem(
+                $userId,
+                self::CERT_CODE,
+                ChestLootConfig::CATEGORY_CERT,
+                1
+            );
+            $certConsumed = true;
+        } catch (\Throwable $exception) {
+            if (!$certConsumed && $certificateBonus > 0) {
+                try {
+                    $this->repository->decrementProfessionCertSlots($userId, 1);
+                } catch (\Throwable $rollbackException) {
+                    // оставляем исходную ошибку
+                }
+            }
+
+            throw $exception;
+        }
 
         $farmState = $farmService->getState($userId);
         $slotsAfter = $farmState['slots'] ?? [];
@@ -66,14 +94,19 @@ class ProfessionCertificateService
                 'status' => 'ok',
             ],
             [
-                'text' => 'Слотов профессий: ' . (int)$slotsBefore['max'] . ' → ' . (int)$slotsAfter['max'],
+                'text' => 'Слотов профессий: ' . $maxBefore . ' → ' . (int)($slotsAfter['max'] ?? $maxBefore),
                 'status' => 'ok',
             ],
         ];
 
-        if ((int)$slotsAfter['available'] > 0) {
+        if ((int)($slotsAfter['available'] ?? 0) > 0) {
             $lines[] = [
                 'text' => 'На вкладке «Фарм» → «Профессии» можно выбрать ещё одну профессию',
+                'status' => 'ok',
+            ];
+        } elseif ((int)($slotsAfter['needs_pick'] ?? 0) === 1) {
+            $lines[] = [
+                'text' => 'На вкладке «Фарм» → «Профессии» выберите стартовые профессии',
                 'status' => 'ok',
             ];
         }

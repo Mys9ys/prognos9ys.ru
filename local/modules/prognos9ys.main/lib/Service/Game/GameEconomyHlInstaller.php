@@ -614,6 +614,13 @@ class GameEconomyHlInstaller
             'UF_PROFESSION_CERT_SLOTS' => ['USER_TYPE_ID' => 'integer'],
         ]);
 
+        if (class_exists(\Bitrix\Main\Application::class)) {
+            $app = \Bitrix\Main\Application::getInstance();
+            if ($app) {
+                $app->getManagedCache()->cleanDir('orm');
+            }
+        }
+
         return [];
     }
 
@@ -682,6 +689,11 @@ class GameEconomyHlInstaller
 
         if (!$fieldId) {
             throw new \RuntimeException('Не удалось создать поле ' . $fieldName . ' для ' . $entityId);
+        }
+
+        global $USER_FIELD_MANAGER;
+        if (is_object($USER_FIELD_MANAGER)) {
+            $USER_FIELD_MANAGER->CleanCache();
         }
     }
 }

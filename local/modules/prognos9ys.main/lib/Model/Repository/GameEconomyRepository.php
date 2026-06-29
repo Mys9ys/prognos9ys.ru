@@ -18,6 +18,9 @@ use Prognos9ys\Main\Service\Game\ExchangeBuyAchievementConfig;
 
 class GameEconomyRepository
 {
+    /** @var bool */
+    private static $professionCertSchemaReady = false;
+
     private ?string $walletDataClass = null;
     private ?string $walletTxDataClass = null;
     private ?string $levelTierDataClass = null;
@@ -638,10 +641,22 @@ class GameEconomyRepository
         $dataClass = $this->getUserProgressDataClass();
         $row = $dataClass::getList([
             'filter' => ['=UF_USER_ID' => $userId],
+            'select' => ['ID', 'UF_USER_ID', 'UF_XP', 'UF_PROFESSION_CERT_SLOTS'],
             'limit' => 1,
         ])->fetch();
 
         return $row ?: null;
+    }
+
+    public function ensureProfessionCertSlotsSchema(): void
+    {
+        if (self::$professionCertSchemaReady) {
+            return;
+        }
+
+        (new GameEconomyHlInstaller())->upgradeProfessionCertificateHl();
+        $this->userProgressDataClass = null;
+        self::$professionCertSchemaReady = true;
     }
 
     public function addProgress(array $fields): int
@@ -668,6 +683,7 @@ class GameEconomyRepository
 
     public function getProfessionCertSlots(int $userId): int
     {
+        $this->ensureProfessionCertSlotsSchema();
         $row = $this->getProgressByUserId($userId);
 
         return max(0, (int)($row['UF_PROFESSION_CERT_SLOTS'] ?? 0));
@@ -675,9 +691,12 @@ class GameEconomyRepository
 
     public function incrementProfessionCertSlots(int $userId): int
     {
+        $this->ensureProfessionCertSlotsSchema();
+
         $row = $this->getProgressByUserId($userId);
         if (!$row) {
             (new UserProgressService($this))->ensureProgress($userId);
+            $this->userProgressDataClass = null;
             $row = $this->getProgressByUserId($userId);
         }
 
@@ -690,7 +709,36 @@ class GameEconomyRepository
             'UF_PROFESSION_CERT_SLOTS' => $newValue,
         ]);
 
+        $this->userProgressDataClass = null;
+        $stored = $this->getProfessionCertSlots($userId);
+        if ($stored !== $newValue) {
+            throw new \RuntimeException(
+                'Не удалось сохранить бонус слота профессии. На сервере нужно выполнить: '
+                . 'php7.4 local/modules/prognos9ys.main/install_profession_certificate_hl.php'
+            );
+        }
+
         return $newValue;
+    }
+
+    public function decrementProfessionCertSlots(int $userId, int $qty = 1): void
+    {
+        if ($qty <= 0) {
+            return;
+        }
+
+        $this->ensureProfessionCertSlotsSchema();
+        $row = $this->getProgressByUserId($userId);
+        if (!$row) {
+            return;
+        }
+
+        $current = max(0, (int)($row['UF_PROFESSION_CERT_SLOTS'] ?? 0));
+        $newValue = max(0, $current - $qty);
+        $this->updateProgress((int)$row['ID'], [
+            'UF_PROFESSION_CERT_SLOTS' => $newValue,
+        ]);
+        $this->userProgressDataClass = null;
     }
 
     public function resetAllUserProgressXp(): int
