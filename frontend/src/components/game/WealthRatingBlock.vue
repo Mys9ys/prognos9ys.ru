@@ -122,46 +122,6 @@
             <span class="bulk_emoji">🪵</span>
             <span>×5 всем</span>
           </button>
-          <button
-              type="button"
-              class="bulk_btn"
-              :disabled="bulkLoading"
-              title="1 цикл — у кого меньше 50 🪙 на руках"
-              @click="runBulk('farm_treasury_1_poor')"
-          >
-            <span class="bulk_emoji">🪵</span>
-            <span>×1 &lt;50</span>
-          </button>
-          <button
-              type="button"
-              class="bulk_btn"
-              :disabled="bulkLoading"
-              title="5 циклов — у кого меньше 50 🪙"
-              @click="runBulk('farm_treasury_5_poor')"
-          >
-            <span class="bulk_emoji">🪵</span>
-            <span>×5 &lt;50</span>
-          </button>
-          <button
-              type="button"
-              class="bulk_btn"
-              :disabled="bulkLoading"
-              title="1 цикл — только с активным банковским займом"
-              @click="runBulk('farm_treasury_1_indebted')"
-          >
-            <span class="bulk_emoji">🏦</span>
-            <span>×1 долг</span>
-          </button>
-          <button
-              type="button"
-              class="bulk_btn"
-              :disabled="bulkLoading"
-              title="5 циклов — только с активным банковским займом"
-              @click="runBulk('farm_treasury_5_indebted')"
-          >
-            <span class="bulk_emoji">🏦</span>
-            <span>×5 долг</span>
-          </button>
         </div>
         <div class="bulk_msg ok" v-if="bulkMessage">{{ bulkMessage }}</div>
         <div class="bulk_msg error" v-if="bulkError">{{ bulkError }}</div>
@@ -373,10 +333,6 @@ const WEALTH_MODES = ['rich', 'poor', 'indebted', 'pending_xp', 'pending_achieve
 const FARM_TREASURY_BULK = [
   'farm_treasury_1',
   'farm_treasury_5',
-  'farm_treasury_1_poor',
-  'farm_treasury_5_poor',
-  'farm_treasury_1_indebted',
-  'farm_treasury_5_indebted',
   'farm_treasury_gather',
 ];
 const BULK_TITLES = {
@@ -390,20 +346,12 @@ const BULK_TITLES = {
   farm_pick_professions: 'Профессии всем',
   farm_treasury_1: 'Добыча ×1 (всем)',
   farm_treasury_5: 'Добыча ×5 (всем)',
-  farm_treasury_1_poor: 'Добыча ×1 (бедным)',
-  farm_treasury_5_poor: 'Добыча ×5 (бедным)',
-  farm_treasury_1_indebted: 'Добыча ×1 (в долгах)',
-  farm_treasury_5_indebted: 'Добыча ×5 (в долгах)',
   farm_treasury_gather: 'Добыча ×5 (всем)',
 };
 const FARM_TREASURY_PROMPTS = {
   farm_treasury_1: 'Мгновенная смена на казну (×1 цикл, +2 🪙 каждому) для всех игроков с кошельком? Пропуск — если уже идёт смена или в казне не хватает монет.',
   farm_treasury_5: 'Мгновенная смена на казну (×5 циклов, +10 🪙 каждому) для всех игроков с кошельком? Пропуск — если уже идёт смена или в казне не хватает монет.',
   farm_treasury_gather: 'Мгновенная смена на казну (×5 циклов, +10 🪙 каждому) для всех игроков с кошельком? Пропуск — если уже идёт смена или в казне не хватает монет.',
-  farm_treasury_1_poor: 'Мгновенная смена (×1, +2 🪙) для игроков с менее чем 50 🪙 на руках?',
-  farm_treasury_5_poor: 'Мгновенная смена (×5, +10 🪙) для игроков с менее чем 50 🪙 на руках?',
-  farm_treasury_1_indebted: 'Мгновенная смена (×1, +2 🪙) для игроков с активным банковским займом?',
-  farm_treasury_5_indebted: 'Мгновенная смена (×5, +10 🪙) для игроков с активным банковским займом?',
 };
 
 export default {

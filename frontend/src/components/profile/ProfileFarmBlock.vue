@@ -270,6 +270,8 @@ export default {
       pollTimer: null,
       countdownSeconds: 0,
       countdownTimer: null,
+      countdownDeadlineTs: 0,
+      visibilityHandler: null,
       tickRefreshInFlight: false,
       lastCompletedShiftId: 0,
     };
@@ -351,9 +353,14 @@ export default {
     },
   },
   created() {
+    this.visibilityHandler = () => this.onVisibilityChange();
+    document.addEventListener('visibilitychange', this.visibilityHandler);
     this.refresh();
   },
   beforeUnmount() {
+    if (this.visibilityHandler) {
+      document.removeEventListener('visibilitychange', this.visibilityHandler);
+    }
     this.clearPoll();
     this.clearCountdown();
   },
@@ -404,11 +411,23 @@ export default {
 
     schedulePoll() {
       this.clearPoll();
-      const seconds = Number(this.farm?.session?.seconds_left ?? 0);
-      if (seconds > 0 && !this.tickRefreshInFlight) {
-        const delay = Math.min(Math.max(seconds * 1000 + 500, 3000), 300000);
-        this.pollTimer = window.setTimeout(() => this.requestTickRefresh(), delay);
+      if (this.tickRefreshInFlight) {
+        return;
       }
+
+      const msLeft = this.countdownDeadlineTs > 0
+        ? this.countdownDeadlineTs - Date.now() + 500
+        : Number(this.farm?.session?.seconds_left ?? 0) * 1000 + 500;
+
+      if (msLeft <= 0) {
+        if (this.farm?.session) {
+          this.requestTickRefresh();
+        }
+        return;
+      }
+
+      const delay = Math.min(Math.max(msLeft, 3000), 300000);
+      this.pollTimer = window.setTimeout(() => this.requestTickRefresh(), delay);
     },
 
     clearPoll() {
@@ -418,23 +437,58 @@ export default {
       }
     },
 
+    resolveCountdownDeadline() {
+      const nextTick = Number(this.farm?.session?.next_tick_at ?? 0);
+      if (nextTick > 0) {
+        return nextTick * 1000;
+      }
+      const seconds = Number(this.farm?.session?.seconds_left ?? 0);
+      if (seconds > 0) {
+        return Date.now() + seconds * 1000;
+      }
+      return 0;
+    },
+
+    updateCountdownFromDeadline() {
+      if (!this.countdownDeadlineTs) {
+        this.countdownSeconds = 0;
+        return;
+      }
+      this.countdownSeconds = Math.max(
+        0,
+        Math.ceil((this.countdownDeadlineTs - Date.now()) / 1000),
+      );
+    },
+
+    onVisibilityChange() {
+      if (document.visibilityState !== 'visible' || !this.farm?.session) {
+        return;
+      }
+      this.updateCountdownFromDeadline();
+      if (this.countdownSeconds <= 0) {
+        this.clearCountdown();
+        this.clearPoll();
+        this.requestTickRefresh();
+        return;
+      }
+      this.schedulePoll();
+    },
+
     syncCountdown() {
       this.clearCountdown();
-      const seconds = Number(this.farm?.session?.seconds_left ?? 0);
-      this.countdownSeconds = Math.max(0, seconds);
+      this.countdownDeadlineTs = this.resolveCountdownDeadline();
+      this.updateCountdownFromDeadline();
       if (this.countdownSeconds <= 0) {
         return;
       }
 
       this.countdownTimer = window.setInterval(() => {
-        if (this.countdownSeconds <= 1) {
-          this.countdownSeconds = 0;
+        this.updateCountdownFromDeadline();
+        if (this.countdownSeconds <= 0) {
           this.clearCountdown();
           this.clearPoll();
           this.requestTickRefresh();
-          return;
         }
-        this.countdownSeconds -= 1;
       }, 1000);
     },
 

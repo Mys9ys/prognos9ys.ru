@@ -554,6 +554,7 @@ class ProfessionFarmService
             'iterations_total' => (int)($session['UF_ITERATIONS_TOTAL'] ?? 0),
             'shift_minutes' => (int)($session['UF_ITERATIONS_TOTAL'] ?? 0) * ProfessionEconomyConfig::ITERATION_MINUTES,
             'seconds_left' => $secondsLeft,
+            'next_tick_at' => $nextTick instanceof DateTime ? $nextTick->getTimestamp() : 0,
             'last_result' => $lastResult,
         ];
     }
