@@ -12,6 +12,7 @@ class AchievementConfig
     public const GROUP_METRICS = 'metrics';
     public const GROUP_ECONOMY = 'economy';
     public const GROUP_PROFESSION = 'profession';
+    public const GROUP_POTION = 'potion';
 
     /**
      * @return array<string, array{
@@ -367,7 +368,11 @@ class AchievementConfig
             ],
         ];
 
-        return array_merge($base, ProfessionAchievementConfig::getCatalogEntries());
+        return array_merge(
+            $base,
+            ProfessionAchievementConfig::getCatalogEntries(),
+            XpBankAchievementConfig::getCatalogEntries()
+        );
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace Prognos9ys\Main\Service\Game;
 
+use Bitrix\Main\Type\DateTime;
 use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
 use Prognos9ys\Main\Model\Repository\ProfessionRepository;
 
@@ -86,6 +87,8 @@ class XpBankService
             'lines' => $lines,
         ];
 
+        $professionCode = '';
+
         if ($definition['kind'] === 'player') {
             $oldProgress = $this->progressService->getSummary($userId);
             $newProgress = $this->progressService->addXp($userId, $totalXp);
@@ -101,10 +104,21 @@ class XpBankService
             ));
         } else {
             $professionResult = $this->applyProfessionXp($userId, (string)$definition['kind'], (int)round($totalXp));
+            $professionCode = (string)($professionResult['profession']['code'] ?? '');
             $result['profession'] = $professionResult['profession'];
             $result['profession_level_rewards'] = $professionResult['level_rewards'];
             $result['lines'] = array_merge($lines, $professionResult['lines']);
         }
+
+        $this->repository->addXpBankDrinkLog([
+            'UF_USER_ID' => $userId,
+            'UF_ITEM_CODE' => $code,
+            'UF_BANK_KIND' => (string)$definition['kind'],
+            'UF_PROFESSION_CODE' => $professionCode,
+            'UF_QTY' => $qty,
+            'UF_XP_GAINED' => $totalXp,
+            'UF_CREATED_AT' => new DateTime(),
+        ]);
 
         return $result;
     }

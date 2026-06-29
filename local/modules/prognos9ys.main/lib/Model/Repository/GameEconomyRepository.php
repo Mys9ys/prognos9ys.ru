@@ -12,6 +12,7 @@ use Prognos9ys\Main\Service\Game\GameEconomyConfig;
 use Prognos9ys\Main\Service\Game\GameEconomyHlInstaller;
 use Prognos9ys\Main\Service\Game\GameEventScopeService;
 use Prognos9ys\Main\Service\Game\TreasureService;
+use Prognos9ys\Main\Service\Game\XpBankAchievementConfig;
 
 class GameEconomyRepository
 {
@@ -28,6 +29,7 @@ class GameEconomyRepository
     private ?string $matchEconomySettleDataClass = null;
     private ?string $lootItemDataClass = null;
     private ?string $chestOpenLogDataClass = null;
+    private ?string $xpBankDrinkLogDataClass = null;
     private ?string $exchangeListingDataClass = null;
     private ?string $exchangeTradeDataClass = null;
     private ?string $exchangeNominalDataClass = null;
@@ -97,6 +99,11 @@ class GameEconomyRepository
     public function getChestOpenLogDataClass(): string
     {
         return $this->chestOpenLogDataClass ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_CHEST_OPEN_LOG);
+    }
+
+    public function getXpBankDrinkLogDataClass(): string
+    {
+        return $this->xpBankDrinkLogDataClass ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_XP_BANK_DRINK_LOG);
     }
 
     public function getExchangeListingDataClass(): string
@@ -1542,6 +1549,90 @@ class GameEconomyRepository
         }
 
         return (int)$result->getId();
+    }
+
+    public function addXpBankDrinkLog(array $fields): int
+    {
+        $dataClass = $this->getXpBankDrinkLogDataClass();
+        $result = $dataClass::add($fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+
+        return (int)$result->getId();
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    public function getXpBankDrinkStatsForUser(int $userId): array
+    {
+        $stats = XpBankAchievementConfig::emptyStatsTemplate();
+        if ($userId <= 0) {
+            return $stats;
+        }
+
+        $dataClass = $this->getXpBankDrinkLogDataClass();
+        $response = $dataClass::getList([
+            'filter' => ['=UF_USER_ID' => $userId],
+            'select' => ['UF_ITEM_CODE', 'UF_BANK_KIND', 'UF_PROFESSION_CODE', 'UF_QTY'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $statKey = XpBankAchievementConfig::resolveStatKey(
+                (string)($row['UF_ITEM_CODE'] ?? ''),
+                (string)($row['UF_BANK_KIND'] ?? ''),
+                (string)($row['UF_PROFESSION_CODE'] ?? '')
+            );
+            $qty = (int)($row['UF_QTY'] ?? 0);
+            if ($statKey === '' || $qty <= 0 || !isset($stats[$statKey])) {
+                continue;
+            }
+
+            $stats[$statKey] += $qty;
+        }
+
+        return $stats;
+    }
+
+    /**
+     * @return array<int, array<string, int>>
+     */
+    public function getXpBankDrinkStatsMapForAllUsers(): array
+    {
+        $map = [];
+        $dataClass = $this->getXpBankDrinkLogDataClass();
+        $response = $dataClass::getList([
+            'select' => ['UF_USER_ID', 'UF_ITEM_CODE', 'UF_BANK_KIND', 'UF_PROFESSION_CODE', 'UF_QTY'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $userId = (int)($row['UF_USER_ID'] ?? 0);
+            if ($userId <= 0) {
+                continue;
+            }
+
+            $statKey = XpBankAchievementConfig::resolveStatKey(
+                (string)($row['UF_ITEM_CODE'] ?? ''),
+                (string)($row['UF_BANK_KIND'] ?? ''),
+                (string)($row['UF_PROFESSION_CODE'] ?? '')
+            );
+            $qty = (int)($row['UF_QTY'] ?? 0);
+            if ($statKey === '' || $qty <= 0) {
+                continue;
+            }
+
+            if (!isset($map[$userId])) {
+                $map[$userId] = XpBankAchievementConfig::emptyStatsTemplate();
+            }
+
+            if (isset($map[$userId][$statKey])) {
+                $map[$userId][$statKey] += $qty;
+            }
+        }
+
+        return $map;
     }
 
     /**

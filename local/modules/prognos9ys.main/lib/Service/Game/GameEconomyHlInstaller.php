@@ -24,6 +24,7 @@ class GameEconomyHlInstaller
     public const TABLE_MATCH_ECONOMY_SETTLE = 'prognos9ys_match_economy_settle';
     public const TABLE_LOOT_ITEM = 'prognos9ys_loot_item';
     public const TABLE_CHEST_OPEN_LOG = 'prognos9ys_chest_open_log';
+    public const TABLE_XP_BANK_DRINK_LOG = 'prognos9ys_xp_bank_drink_log';
     public const TABLE_EXCHANGE_LISTING = 'prognos9ys_exchange_listing';
     public const TABLE_EXCHANGE_TRADE = 'prognos9ys_exchange_trade';
     public const TABLE_EXCHANGE_NOMINAL = 'prognos9ys_exchange_nominal';
@@ -332,6 +333,30 @@ class GameEconomyHlInstaller
         return [
             'loot_item_hl_id' => $lootItemHlId,
             'chest_open_log_hl_id' => $openLogHlId,
+        ];
+    }
+
+    /**
+     * Журнал выпитых банок XP (для ачивок и аналитики).
+     */
+    public function upgradeXpBankDrinkLogHl(): array
+    {
+        if (!Loader::includeModule('highloadblock')) {
+            throw new \RuntimeException('Модуль highloadblock не установлен');
+        }
+
+        $hlId = $this->ensureHlBlock('Prognos9ysXpBankDrinkLog', self::TABLE_XP_BANK_DRINK_LOG, [
+            'UF_USER_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_ITEM_CODE' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_BANK_KIND' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_PROFESSION_CODE' => ['USER_TYPE_ID' => 'string'],
+            'UF_QTY' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_XP_GAINED' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
+            'UF_CREATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+        ]);
+
+        return [
+            'xp_bank_drink_log_hl_id' => $hlId,
         ];
     }
 

@@ -135,6 +135,7 @@ class ProfessionAchievementConfig
                 'icon' => 'total_all',
                 'stat' => self::statKeyNormal($code),
                 'profession_code' => $code,
+                'profession_stage' => $stage,
                 'levels' => $levels,
             ],
         ];
@@ -180,6 +181,7 @@ class ProfessionAchievementConfig
                 'icon' => 'total_all',
                 'stat' => self::statKeyPremium($code),
                 'profession_code' => $code,
+                'profession_stage' => $stage,
                 'levels' => $levels,
             ],
         ];

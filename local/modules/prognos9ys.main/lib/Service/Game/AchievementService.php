@@ -85,6 +85,7 @@ class AchievementService
                 'max_unlocked_threshold' => $maxUnlocked,
                 'next_claimable_threshold' => $nextClaimableThreshold,
                 'next_reward' => $nextReward,
+                'profession_stage' => (int)($definition['profession_stage'] ?? 0),
             ];
 
             if ($maxUnlocked > 0) {
@@ -235,6 +236,10 @@ class AchievementService
             ]);
         }
 
+        foreach ($this->repository->getXpBankDrinkStatsMapForAllUsers() as $userId => $row) {
+            $maps[$userId] = array_merge($maps[$userId] ?? $this->emptyStatsTemplate(), $row);
+        }
+
         self::$batchStatsCache = $maps;
 
         return $maps;
@@ -314,7 +319,7 @@ class AchievementService
      */
     private function emptyStatsTemplate(): array
     {
-        return [
+        return array_merge([
             'football_prognosis' => 0,
             'chm_prognosis' => 0,
             'score_30_39' => 0,
@@ -337,7 +342,7 @@ class AchievementService
             'wow_pen' => 0,
             'metric_extra_time' => 0,
             'metric_shootout' => 0,
-        ];
+        ], XpBankAchievementConfig::emptyStatsTemplate());
     }
 
     /**
@@ -660,7 +665,7 @@ class AchievementService
             'chests_opened' => $this->repository->sumOpenedTreasureChestsForUser($userId),
             'chests_earned' => $this->repository->sumEarnedTreasureChestsForUser($userId),
             'rublius_earned' => (int)round($this->repository->sumRubliusEarnedForUser($userId)),
-        ], $metrics, $this->professionRepository->getYieldStatsByUserId($userId));
+        ], $metrics, $this->professionRepository->getYieldStatsByUserId($userId), $this->repository->getXpBankDrinkStatsForUser($userId));
     }
 
     private function resolveProgress(array $definition, array $stats): int
