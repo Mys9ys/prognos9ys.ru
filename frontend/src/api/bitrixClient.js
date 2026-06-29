@@ -267,7 +267,7 @@ export const apiActions = {
             'prognos9ys:main.GameController.getMyContracts',
             { userToken }
         ),
-        getBankOperations: (userToken, limit = 100) => runBitrixAction(
+        getBankOperations: (userToken, limit = 30) => runBitrixAction(
             'prognos9ys:main.GameController.getBankOperations',
             { userToken, limit }
         ),

@@ -530,7 +530,7 @@ export default {
     },
     async loadOperations() {
       try {
-        const res = await this.getBankOperations();
+        const res = await this.getBankOperations(30);
         this.operations = res.operations || [];
         this.operationsLoaded = true;
       } catch (e) {

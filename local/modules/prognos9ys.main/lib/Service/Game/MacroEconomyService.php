@@ -45,6 +45,8 @@ class MacroEconomyService
 
         $shopPurchases = $this->repository->sumTreasuryShopPurchaseTotals();
         $govSupport = $this->repository->sumGovSupportDepositStats();
+        $exchangeMarket = $this->repository->getExchangeMarketStats();
+        $exchangeTrades = $this->repository->getExchangeTradeAggregateStats();
 
         return [
             'registered_users' => $users,
@@ -117,6 +119,24 @@ class MacroEconomyService
                     ),
                 ],
             ],
+            'exchange' => array_merge($exchangeMarket, [
+                'trades' => $exchangeTrades,
+                'wallet_buy_outflow' => $this->repository->sumWalletTxAmountByReasons(
+                    ['exchange_buy'],
+                    GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                    'debit'
+                ),
+                'wallet_sell_inflow' => $this->repository->sumWalletTxAmountByReasons(
+                    ['exchange_sell'],
+                    GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                    'credit'
+                ),
+                'treasury_commission' => $this->repository->sumTreasuryTxAmountByReasons(
+                    ['exchange_commission'],
+                    GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                    'credit'
+                ),
+            ]),
         ];
     }
 

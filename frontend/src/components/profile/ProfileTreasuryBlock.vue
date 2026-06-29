@@ -115,6 +115,50 @@
               </div>
             </div>
 
+            <div class="macro_block macro_monitor" v-if="macro.exchange">
+              <div class="macro_currency_title">Биржа</div>
+              <div class="macro_row">
+                <span>Лотов в продаже / единиц товара</span>
+                <span class="macro_value">
+                  {{ macro.exchange.active_listings }} / {{ macro.exchange.qty_on_sale }}
+                </span>
+              </div>
+              <div class="macro_row">
+                <span>Суммарный номинал на витрине</span>
+                <span class="macro_value">{{ formatMoney(macro.exchange.nominal_total) }} 🪙</span>
+              </div>
+              <div class="macro_row">
+                <span>Витринная стоимость (по ценам продавцов)</span>
+                <span class="macro_value">{{ formatMoney(macro.exchange.ask_total) }} 🪙</span>
+              </div>
+              <div class="macro_row">
+                <span>Лоты: комиссионка банков / от игроков</span>
+                <span class="macro_value">
+                  {{ macro.exchange.bank_listings }} / {{ macro.exchange.user_listings }}
+                </span>
+              </div>
+              <div class="macro_row">
+                <span>Уникальных продавцов</span>
+                <span class="macro_value">{{ macro.exchange.unique_sellers }}</span>
+              </div>
+              <div class="macro_row" v-if="macro.exchange.trades">
+                <span>Сделок / объём / комиссия в казну</span>
+                <span class="macro_value">
+                  {{ macro.exchange.trades.trades }}
+                  / {{ formatMoney(macro.exchange.trades.volume) }} 🪙
+                  / {{ formatMoney(macro.exchange.treasury_commission) }} 🪙
+                </span>
+              </div>
+              <template v-if="exchangeBucketRows.length">
+                <div class="macro_subtitle">Номинал по категориям</div>
+                <div class="macro_row" v-for="row in exchangeBucketRows" :key="row.key">
+                  <span>{{ row.label }} ({{ row.qty }} шт.)</span>
+                  <span class="macro_value">{{ formatMoney(row.nominal) }} 🪙</span>
+                </div>
+              </template>
+              <p class="hint exchange_hint">Номинал = остаток × снимок номинала при выставлении. Комиссионка банка — без комиссии биржи при продаже.</p>
+            </div>
+
             <div class="section ledger_section" v-if="treasury?.ledger?.length">
               <div class="section_title">Журнал казны</div>
               <p class="hint">Последние операции: выплаты населению, поступления, лавка, гос. вклады.</p>
@@ -381,6 +425,20 @@ export default {
         { key: 'avg_per_user', label: 'Среднее на пользователя' },
       ];
     },
+    exchangeBucketRows() {
+      const buckets = this.macro?.exchange?.by_bucket;
+      if (!buckets || typeof buckets !== 'object') {
+        return [];
+      }
+
+      return Object.entries(buckets).map(([key, row]) => ({
+        key,
+        label: this.exchangeBucketLabel(key),
+        qty: row?.qty ?? 0,
+        nominal: row?.nominal ?? 0,
+        ask: row?.ask ?? 0,
+      }));
+    },
   },
   watch: {
     contractEvents: {
@@ -439,6 +497,20 @@ export default {
     formatPercent(value) {
       const num = Number(value ?? 0);
       return `${Number.isInteger(num) ? num : num.toFixed(1)}%`;
+    },
+
+    exchangeBucketLabel(key) {
+      const labels = {
+        'material:normal': 'Материалы',
+        'material:premium': 'Премиум',
+        'loot:xp_bank': 'XP-банки',
+        'loot:pack': 'Паки ККИ',
+        'loot:cert': 'Лицензии',
+        chest: 'Сундуки',
+        pennant: 'Вымпелы',
+      };
+
+      return labels[key] || key;
     },
 
     canOpenGovDeposit(amount) {
@@ -634,6 +706,17 @@ export default {
   font-weight: 700;
   color: @colorText;
   margin-bottom: 4px;
+}
+
+.macro_subtitle {
+  font-size: 11px;
+  font-weight: 700;
+  color: @colorText;
+  margin: 8px 0 4px;
+}
+
+.exchange_hint {
+  margin-top: 6px;
 }
 
 .macro_row {

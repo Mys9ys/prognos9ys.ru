@@ -240,6 +240,10 @@ class AchievementService
             $maps[$userId] = array_merge($maps[$userId] ?? $this->emptyStatsTemplate(), $row);
         }
 
+        foreach ($this->repository->getExchangeBuyStatsMapForAllUsers() as $userId => $row) {
+            $maps[$userId] = array_merge($maps[$userId] ?? $this->emptyStatsTemplate(), $row);
+        }
+
         self::$batchStatsCache = $maps;
 
         return $maps;
@@ -342,7 +346,7 @@ class AchievementService
             'wow_pen' => 0,
             'metric_extra_time' => 0,
             'metric_shootout' => 0,
-        ], XpBankAchievementConfig::emptyStatsTemplate());
+        ], XpBankAchievementConfig::emptyStatsTemplate(), ExchangeBuyAchievementConfig::emptyStatsTemplate());
     }
 
     /**
@@ -665,7 +669,7 @@ class AchievementService
             'chests_opened' => $this->repository->sumOpenedTreasureChestsForUser($userId),
             'chests_earned' => $this->repository->sumEarnedTreasureChestsForUser($userId),
             'rublius_earned' => (int)round($this->repository->sumRubliusEarnedForUser($userId)),
-        ], $metrics, $this->professionRepository->getYieldStatsByUserId($userId), $this->repository->getXpBankDrinkStatsForUser($userId));
+        ], $metrics, $this->professionRepository->getYieldStatsByUserId($userId), $this->repository->getXpBankDrinkStatsForUser($userId), $this->repository->getExchangeBuyStatsForUser($userId));
     }
 
     private function resolveProgress(array $definition, array $stats): int

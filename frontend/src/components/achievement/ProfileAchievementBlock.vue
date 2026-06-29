@@ -31,6 +31,15 @@
       <button
         type="button"
         class="ach_tab"
+        :class="{ active: activeTab === 'exchange' }"
+        @click="activeTab = 'exchange'"
+      >
+        Биржа
+        <span v-if="exchangeCount" class="ach_tab_count">({{ exchangeCount }})</span>
+      </button>
+      <button
+        type="button"
+        class="ach_tab"
         :class="{ active: activeTab === 'football' }"
         @click="activeTab = 'football'"
       >
@@ -68,7 +77,11 @@
             ? 'Пока нет общих ачивок'
             : (activeTab === 'profession'
               ? 'Пока нет ачивок профессий'
-              : (activeTab === 'potion' ? 'Пока нет ачивок за зелья' : 'Пока нет футбольных ачивок'))
+              : (activeTab === 'potion'
+                ? 'Пока нет ачивок за зелья'
+                : (activeTab === 'exchange'
+                  ? 'Пока нет биржевых ачивок'
+                  : 'Пока нет футбольных ачивок')))
         }}
       </div>
       <div class="grid" v-else>
@@ -138,7 +151,10 @@ export default {
     footballItems() {
       return this.items.filter((item) => {
         const group = item.group || '';
-        return group !== 'welcome' && group !== 'profession' && group !== 'potion';
+        return group !== 'welcome'
+          && group !== 'profession'
+          && group !== 'potion'
+          && group !== 'exchange';
       });
     },
     professionItems() {
@@ -146,6 +162,9 @@ export default {
     },
     potionItems() {
       return this.items.filter((item) => item.group === 'potion');
+    },
+    exchangeItems() {
+      return this.items.filter((item) => item.group === 'exchange');
     },
     generalCount() {
       return this.generalItems.length;
@@ -159,6 +178,9 @@ export default {
     potionCount() {
       return this.potionItems.length;
     },
+    exchangeCount() {
+      return this.exchangeItems.length;
+    },
     filteredItems() {
       let list = this.generalItems;
       if (this.activeTab === 'football') {
@@ -167,6 +189,8 @@ export default {
         list = this.professionItems.filter((item) => Number(item.profession_stage || 1) === this.professionStageTab);
       } else if (this.activeTab === 'potion') {
         list = this.potionItems;
+      } else if (this.activeTab === 'exchange') {
+        list = this.exchangeItems;
       }
       return this.sortAchievementItems(list);
     },

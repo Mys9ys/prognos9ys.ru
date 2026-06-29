@@ -145,7 +145,7 @@ export const gameModule = {
             }
             return apiActions.game.getMyContracts(userToken);
         },
-        async getBankOperations({ rootState }, limit = 100) {
+        async getBankOperations({ rootState }, limit = 30) {
             const userToken = rootState.auth?.authData?.token;
             if (!userToken) {
                 throw new Error('Требуется авторизация');

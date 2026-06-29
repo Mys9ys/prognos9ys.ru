@@ -320,12 +320,14 @@ class GameController extends BaseController
         ];
     }
 
-    public function getBankOperationsAction(int $limit = 100): array
+    public function getBankOperationsAction(int $limit = 30): array
     {
         $userId = TokenAuthService::getCurrentUserId();
         if (!$userId) {
             throw new ApiException('Пользователь не авторизован', 401);
         }
+
+        $limit = max(1, min(100, $limit));
 
         return [
             'status' => 'ok',

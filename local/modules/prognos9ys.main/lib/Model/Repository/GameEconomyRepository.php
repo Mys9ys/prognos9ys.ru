@@ -13,6 +13,7 @@ use Prognos9ys\Main\Service\Game\GameEconomyHlInstaller;
 use Prognos9ys\Main\Service\Game\GameEventScopeService;
 use Prognos9ys\Main\Service\Game\TreasureService;
 use Prognos9ys\Main\Service\Game\XpBankAchievementConfig;
+use Prognos9ys\Main\Service\Game\ExchangeBuyAchievementConfig;
 
 class GameEconomyRepository
 {
@@ -1633,6 +1634,273 @@ class GameEconomyRepository
         }
 
         return $map;
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    public function getExchangeBuyStatsForUser(int $userId): array
+    {
+        $stats = ExchangeBuyAchievementConfig::emptyStatsTemplate();
+        if ($userId <= 0) {
+            return $stats;
+        }
+
+        $dataClass = $this->getExchangeTradeDataClass();
+        $response = $dataClass::getList([
+            'filter' => ['=UF_BUYER_ID' => $userId],
+            'select' => ['UF_ITEM_KIND', 'UF_ITEM_CODE', 'UF_ITEM_CATEGORY', 'UF_QTY'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $this->accumulateExchangeBuyStatRow($stats, $row);
+        }
+
+        return $stats;
+    }
+
+    /**
+     * @return array<int, array<string, int>>
+     */
+    public function getExchangeBuyStatsMapForAllUsers(): array
+    {
+        $map = [];
+        $dataClass = $this->getExchangeTradeDataClass();
+        $response = $dataClass::getList([
+            'select' => ['UF_BUYER_ID', 'UF_ITEM_KIND', 'UF_ITEM_CODE', 'UF_ITEM_CATEGORY', 'UF_QTY'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $userId = (int)($row['UF_BUYER_ID'] ?? 0);
+            if ($userId <= 0) {
+                continue;
+            }
+
+            if (!isset($map[$userId])) {
+                $map[$userId] = ExchangeBuyAchievementConfig::emptyStatsTemplate();
+            }
+
+            $this->accumulateExchangeBuyStatRow($map[$userId], $row);
+        }
+
+        return $map;
+    }
+
+    /**
+     * @param array<string, int> $stats
+     * @param array<string, mixed> $row
+     */
+    private function accumulateExchangeBuyStatRow(array &$stats, array $row): void
+    {
+        $statKey = ExchangeBuyAchievementConfig::resolveBuyStatKey(
+            (string)($row['UF_ITEM_KIND'] ?? ''),
+            (string)($row['UF_ITEM_CODE'] ?? ''),
+            (string)($row['UF_ITEM_CATEGORY'] ?? '')
+        );
+        $qty = (int)($row['UF_QTY'] ?? 0);
+        if ($statKey === '' || $qty <= 0 || !isset($stats[$statKey])) {
+            return;
+        }
+
+        $stats[$statKey] += $qty;
+    }
+
+    /**
+     * Сводка активных лотов на бирже (номинал, витринные цены, комиссионка).
+     *
+     * @return array{
+     *   active_listings:int,
+     *   qty_on_sale:int,
+     *   nominal_total:float,
+     *   ask_total:float,
+     *   bank_listings:int,
+     *   user_listings:int,
+     *   consignment_listings:int,
+     *   unique_sellers:int,
+     *   by_bucket: array<string, array{listings:int,qty:int,nominal:float,ask:float}>
+     * }
+     */
+    public function getExchangeMarketStats(): array
+    {
+        $dataClass = $this->getExchangeListingDataClass();
+        $activeListings = 0;
+        $qtyOnSale = 0;
+        $nominalTotal = 0.0;
+        $askTotal = 0.0;
+        $bankListings = 0;
+        $userListings = 0;
+        $consignmentListings = 0;
+        $sellers = [];
+        $byBucket = [];
+
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_STATUS' => ExchangeConfig::STATUS_ACTIVE,
+                '>UF_QTY_REMAINING' => 0,
+            ],
+            'select' => [
+                'UF_SELLER_ID',
+                'UF_SELLER_BANK_ID',
+                'UF_CONSIGNMENT_ID',
+                'UF_ITEM_KIND',
+                'UF_ITEM_CATEGORY',
+                'UF_QTY_REMAINING',
+                'UF_NOMINAL_SNAPSHOT',
+                'UF_PRICE_PER_UNIT',
+            ],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $qty = (int)($row['UF_QTY_REMAINING'] ?? 0);
+            if ($qty <= 0) {
+                continue;
+            }
+
+            $nominal = (float)($row['UF_NOMINAL_SNAPSHOT'] ?? 0);
+            $price = (float)($row['UF_PRICE_PER_UNIT'] ?? 0);
+
+            $activeListings++;
+            $qtyOnSale += $qty;
+            $nominalTotal = round($nominalTotal + $nominal * $qty, 1);
+            $askTotal = round($askTotal + $price * $qty, 1);
+
+            $bankId = (int)($row['UF_SELLER_BANK_ID'] ?? 0);
+            if ($bankId > 0) {
+                $bankListings++;
+            } else {
+                $userListings++;
+            }
+
+            if ((int)($row['UF_CONSIGNMENT_ID'] ?? 0) > 0) {
+                $consignmentListings++;
+            }
+
+            $sellerId = (int)($row['UF_SELLER_ID'] ?? 0);
+            if ($sellerId > 0) {
+                $sellers[$sellerId] = true;
+            }
+
+            $kind = (string)($row['UF_ITEM_KIND'] ?? '');
+            $category = (string)($row['UF_ITEM_CATEGORY'] ?? '');
+            $bucket = $kind . ($category !== '' ? ':' . $category : '');
+            if (!isset($byBucket[$bucket])) {
+                $byBucket[$bucket] = [
+                    'listings' => 0,
+                    'qty' => 0,
+                    'nominal' => 0.0,
+                    'ask' => 0.0,
+                ];
+            }
+
+            $byBucket[$bucket]['listings']++;
+            $byBucket[$bucket]['qty'] += $qty;
+            $byBucket[$bucket]['nominal'] = round($byBucket[$bucket]['nominal'] + $nominal * $qty, 1);
+            $byBucket[$bucket]['ask'] = round($byBucket[$bucket]['ask'] + $price * $qty, 1);
+        }
+
+        uasort($byBucket, static function (array $a, array $b): int {
+            return $b['nominal'] <=> $a['nominal'];
+        });
+
+        return [
+            'active_listings' => $activeListings,
+            'qty_on_sale' => $qtyOnSale,
+            'nominal_total' => round($nominalTotal, 1),
+            'ask_total' => round($askTotal, 1),
+            'bank_listings' => $bankListings,
+            'user_listings' => $userListings,
+            'consignment_listings' => $consignmentListings,
+            'unique_sellers' => count($sellers),
+            'by_bucket' => $byBucket,
+        ];
+    }
+
+    /**
+     * @return array{trades:int,units:int,volume:float,commission:float,unique_buyers:int}
+     */
+    public function getExchangeTradeAggregateStats(): array
+    {
+        $dataClass = $this->getExchangeTradeDataClass();
+        $trades = 0;
+        $units = 0;
+        $volume = 0.0;
+        $commission = 0.0;
+        $buyers = [];
+
+        $response = $dataClass::getList([
+            'select' => ['UF_BUYER_ID', 'UF_QTY', 'UF_TOTAL_PRICE', 'UF_COMMISSION'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $trades++;
+            $units += (int)($row['UF_QTY'] ?? 0);
+            $volume = round($volume + (float)($row['UF_TOTAL_PRICE'] ?? 0), 1);
+            $commission = round($commission + (float)($row['UF_COMMISSION'] ?? 0), 1);
+
+            $buyerId = (int)($row['UF_BUYER_ID'] ?? 0);
+            if ($buyerId > 0) {
+                $buyers[$buyerId] = true;
+            }
+        }
+
+        return [
+            'trades' => $trades,
+            'units' => $units,
+            'volume' => round($volume, 1),
+            'commission' => round($commission, 1),
+            'unique_buyers' => count($buyers),
+        ];
+    }
+
+    /**
+     * Исполненные сделки по лотам банка (комиссионка на бирже).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function getExchangeTradesForBankId(int $bankId, int $limit = 500): array
+    {
+        if ($bankId <= 0 || $limit <= 0) {
+            return [];
+        }
+
+        $listingClass = $this->getExchangeListingDataClass();
+        $listingMeta = [];
+        $listingIds = [];
+
+        $listingResponse = $listingClass::getList([
+            'filter' => ['=UF_SELLER_BANK_ID' => $bankId],
+            'select' => ['ID', 'UF_ORIGINAL_USER_ID', 'UF_CONSIGNMENT_ID'],
+        ]);
+
+        while ($listingRow = $listingResponse->fetch()) {
+            $listingId = (int)($listingRow['ID'] ?? 0);
+            if ($listingId <= 0) {
+                continue;
+            }
+
+            $listingIds[] = $listingId;
+            $listingMeta[$listingId] = $listingRow;
+        }
+
+        if ($listingIds === []) {
+            return [];
+        }
+
+        $tradeClass = $this->getExchangeTradeDataClass();
+        $rows = [];
+        $tradeResponse = $tradeClass::getList([
+            'filter' => ['@UF_LISTING_ID' => $listingIds],
+            'order' => ['ID' => 'DESC'],
+            'limit' => $limit,
+        ]);
+
+        while ($tradeRow = $tradeResponse->fetch()) {
+            $listingId = (int)($tradeRow['UF_LISTING_ID'] ?? 0);
+            $tradeRow['_listing'] = $listingMeta[$listingId] ?? null;
+            $rows[] = $tradeRow;
+        }
+
+        return $rows;
     }
 
     /**
