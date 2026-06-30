@@ -43,7 +43,13 @@ class ExchangeService
     /**
      * @return array{items: array<int, array<string, mixed>>, pagination: array<string, int|bool>}
      */
-    public function getCatalog(int $offset = 0, int $limit = 25, string $catalogTab = '', string $search = ''): array
+    public function getCatalog(
+        int $offset = 0,
+        int $limit = 25,
+        string $catalogTab = '',
+        string $search = '',
+        string $qtySort = ''
+    ): array
     {
         $listings = $this->repository->getActiveExchangeListings(2000, $catalogTab);
         $groups = [];
@@ -118,14 +124,26 @@ class ExchangeService
         }
 
         $items = array_values($groups);
-        usort($items, static function (array $a, array $b): int {
-            $priceCmp = ($a['price_per_unit'] ?? 0) <=> ($b['price_per_unit'] ?? 0);
-            if ($priceCmp !== 0) {
-                return $priceCmp;
-            }
+        $qtySort = strtolower(trim($qtySort));
+        if ($qtySort === 'asc' || $qtySort === 'desc') {
+            usort($items, static function (array $a, array $b) use ($qtySort): int {
+                $qtyCmp = ($a['qty_total'] ?? 0) <=> ($b['qty_total'] ?? 0);
+                if ($qtyCmp === 0) {
+                    $qtyCmp = strcmp((string)($a['label'] ?? ''), (string)($b['label'] ?? ''));
+                }
 
-            return strcmp((string)($a['label'] ?? ''), (string)($b['label'] ?? ''));
-        });
+                return $qtySort === 'desc' ? -$qtyCmp : $qtyCmp;
+            });
+        } else {
+            usort($items, static function (array $a, array $b): int {
+                $priceCmp = ($a['price_per_unit'] ?? 0) <=> ($b['price_per_unit'] ?? 0);
+                if ($priceCmp !== 0) {
+                    return $priceCmp;
+                }
+
+                return strcmp((string)($a['label'] ?? ''), (string)($b['label'] ?? ''));
+            });
+        }
 
         $search = trim($search);
         if ($search !== '') {

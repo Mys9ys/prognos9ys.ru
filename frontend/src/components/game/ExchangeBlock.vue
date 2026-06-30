@@ -38,14 +38,37 @@
           {{ tab.label }}
         </button>
       </div>
-      <div class="exchange_search">
-        <input
-          v-model="catalogSearchQuery"
-          type="search"
-          class="search_input"
-          placeholder="Поиск по названию..."
-          autocomplete="off"
-        />
+      <div class="exchange_toolbar">
+        <div class="exchange_search">
+          <input
+            v-model="catalogSearchQuery"
+            type="search"
+            class="search_input"
+            placeholder="Поиск по названию..."
+            autocomplete="off"
+          />
+        </div>
+        <div class="exchange_sort">
+          <span class="sort_label">Кол-во</span>
+          <button
+            type="button"
+            class="sort_btn"
+            :class="{ active: qtySort.catalog === 'desc' }"
+            title="По убыванию"
+            @click="setQtySort('catalog', 'desc')"
+          >
+            ↓
+          </button>
+          <button
+            type="button"
+            class="sort_btn"
+            :class="{ active: qtySort.catalog === 'asc' }"
+            title="По возрастанию"
+            @click="setQtySort('catalog', 'asc')"
+          >
+            ↑
+          </button>
+        </div>
       </div>
       <div class="catalog_list" v-if="catalogItems.length">
         <div v-for="group in catalogItems" :key="group.group_key" class="catalog_row">
@@ -123,14 +146,37 @@
           {{ tab.label }}
         </button>
       </div>
-      <div class="exchange_search">
-        <input
-          v-model="sellSearchQuery"
-          type="search"
-          class="search_input"
-          placeholder="Поиск по названию..."
-          autocomplete="off"
-        />
+      <div class="exchange_toolbar">
+        <div class="exchange_search">
+          <input
+            v-model="sellSearchQuery"
+            type="search"
+            class="search_input"
+            placeholder="Поиск по названию..."
+            autocomplete="off"
+          />
+        </div>
+        <div class="exchange_sort">
+          <span class="sort_label">Кол-во</span>
+          <button
+            type="button"
+            class="sort_btn"
+            :class="{ active: qtySort.sell === 'desc' }"
+            title="По убыванию"
+            @click="setQtySort('sell', 'desc')"
+          >
+            ↓
+          </button>
+          <button
+            type="button"
+            class="sort_btn"
+            :class="{ active: qtySort.sell === 'asc' }"
+            title="По возрастанию"
+            @click="setQtySort('sell', 'asc')"
+          >
+            ↑
+          </button>
+        </div>
       </div>
       <div v-if="sellCategoryTab === 'souvenir' && duplicatePlanTotal > 0" class="sell_bulk">
         <span class="sell_bulk_hint">Лишних дублей: {{ duplicatePlanTotal }} · по номиналу</span>
@@ -143,8 +189,8 @@
           </button>
         </div>
       </div>
-      <div class="sell_list" v-if="filteredSellable.length">
-        <div v-for="(item, index) in filteredSellable" :key="sellKey(item, index)" class="sell_row">
+      <div class="sell_list" v-if="sortedFilteredSellable.length">
+        <div v-for="(item, index) in sortedFilteredSellable" :key="sellKey(item, index)" class="sell_row">
           <div class="row_thumb" aria-hidden="true">
             <img v-if="itemThumb(item).src" :src="itemThumb(item).src" alt="">
             <span v-else class="row_thumb_emoji">{{ itemThumb(item).emoji }}</span>
@@ -179,8 +225,29 @@
 
     <!-- Мои лоты -->
     <div v-if="activeTab === 'my'" class="panel">
-      <div class="catalog_list" v-if="myListings.length">
-        <div v-for="item in myListings" :key="item.id" class="catalog_row">
+      <div class="exchange_sort exchange_sort_standalone">
+        <span class="sort_label">Кол-во</span>
+        <button
+          type="button"
+          class="sort_btn"
+          :class="{ active: qtySort.my === 'desc' }"
+          title="По убыванию"
+          @click="setQtySort('my', 'desc')"
+        >
+          ↓
+        </button>
+        <button
+          type="button"
+          class="sort_btn"
+          :class="{ active: qtySort.my === 'asc' }"
+          title="По возрастанию"
+          @click="setQtySort('my', 'asc')"
+        >
+          ↑
+        </button>
+      </div>
+      <div class="catalog_list" v-if="sortedMyListings.length">
+        <div v-for="item in sortedMyListings" :key="item.id" class="catalog_row">
           <div class="row_thumb" aria-hidden="true">
             <img v-if="itemThumb(item).src" :src="itemThumb(item).src" alt="">
             <span v-else class="row_thumb_emoji">{{ itemThumb(item).emoji }}</span>
@@ -250,8 +317,29 @@
       </div>
 
       <div class="labor_section_title">Мои заказы</div>
-      <div class="catalog_list" v-if="myLaborOrders.length">
-        <div v-for="order in myLaborOrders" :key="'my-labor-' + order.id" class="catalog_row">
+      <div class="exchange_sort exchange_sort_standalone">
+        <span class="sort_label">Циклов</span>
+        <button
+          type="button"
+          class="sort_btn"
+          :class="{ active: qtySort.myLabor === 'desc' }"
+          title="По убыванию"
+          @click="setQtySort('myLabor', 'desc')"
+        >
+          ↓
+        </button>
+        <button
+          type="button"
+          class="sort_btn"
+          :class="{ active: qtySort.myLabor === 'asc' }"
+          title="По возрастанию"
+          @click="setQtySort('myLabor', 'asc')"
+        >
+          ↑
+        </button>
+      </div>
+      <div class="catalog_list" v-if="sortedMyLaborOrders.length">
+        <div v-for="order in sortedMyLaborOrders" :key="'my-labor-' + order.id" class="catalog_row">
           <div class="row_main">
             <div class="row_label">{{ order.profession_label }} → {{ order.output_label }}</div>
             <div class="row_meta">
@@ -305,8 +393,29 @@
       <div class="empty" v-else>У вас нет заказов на работу</div>
 
       <div class="labor_section_title">Открытые заказы</div>
-      <div class="catalog_list" v-if="laborOrders.length">
-        <div v-for="order in laborOrders" :key="'labor-' + order.id" class="catalog_row">
+      <div class="exchange_sort exchange_sort_standalone">
+        <span class="sort_label">Циклов</span>
+        <button
+          type="button"
+          class="sort_btn"
+          :class="{ active: qtySort.labor === 'desc' }"
+          title="По убыванию"
+          @click="setQtySort('labor', 'desc')"
+        >
+          ↓
+        </button>
+        <button
+          type="button"
+          class="sort_btn"
+          :class="{ active: qtySort.labor === 'asc' }"
+          title="По возрастанию"
+          @click="setQtySort('labor', 'asc')"
+        >
+          ↑
+        </button>
+      </div>
+      <div class="catalog_list" v-if="sortedLaborOrders.length">
+        <div v-for="order in sortedLaborOrders" :key="'labor-' + order.id" class="catalog_row">
           <div class="row_main">
             <div class="row_label">{{ order.profession_label }} → {{ order.output_label }}</div>
             <div class="row_meta">
@@ -349,8 +458,29 @@
 
     <!-- История -->
     <div v-if="activeTab === 'history'" class="panel">
-      <div class="history_list" v-if="historyItems.length">
-        <div v-for="item in historyItems" :key="item.id" class="history_row">
+      <div class="exchange_sort exchange_sort_standalone">
+        <span class="sort_label">Кол-во</span>
+        <button
+          type="button"
+          class="sort_btn"
+          :class="{ active: qtySort.history === 'desc' }"
+          title="По убыванию"
+          @click="setQtySort('history', 'desc')"
+        >
+          ↓
+        </button>
+        <button
+          type="button"
+          class="sort_btn"
+          :class="{ active: qtySort.history === 'asc' }"
+          title="По возрастанию"
+          @click="setQtySort('history', 'asc')"
+        >
+          ↑
+        </button>
+      </div>
+      <div class="history_list" v-if="sortedHistoryItems.length">
+        <div v-for="item in sortedHistoryItems" :key="item.id" class="history_row">
           <span class="hist_role" :class="item.role">{{ item.role === 'buy' ? 'Покупка' : 'Продажа' }}</span>
           <span class="hist_label">{{ item.label }} ×{{ item.qty }}</span>
           <div class="hist_amount">
@@ -413,6 +543,14 @@ export default {
       catalogSearchQuery: '',
       sellSearchQuery: '',
       catalogSearchTimer: null,
+      qtySort: {
+        catalog: '',
+        sell: '',
+        my: '',
+        history: '',
+        labor: '',
+        myLabor: '',
+      },
     };
   },
   computed: {
@@ -446,6 +584,29 @@ export default {
         return items;
       }
       return items.filter((item) => String(item.label || '').toLowerCase().includes(query));
+    },
+    sortedFilteredSellable() {
+      return this.sortByQty(this.filteredSellable, (item) => item.available, this.qtySort.sell);
+    },
+    sortedMyListings() {
+      return this.sortByQty(this.myListings, (item) => item.qty_remaining, this.qtySort.my);
+    },
+    sortedHistoryItems() {
+      return this.sortByQty(this.historyItems, (item) => item.qty, this.qtySort.history);
+    },
+    sortedMyLaborOrders() {
+      return this.sortByQty(
+        this.myLaborOrders,
+        (order) => order.iterations_remaining ?? order.iterations_total,
+        this.qtySort.myLabor
+      );
+    },
+    sortedLaborOrders() {
+      return this.sortByQty(
+        this.laborOrders,
+        (order) => order.iterations_remaining,
+        this.qtySort.labor
+      );
     },
   },
   watch: {
@@ -518,6 +679,33 @@ export default {
 
     formatMoney(value) {
       return Number(value ?? 0).toFixed(1).replace(/\.0$/, '');
+    },
+
+    sortByQty(items, getQty, direction) {
+      if (!direction || !Array.isArray(items) || !items.length) {
+        return items;
+      }
+      const sorted = [...items];
+      const mult = direction === 'asc' ? 1 : -1;
+      sorted.sort((a, b) => {
+        const qtyCmp = (Number(getQty(a)) || 0) - (Number(getQty(b)) || 0);
+        if (qtyCmp !== 0) {
+          return mult * qtyCmp;
+        }
+        return String(a.label || '').localeCompare(String(b.label || ''), 'ru');
+      });
+      return sorted;
+    },
+
+    setQtySort(tab, direction) {
+      const current = this.qtySort[tab] || '';
+      this.qtySort = {
+        ...this.qtySort,
+        [tab]: current === direction ? '' : direction,
+      };
+      if (tab === 'catalog') {
+        this.loadCatalog(true);
+      }
     },
 
     historyAmountMain(item) {
@@ -625,7 +813,8 @@ export default {
           this.catalogPagination.offset,
           this.catalogPagination.limit,
           this.catalogCategoryTab,
-          this.catalogSearchQuery.trim()
+          this.catalogSearchQuery.trim(),
+          this.qtySort.catalog
         );
 
         if (data?.status === 'ok') {
@@ -1141,8 +1330,52 @@ export default {
   margin-bottom: 8px;
 }
 
-.exchange_search {
+.exchange_toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 8px;
+}
+
+.exchange_search {
+  flex: 1;
+  min-width: 140px;
+  margin-bottom: 0;
+}
+
+.exchange_sort {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.exchange_sort_standalone {
+  margin-bottom: 8px;
+}
+
+.sort_label {
+  font-size: 11px;
+  color: @colorBlur;
+  white-space: nowrap;
+}
+
+.sort_btn {
+  border: 1px solid fade(@colorBlur, 35%);
+  background: fade(@DarkColorBG, 80%);
+  color: @colorText;
+  border-radius: 4px;
+  min-width: 28px;
+  padding: 4px 6px;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+
+  &.active {
+    border-color: fade(@orange, 70%);
+    background: fade(@orange, 20%);
+  }
 }
 
 .search_input {

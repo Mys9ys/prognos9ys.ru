@@ -51,7 +51,8 @@ class ExchangeController extends BaseController
         int $limit = 25,
         string $catalogTab = '',
         string $kind = '',
-        string $search = ''
+        string $search = '',
+        string $qtySort = ''
     ): array {
         $userId = TokenAuthService::getCurrentUserId();
         if (!$userId) {
@@ -62,7 +63,7 @@ class ExchangeController extends BaseController
 
         return array_merge(
             ['status' => 'ok'],
-            (new ExchangeService())->getCatalog($offset, $limit, $tab, $search)
+            (new ExchangeService())->getCatalog($offset, $limit, $tab, $search, $qtySort)
         );
     }
 
