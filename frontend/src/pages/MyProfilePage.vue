@@ -119,7 +119,7 @@
       <div class="title_wrapper">
         <div class="title">Богатство и финансы</div>
       </div>
-      <ProfileEconomyBlock :game="gameInfo" v-if="gameInfo" />
+      <ProfileEconomyBlock v-if="gameInfo" :game="gameInfo" :initial-tab="economyTab" />
     </div>
 
     <div class="body_item" v-if="active === 'inventory'">
@@ -202,6 +202,8 @@ export default {
       url:  'https://prognos9ys.ru',
       profileLoader: false,
       activeFootballEvent: '',
+      lastGameRefreshAt: 0,
+      economyTab: 'bank',
 
       active: 'prognosis',
       prognosisType: 'football',
@@ -220,8 +222,10 @@ export default {
 
   created() {
     this.profileLoader = true
+    this.syncRouteTab()
 
     this.fillProfile()
+    this.lastGameRefreshAt = Date.now()
     this.$store.dispatch('auth/refreshGameInfo')
   },
 
@@ -245,6 +249,28 @@ export default {
     setPrognosisStatus(status) {
       this.prognosisStatus = status;
       this.ensureActiveFootballEvent();
+    },
+
+    syncRouteTab() {
+      const tab = this.$route.query?.tab;
+      const eco = this.$route.query?.eco;
+
+      if (tab === 'inventory') {
+        this.active = 'inventory';
+      } else if (tab === 'collection') {
+        this.active = 'collection';
+      } else if (tab === 'achievement') {
+        this.active = 'achievement';
+      } else if (tab === 'economy') {
+        this.active = 'economy';
+        if (eco && ['bank', 'treasury', 'exchange', 'farm'].includes(eco)) {
+          this.economyTab = eco;
+        }
+      } else if (tab === 'settings') {
+        this.active = 'settings';
+      } else if (tab === 'prognosis') {
+        this.active = 'prognosis';
+      }
     },
 
     ensurePrognosisStatus() {
@@ -368,8 +394,19 @@ export default {
     },
     active(tab) {
       if (tab === 'inventory' || tab === 'economy' || tab === 'collection') {
+        const now = Date.now();
+        if (now - this.lastGameRefreshAt < 15000) {
+          return;
+        }
+        this.lastGameRefreshAt = now;
         this.refreshGameInfo();
       }
+    },
+    '$route.query': {
+      deep: true,
+      handler() {
+        this.syncRouteTab();
+      },
     },
   },
 

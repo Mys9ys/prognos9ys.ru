@@ -167,6 +167,8 @@ class AlbumCraftService
             $lines[] = ['text' => implode(' · ', $bits), 'status' => 'ok'];
         }
 
+        $this->economyRepository->incrementAlbumCraftRunCount($userId);
+
         return [
             'crafted' => $output,
             'xp_gain' => $xpGain,

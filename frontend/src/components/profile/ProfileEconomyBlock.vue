@@ -39,11 +39,22 @@ export default {
       type: Object,
       default: null,
     },
+    initialTab: {
+      type: String,
+      default: 'bank',
+    },
   },
   data() {
     return {
-      activeTab: 'bank',
+      activeTab: this.initialTab || 'bank',
     };
+  },
+  watch: {
+    initialTab(tab) {
+      if (tab && this.activeTab !== tab) {
+        this.activeTab = tab;
+      }
+    },
   },
   computed: {
     mainTabs() {

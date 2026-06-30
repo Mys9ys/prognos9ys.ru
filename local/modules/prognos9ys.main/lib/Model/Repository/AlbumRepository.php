@@ -107,23 +107,49 @@ class AlbumRepository
      */
     public function getSlotsByAlbumId(int $albumId): array
     {
+        $grouped = $this->getSlotsByAlbumIds([$albumId]);
+
+        return $grouped[$albumId] ?? [];
+    }
+
+    /**
+     * @param array<int, int> $albumIds
+     * @return array<int, array<int, array<string, mixed>>>
+     */
+    public function getSlotsByAlbumIds(array $albumIds): array
+    {
         $this->ensureSchema();
-        if ($albumId <= 0) {
-            return [];
+        $albumIds = array_values(array_filter(array_map('intval', $albumIds), static function (int $id): bool {
+            return $id > 0;
+        }));
+
+        $grouped = [];
+        foreach ($albumIds as $albumId) {
+            $grouped[$albumId] = [];
+        }
+
+        if (!$albumIds) {
+            return $grouped;
         }
 
         $dataClass = $this->getAlbumSlotDataClass();
-        $rows = [];
         $response = $dataClass::getList([
-            'filter' => ['=UF_ALBUM_ID' => $albumId],
-            'order' => ['UF_TEAM_SLUG' => 'ASC'],
+            'filter' => ['@UF_ALBUM_ID' => $albumIds],
+            'order' => ['UF_ALBUM_ID' => 'ASC', 'UF_TEAM_SLUG' => 'ASC'],
         ]);
 
         while ($row = $response->fetch()) {
-            $rows[] = $row;
+            $albumId = (int)($row['UF_ALBUM_ID'] ?? 0);
+            if ($albumId <= 0) {
+                continue;
+            }
+            if (!isset($grouped[$albumId])) {
+                $grouped[$albumId] = [];
+            }
+            $grouped[$albumId][] = $row;
         }
 
-        return $rows;
+        return $grouped;
     }
 
     public function getSlotByAlbumAndTeam(int $albumId, string $teamSlug): ?array

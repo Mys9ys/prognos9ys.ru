@@ -15,6 +15,7 @@ use Prognos9ys\Main\Service\Game\TreasureService;
 use Prognos9ys\Main\Service\Game\UserProgressService;
 use Prognos9ys\Main\Service\Game\XpBankAchievementConfig;
 use Prognos9ys\Main\Service\Game\ExchangeBuyAchievementConfig;
+use Prognos9ys\Main\Service\Game\RecipeAchievementConfig;
 
 class GameEconomyRepository
 {
@@ -644,7 +645,7 @@ class GameEconomyRepository
         $dataClass = $this->getUserProgressDataClass();
         $row = $dataClass::getList([
             'filter' => ['=UF_USER_ID' => $userId],
-            'select' => ['ID', 'UF_USER_ID', 'UF_XP', 'UF_PROFESSION_CERT_SLOTS', 'UF_LEARNED_RECIPES'],
+            'select' => ['ID', 'UF_USER_ID', 'UF_XP', 'UF_PROFESSION_CERT_SLOTS', 'UF_LEARNED_RECIPES', 'UF_ALBUM_CRAFT_RUNS'],
             'limit' => 1,
         ])->fetch();
 
@@ -819,6 +820,62 @@ class GameEconomyRepository
 
         $this->updateProgress((int)$row['ID'], [
             'UF_LEARNED_RECIPES' => implode(',', array_values(array_unique($learned))),
+        ]);
+        $this->userProgressDataClass = null;
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    public function getRecipeAchievementStatsForUser(int $userId): array
+    {
+        $stats = RecipeAchievementConfig::emptyStatsTemplate();
+        if ($userId <= 0) {
+            return $stats;
+        }
+
+        $stats[RecipeAchievementConfig::STAT_LEARNED] = count($this->getLearnedRecipes($userId));
+        $stats[RecipeAchievementConfig::STAT_ALBUM_CRAFT] = $this->getAlbumCraftRunCount($userId);
+
+        return $stats;
+    }
+
+    public function getAlbumCraftRunCount(int $userId): int
+    {
+        if ($userId <= 0) {
+            return 0;
+        }
+
+        $this->ensureLearnedRecipesSchema();
+        $row = $this->getProgressByUserId($userId);
+        if (!$row) {
+            return 0;
+        }
+
+        return max(0, (int)($row['UF_ALBUM_CRAFT_RUNS'] ?? 0));
+    }
+
+    public function incrementAlbumCraftRunCount(int $userId): void
+    {
+        if ($userId <= 0) {
+            return;
+        }
+
+        $this->ensureLearnedRecipesSchema();
+        $row = $this->getProgressByUserId($userId);
+        if (!$row) {
+            (new UserProgressService($this))->ensureProgress($userId);
+            $this->userProgressDataClass = null;
+            $row = $this->getProgressByUserId($userId);
+        }
+
+        if (!$row) {
+            return;
+        }
+
+        $count = max(0, (int)($row['UF_ALBUM_CRAFT_RUNS'] ?? 0)) + 1;
+        $this->updateProgress((int)$row['ID'], [
+            'UF_ALBUM_CRAFT_RUNS' => $count,
         ]);
         $this->userProgressDataClass = null;
     }
@@ -3965,7 +4022,23 @@ class GameEconomyRepository
             '=UF_SELLER_ID' => $userId,
             '=UF_STATUS' => ExchangeConfig::STATUS_ACTIVE,
             '>UF_QTY_REMAINING' => 0,
+            [
+                'LOGIC' => 'OR',
+                ['=UF_SELLER_BANK_ID' => 0],
+                ['UF_SELLER_BANK_ID' => false],
+            ],
         ]);
+    }
+
+    /**
+     * Комиссионные лоты висят на UF_SELLER_ID владельца банка — не считаем их в лимит продавца.
+     *
+     * @param array<string, mixed> $row
+     */
+    private function isConsignmentExchangeListingRow(array $row): bool
+    {
+        return (int)($row['UF_SELLER_BANK_ID'] ?? 0) > 0
+            || (int)($row['UF_CONSIGNMENT_ID'] ?? 0) > 0;
     }
 
     public function addExchangeListing(array $fields): int
@@ -4121,7 +4194,14 @@ class GameEconomyRepository
             return [];
         }
 
-        $filter = ['=UF_SELLER_ID' => $userId];
+        $filter = [
+            '=UF_SELLER_ID' => $userId,
+            [
+                'LOGIC' => 'OR',
+                ['=UF_SELLER_BANK_ID' => 0],
+                ['UF_SELLER_BANK_ID' => false],
+            ],
+        ];
         if ($activeOnly) {
             $filter['=UF_STATUS'] = ExchangeConfig::STATUS_ACTIVE;
             $filter['>UF_QTY_REMAINING'] = 0;
@@ -4136,6 +4216,9 @@ class GameEconomyRepository
         ]);
 
         while ($row = $response->fetch()) {
+            if ($this->isConsignmentExchangeListingRow($row)) {
+                continue;
+            }
             $rows[] = $row;
         }
 
@@ -4433,6 +4516,9 @@ class GameEconomyRepository
             } elseif ($catalogTab === ExchangeCatalogConfig::TAB_CERT) {
                 $filter['=UF_ITEM_KIND'] = ExchangeConfig::KIND_LOOT;
                 $filter['=UF_ITEM_CATEGORY'] = ChestLootConfig::CATEGORY_CERT;
+            } elseif ($catalogTab === ExchangeCatalogConfig::TAB_RECIPE) {
+                $filter['=UF_ITEM_KIND'] = ExchangeConfig::KIND_LOOT;
+                $filter['=UF_ITEM_CATEGORY'] = ChestLootConfig::CATEGORY_RECIPE;
             } else {
                 $filter['=UF_ITEM_KIND'] = $catalogTab;
             }

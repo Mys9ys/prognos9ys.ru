@@ -396,6 +396,7 @@ class BankConsignmentService
             ExchangeCatalogConfig::TAB_PREMIUM_SCROLL => 'Премиум-свитки',
             ExchangeCatalogConfig::TAB_LOOT => 'ККИ (паки)',
             ExchangeCatalogConfig::TAB_SOUVENIR => 'Сувениры',
+            ExchangeCatalogConfig::TAB_RECIPE => 'Рецепты',
             ExchangeCatalogConfig::TAB_XP_BANK => 'Банки XP',
             ExchangeCatalogConfig::TAB_CERT => 'Лицензии и сертификаты',
             ExchangeCatalogConfig::TAB_MATERIAL => 'Материалы',

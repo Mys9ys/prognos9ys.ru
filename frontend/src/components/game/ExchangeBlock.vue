@@ -107,6 +107,17 @@
           {{ tab.label }}
         </button>
       </div>
+      <div v-if="sellCategoryTab === 'souvenir' && duplicatePlanTotal > 0" class="sell_bulk">
+        <span class="sell_bulk_hint">Лишних дублей: {{ duplicatePlanTotal }} · по номиналу</span>
+        <div class="sell_bulk_actions">
+          <button type="button" class="action_btn" :disabled="busy" @click="bulkSellDuplicates('listing')">
+            Продать дубли на биржу
+          </button>
+          <button type="button" class="action_btn consign_btn" :disabled="busy" @click="bulkSellDuplicates('consign')">
+            В комиссионку
+          </button>
+        </div>
+      </div>
       <div class="sell_list" v-if="filteredSellable.length">
         <div v-for="(item, index) in filteredSellable" :key="sellKey(item, index)" class="sell_row">
           <div class="row_label">{{ item.label }}</div>
@@ -354,6 +365,7 @@ export default {
         payPerCycle: 2,
       },
       laborClaimQty: {},
+      duplicatePlanTotal: 0,
     };
   },
   computed: {
@@ -388,12 +400,19 @@ export default {
     activeTab(tab) {
       if (tab === 'catalog') {
         this.loadCatalog(true);
+      } else if (tab === 'sell') {
+        this.refreshDuplicatePlan();
       } else if (tab === 'my') {
         this.loadMyListings();
       } else if (tab === 'history') {
         this.loadHistory();
       } else if (tab === 'labor') {
         this.loadLabor(true);
+      }
+    },
+    sellCategoryTab(tab) {
+      if (this.activeTab === 'sell' && tab === 'souvenir') {
+        this.refreshDuplicatePlan();
       }
     },
     sellable: {
@@ -937,6 +956,63 @@ export default {
         game_info: game,
       });
     },
+
+    async refreshDuplicatePlan() {
+      if (!this.authData?.token) {
+        this.duplicatePlanTotal = 0;
+        return;
+      }
+
+      try {
+        const data = await apiActions.exchange.getDuplicateSouvenirPlan(this.authData.token);
+        this.duplicatePlanTotal = Number(data?.total_qty) || 0;
+      } catch (e) {
+        this.duplicatePlanTotal = 0;
+      }
+    },
+
+    async bulkSellDuplicates(mode) {
+      if (!this.authData?.token || this.busy) {
+        return;
+      }
+
+      if (mode === 'consign' && !window.confirm(
+        `Сдать ${this.duplicatePlanTotal} дублей в комиссионку? Вы получите ~80% цены сразу, отменить нельзя.`
+      )) {
+        return;
+      }
+
+      this.busy = true;
+      this.error = '';
+      this.message = '';
+
+      try {
+        const data = await apiActions.exchange.bulkSellDuplicateSouvenirs(this.authData.token, mode);
+        if (data?.status === 'ok') {
+          const sold = Number(data.sold_qty) || 0;
+          if (sold > 0) {
+            this.message = mode === 'consign'
+              ? `Сдано в комиссионку: ${sold} шт.`
+              : `Выставлено на биржу: ${sold} шт.`;
+          } else {
+            const lines = Array.isArray(data.lines) ? data.lines : [];
+            const first = lines.find((line) => line.status === 'fail') || lines[0];
+            this.error = first?.text || 'Нет лишних дублей для продажи';
+          }
+          this.applyGame(data.game);
+          await this.refreshState();
+          await this.refreshDuplicatePlan();
+          if (mode === 'listing' && sold > 0) {
+            this.activeTab = 'my';
+            await this.loadMyListings();
+          }
+        }
+      } catch (e) {
+        this.error = e.message || 'Не удалось продать дубли';
+      } finally {
+        this.busy = false;
+      }
+    },
   },
 };
 </script>
@@ -960,6 +1036,30 @@ export default {
   flex-wrap: wrap;
   gap: 4px;
   margin-bottom: 8px;
+}
+
+.sell_bulk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 8px;
+  border-radius: 4px;
+  background: fade(@orange, 12%);
+  border: 1px solid fade(@orange, 35%);
+}
+
+.sell_bulk_hint {
+  font-size: 12px;
+  color: @colorText;
+}
+
+.sell_bulk_actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .category_tab_btn {

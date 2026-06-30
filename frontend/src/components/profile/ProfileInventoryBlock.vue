@@ -12,9 +12,22 @@
       </div>
     </div>
 
-    <div class="inventory_grid" v-if="displayItems.length">
+    <div class="inventory_tabs">
+      <button
+        v-for="tab in inventoryTabs"
+        :key="tab.id"
+        type="button"
+        class="inventory_tab"
+        :class="{ active: categoryTab === tab.id }"
+        @click="categoryTab = tab.id"
+      >
+        {{ tab.label }}
+      </button>
+    </div>
+
+    <div class="inventory_grid" v-if="filteredDisplayItems.length">
       <div
-        v-for="item in displayItems"
+        v-for="item in filteredDisplayItems"
         :key="item.id"
         class="inventory_slot"
         :class="{ openable: item.openable && item.count > 0 }"
@@ -77,6 +90,7 @@ import AppIcon from '@/components/ui/AppIcon.vue';
 import BulkActionProgress from '@/components/game/BulkActionProgress.vue';
 import ChestOpenLogModal from '@/components/profile/ChestOpenLogModal.vue';
 import { apiActions } from '@/api/bitrixClient';
+import { INVENTORY_TABS, resolveInventoryTab } from '@/config/inventoryCatalog';
 
 const OTHER_INVENTORY_SLOTS = [
   { id: 'achievement', field: 'achievement_chests', icon: 'chest_achievement', caption: 'Ачивка', label: 'Сундуки за ачивки', openable: true, pool: 'achievement' },
@@ -131,6 +145,22 @@ function teamSlugFromCollectibleCode(code) {
   return match ? match[1] : '';
 }
 
+function resolveAlbumForGlue(albums, collection, teamSlug) {
+  for (const album of albums || []) {
+    const albumCollection = album.collection || '';
+    if (albumCollection && albumCollection !== collection) {
+      continue;
+    }
+
+    const gluedSlugs = Array.isArray(album.glued_slugs) ? album.glued_slugs : [];
+    if (!gluedSlugs.includes(teamSlug)) {
+      return album;
+    }
+  }
+
+  return null;
+}
+
 export default {
   name: 'ProfileInventoryBlock',
   components: { AppIcon, BulkActionProgress, ChestOpenLogModal },
@@ -151,6 +181,7 @@ export default {
       openProgressCurrent: 0,
       openProgressTotal: 0,
       logModalVisible: false,
+      categoryTab: 'all',
     };
   },
   computed: {
@@ -254,6 +285,12 @@ export default {
     displayItems() {
       return [...this.chestSlots, ...this.lootSlots];
     },
+    inventoryTabs() {
+      return INVENTORY_TABS;
+    },
+    filteredDisplayItems() {
+      return this.displayItems.filter((item) => resolveInventoryTab(item, this.categoryTab));
+    },
     totalItems() {
       return this.displayItems.reduce((sum, item) => sum + item.count, 0);
     },
@@ -289,7 +326,17 @@ export default {
     }),
     ...mapMutations({
       setUserInfo: 'auth/setUserInfo',
+      patchGameInfo: 'auth/patchGameInfo',
     }),
+
+    async applyGameResponse(data) {
+      if (data?.game) {
+        this.patchGameInfo(data.game);
+        return;
+      }
+
+      await this.refreshGameInfo();
+    },
 
     onSlotEnter(item) {
       if (item.openable) {
@@ -572,8 +619,7 @@ export default {
       const teamSlug = teamSlugFromCollectibleCode(itemCode);
 
       try {
-        const stateData = await apiActions.game.getAlbumState(this.authData.token);
-        const albums = stateData?.album?.albums || [];
+        const albums = this.game?.album_meta?.albums || [];
 
         if (!albums.length) {
           this.openLines = [{
@@ -585,18 +631,7 @@ export default {
           return;
         }
 
-        let targetAlbum = null;
-        for (const album of albums) {
-          const albumCollection = album.collection || '';
-          if (albumCollection && albumCollection !== collection) {
-            continue;
-          }
-          const teamSlot = (album.slots || []).find((s) => s.team_slug === teamSlug);
-          if (teamSlot && !teamSlot.glued) {
-            targetAlbum = album;
-            break;
-          }
-        }
+        const targetAlbum = resolveAlbumForGlue(albums, collection, teamSlug);
 
         if (!targetAlbum) {
           this.openLines = [{
@@ -618,14 +653,7 @@ export default {
           this.openLines = Array.isArray(data.lines) ? data.lines : [{ text: 'Вклеено в альбом', status: 'ok' }];
           this.openProgressCurrent = 1;
           this.openModalDone = true;
-          if (data.game) {
-            this.setUserInfo({
-              ...this.$store.state.auth.userInfo,
-              game_info: data.game,
-            });
-          } else {
-            await this.refreshGameInfo();
-          }
+          await this.applyGameResponse(data);
           window.dispatchEvent(new CustomEvent('prognos9ys:album-refresh'));
         } else {
           this.openLines = [{ text: data?.message || 'Не удалось вклеить', status: 'fail' }];
@@ -711,6 +739,28 @@ export default {
   border-radius: 5px;
   margin: 8px 0;
   text-align: left;
+}
+
+.inventory_tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.inventory_tab {
+  background: @darkbg;
+  color: @colorText;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 5px 8px;
+  font-size: 11px;
+  cursor: pointer;
+
+  &.active {
+    background: @orange;
+    color: #fff;
+  }
 }
 
 .inventory_summary {

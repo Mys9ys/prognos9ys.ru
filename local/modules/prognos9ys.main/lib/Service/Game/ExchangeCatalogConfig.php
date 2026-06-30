@@ -18,6 +18,7 @@ class ExchangeCatalogConfig
     /** @deprecated вкладка объединена с TAB_SOUVENIR */
     public const TAB_PENNANT = 'pennant';
     public const TAB_MATERIAL = 'material';
+    public const TAB_RECIPE = 'recipe';
 
     /**
      * @return array<int, array{id: string, label: string}>
@@ -30,6 +31,7 @@ class ExchangeCatalogConfig
             ['id' => self::TAB_PREMIUM_SCROLL, 'label' => 'Премиум'],
             ['id' => self::TAB_LOOT, 'label' => 'ККИ'],
             ['id' => self::TAB_SOUVENIR, 'label' => 'Сувениры'],
+            ['id' => self::TAB_RECIPE, 'label' => 'Рецепты'],
             ['id' => self::TAB_XP_BANK, 'label' => 'Банки XP'],
             ['id' => self::TAB_CERT, 'label' => 'Лицензии'],
             ['id' => self::TAB_MATERIAL, 'label' => 'Материалы'],
@@ -48,6 +50,7 @@ class ExchangeCatalogConfig
             self::TAB_PREMIUM_SCROLL,
             self::TAB_LOOT,
             self::TAB_SOUVENIR,
+            self::TAB_RECIPE,
             self::TAB_XP_BANK,
             self::TAB_CERT,
             self::TAB_MATERIAL,
@@ -78,7 +81,7 @@ class ExchangeCatalogConfig
                 return self::TAB_CERT;
             }
             if ($category === ChestLootConfig::CATEGORY_RECIPE) {
-                return self::TAB_SOUVENIR;
+                return self::TAB_RECIPE;
             }
             if ($category === ChestLootConfig::CATEGORY_PACK) {
                 return self::TAB_LOOT;

@@ -2,11 +2,15 @@
 
 namespace Prognos9ys\Main\Service\Game;
 
+use Bitrix\Main\Data\Cache;
 use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
 use Prognos9ys\Main\Model\Repository\ProfessionRepository;
 
 class GameProfileService
 {
+    private const SUMMARY_CACHE_DIR = '/prognos9ys/game_profile/';
+    private const SUMMARY_CACHE_TTL = 45;
+
     private WalletService $walletService;
     private UserProgressService $progressService;
     private TreasureService $treasureService;
@@ -33,84 +37,156 @@ class GameProfileService
         $this->repository = $repository ?? new GameEconomyRepository();
     }
 
-    public function getSummary(int $userId, bool $includeBankDetails = true): array
-    {
+    public function getSummary(
+        int $userId,
+        bool $includeBankDetails = true,
+        bool $withGrants = false,
+        bool $forceRefresh = false
+    ): array {
         if ($userId <= 0) {
             return [];
         }
 
-        try {
-            (new WalletService())->grantStarterPackIfMissing($userId);
-        } catch (\Throwable $exception) {
-            // не блокируем профиль
+        $cacheKey = 'summary_' . $userId . '_' . ($includeBankDetails ? '1' : '0');
+        if (!$withGrants && !$forceRefresh) {
+            $cached = $this->readSummaryCache($cacheKey);
+            if ($cached !== null) {
+                return $cached;
+            }
         }
 
         try {
-            (new LevelUpRewardService())->grantMissedRewards($userId);
-        } catch (\Throwable $exception) {
-            // не блокируем профиль
-        }
+            if ($withGrants) {
+                try {
+                    (new WalletService())->grantStarterPackIfMissing($userId);
+                } catch (\Throwable $exception) {
+                }
 
-        try {
-            (new LevelUpRewardService())->grantMissedLevelChests($userId);
-        } catch (\Throwable $exception) {
-            // не блокируем профиль
-        }
+                try {
+                    (new LevelUpRewardService())->grantMissedRewards($userId);
+                } catch (\Throwable $exception) {
+                }
 
-        try {
-            $myBank = $includeBankDetails ? $this->bankService->getMyBank($userId) : null;
-            $hasBank = $includeBankDetails
-                ? $myBank !== null
-                : $this->bankService->hasActiveBank($userId);
-
-            $deposits = $includeBankDetails ? $this->depositService->getMyContracts($userId) : [];
-            $loans = $includeBankDetails ? $this->loanService->getMyContracts($userId) : [];
-
-            $bankBlock = [
-                'has_bank' => $hasBank,
-                'deposit_amount' => GameEconomyConfig::DEPOSIT_MIN_AMOUNT_PROGNOBAKS,
-                'loan_amount' => GameEconomyConfig::LOAN_MIN_AMOUNT_PROGNOBAKS,
-                'contract_events' => (new GameEventScopeService())->listEligibleEventsForBank(),
-            ];
-
-            if ($includeBankDetails) {
-                $bankBlock['my_bank'] = $myBank;
-                $bankBlock['active_deposits'] = count($deposits);
-                $bankBlock['active_loans'] = count($loans);
-                $bankBlock['can_open'] = $myBank === null
-                    && $this->walletService->getWalletSummary($userId)['prognobaks']
-                    >= GameEconomyConfig::BANK_OPEN_MIN_WALLET_PROGNOBAKS;
+                try {
+                    (new LevelUpRewardService())->grantMissedLevelChests($userId);
+                } catch (\Throwable $exception) {
+                }
             }
 
-            $anchorEventId = (new GameEventScopeService())->getAnchorEventId();
-            $lootStacks = ChestLootConfig::mergeInventoryLootStacks(array_merge(
-                $this->repository->getLootItemStacksForUser($userId, ChestLootConfig::LOOT_EVENT_GLOBAL),
-                $anchorEventId > 0
-                    ? $this->repository->getLootItemStacksForUser($userId, $anchorEventId)
-                    : []
-            ));
-            $inventoryItems = array_merge(
-                $lootStacks,
-                ProfessionMaterialConfig::buildInventoryStacksFromRows(
-                    (new ProfessionRepository())->getMaterialsByUserId($userId)
-                )
-            );
+            $data = $this->buildSummaryPayload($userId, $includeBankDetails);
+            if (!$withGrants) {
+                $this->writeSummaryCache($cacheKey, $data);
+            }
 
-            return [
-                'wallet' => $this->walletService->getWalletSummary($userId),
-                'progress' => $this->progressService->getSummary($userId),
-                'pending_xp' => (new ExperienceService())->getPendingSummaryForUser($userId),
-                'treasure' => $this->treasureService->getTreasureSummary($userId),
-                'inventory_items' => $inventoryItems,
-                'learned_recipes' => $this->repository->getLearnedRecipes($userId),
-                'album_meta' => [
-                    'glued_teams' => (new AlbumService())->getGluedTeamsByCollection($userId),
-                    'activate' => (new AlbumService())->buildActivateInfo($userId),
-                ],
-                'bank' => $bankBlock,
-            ];
+            return $data;
         } catch (\Throwable $exception) {
-            return [
+            return $this->emptySummaryFallback();
+        }
+    }
+
+    public static function invalidateSummaryCache(int $userId): void
+    {
+        if ($userId <= 0 || !class_exists(Cache::class)) {
+            return;
+        }
+
+        $cache = Cache::createInstance();
+        $cache->clean('summary_' . $userId . '_1', self::SUMMARY_CACHE_DIR);
+        $cache->clean('summary_' . $userId . '_0', self::SUMMARY_CACHE_DIR);
+    }
+
+    private function buildSummaryPayload(int $userId, bool $includeBankDetails): array
+    {
+        $myBank = $includeBankDetails ? $this->bankService->getMyBank($userId) : null;
+        $hasBank = $includeBankDetails
+            ? $myBank !== null
+            : $this->bankService->hasActiveBank($userId);
+
+        $deposits = $includeBankDetails ? $this->depositService->getMyContracts($userId) : [];
+        $loans = $includeBankDetails ? $this->loanService->getMyContracts($userId) : [];
+
+        $bankBlock = [
+            'has_bank' => $hasBank,
+            'deposit_amount' => GameEconomyConfig::DEPOSIT_MIN_AMOUNT_PROGNOBAKS,
+            'loan_amount' => GameEconomyConfig::LOAN_MIN_AMOUNT_PROGNOBAKS,
+            'contract_events' => (new GameEventScopeService())->listEligibleEventsForBank(),
+        ];
+
+        if ($includeBankDetails) {
+            $bankBlock['my_bank'] = $myBank;
+            $bankBlock['active_deposits'] = count($deposits);
+            $bankBlock['active_loans'] = count($loans);
+            $bankBlock['can_open'] = $myBank === null
+                && $this->walletService->getWalletSummary($userId)['prognobaks']
+                >= GameEconomyConfig::BANK_OPEN_MIN_WALLET_PROGNOBAKS;
+        }
+
+        $anchorEventId = (new GameEventScopeService())->getAnchorEventId();
+        $lootStacks = ChestLootConfig::mergeInventoryLootStacks(array_merge(
+            $this->repository->getLootItemStacksForUser($userId, ChestLootConfig::LOOT_EVENT_GLOBAL),
+            $anchorEventId > 0
+                ? $this->repository->getLootItemStacksForUser($userId, $anchorEventId)
+                : []
+        ));
+        $inventoryItems = array_merge(
+            $lootStacks,
+            ProfessionMaterialConfig::buildInventoryStacksFromRows(
+                (new ProfessionRepository())->getMaterialsByUserId($userId)
+            )
+        );
+
+        return [
+            'wallet' => $this->walletService->getWalletSummary($userId),
+            'progress' => $this->progressService->getSummary($userId),
+            'pending_xp' => (new ExperienceService())->getPendingSummaryForUser($userId),
+            'treasure' => $this->treasureService->getTreasureSummary($userId),
+            'inventory_items' => $inventoryItems,
+            'learned_recipes' => $this->repository->getLearnedRecipes($userId),
+            'album_meta' => (new AlbumService())->getProfileMeta($userId),
+            'bank' => $bankBlock,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function readSummaryCache(string $cacheKey): ?array
+    {
+        if (!class_exists(Cache::class)) {
+            return null;
+        }
+
+        $cache = Cache::createInstance();
+        if ($cache->initCache(self::SUMMARY_CACHE_TTL, $cacheKey, self::SUMMARY_CACHE_DIR)) {
+            $vars = $cache->getVars();
+
+            return is_array($vars) ? $vars : null;
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private function writeSummaryCache(string $cacheKey, array $data): void
+    {
+        if (!class_exists(Cache::class)) {
+            return;
+        }
+
+        $cache = Cache::createInstance();
+        if ($cache->startDataCache(self::SUMMARY_CACHE_TTL, $cacheKey, self::SUMMARY_CACHE_DIR)) {
+            $cache->endDataCache($data);
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function emptySummaryFallback(): array
+    {
+        return [
                 'wallet' => [
                     'prognobaks' => 0,
                     'rublius' => 0,
@@ -141,6 +217,7 @@ class GameProfileService
                         AlbumConfig::COLLECTION_SCARF_WC26 => [],
                     ],
                     'activate' => ['allowed' => true, 'reason' => '', 'has_pennant' => false, 'has_scarf' => false, 'has_pending' => false],
+                    'albums' => [],
                 ],
                 'bank' => [
                     'has_bank' => false,
@@ -150,6 +227,37 @@ class GameProfileService
                     'can_open' => false,
                 ],
             ];
+    }
+
+    /**
+     * Лёгкое обновление game_info после мутаций инвентаря/альбома (без банка и автоначислений).
+     */
+    public function getMutationSummary(int $userId): array
+    {
+        if ($userId <= 0) {
+            return [];
         }
+
+        self::invalidateSummaryCache($userId);
+
+        $anchorEventId = (new GameEventScopeService())->getAnchorEventId();
+        $lootStacks = ChestLootConfig::mergeInventoryLootStacks(array_merge(
+            $this->repository->getLootItemStacksForUser($userId, ChestLootConfig::LOOT_EVENT_GLOBAL),
+            $anchorEventId > 0
+                ? $this->repository->getLootItemStacksForUser($userId, $anchorEventId)
+                : []
+        ));
+        $inventoryItems = array_merge(
+            $lootStacks,
+            ProfessionMaterialConfig::buildInventoryStacksFromRows(
+                (new ProfessionRepository())->getMaterialsByUserId($userId)
+            )
+        );
+
+        return [
+            'inventory_items' => $inventoryItems,
+            'learned_recipes' => $this->repository->getLearnedRecipes($userId),
+            'album_meta' => (new AlbumService())->getProfileMeta($userId),
+        ];
     }
 }

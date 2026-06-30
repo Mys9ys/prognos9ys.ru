@@ -13,6 +13,13 @@ class AlbumService
     private ProfessionRepository $professionRepository;
     private GameEventScopeService $scopeService;
 
+    /** @var int */
+    private $contextUserId = 0;
+    /** @var array<int, array<string, mixed>>|null */
+    private $contextAlbumRows = null;
+    /** @var array<int, array<int, array<string, mixed>>>|null */
+    private $contextSlotsByAlbum = null;
+
     public function __construct(
         ?AlbumRepository $albumRepository = null,
         ?GameEconomyRepository $economyRepository = null,
@@ -32,6 +39,7 @@ class AlbumService
         }
 
         $this->albumRepository->ensureSchema();
+        $this->getUserAlbumRows($userId);
 
         $plankQty = $this->professionRepository->getUserMaterialQty($userId, 'plank', false);
         $clothQty = $this->professionRepository->getUserMaterialQty($userId, 'cloth', false);
@@ -72,7 +80,59 @@ class AlbumService
             'albums' => $this->formatAlbums($userId),
             'collectibles' => $collectibles,
             'mega' => $this->formatMegaProgress($userId),
-            'teams' => $this->formatTeamsCatalog(),
+        ];
+    }
+
+    /**
+     * Лёгкий срез для game_info после мутаций (вклейка, активация).
+     *
+     * @return array{glued_teams:array<string,array<int,string>>,activate:array<string,mixed>,albums:array<int,array<string,mixed>>}
+     */
+    public function getProfileMeta(int $userId): array
+    {
+        if ($userId <= 0) {
+            return [
+                'glued_teams' => [
+                    AlbumConfig::COLLECTION_PENNANT_WC26 => [],
+                    AlbumConfig::COLLECTION_SCARF_WC26 => [],
+                ],
+                'activate' => [
+                    'allowed' => true,
+                    'reason' => '',
+                    'has_pennant' => false,
+                    'has_scarf' => false,
+                    'has_pending' => false,
+                ],
+                'albums' => [],
+            ];
+        }
+
+        $this->albumRepository->ensureSchema();
+        $albumRows = $this->getUserAlbumRows($userId);
+        $albums = [];
+
+        foreach ($albumRows as $row) {
+            $albumId = (int)($row['ID'] ?? 0);
+            $gluedSlugs = [];
+            foreach ($this->getAlbumSlots($albumId) as $slot) {
+                $slug = (string)($slot['UF_TEAM_SLUG'] ?? '');
+                if ($slug !== '') {
+                    $gluedSlugs[] = $slug;
+                }
+            }
+
+            $albums[] = [
+                'id' => $albumId,
+                'collection' => (string)($row['UF_COLLECTION'] ?? ''),
+                'glued_slugs' => array_values(array_unique($gluedSlugs)),
+                'glued_count' => count($gluedSlugs),
+            ];
+        }
+
+        return [
+            'glued_teams' => $this->buildGluedTeamsFromRows($albumRows),
+            'activate' => $this->buildActivateInfoFromRows($albumRows),
+            'albums' => $albums,
         ];
     }
 
@@ -117,6 +177,7 @@ class AlbumService
      */
     public function glue(int $userId, int $albumId, string $itemCode): array
     {
+        $this->resetContext();
         if ($userId <= 0 || $albumId <= 0) {
             throw new \InvalidArgumentException('Некорректные параметры');
         }
@@ -186,13 +247,96 @@ class AlbumService
             ? Wc26CollectibleConfig::getPennantLabel($itemCode)
             : Wc26CollectibleConfig::getScarfLabel($itemCode);
 
-        $formatted = $this->formatSingleAlbum($userId, $this->albumRepository->getAlbumById($albumId, $userId) ?? $album);
-
         return [
             'lines' => [
                 ['text' => 'Вклеено: ' . $label, 'status' => 'ok'],
             ],
-            'album' => $formatted,
+        ];
+    }
+
+    /**
+     * Массовая вклейка всех подходящих оригиналов в активные альбомы.
+     *
+     * @return array{glued:int,lines:array<int, array{text:string,status:string}>}
+     */
+    public function glueAllEligible(int $userId, int $albumId = 0): array
+    {
+        if ($userId <= 0) {
+            throw new \InvalidArgumentException('Некорректный пользователь');
+        }
+
+        $lines = [];
+        $glued = 0;
+        $guard = 48;
+
+        while ($guard-- > 0) {
+            $this->resetContext();
+            $collectibles = $this->formatCollectibleInventory($userId);
+            if (!$collectibles) {
+                break;
+            }
+
+            $matched = false;
+            foreach ($this->getUserAlbumRows($userId) as $albumRow) {
+                $currentAlbumId = (int)($albumRow['ID'] ?? 0);
+                if ($albumId > 0 && $currentAlbumId !== $albumId) {
+                    continue;
+                }
+
+                $albumCollection = (string)($albumRow['UF_COLLECTION'] ?? '');
+                $gluedInAlbum = [];
+                foreach ($this->getAlbumSlots($currentAlbumId) as $slotRow) {
+                    $slug = (string)($slotRow['UF_TEAM_SLUG'] ?? '');
+                    if ($slug !== '') {
+                        $gluedInAlbum[$slug] = true;
+                    }
+                }
+
+                foreach ($collectibles as $item) {
+                    $itemCode = (string)($item['code'] ?? '');
+                    $itemCollection = (string)($item['collection'] ?? '');
+                    $teamSlug = (string)($item['team_slug'] ?? '');
+                    if ($itemCode === '' || $teamSlug === '' || $itemCollection === '') {
+                        continue;
+                    }
+                    if (isset($gluedInAlbum[$teamSlug])) {
+                        continue;
+                    }
+                    if ($albumCollection !== ''
+                        && $albumCollection !== AlbumConfig::COLLECTION_UNIVERSAL
+                        && $albumCollection !== $itemCollection) {
+                        continue;
+                    }
+                    if ($this->isTeamGluedInCollection($userId, $itemCollection, $teamSlug)) {
+                        continue;
+                    }
+
+                    try {
+                        $this->resetContext();
+                        $result = $this->glue($userId, $currentAlbumId, $itemCode);
+                        $line = $result['lines'][0] ?? ['text' => 'Вклеено', 'status' => 'ok'];
+                        $lines[] = $line;
+                        $glued++;
+                        $matched = true;
+                        break 2;
+                    } catch (\Throwable $exception) {
+                        continue;
+                    }
+                }
+            }
+
+            if (!$matched) {
+                break;
+            }
+        }
+
+        if ($glued <= 0) {
+            $lines[] = ['text' => 'Нет подходящих вымпелов или шарфов для вклейки', 'status' => 'fail'];
+        }
+
+        return [
+            'glued' => $glued,
+            'lines' => $lines,
         ];
     }
 
@@ -265,16 +409,34 @@ class AlbumService
         ];
     }
 
+    public function buildActivateInfo(int $userId): array
+    {
+        if ($userId <= 0) {
+            return [
+                'allowed' => false,
+                'reason' => 'Некорректный пользователь',
+                'has_pennant' => false,
+                'has_scarf' => false,
+                'has_pending' => false,
+            ];
+        }
+
+        $this->albumRepository->ensureSchema();
+
+        return $this->buildActivateInfoFromRows($this->getUserAlbumRows($userId));
+    }
+
     /**
+     * @param array<int, array<string, mixed>> $albumRows
      * @return array{allowed:bool,reason:string,has_pennant:bool,has_scarf:bool,has_pending:bool}
      */
-    public function buildActivateInfo(int $userId): array
+    private function buildActivateInfoFromRows(array $albumRows): array
     {
         $hasPennant = false;
         $hasScarf = false;
         $hasPending = false;
 
-        foreach ($this->albumRepository->getAlbumsByUserId($userId) as $album) {
+        foreach ($albumRows as $album) {
             $collection = (string)($album['UF_COLLECTION'] ?? '');
             if ($collection === AlbumConfig::COLLECTION_PENNANT_WC26) {
                 $hasPennant = true;
@@ -285,7 +447,7 @@ class AlbumService
             }
         }
 
-        if (count($this->albumRepository->getAlbumsByUserId($userId)) >= 2) {
+        if (count($albumRows) >= 2) {
             return [
                 'allowed' => false,
                 'reason' => 'Можно иметь не больше двух альбомов: вымпелы и шарфы ЧМ-26',
@@ -324,24 +486,40 @@ class AlbumService
         ];
     }
 
+    public function getGluedTeamsByCollection(int $userId): array
+    {
+        if ($userId <= 0) {
+            return [
+                AlbumConfig::COLLECTION_PENNANT_WC26 => [],
+                AlbumConfig::COLLECTION_SCARF_WC26 => [],
+            ];
+        }
+
+        $this->albumRepository->ensureSchema();
+
+        return $this->buildGluedTeamsFromRows($this->getUserAlbumRows($userId));
+    }
+
     /**
+     * @param array<int, array<string, mixed>> $albumRows
      * @return array<string, array<int, string>>
      */
-    public function getGluedTeamsByCollection(int $userId): array
+    private function buildGluedTeamsFromRows(array $albumRows): array
     {
         $result = [
             AlbumConfig::COLLECTION_PENNANT_WC26 => [],
             AlbumConfig::COLLECTION_SCARF_WC26 => [],
         ];
 
-        foreach ($this->albumRepository->getAlbumsByUserId($userId) as $album) {
+        foreach ($albumRows as $album) {
             $collection = (string)($album['UF_COLLECTION'] ?? '');
             if ($collection !== AlbumConfig::COLLECTION_PENNANT_WC26
                 && $collection !== AlbumConfig::COLLECTION_SCARF_WC26) {
                 continue;
             }
 
-            foreach ($this->albumRepository->getSlotsByAlbumId((int)$album['ID']) as $slot) {
+            $albumId = (int)($album['ID'] ?? 0);
+            foreach ($this->getAlbumSlots($albumId) as $slot) {
                 $slug = (string)($slot['UF_TEAM_SLUG'] ?? '');
                 if ($slug !== '') {
                     $result[$collection][] = $slug;
@@ -437,8 +615,8 @@ class AlbumService
     private function formatAlbums(int $userId): array
     {
         $albums = [];
-        foreach ($this->albumRepository->getAlbumsByUserId($userId) as $row) {
-            $albums[] = $this->formatSingleAlbum($userId, $row);
+        foreach ($this->getUserAlbumRows($userId) as $row) {
+            $albums[] = $this->formatSingleAlbum($row);
         }
 
         return $albums;
@@ -448,13 +626,13 @@ class AlbumService
      * @param array<string, mixed> $row
      * @return array<string, mixed>
      */
-    private function formatSingleAlbum(int $userId, array $row): array
+    private function formatSingleAlbum(array $row): array
     {
         $albumId = (int)($row['ID'] ?? 0);
         $collection = (string)($row['UF_COLLECTION'] ?? '');
         $gluedBySlug = [];
 
-        foreach ($this->albumRepository->getSlotsByAlbumId($albumId) as $slot) {
+        foreach ($this->getAlbumSlots($albumId) as $slot) {
             $slug = (string)($slot['UF_TEAM_SLUG'] ?? '');
             $code = (string)($slot['UF_ITEM_CODE'] ?? '');
             $gluedBySlug[$slug] = [
@@ -468,21 +646,7 @@ class AlbumService
             ];
         }
 
-        $slots = [];
-        foreach (Wc26CollectibleConfig::teamSlugs() as $slug => $label) {
-            if (isset($gluedBySlug[$slug])) {
-                $slots[] = $gluedBySlug[$slug];
-                continue;
-            }
-
-            $slots[] = [
-                'team_slug' => $slug,
-                'team_label' => $label,
-                'item_code' => '',
-                'item_label' => '',
-                'glued' => false,
-            ];
-        }
+        $gluedSlots = array_values($gluedBySlug);
 
         return [
             'id' => $albumId,
@@ -490,7 +654,9 @@ class AlbumService
             'collection_label' => AlbumConfig::collectionLabel($collection),
             'glued_count' => count($gluedBySlug),
             'slot_count' => AlbumConfig::SLOT_COUNT,
-            'slots' => $slots,
+            'glued_slugs' => array_keys($gluedBySlug),
+            'glued_slots' => $gluedSlots,
+            'slots' => $gluedSlots,
         ];
     }
 
@@ -535,10 +701,11 @@ class AlbumService
     {
         $claimMap = $this->economyRepository->getAchievementClaimMapForUser($userId);
         $catalog = AchievementConfig::getCatalog();
+        $gluedByCollection = $this->buildGluedTeamsFromRows($this->getUserAlbumRows($userId));
         $result = [];
 
         foreach ([AlbumConfig::COLLECTION_PENNANT_WC26, AlbumConfig::COLLECTION_SCARF_WC26] as $collection) {
-            $glued = $this->albumRepository->countGluedByUserAndCollection($userId, $collection);
+            $glued = count($gluedByCollection[$collection] ?? []);
             $next = null;
             foreach (AlbumConfig::MEGA_THRESHOLDS as $threshold) {
                 if ($glued < $threshold) {
@@ -581,15 +748,40 @@ class AlbumService
     }
 
     /**
-     * @return array<int, array{slug:string,label:string}>
+     * @return array<int, array<string, mixed>>
      */
-    private function formatTeamsCatalog(): array
+    private function getUserAlbumRows(int $userId): array
     {
-        $teams = [];
-        foreach (Wc26CollectibleConfig::teamSlugs() as $slug => $label) {
-            $teams[] = ['slug' => $slug, 'label' => $label];
+        if ($this->contextUserId === $userId && $this->contextAlbumRows !== null) {
+            return $this->contextAlbumRows;
         }
 
-        return $teams;
+        $this->contextUserId = $userId;
+        $this->contextAlbumRows = $this->albumRepository->getAlbumsByUserId($userId);
+        $albumIds = array_map(static function (array $row): int {
+            return (int)($row['ID'] ?? 0);
+        }, $this->contextAlbumRows);
+        $this->contextSlotsByAlbum = $this->albumRepository->getSlotsByAlbumIds($albumIds);
+
+        return $this->contextAlbumRows;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function getAlbumSlots(int $albumId): array
+    {
+        if ($this->contextSlotsByAlbum === null) {
+            return $this->albumRepository->getSlotsByAlbumId($albumId);
+        }
+
+        return $this->contextSlotsByAlbum[$albumId] ?? [];
+    }
+
+    private function resetContext(): void
+    {
+        $this->contextUserId = 0;
+        $this->contextAlbumRows = null;
+        $this->contextSlotsByAlbum = null;
     }
 }

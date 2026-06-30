@@ -374,6 +374,7 @@ class AchievementConfig
             ProfessionAchievementConfig::getCatalogEntries(),
             XpBankAchievementConfig::getCatalogEntries(),
             ExchangeBuyAchievementConfig::getCatalogEntries(),
+            RecipeAchievementConfig::getCatalogEntries(),
             CollectionMegaAchievementConfig::getCatalogEntries()
         );
     }

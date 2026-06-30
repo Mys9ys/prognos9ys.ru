@@ -695,7 +695,7 @@ class AchievementService
                 $userId,
                 AlbumConfig::COLLECTION_SCARF_WC26
             ),
-        ], $metrics, $this->professionRepository->getYieldStatsByUserId($userId), $this->repository->getXpBankDrinkStatsForUser($userId), $this->repository->getExchangeBuyStatsForUser($userId));
+        ], $metrics, $this->professionRepository->getYieldStatsByUserId($userId), $this->repository->getXpBankDrinkStatsForUser($userId), $this->repository->getExchangeBuyStatsForUser($userId), $this->repository->getRecipeAchievementStatsForUser($userId));
     }
 
     private function resolveProgress(array $definition, array $stats): int

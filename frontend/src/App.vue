@@ -104,7 +104,7 @@ body{
   padding: 0 5px;
   background: @BackGreenColor;
   overflow-y: scroll;
-  padding-bottom: 65px;
+  padding-bottom: 105px;
   .navbar_wrapper{
     width: 100%;
     //position: fixed;
@@ -116,6 +116,7 @@ body{
   .menu_fixed{
     position: fixed;
     bottom: 5px;
+    z-index: 100;
   }
 }
 </style>

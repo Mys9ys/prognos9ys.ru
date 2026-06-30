@@ -37,15 +37,18 @@ export async function runBitrixAction(action, data = {}) {
     throw new Error(message);
 }
 
-export async function fetchGameState(userToken) {
+export async function fetchGameState(userToken, options = {}) {
     if (!userToken) {
         throw new Error('Требуется авторизация');
     }
 
+    const withGrants = Boolean(options.withGrants);
+    const refresh = Boolean(options.refresh);
+
     try {
         return await runBitrixAction(
             'prognos9ys:main.GameController.getState',
-            { userToken }
+            { userToken, withGrants, refresh }
         );
     } catch (bitrixError) {
         const form = new FormData();
@@ -170,7 +173,7 @@ export const apiActions = {
         ),
     },
     game: {
-        getState: (userToken) => fetchGameState(userToken),
+        getState: (userToken, options = {}) => fetchGameState(userToken, options),
         claimXp: (userToken, matchId) => runBitrixAction(
             'prognos9ys:main.GameController.claimXp',
             { userToken, matchId }
@@ -275,6 +278,10 @@ export const apiActions = {
         glueAlbumItem: (userToken, albumId, itemCode) => runBitrixAction(
             'prognos9ys:main.GameController.glueAlbumItem',
             { userToken, albumId, itemCode }
+        ),
+        glueAllAlbumItems: (userToken, albumId = 0) => runBitrixAction(
+            'prognos9ys:main.GameController.glueAllAlbumItems',
+            { userToken, albumId: albumId || undefined }
         ),
         moderatorBulkAction: (userToken, bulkAction) => runBitrixAction(
             'prognos9ys:main.GameController.moderatorBulkAction',
@@ -449,6 +456,14 @@ export const apiActions = {
                 eventId: eventId || undefined,
                 teamCode: teamCode || undefined,
             }
+        ),
+        getDuplicateSouvenirPlan: (userToken) => runBitrixAction(
+            'prognos9ys:main.ExchangeController.getDuplicateSouvenirPlan',
+            { userToken }
+        ),
+        bulkSellDuplicateSouvenirs: (userToken, sellMode, pricePerUnit = 0) => runBitrixAction(
+            'prognos9ys:main.ExchangeController.bulkSellDuplicateSouvenirs',
+            { userToken, sellMode, pricePerUnit: pricePerUnit > 0 ? pricePerUnit : undefined }
         ),
         getLaborState: (userToken) => runBitrixAction(
             'prognos9ys:main.ExchangeController.getLaborState',

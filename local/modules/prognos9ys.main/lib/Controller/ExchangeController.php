@@ -23,6 +23,8 @@ class ExchangeController extends BaseController
             'buy' => $this->getDefaultConfigureForPostToken(),
             'getTradeHistory' => $this->getDefaultConfigureForPostToken(),
             'consignToBank' => $this->getDefaultConfigureForPostToken(),
+            'getDuplicateSouvenirPlan' => $this->getDefaultConfigureForPostToken(),
+            'bulkSellDuplicateSouvenirs' => $this->getDefaultConfigureForPostToken(),
             'moderatorRemoveListing' => $this->getDefaultConfigureForPostToken(),
             'getLaborState' => $this->getDefaultConfigureForPostToken(),
             'getLaborOrders' => $this->getDefaultConfigureForPostToken(),
@@ -173,6 +175,39 @@ class ExchangeController extends BaseController
             ['status' => 'ok'],
             (new ExchangeService())->getTradeHistory($userId, $offset, $limit)
         );
+    }
+
+    public function getDuplicateSouvenirPlanAction(): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        return array_merge(
+            ['status' => 'ok'],
+            (new ExchangeService())->getDuplicateSouvenirSellPlan($userId)
+        );
+    }
+
+    public function bulkSellDuplicateSouvenirsAction(string $sellMode = 'listing', float $pricePerUnit = 0): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        try {
+            $result = (new ExchangeService())->bulkSellDuplicateSouvenirs($userId, $sellMode, $pricePerUnit);
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok'], $result, [
+            'game' => (new GameProfileService())->getMutationSummary($userId),
+        ]);
     }
 
     public function consignToBankAction(

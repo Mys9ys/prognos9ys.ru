@@ -40,6 +40,7 @@ class ExchangeBuyAchievementConfig
     public const STAT_XP_MINING = 'exchange_buy_xp_mining';
     public const STAT_XP_CRAFTING = 'exchange_buy_xp_crafting';
     public const STAT_CHEST = 'exchange_buy_chest';
+    public const STAT_RECIPE = 'exchange_buy_recipe';
 
     /**
      * @return array<string, int>
@@ -57,6 +58,7 @@ class ExchangeBuyAchievementConfig
             self::STAT_XP_MINING => 0,
             self::STAT_XP_CRAFTING => 0,
             self::STAT_CHEST => 0,
+            self::STAT_RECIPE => 0,
         ];
     }
 
@@ -100,6 +102,10 @@ class ExchangeBuyAchievementConfig
 
             if ($category === ChestLootConfig::CATEGORY_CERT) {
                 return self::STAT_CERT;
+            }
+
+            if ($category === ChestLootConfig::CATEGORY_RECIPE) {
+                return self::STAT_RECIPE;
             }
 
             if ($category === ChestLootConfig::CATEGORY_PACK) {
@@ -287,6 +293,18 @@ class ExchangeBuyAchievementConfig
                 'Куплено сундуков на бирже',
                 self::STAT_CHEST,
                 self::levelsFromDefs(self::THRESHOLDS_CHEST, [
+                    ['rublius' => 1.0, 'chests' => 1],
+                    ['rublius' => 3.0, 'chests' => 1],
+                    ['rublius' => 5.0, 'chests' => 1],
+                    ['rublius' => 10.0, 'chests' => 3],
+                    ['rublius' => 20.0, 'chests' => 5],
+                ])
+            ),
+            'exchange_buy_recipe' => self::entry(
+                'Библиотекарь',
+                'Куплено рецептов на бирже',
+                self::STAT_RECIPE,
+                self::levelsFromDefs(self::THRESHOLDS_CCG, [
                     ['rublius' => 1.0, 'chests' => 1],
                     ['rublius' => 3.0, 'chests' => 1],
                     ['rublius' => 5.0, 'chests' => 1],

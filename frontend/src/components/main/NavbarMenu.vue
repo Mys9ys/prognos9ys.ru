@@ -1,13 +1,34 @@
 <template>
-  <div class="menu_wrapper">
-    <div class="menu_item_wrapper" v-for="(btn, index) in menuItems" :key="index">
-      <div class="menu_item" @click="onMenuClick(index)" :class="{'active': active === index}">
-        <div class="icon">
-          <img class="icon_img" :src="btn.img_a" alt="" v-if="active === index">
-          <img class="icon_img" :src="btn.img" alt="" v-else>
+  <div class="navbar_double">
+    <div class="menu_row menu_row_top">
+      <div
+        v-for="item in topRow"
+        :key="item.id"
+        class="menu_item"
+        :class="{ active: isActive(item.id) }"
+        @click="onNav(item)"
+      >
+        <div class="icon_wrap">
+          <img v-if="item.img" class="icon_img" :src="isActive(item.id) ? item.img_a : item.img" alt="">
+          <AppIcon v-else-if="item.appIcon" :name="item.appIcon" :size="24" />
+          <span v-else-if="item.emoji" class="emoji_icon">{{ item.emoji }}</span>
         </div>
-        <div class="title">
-          {{ btn.title }}
+        <div class="title">{{ item.title }}</div>
+      </div>
+    </div>
+
+    <div class="menu_row menu_row_bottom">
+      <div
+        v-for="item in bottomRow"
+        :key="item.id"
+        class="menu_item menu_item_inverted"
+        :class="{ active: isActive(item.id) }"
+        @click="onNav(item)"
+      >
+        <div class="title">{{ item.title }}</div>
+        <div class="icon_wrap">
+          <img v-if="item.img" class="icon_img" :src="isActive(item.id) ? item.img_a : item.img" alt="">
+          <AppIcon v-else-if="item.appIcon" :name="item.appIcon" :size="24" />
         </div>
       </div>
     </div>
@@ -16,112 +37,165 @@
 
 <script>
 import { mapState } from 'vuex';
+import AppIcon from '@/components/ui/AppIcon.vue';
 import { authRoute } from '@/utils/authRedirect';
 
 export default {
-  name: "NavbarMenu",
-  data(){
-    return{
-      active: '',
-      menu: {
-        main: { img: require('@/assets/icon/menu/home.svg'), img_a: require('@/assets/icon/menu/home_a.svg'), title: 'Главная'},
-        catalog: {img: require('@/assets/icon/menu/catalog.svg'),img_a: require('@/assets/icon/menu/catalog_a.svg'), title: 'События'},
-        ratings: {img: require('@/assets/icon/menu/ratings.svg'), img_a: require('@/assets/icon/menu/ratings_a.svg'), title: 'Рейтинги'},
-        profile: {img: require('@/assets/icon/menu/profile.svg'), img_a: require('@/assets/icon/menu/profile_a.svg'), title: 'Профиль'},
-        faq: {img: require('@/assets/icon/menu/faq.svg'), img_a: require('@/assets/icon/menu/faq_a.svg'), title: 'Правила'}
-      }
-    }
+  name: 'NavbarMenu',
+  components: { AppIcon },
+  data() {
+    return {
+      activeId: '',
+      topRow: [
+        { id: 'main', title: 'Главная', img: require('@/assets/icon/menu/home.svg'), img_a: require('@/assets/icon/menu/home_a.svg'), route: '/main' },
+        { id: 'catalog', title: 'События', img: require('@/assets/icon/menu/catalog.svg'), img_a: require('@/assets/icon/menu/catalog_a.svg'), route: '/catalog' },
+        { id: 'profile', title: 'Профиль', img: require('@/assets/icon/menu/profile.svg'), img_a: require('@/assets/icon/menu/profile_a.svg'), route: '/profile' },
+        { id: 'inventory', title: 'Инвентарь', emoji: '🎒', route: { path: '/profile', query: { tab: 'inventory' } }, auth: true },
+        { id: 'ratings', title: 'Рейтинги', img: require('@/assets/icon/menu/ratings.svg'), img_a: require('@/assets/icon/menu/ratings_a.svg'), route: '/ratings' },
+      ],
+      bottomRow: [
+        { id: 'bank', title: 'Банки', appIcon: 'bank', route: { path: '/profile', query: { tab: 'economy', eco: 'bank' } }, auth: true },
+        { id: 'exchange', title: 'Биржа', appIcon: 'rublius', route: { path: '/profile', query: { tab: 'economy', eco: 'exchange' } }, auth: true },
+        { id: 'farm', title: 'Работа', appIcon: 'xp', route: { path: '/profile', query: { tab: 'economy', eco: 'farm' } }, auth: true },
+        { id: 'treasury', title: 'Казна', appIcon: 'chest_wc2026', route: { path: '/profile', query: { tab: 'economy', eco: 'treasury' } }, auth: true },
+        { id: 'faq', title: 'Как играть', img: require('@/assets/icon/menu/faq.svg'), img_a: require('@/assets/icon/menu/faq_a.svg'), route: '/faq' },
+      ],
+    };
   },
   computed: {
     ...mapState({
-      token: state => state.auth.authData.token,
+      token: (state) => state.auth.authData.token,
     }),
-    menuItems() {
-      if (this.token) {
-        return this.menu;
-      }
-
-      return {
-        ...this.menu,
-        profile: {
-          ...this.menu.profile,
-          title: 'Вход',
-        },
-      };
-    },
   },
   watch: {
     $route: {
       immediate: true,
       handler(route) {
-        this.active = this.resolveActive(route.path);
+        this.activeId = this.resolveActive(route);
       },
     },
   },
   methods: {
-    resolveActive(path) {
-      if (path.startsWith('/football') || path.startsWith('/championship')) {
-        return 'catalog';
+    resolveActive(route) {
+      const path = route.path || '';
+      const tab = route.query?.tab || '';
+      const eco = route.query?.eco || '';
+
+      if (tab === 'inventory') {
+        return 'inventory';
+      }
+      if (tab === 'economy') {
+        if (eco === 'bank') return 'bank';
+        if (eco === 'exchange') return 'exchange';
+        if (eco === 'farm') return 'farm';
+        if (eco === 'treasury') return 'treasury';
       }
 
+      if (path.startsWith('/football') || path.startsWith('/championship') || path.startsWith('/cs2') || path.startsWith('/race')) {
+        return 'catalog';
+      }
       if (path.startsWith('/profile')) {
-        return 'profile';
+        return tab === 'inventory' ? 'inventory' : 'profile';
+      }
+      if (path.startsWith('/ratings')) {
+        return 'ratings';
+      }
+      if (path.startsWith('/faq')) {
+        return 'faq';
+      }
+      if (path.startsWith('/main')) {
+        return 'main';
       }
 
       const segment = path.split('/').filter(Boolean)[0] || 'catalog';
       return segment;
     },
-    onMenuClick(index) {
-      if (index === 'profile' && !this.token) {
+    isActive(id) {
+      return this.activeId === id;
+    },
+    onNav(item) {
+      if (item.auth && !this.token) {
         this.$router.push(authRoute(this.$route.fullPath));
         return;
       }
 
-      this.$router.push('/' + index);
+      if (item.id === 'profile' && !this.token) {
+        this.$router.push(authRoute(this.$route.fullPath));
+        return;
+      }
+
+      const route = item.route || ('/' + item.id);
+      this.$router.push(route);
     },
   },
-}
+};
 </script>
 
 <style lang="less" scoped>
 @import "src/assets/css/variables.less";
-.menu_wrapper{
-  width: 400%;
+
+.navbar_double {
+  width: 100%;
   max-width: 374px;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   gap: 4px;
-  justify-content: space-around;
   padding: 4px;
   background: @DarkColorBG;
   border-radius: 15px;
   .shadow_template;
-  .menu_item_wrapper{
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    //background: @colorBlur;
+}
+
+.menu_row {
+  display: flex;
+  flex-direction: row;
+  gap: 2px;
+  justify-content: space-between;
+}
+
+.menu_item {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  padding: 2px 1px;
+
+  .title {
+    color: @colorText;
+    font-size: 11px;
+    line-height: 1.15;
+    text-align: center;
+    padding: 0 2px;
+    word-break: break-word;
   }
-  .menu_item{
-    position: relative;
-    cursor: pointer;
-    .icon{
-      color: @YesWrite;
-      .icon_img{
-        width: 24px;
-        height: 24px;
-      }
-    }
-    .title{
-      color: @colorText;
-      font-size: 13px;
-      padding: 3px 5px;
-    }
+
+  &.active .title {
+    color: @YesWrite;
   }
-  .active{
-    .title {
-      color: @YesWrite;
-    }
-  }
+}
+
+.menu_item_inverted {
+  flex-direction: column-reverse;
+}
+
+.icon_wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+.icon_img {
+  width: 24px;
+  height: 24px;
+}
+
+.emoji_icon {
+  font-size: 20px;
+  line-height: 1;
 }
 </style>

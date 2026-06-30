@@ -58,6 +58,20 @@ export const authModule = {
             state.userInfo = userInfo
         },
 
+        patchGameInfo(state, patch) {
+            if (!patch || typeof patch !== 'object' || !state.userInfo) {
+                return;
+            }
+
+            state.userInfo = {
+                ...state.userInfo,
+                game_info: {
+                    ...(state.userInfo.game_info || {}),
+                    ...patch,
+                },
+            };
+        },
+
         setLoginError(state, loginError) {
             state.loginError = loginError
         },
@@ -187,7 +201,7 @@ export const authModule = {
                     commit('setToken', response.data.info.UF_TOKEN)
                     commit('setLoginError', '')
                     commit('setImpersonation', { active: false, originalToken: '' })
-                    await dispatch('refreshGameInfo')
+                    await dispatch('refreshGameInfo', { withGrants: true })
                 } else {
                     commit('setLoginError', response.data.mes)
                     commit('setAuth', false)
@@ -214,7 +228,7 @@ export const authModule = {
                     console.log('axios response', response.data)
                     commit('setUserInfo', response.data.info)
                     commit('setAuth', true)
-                    await dispatch('refreshGameInfo')
+                    await dispatch('refreshGameInfo', { withGrants: true })
                 } else {
                     commit('setAuth', false)
                 }
@@ -224,13 +238,16 @@ export const authModule = {
             }
         },
 
-        async refreshGameInfo({ state, commit }) {
+        async refreshGameInfo({ state, commit }, options = {}) {
             if (!state.authData.token) {
                 return;
             }
 
             try {
-                const data = await apiActions.game.getState(state.authData.token);
+                const data = await apiActions.game.getState(state.authData.token, {
+                    withGrants: Boolean(options.withGrants),
+                    refresh: Boolean(options.refresh),
+                });
                 if (data?.game) {
                     commit('setUserInfo', {
                         ...state.userInfo,

@@ -954,4 +954,144 @@ class ExchangeService
 
         return (string)($userRow['LOGIN'] ?? ('user#' . $sellerId));
     }
+
+    /**
+     * План продажи лишних дублей вымпелов/шарфов ЧМ-26.
+     *
+     * @return array{items:array<int,array<string,mixed>>,total_qty:int}
+     */
+    public function getDuplicateSouvenirSellPlan(int $userId): array
+    {
+        if ($userId <= 0) {
+            return ['items' => [], 'total_qty' => 0];
+        }
+
+        $gluedTeams = (new AlbumService())->getGluedTeamsByCollection($userId);
+        $anchorEventId = (new GameEventScopeService())->getAnchorEventId();
+        $stacks = ChestLootConfig::mergeInventoryLootStacks(array_merge(
+            $this->repository->getLootItemStacksForUser($userId, ChestLootConfig::LOOT_EVENT_GLOBAL),
+            $anchorEventId > 0 ? $this->repository->getLootItemStacksForUser($userId, $anchorEventId) : []
+        ));
+
+        $items = [];
+        $totalQty = 0;
+
+        foreach ($stacks as $stack) {
+            $code = (string)($stack['code'] ?? '');
+            $category = (string)($stack['category'] ?? '');
+            $count = (int)($stack['count'] ?? 0);
+            if ($count <= 0 || !AlbumConfig::isSupportedCollectible($code)) {
+                continue;
+            }
+
+            $collection = (string)(AlbumConfig::collectionForItemCode($code) ?? '');
+            $slug = (string)(Wc26CollectibleConfig::extractTeamSlugFromCollectibleCode($code) ?? '');
+            if ($collection === '' || $slug === '') {
+                continue;
+            }
+
+            $glued = in_array($slug, $gluedTeams[$collection] ?? [], true);
+            $keep = $glued ? 0 : 1;
+            $excess = $count - $keep;
+            if ($excess <= 0) {
+                continue;
+            }
+
+            $eventId = (int)($stack['event_id'] ?? $anchorEventId);
+            $nominal = ExchangeNominalConfig::getLootNominal($code, $category);
+            $items[] = [
+                'kind' => ExchangeConfig::KIND_LOOT,
+                'code' => $code,
+                'category' => $category,
+                'event_id' => $eventId,
+                'team_code' => '',
+                'label' => (string)($stack['label'] ?? $code),
+                'qty' => $excess,
+                'nominal' => $nominal,
+                'max_price' => ExchangeNominalConfig::getMaxSellerPrice($nominal),
+                'consign_price' => $this->consignmentService->resolveConsignmentPrice(
+                    ExchangeConfig::KIND_LOOT,
+                    $code,
+                    $category,
+                    $eventId,
+                    ''
+                ),
+            ];
+            $totalQty += $excess;
+        }
+
+        return ['items' => $items, 'total_qty' => $totalQty];
+    }
+
+    /**
+     * @return array{mode:string,sold_qty:int,lines:array<int,array{text:string,status:string}>}
+     */
+    public function bulkSellDuplicateSouvenirs(int $userId, string $mode, float $pricePerUnit = 0): array
+    {
+        $mode = trim($mode);
+        if (!in_array($mode, ['listing', 'consign'], true)) {
+            throw new \InvalidArgumentException('Режим: listing или consign');
+        }
+
+        $plan = $this->getDuplicateSouvenirSellPlan($userId);
+        $lines = [];
+        $soldQty = 0;
+
+        foreach ($plan['items'] as $item) {
+            $qty = (int)($item['qty'] ?? 0);
+            if ($qty <= 0) {
+                continue;
+            }
+
+            $price = $pricePerUnit > 0
+                ? round($pricePerUnit, 1)
+                : round((float)($mode === 'consign' ? ($item['consign_price'] ?? $item['nominal']) : ($item['nominal'] ?? 0)), 1);
+
+            try {
+                if ($mode === 'consign') {
+                    $this->consignToBank(
+                        $userId,
+                        (string)$item['kind'],
+                        (string)$item['code'],
+                        $qty,
+                        (string)($item['category'] ?? ''),
+                        (int)($item['event_id'] ?? 0),
+                        (string)($item['team_code'] ?? '')
+                    );
+                } else {
+                    $this->createListing(
+                        $userId,
+                        (string)$item['kind'],
+                        (string)$item['code'],
+                        $qty,
+                        $price,
+                        (string)($item['category'] ?? ''),
+                        (int)($item['event_id'] ?? 0),
+                        (string)($item['team_code'] ?? '')
+                    );
+                }
+
+                $soldQty += $qty;
+                $lines[] = [
+                    'text' => ($item['label'] ?? $item['code']) . ' ×' . $qty,
+                    'status' => 'ok',
+                ];
+            } catch (\Throwable $exception) {
+                $lines[] = [
+                    'text' => ($item['label'] ?? $item['code']) . ': ' . $exception->getMessage(),
+                    'status' => 'fail',
+                ];
+            }
+        }
+
+        if ($soldQty <= 0 && !$lines) {
+            $lines[] = ['text' => 'Нет лишних дублей для продажи', 'status' => 'fail'];
+        }
+
+        return [
+            'mode' => $mode,
+            'sold_qty' => $soldQty,
+            'lines' => $lines,
+        ];
+    }
 }

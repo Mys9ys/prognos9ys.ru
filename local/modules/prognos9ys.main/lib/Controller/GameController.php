@@ -91,10 +91,11 @@ class GameController extends BaseController
             'craftAlbums' => $this->getDefaultConfigureForPostToken(),
             'activateAlbum' => $this->getDefaultConfigureForPostToken(),
             'glueAlbumItem' => $this->getDefaultConfigureForPostToken(),
+            'glueAllAlbumItems' => $this->getDefaultConfigureForPostToken(),
         ];
     }
 
-    public function getStateAction(): array
+    public function getStateAction(bool $withGrants = false, bool $refresh = false): array
     {
         $userId = TokenAuthService::getCurrentUserId();
 
@@ -104,7 +105,7 @@ class GameController extends BaseController
 
         return [
             'status' => 'ok',
-            'game' => (new GameProfileService())->getSummary($userId),
+            'game' => (new GameProfileService())->getSummary($userId, true, $withGrants, $refresh),
         ];
     }
 
@@ -982,7 +983,7 @@ class GameController extends BaseController
 
         return array_merge(['status' => 'ok'], $result, [
             'album' => (new AlbumService())->getState($userId),
-            'game' => (new GameProfileService())->getSummary($userId),
+            'game' => (new GameProfileService())->getMutationSummary($userId),
         ]);
     }
 
@@ -994,7 +995,8 @@ class GameController extends BaseController
         }
 
         try {
-            $result = (new AlbumService())->glue($userId, $albumId, $itemCode);
+            $albumService = new AlbumService();
+            $result = $albumService->glue($userId, $albumId, $itemCode);
         } catch (\InvalidArgumentException $e) {
             throw new ApiException($e->getMessage(), 400);
         } catch (\RuntimeException $e) {
@@ -1002,8 +1004,30 @@ class GameController extends BaseController
         }
 
         return array_merge(['status' => 'ok'], $result, [
-            'album_state' => (new AlbumService())->getState($userId),
-            'game' => (new GameProfileService())->getSummary($userId),
+            'album' => $albumService->getState($userId),
+            'game' => (new GameProfileService())->getMutationSummary($userId),
+        ]);
+    }
+
+    public function glueAllAlbumItemsAction(int $albumId = 0): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        try {
+            $albumService = new AlbumService();
+            $result = $albumService->glueAllEligible($userId, $albumId);
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok'], $result, [
+            'album' => $albumService->getState($userId),
+            'game' => (new GameProfileService())->getMutationSummary($userId),
         ]);
     }
 

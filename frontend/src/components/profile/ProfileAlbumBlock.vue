@@ -96,9 +96,20 @@
             <span class="hint">{{ selectedAlbum.glued_count }} / {{ selectedAlbum.slot_count }}</span>
           </div>
 
+          <div class="album_actions">
+            <button
+              type="button"
+              class="action_btn"
+              :disabled="busy"
+              @click="glueAllEligible"
+            >
+              Добавить оригиналы
+            </button>
+          </div>
+
           <div class="slots_grid">
             <button
-              v-for="slot in selectedAlbum.slots"
+              v-for="slot in albumSlotsGrid"
               :key="slot.team_slug"
               type="button"
               class="slot_cell"
@@ -144,6 +155,7 @@
 <script>
 import { mapActions, mapMutations, mapState } from 'vuex';
 import { apiActions } from '@/api/bitrixClient';
+import { WC26_TEAMS } from '@/config/wc26Teams';
 
 const MEGA_LABELS = {
   pennant_wc26: 'Мега: вымпелы',
@@ -176,6 +188,33 @@ export default {
       }
       const found = albums.find((a) => Number(a.id) === Number(this.selectedAlbumId));
       return found || albums[0];
+    },
+    albumSlotsGrid() {
+      if (!this.selectedAlbum) {
+        return [];
+      }
+
+      const gluedMap = {};
+      const gluedList = this.selectedAlbum.glued_slots || this.selectedAlbum.slots || [];
+      gluedList.forEach((slot) => {
+        if (slot?.team_slug) {
+          gluedMap[slot.team_slug] = slot;
+        }
+      });
+
+      return WC26_TEAMS.map(({ slug, label }) => {
+        if (gluedMap[slug]) {
+          return gluedMap[slug];
+        }
+
+        return {
+          team_slug: slug,
+          team_label: label,
+          item_code: '',
+          item_label: '',
+          glued: false,
+        };
+      });
     },
     selectedSlot() {
       if (!this.selectedAlbum || !this.selectedSlotSlug) {
@@ -220,7 +259,7 @@ export default {
   },
   methods: {
     ...mapActions('auth', ['refreshGameInfo']),
-    ...mapMutations('auth', ['setUserInfo']),
+    ...mapMutations('auth', ['setUserInfo', 'patchGameInfo']),
 
     async refresh(silent = false) {
       const token = this.authData?.token;
@@ -346,10 +385,7 @@ export default {
 
     setGameFromResponse(data) {
       if (data?.game) {
-        this.setUserInfo({
-          ...this.$store.state.auth.userInfo,
-          game_info: data.game,
-        });
+        this.patchGameInfo(data.game);
       } else {
         this.refreshGameInfo().catch(() => {});
       }
@@ -396,7 +432,7 @@ export default {
       try {
         const data = await apiActions.game.glueAlbumItem(token, albumId, itemCode);
         if (data?.status === 'ok') {
-          this.applyState(data.album_state || data.album);
+          this.applyState(data.album);
           this.selectedSlotSlug = '';
           this.message = (data.lines || []).map((l) => l.text).join(' · ') || 'Вклеено';
           this.setGameFromResponse(data);
@@ -407,6 +443,40 @@ export default {
       } catch (e) {
         this.messageFail = true;
         this.message = e.message || 'Ошибка вклейки';
+      } finally {
+        this.busy = false;
+      }
+    },
+
+    async glueAllEligible() {
+      const token = this.authData?.token;
+      if (!token || this.busy) {
+        return;
+      }
+
+      this.busy = true;
+      this.message = '';
+      this.messageFail = false;
+
+      try {
+        const data = await apiActions.game.glueAllAlbumItems(
+          token,
+          this.selectedAlbumId || 0,
+        );
+        if (data?.status === 'ok') {
+          this.applyState(data.album);
+          const glued = Number(data.glued) || 0;
+          this.message = glued > 0
+            ? `Вклеено: ${glued}`
+            : ((data.lines || []).map((l) => l.text).join(' · ') || 'Готово');
+          this.setGameFromResponse(data);
+        } else {
+          this.messageFail = true;
+          this.message = data?.message || 'Не удалось вклеить';
+        }
+      } catch (e) {
+        this.messageFail = true;
+        this.message = e.message || 'Ошибка массовой вклейки';
       } finally {
         this.busy = false;
       }
@@ -500,6 +570,14 @@ export default {
   gap: 8px;
   margin-bottom: 10px;
   flex-wrap: wrap;
+}
+
+.album_actions {
+  margin-bottom: 8px;
+}
+
+.album_actions .action_btn {
+  width: 100%;
 }
 
 .mega_row {
