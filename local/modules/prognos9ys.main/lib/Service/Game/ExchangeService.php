@@ -43,7 +43,7 @@ class ExchangeService
     /**
      * @return array{items: array<int, array<string, mixed>>, pagination: array<string, int|bool>}
      */
-    public function getCatalog(int $offset = 0, int $limit = 25, string $catalogTab = ''): array
+    public function getCatalog(int $offset = 0, int $limit = 25, string $catalogTab = '', string $search = ''): array
     {
         $listings = $this->repository->getActiveExchangeListings(2000, $catalogTab);
         $groups = [];
@@ -126,6 +126,19 @@ class ExchangeService
 
             return strcmp((string)($a['label'] ?? ''), (string)($b['label'] ?? ''));
         });
+
+        $search = trim($search);
+        if ($search !== '') {
+            $needle = mb_strtolower($search);
+            $items = array_values(array_filter(
+                $items,
+                static function (array $row) use ($needle): bool {
+                    $label = mb_strtolower((string)($row['label'] ?? ''));
+
+                    return mb_strpos($label, $needle) !== false;
+                }
+            ));
+        }
 
         $limit = max(1, min($limit, 50));
         $offset = max(0, $offset);

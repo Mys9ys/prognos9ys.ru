@@ -38,6 +38,15 @@
           {{ tab.label }}
         </button>
       </div>
+      <div class="exchange_search">
+        <input
+          v-model="catalogSearchQuery"
+          type="search"
+          class="search_input"
+          placeholder="Поиск по названию..."
+          autocomplete="off"
+        />
+      </div>
       <div class="catalog_list" v-if="catalogItems.length">
         <div v-for="group in catalogItems" :key="group.group_key" class="catalog_row">
           <div class="row_main">
@@ -81,6 +90,7 @@
           </div>
         </div>
       </div>
+      <div class="empty" v-else-if="catalogSearchQuery.trim()">Ничего не найдено</div>
       <div class="empty" v-else>На бирже пока пусто</div>
       <button
         v-if="catalogPagination.has_more"
@@ -106,6 +116,15 @@
         >
           {{ tab.label }}
         </button>
+      </div>
+      <div class="exchange_search">
+        <input
+          v-model="sellSearchQuery"
+          type="search"
+          class="search_input"
+          placeholder="Поиск по названию..."
+          autocomplete="off"
+        />
       </div>
       <div v-if="sellCategoryTab === 'souvenir' && duplicatePlanTotal > 0" class="sell_bulk">
         <span class="sell_bulk_hint">Лишних дублей: {{ duplicatePlanTotal }} · по номиналу</span>
@@ -140,6 +159,7 @@
           </div>
         </div>
       </div>
+      <div class="empty" v-else-if="sellSearchQuery.trim()">Ничего не найдено</div>
       <div class="empty" v-else>Нечего продавать — откройте сундуки, добывайте на фарме или получите награды</div>
     </div>
 
@@ -370,6 +390,9 @@ export default {
       },
       laborClaimQty: {},
       duplicatePlanTotal: 0,
+      catalogSearchQuery: '',
+      sellSearchQuery: '',
+      catalogSearchTimer: null,
     };
   },
   computed: {
@@ -394,10 +417,15 @@ export default {
     },
     filteredSellable() {
       const tab = this.sellCategoryTab;
-      if (!tab || tab === 'all') {
-        return this.sellable;
+      let items = this.sellable;
+      if (tab && tab !== 'all') {
+        items = items.filter((item) => (item.catalog_tab || '') === tab);
       }
-      return this.sellable.filter((item) => (item.catalog_tab || '') === tab);
+      const query = this.sellSearchQuery.trim().toLowerCase();
+      if (!query) {
+        return items;
+      }
+      return items.filter((item) => String(item.label || '').toLowerCase().includes(query));
     },
   },
   watch: {
@@ -440,6 +468,22 @@ export default {
         this.loadCatalog(true);
       }
     },
+    catalogSearchQuery() {
+      if (this.activeTab !== 'catalog') {
+        return;
+      }
+      if (this.catalogSearchTimer) {
+        clearTimeout(this.catalogSearchTimer);
+      }
+      this.catalogSearchTimer = setTimeout(() => {
+        this.loadCatalog(true);
+      }, 300);
+    },
+  },
+  beforeUnmount() {
+    if (this.catalogSearchTimer) {
+      clearTimeout(this.catalogSearchTimer);
+    }
   },
   created() {
     this.bootstrap();
@@ -556,7 +600,8 @@ export default {
           this.authData.token,
           this.catalogPagination.offset,
           this.catalogPagination.limit,
-          this.catalogCategoryTab
+          this.catalogCategoryTab,
+          this.catalogSearchQuery.trim()
         );
 
         if (data?.status === 'ok') {
@@ -1070,6 +1115,25 @@ export default {
   flex-wrap: wrap;
   gap: 4px;
   margin-bottom: 8px;
+}
+
+.exchange_search {
+  margin-bottom: 8px;
+}
+
+.search_input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid fade(@colorBlur, 35%);
+  background: fade(@DarkColorBG, 90%);
+  color: @colorText;
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 12px;
+
+  &::placeholder {
+    color: fade(@colorText, 45%);
+  }
 }
 
 .sell_bulk {

@@ -13,6 +13,7 @@ class AlbumConfig
 
     public const RECIPE_DROP_CHANCE_PERCENT = 5;
     public const RECIPE_NOMINAL = 10.0;
+    public const ALBUM_NOMINAL = 50.0;
 
     public const COLLECTION_UNIVERSAL = '';
     public const COLLECTION_PENNANT_WC26 = 'pennant_wc26';

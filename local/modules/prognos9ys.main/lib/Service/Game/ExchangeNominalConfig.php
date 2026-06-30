@@ -109,7 +109,7 @@ class ExchangeNominalConfig
         }
 
         if ($category === ChestLootConfig::CATEGORY_ALBUM) {
-            return 45.0;
+            return AlbumConfig::ALBUM_NOMINAL;
         }
 
         if ($category === ChestLootConfig::CATEGORY_RECIPE) {

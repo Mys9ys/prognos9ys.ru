@@ -46,8 +46,13 @@ class ExchangeController extends BaseController
         return array_merge(['status' => 'ok'], (new ExchangeService())->getState($userId));
     }
 
-    public function getCatalogAction(int $offset = 0, int $limit = 25, string $catalogTab = '', string $kind = ''): array
-    {
+    public function getCatalogAction(
+        int $offset = 0,
+        int $limit = 25,
+        string $catalogTab = '',
+        string $kind = '',
+        string $search = ''
+    ): array {
         $userId = TokenAuthService::getCurrentUserId();
         if (!$userId) {
             throw new ApiException('Пользователь не авторизован', 401);
@@ -57,7 +62,7 @@ class ExchangeController extends BaseController
 
         return array_merge(
             ['status' => 'ok'],
-            (new ExchangeService())->getCatalog($offset, $limit, $tab)
+            (new ExchangeService())->getCatalog($offset, $limit, $tab, $search)
         );
     }
 

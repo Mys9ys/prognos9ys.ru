@@ -415,9 +415,15 @@ export const apiActions = {
             'prognos9ys:main.ExchangeController.getState',
             { userToken }
         ),
-        getCatalog: (userToken, offset = 0, limit = 25, catalogTab = '') => runBitrixAction(
+        getCatalog: (userToken, offset = 0, limit = 25, catalogTab = '', search = '') => runBitrixAction(
             'prognos9ys:main.ExchangeController.getCatalog',
-            { userToken, offset, limit, catalogTab: catalogTab || undefined }
+            {
+                userToken,
+                offset,
+                limit,
+                catalogTab: catalogTab || undefined,
+                search: search || undefined,
+            }
         ),
         getMyListings: (userToken) => runBitrixAction(
             'prognos9ys:main.ExchangeController.getMyListings',
