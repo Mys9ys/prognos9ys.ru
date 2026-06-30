@@ -68,6 +68,25 @@
         </figure>
       </template>
 
+      <template v-else-if="block.type === 'table'">
+        <h2 v-if="block.title" class="guide_h2">{{ block.title }}</h2>
+        <p v-if="block.hint" class="guide_p guide_table_hint">{{ block.hint }}</p>
+        <div class="guide_table_wrap">
+          <table class="guide_table">
+            <thead v-if="block.headers?.length">
+              <tr>
+                <th v-for="(head, headIndex) in block.headers" :key="headIndex">{{ head }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(row, rowIndex) in block.rows" :key="rowIndex">
+                <td v-for="(cell, cellIndex) in row" :key="cellIndex">{{ cell }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </template>
+
       <template v-else-if="block.type === 'related'">
         <div class="guide_related" v-if="relatedArticles(block.slugs).length">
           <h2 class="guide_h2">Читай дальше</h2>
@@ -267,6 +286,40 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.guide_table_hint {
+  margin-bottom: 8px;
+}
+
+.guide_table_wrap {
+  overflow-x: auto;
+}
+
+.guide_table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  color: @colorText;
+
+  th,
+  td {
+    border: 1px solid fade(@colorBlur, 25%);
+    padding: 6px 8px;
+    text-align: left;
+    vertical-align: top;
+    line-height: 1.35;
+  }
+
+  th {
+    background: fade(@DarkColorBG, 90%);
+    color: @orange;
+    font-weight: 700;
+  }
+
+  tr:nth-child(even) td {
+    background: fade(@DarkColorBG, 45%);
+  }
 }
 
 .guide_related_link {

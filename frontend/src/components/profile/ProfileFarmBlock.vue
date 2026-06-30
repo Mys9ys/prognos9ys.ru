@@ -783,6 +783,7 @@ export default {
           const completedId = Number(this.farm?.last_shift?.session_id ?? 0);
           if (silent && completedId > 0 && completedId !== this.lastCompletedShiftId) {
             this.lastCompletedShiftId = completedId;
+            this.notifyShiftCompletion();
             this.refreshGameInfo().catch(() => {});
           }
           if (!this.selectedProfession && this.farm?.professions?.length) {
@@ -1021,6 +1022,25 @@ export default {
         bits.push(reward.title);
       }
       return bits.join(' · ');
+    },
+
+    notifyShiftCompletion() {
+      const shift = this.farm?.last_shift;
+      if (!shift) {
+        return;
+      }
+
+      this.activeFarmTab = 'work';
+
+      const rewards = shift.last_result?.profession_level_rewards;
+      if (Array.isArray(rewards) && rewards.length) {
+        this.message = `Смена завершена · ${rewards.map((r) => this.formatProfessionLevelReward(r)).join(' · ')}`;
+        return;
+      }
+
+      if (shift.last_result?.message) {
+        this.message = 'Смена завершена';
+      }
     },
 
     async onPickProfessions() {
