@@ -38,10 +38,18 @@
       </label>
 
       <label class="field_label">Участники (минимум 2)</label>
-      <div class="users_box" v-if="availableUsers.length">
+      <input
+          v-model="userSearchQuery"
+          type="search"
+          class="field_input users_search"
+          placeholder="Поиск по нику..."
+          autocomplete="off"
+      >
+      <div class="users_list_hint" v-if="usersListHint">{{ usersListHint }}</div>
+      <div class="users_box" v-if="displayUsers.length">
         <label
             class="user_row"
-            v-for="user in availableUsers"
+            v-for="user in displayUsers"
             :key="user.id"
         >
           <input type="checkbox" :value="user.id" v-model="form.userIds">
@@ -52,6 +60,7 @@
           <span class="user_name">{{ user.name }}</span>
         </label>
       </div>
+      <div class="users_empty" v-else-if="userSearchQuery.trim()">Никого не найдено</div>
       <div class="users_empty" v-else>Сначала дождитесь загрузки общего рейтинга</div>
 
       <div class="actions_row">
@@ -80,6 +89,8 @@
 <script>
 import { mapActions } from 'vuex';
 import { DEFAULT_AVATAR_URL } from '@/utils/defaultAvatar';
+
+const MEMBER_LIST_LIMIT = 50;
 
 export default {
   name: 'RatingSetModal',
@@ -118,6 +129,7 @@ export default {
       saving: false,
       error: '',
       defaultAvatar: DEFAULT_AVATAR_URL,
+      userSearchQuery: '',
     };
   },
   computed: {
@@ -132,6 +144,54 @@ export default {
         default:
           return '';
       }
+    },
+
+    displayUsers() {
+      const list = Array.isArray(this.availableUsers) ? this.availableUsers : [];
+      const query = this.userSearchQuery.trim().toLowerCase();
+
+      if (query) {
+        return list.filter((user) => String(user.name || '').toLowerCase().includes(query));
+      }
+
+      if (list.length <= MEMBER_LIST_LIMIT) {
+        return list;
+      }
+
+      const selected = new Set(this.form.userIds.map(Number));
+      const selectedUsers = [];
+      const others = [];
+
+      list.forEach((user) => {
+        if (selected.has(Number(user.id))) {
+          selectedUsers.push(user);
+        } else {
+          others.push(user);
+        }
+      });
+
+      const restSlots = Math.max(0, MEMBER_LIST_LIMIT - selectedUsers.length);
+      return [...selectedUsers, ...others.slice(0, restSlots)];
+    },
+
+    usersListHint() {
+      const total = this.availableUsers?.length || 0;
+      const query = this.userSearchQuery.trim();
+
+      if (!total) {
+        return '';
+      }
+
+      if (query) {
+        const count = this.displayUsers.length;
+        return count ? `Найдено: ${count}` : '';
+      }
+
+      if (total > MEMBER_LIST_LIMIT) {
+        return `Показаны ${this.displayUsers.length} из ${total} — введите ник в поиск`;
+      }
+
+      return '';
     },
   },
   watch: {
@@ -159,6 +219,7 @@ export default {
     resetForm() {
       this.error = '';
       this.saving = false;
+      this.userSearchQuery = '';
 
       if (this.editSet) {
         this.form.title = this.editSet.title || '';
@@ -309,6 +370,18 @@ export default {
   .shadow_inset;
   background: transparent;
   color: @colorText;
+  box-sizing: border-box;
+}
+
+.users_search{
+  margin-bottom: 4px;
+}
+
+.users_list_hint{
+  font-size: 11px;
+  color: @colorBlur;
+  margin-bottom: 4px;
+  line-height: 1.3;
 }
 
 .visibility_row{
