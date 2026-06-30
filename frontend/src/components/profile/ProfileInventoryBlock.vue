@@ -93,6 +93,8 @@ import ChestOpenLogModal from '@/components/profile/ChestOpenLogModal.vue';
 import { apiActions } from '@/api/bitrixClient';
 import { INVENTORY_TABS, resolveInventoryTab } from '@/config/inventoryCatalog';
 import { getWc26PennantIconSrc } from '@/config/wc26PennantIcons';
+import { getWc26ScarfIconSrc } from '@/config/wc26ScarfIcons';
+import { getWc26PackIconSrc } from '@/config/wc26PackIcons';
 
 const OTHER_INVENTORY_SLOTS = [
   { id: 'achievement', field: 'achievement_chests', icon: 'chest_achievement', caption: 'Ачивка', label: 'Сундуки за ачивки', openable: true, pool: 'achievement' },
@@ -145,6 +147,19 @@ function teamSlugFromCollectibleCode(code) {
   const match = String(code).match(/^pennant_wc26_([a-z0-9]+)$/)
     || String(code).match(/^scarf_wc26_([a-z0-9]+)$/);
   return match ? match[1] : '';
+}
+
+function getWc26CollectibleIconSrc(item) {
+  if (item?.category === 'pennant') {
+    return getWc26PennantIconSrc(item.code);
+  }
+  if (item?.category === 'scarf') {
+    return getWc26ScarfIconSrc(item.code);
+  }
+  if (item?.category === 'pack') {
+    return getWc26PackIconSrc(item.code);
+  }
+  return null;
 }
 
 function resolveAlbumForGlue(albums, collection, teamSlug) {
@@ -252,13 +267,13 @@ export default {
           const gluedTeams = this.game?.album_meta?.glued_teams?.[collectionKey] || [];
           const teamAlreadyGlued = Boolean(teamSlug && gluedTeams.includes(teamSlug));
 
-          const pennantIcon = item.category === 'pennant' ? getWc26PennantIconSrc(item.code) : null;
+          const collectibleIcon = getWc26CollectibleIconSrc(item);
 
           return {
             id: `loot_${item.code}${item.is_premium ? '_p' : ''}${item.sealed ? '_s' : ''}`,
             count: Number(item.count),
-            emoji: pennantIcon ? null : (item.emoji || LOOT_EMOJI[item.category] || '📦'),
-            imageSrc: pennantIcon,
+            emoji: collectibleIcon ? null : (item.emoji || LOOT_EMOJI[item.category] || '📦'),
+            imageSrc: collectibleIcon,
             caption: item.type_caption || LOOT_CAPTION[item.category] || 'Лут',
             label: item.label || item.code,
             code: item.code,

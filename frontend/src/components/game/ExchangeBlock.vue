@@ -49,12 +49,18 @@
       </div>
       <div class="catalog_list" v-if="catalogItems.length">
         <div v-for="group in catalogItems" :key="group.group_key" class="catalog_row">
-          <div class="row_main">
-            <div class="row_label">{{ group.label }}</div>
-            <div class="row_meta">
+          <div class="row_thumb" aria-hidden="true">
+            <img v-if="itemThumb(group).src" :src="itemThumb(group).src" alt="">
+            <span v-else class="row_thumb_emoji">{{ itemThumb(group).emoji }}</span>
+          </div>
+          <div class="row_body">
+            <div class="row_label" :title="group.label">{{ group.label }}</div>
+            <div class="row_line row_price">
               {{ group.qty_total }} шт. · {{ group.price_per_unit }} 🪙
-              <span v-if="group.has_consignment" class="badge_consignment">есть комиссионка</span>
-              · {{ group.listings_count }} {{ sellersLabel(group.listings_count) }}
+              <span v-if="group.has_consignment" class="badge_consignment">комиссионка</span>
+            </div>
+            <div class="row_line row_sellers">
+              {{ group.listings_count }} {{ sellersLabel(group.listings_count) }}
             </div>
             <div class="offers_panel" v-if="expandedGroups[group.group_key]">
               <div
@@ -139,15 +145,23 @@
       </div>
       <div class="sell_list" v-if="filteredSellable.length">
         <div v-for="(item, index) in filteredSellable" :key="sellKey(item, index)" class="sell_row">
-          <div class="row_label">{{ item.label }}</div>
-          <div class="row_meta">
-            В инвентаре: {{ item.available }} · номинал {{ item.nominal }}–{{ item.max_price }} 🪙
-            · макс. {{ item.pallet_limit }}/лот
-            <span v-if="item.consign_price">
-              · комиссионка: {{ item.consign_price }} 🪙 (сразу {{ item.consign_instant_per_unit }}/шт.)
-            </span>
+          <div class="row_thumb" aria-hidden="true">
+            <img v-if="itemThumb(item).src" :src="itemThumb(item).src" alt="">
+            <span v-else class="row_thumb_emoji">{{ itemThumb(item).emoji }}</span>
           </div>
-          <div class="row_actions">
+          <div class="row_body">
+            <div class="row_label" :title="item.label">{{ item.label }}</div>
+            <div class="row_line">
+              В инвентаре: {{ item.available }} · {{ item.nominal }}–{{ item.max_price }} 🪙
+            </div>
+            <div class="row_line">
+              макс. {{ item.pallet_limit }}/лот
+              <span v-if="item.consign_price">
+                · комисс. {{ item.consign_price }} 🪙
+              </span>
+            </div>
+          </div>
+          <div class="row_actions sell_actions">
             <input v-model.number="sellForm[itemKey(item)].qty" type="number" min="1" :max="item.available" class="qty_input" />
             <input v-model.number="sellForm[itemKey(item)].price" type="number" step="0.1" :min="item.nominal" :max="item.max_price" class="price_input" />
             <button type="button" class="action_btn" :disabled="busy" @click="createListing(item)">
@@ -167,13 +181,18 @@
     <div v-if="activeTab === 'my'" class="panel">
       <div class="catalog_list" v-if="myListings.length">
         <div v-for="item in myListings" :key="item.id" class="catalog_row">
-          <div class="row_main">
-            <div class="row_label">{{ item.label }}</div>
-            <div class="row_meta">
-              {{ item.qty_remaining }}/{{ item.qty_total }} · {{ item.price_per_unit }} 🪙 · до {{ item.expires_at }}
-            </div>
+          <div class="row_thumb" aria-hidden="true">
+            <img v-if="itemThumb(item).src" :src="itemThumb(item).src" alt="">
+            <span v-else class="row_thumb_emoji">{{ itemThumb(item).emoji }}</span>
           </div>
-          <button type="button" class="action_btn danger" :disabled="busy" @click="cancelListing(item.id)">
+          <div class="row_body">
+            <div class="row_label" :title="item.label">{{ item.label }}</div>
+            <div class="row_line">
+              {{ item.qty_remaining }}/{{ item.qty_total }} · {{ item.price_per_unit }} 🪙
+            </div>
+            <div class="row_line">до {{ item.expires_at }}</div>
+          </div>
+          <button type="button" class="action_btn danger my_cancel_btn" :disabled="busy" @click="cancelListing(item.id)">
             Снять
           </button>
         </div>
@@ -351,6 +370,7 @@
 import { mapActions, mapMutations, mapState } from 'vuex';
 import PreLoader from '@/components/main/PreLoader.vue';
 import { apiActions } from '@/api/bitrixClient';
+import { getExchangeItemThumb } from '@/config/exchangeItemIcons';
 
 export default {
   name: 'ExchangeBlock',
@@ -527,6 +547,10 @@ export default {
 
     sellKey(item, index) {
       return this.itemKey(item) + ':' + index;
+    },
+
+    itemThumb(item) {
+      return getExchangeItemThumb(item);
     },
 
     sellersLabel(count) {
@@ -1207,16 +1231,68 @@ export default {
 
 .catalog_row {
   display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.sell_row {
+  display: flex;
   flex-wrap: wrap;
   gap: 8px;
   align-items: flex-start;
-  justify-content: space-between;
+}
+
+.row_thumb {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  background: fade(@darkbg, 70%);
+  border: 1px solid fade(@colorBlur, 18%);
+  overflow: hidden;
+
+  img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+}
+
+.row_thumb_emoji {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.row_body {
+  flex: 1;
+  min-width: 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.row_line {
+  font-size: 11px;
+  color: @colorBlur;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .row_label {
   font-size: 13px;
   font-weight: 700;
   color: @colorText;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sell_row .row_label {
@@ -1228,7 +1304,16 @@ export default {
   min-width: 0;
 }
 
-.catalog_actions {
+.catalog_actions,
+.sell_actions {
+  flex-shrink: 0;
+  margin-top: 0;
+  margin-left: auto;
+  align-self: center;
+}
+
+.my_cancel_btn {
+  align-self: center;
   flex-shrink: 0;
 }
 
@@ -1280,7 +1365,6 @@ export default {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  margin-top: 6px;
   align-items: center;
 }
 

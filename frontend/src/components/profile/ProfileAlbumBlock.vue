@@ -123,9 +123,9 @@
             >
               <span class="slot_flag">{{ slot.team_label }}</span>
               <img
-                v-if="slotPennantSrc(slot)"
-                :src="slotPennantSrc(slot)"
-                class="slot_pennant_img"
+                v-if="slotCollectibleSrc(slot)"
+                :src="slotCollectibleSrc(slot)"
+                class="slot_collectible_img"
                 alt=""
               >
               <span v-else-if="slot.glued" class="slot_item">{{ slotEmoji(slot) }}</span>
@@ -163,6 +163,7 @@ import { mapActions, mapMutations, mapState } from 'vuex';
 import { apiActions } from '@/api/bitrixClient';
 import { WC26_TEAMS } from '@/config/wc26Teams';
 import { getWc26PennantIconSrc } from '@/config/wc26PennantIcons';
+import { getWc26ScarfIconSrc } from '@/config/wc26ScarfIcons';
 
 const MEGA_LABELS = {
   pennant_wc26: 'Мега: вымпелы',
@@ -390,15 +391,18 @@ export default {
       return '🏴';
     },
 
-    slotPennantSrc(slot) {
+    slotCollectibleSrc(slot) {
       if (!slot?.glued) {
         return null;
       }
       const code = slot.item_code || '';
-      if (!code.startsWith('pennant_wc26_')) {
-        return null;
+      if (code.startsWith('pennant_wc26_')) {
+        return getWc26PennantIconSrc(code);
       }
-      return getWc26PennantIconSrc(code);
+      if (code.startsWith('scarf_wc26_')) {
+        return getWc26ScarfIconSrc(code);
+      }
+      return null;
     },
 
     setGameFromResponse(data) {
@@ -772,7 +776,7 @@ export default {
   margin-top: 2px;
 }
 
-.slot_pennant_img {
+.slot_collectible_img {
   display: block;
   width: 100%;
   max-height: 42px;
