@@ -21,6 +21,13 @@
             +{{ reward.chests }}
             <AppIcon :name="getChestIconName(reward.chest_type)" :size="12" />
           </span>
+          <span
+              v-for="certCode in rewardCerts(reward)"
+              :key="`${reward.level}-${certCode}`"
+              class="reward_bit cert_bit"
+          >
+            +1 {{ certLabel(certCode) }}
+          </span>
         </div>
       </div>
     </div>
@@ -31,7 +38,7 @@
 <script>
 import { mapActions, mapState } from 'vuex';
 import AppIcon from '@/components/ui/AppIcon.vue';
-import { formatAmount, getChestIconName } from '@/utils/formatLevelRewards';
+import { formatAmount, getChestIconName, LEVEL_UP_CERT_LABELS } from '@/utils/formatLevelRewards';
 
 export default {
   name: 'LevelUpBanner',
@@ -57,6 +64,23 @@ export default {
     }),
     formatAmount,
     getChestIconName,
+    rewardCerts(reward) {
+      if (Array.isArray(reward?.certs) && reward.certs.length) {
+        return reward.certs;
+      }
+      const level = Number(reward?.level || 0);
+      const certs = [];
+      if (level > 0 && level % 5 === 0) {
+        certs.push('cert_profession');
+      }
+      if (level > 0 && level % 10 === 0) {
+        certs.push('cert_estate');
+      }
+      return certs;
+    },
+    certLabel(code) {
+      return LEVEL_UP_CERT_LABELS[code] || code;
+    },
   },
 };
 </script>

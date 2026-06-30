@@ -32,6 +32,35 @@ export function getLevelUpRewardConfig(level) {
     return { prognobaks: baseP, rublius: baseR };
 }
 
+/** Зеркало GameEconomyConfig::getLevelUpCertCodes (PHP). */
+export function getLevelUpCertCodes(level) {
+    const lvl = Number(level || 0);
+    if (lvl <= 0) {
+        return [];
+    }
+
+    const certs = [];
+    if (lvl % 5 === 0) {
+        certs.push('cert_profession');
+    }
+    if (lvl % 10 === 0) {
+        certs.push('cert_estate');
+    }
+
+    return certs;
+}
+
+export const LEVEL_UP_CERT_LABELS = {
+    cert_profession: 'лиц. проф.',
+    cert_estate: 'лиц. усад.',
+};
+
+function formatCertRewardBits(level) {
+    return getLevelUpCertCodes(level)
+        .map((code) => `+1 ${LEVEL_UP_CERT_LABELS[code] || code}`)
+        .join(', ');
+}
+
 /** Зеркало ProfessionEconomyConfig::getProfessionLevelReward (PHP). */
 export function getProfessionLevelRewardConfig(level) {
     const lvl = Number(level || 0);
@@ -103,11 +132,14 @@ export function buildPlayerLevelGuideRows(maxLevel = 15) {
         const xpFrom = tiers[level] ?? 0;
         const xpTo = tiers[level + 1];
         const xpLabel = xpTo != null ? `${xpFrom}–${xpTo - 1} XP` : `от ${xpFrom} XP`;
-        const rewardLabel = formatRewardBits({
-            ...reward,
-            chests: 1,
-            chestLabel: '⭐сунд.',
-        });
+        const rewardLabel = [
+            formatRewardBits({
+                ...reward,
+                chests: 1,
+                chestLabel: '⭐сунд.',
+            }),
+            formatCertRewardBits(level),
+        ].filter(Boolean).join(', ');
         const milestone = level % 5 === 0 ? ' ★' : '';
         rows.push([`Ур. ${level}${milestone}`, xpLabel, rewardLabel]);
     }
@@ -159,6 +191,7 @@ export function buildLevelRewardsPreview(fromLevel, toLevel) {
             rublius: amounts.rublius,
             chests: 1,
             chest_type: 'level',
+            certs: getLevelUpCertCodes(level),
         });
     }
 
@@ -192,6 +225,12 @@ export function formatLevelRewardItem(reward) {
         const chestLabel = reward.chest_type === 'level' ? '⭐сунд.' : 'сунд.';
         bits.push(`+${reward.chests} ${chestLabel}`);
     }
+
+    const certs = Array.isArray(reward.certs) ? reward.certs : getLevelUpCertCodes(reward.level);
+    certs.forEach((code) => {
+        const label = LEVEL_UP_CERT_LABELS[code] || code;
+        bits.push(`+1 ${label}`);
+    });
 
     return bits.join(' ');
 }

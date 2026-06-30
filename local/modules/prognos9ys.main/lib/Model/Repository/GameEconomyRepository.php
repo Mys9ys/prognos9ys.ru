@@ -627,6 +627,32 @@ class GameEconomyRepository
         return (bool)$row;
     }
 
+    public function hasLevelUpCertGrant(int $userId, string $certCode, int $level): bool
+    {
+        return $this->hasWalletTx($userId, 'level_up_cert', $certCode, $level);
+    }
+
+    public function markLevelUpCertGrant(int $userId, string $certCode, int $level): void
+    {
+        if ($this->hasLevelUpCertGrant($userId, $certCode, $level)) {
+            return;
+        }
+
+        $wallet = $this->getWalletByUserId($userId);
+        $balance = $wallet ? round((float)($wallet['UF_PROGNOBAKS'] ?? 0), 1) : 0.0;
+
+        $this->addWalletTx([
+            'UF_USER_ID' => $userId,
+            'UF_CURRENCY' => GameEconomyConfig::CURRENCY_PROGNOBAKS,
+            'UF_AMOUNT' => 0.0,
+            'UF_BALANCE_AFTER' => $balance,
+            'UF_REASON' => 'level_up_cert',
+            'UF_REF_TYPE' => $certCode,
+            'UF_REF_ID' => $level,
+            'UF_CREATED_AT' => new \Bitrix\Main\Type\DateTime(),
+        ]);
+    }
+
     /**
      * @return array<int, array>
      */

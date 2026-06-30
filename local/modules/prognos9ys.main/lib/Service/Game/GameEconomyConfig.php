@@ -198,6 +198,31 @@ class GameEconomyConfig
         ];
     }
 
+    /**
+     * Сертификаты за переход на уровень (прямая выдача в инвентарь).
+     * Каждый 5-й — профессия; каждый 10-й — усадьба (на 10-м оба).
+     *
+     * @return string[] cert_profession | cert_estate
+     */
+    public static function getLevelUpCertCodes(int $level): array
+    {
+        if ($level <= 0) {
+            return [];
+        }
+
+        $certs = [];
+
+        if ($level % 5 === 0) {
+            $certs[] = 'cert_profession';
+        }
+
+        if ($level % 10 === 0) {
+            $certs[] = 'cert_estate';
+        }
+
+        return $certs;
+    }
+
     public static function calculateDepositInterest(float $principal, ?float $ratePercent = null): float
     {
         $rate = $ratePercent ?? self::DEPOSIT_INTEREST_PERCENT;
