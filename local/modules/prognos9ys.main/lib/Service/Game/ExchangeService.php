@@ -728,6 +728,9 @@ class ExchangeService
 
             $code = (string)($loot['code'] ?? '');
             $category = (string)($loot['category'] ?? '');
+            if ($category === ChestLootConfig::CATEGORY_ALBUM) {
+                continue;
+            }
             if ($category === ChestLootConfig::CATEGORY_PACK && !($loot['sealed'] ?? false)) {
                 continue;
             }
@@ -741,6 +744,28 @@ class ExchangeService
                 $eventId,
                 '',
                 $count,
+                $nominal
+            );
+        }
+
+        $albumCount = $this->inventoryService->getAvailableQty(
+            $userId,
+            ExchangeConfig::KIND_LOOT,
+            AlbumConfig::ITEM_CODE,
+            ChestLootConfig::CATEGORY_ALBUM
+        );
+        if ($albumCount > 0) {
+            $nominal = ExchangeNominalConfig::getLootNominal(
+                AlbumConfig::ITEM_CODE,
+                ChestLootConfig::CATEGORY_ALBUM
+            );
+            $items[] = $this->sellableRow(
+                ExchangeConfig::KIND_LOOT,
+                AlbumConfig::ITEM_CODE,
+                ChestLootConfig::CATEGORY_ALBUM,
+                0,
+                '',
+                $albumCount,
                 $nominal
             );
         }

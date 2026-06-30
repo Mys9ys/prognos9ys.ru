@@ -18,6 +18,7 @@ import Cs2Page from "@/pages/cs2/Cs2Page";
 import Cs2Event from "@/pages/cs2/Cs2Event";
 import ChampionshipPage from "@/pages/ChampionshipPage";
 import FaqPage from "@/pages/FaqPage";
+import FaqArticlePage from "@/pages/FaqArticlePage";
 
 
 const routes = [
@@ -135,6 +136,11 @@ const routes = [
     {
         path: '/faq',
         component: FaqPage,
+        meta: { public: true },
+    },
+    {
+        path: '/faq/:slug',
+        component: FaqArticlePage,
         meta: { public: true },
     },
     // квновские роуты -->

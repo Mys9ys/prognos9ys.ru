@@ -83,6 +83,9 @@ class ExchangeCatalogConfig
             if ($category === ChestLootConfig::CATEGORY_RECIPE) {
                 return self::TAB_RECIPE;
             }
+            if ($category === ChestLootConfig::CATEGORY_ALBUM) {
+                return self::TAB_RECIPE;
+            }
             if ($category === ChestLootConfig::CATEGORY_PACK) {
                 return self::TAB_LOOT;
             }

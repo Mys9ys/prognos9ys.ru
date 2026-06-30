@@ -4518,7 +4518,10 @@ class GameEconomyRepository
                 $filter['=UF_ITEM_CATEGORY'] = ChestLootConfig::CATEGORY_CERT;
             } elseif ($catalogTab === ExchangeCatalogConfig::TAB_RECIPE) {
                 $filter['=UF_ITEM_KIND'] = ExchangeConfig::KIND_LOOT;
-                $filter['=UF_ITEM_CATEGORY'] = ChestLootConfig::CATEGORY_RECIPE;
+                $filter['@UF_ITEM_CATEGORY'] = [
+                    ChestLootConfig::CATEGORY_RECIPE,
+                    ChestLootConfig::CATEGORY_ALBUM,
+                ];
             } else {
                 $filter['=UF_ITEM_KIND'] = $catalogTab;
             }

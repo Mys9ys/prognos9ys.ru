@@ -213,6 +213,55 @@ class AlbumRepository
         ]);
     }
 
+    public function countEmptyAlbumsForUser(int $userId): int
+    {
+        $this->ensureSchema();
+        if ($userId <= 0) {
+            return 0;
+        }
+
+        $count = 0;
+        foreach ($this->getAlbumsByUserId($userId) as $album) {
+            $albumId = (int)($album['ID'] ?? 0);
+            if ($albumId <= 0) {
+                continue;
+            }
+
+            if ($this->countSlotsByAlbumId($albumId) === 0) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    public function consumeEmptyAlbumsForUser(int $userId, int $qty): void
+    {
+        $this->ensureSchema();
+        if ($userId <= 0 || $qty <= 0) {
+            return;
+        }
+
+        $remaining = $qty;
+        foreach ($this->getAlbumsByUserId($userId) as $album) {
+            if ($remaining <= 0) {
+                break;
+            }
+
+            $albumId = (int)($album['ID'] ?? 0);
+            if ($albumId <= 0 || $this->countSlotsByAlbumId($albumId) > 0) {
+                continue;
+            }
+
+            $this->deleteAlbum($albumId);
+            $remaining--;
+        }
+
+        if ($remaining > 0) {
+            throw new \RuntimeException('Недостаточно пустых альбомов');
+        }
+    }
+
     public function deleteAlbum(int $albumId): void
     {
         $this->ensureSchema();

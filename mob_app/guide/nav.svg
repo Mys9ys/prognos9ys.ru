@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="140" viewBox="0 0 360 140" role="img" aria-label="App navigation menu">
+  <rect width="360" height="140" rx="12" fill="#1e321e"/>
+  <g fill="#9cb89c" font-family="Arial,sans-serif" font-size="9" text-anchor="middle">
+    <text x="36" y="52">Home</text>
+    <text x="108" y="52">Events</text>
+    <text x="180" y="52">Profile</text>
+    <text x="252" y="52">Bag</text>
+    <text x="324" y="52">Ratings</text>
+    <text x="36" y="108">Bank</text>
+    <text x="108" y="108">Exchange</text>
+    <text x="180" y="108">Work</text>
+    <text x="252" y="108">Treasury</text>
+    <text x="324" y="108" fill="#e67e22">Guide</text>
+  </g>
+  <text x="180" y="130" fill="#6a8a6a" font-size="8" text-anchor="middle">Screenshot: bottom menu</text>
+</svg>

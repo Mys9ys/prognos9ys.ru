@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="520" viewBox="0 0 360 520" role="img" aria-label="Match prognosis form">
+  <rect width="360" height="520" fill="#1b2f1b"/>
+  <text x="32" y="48" fill="#c8e6c8" font-family="Arial,sans-serif" font-size="14" font-weight="700">Brazil - France</text>
+  <rect x="40" y="70" width="120" height="80" rx="6" fill="#2a442a"/>
+  <rect x="200" y="70" width="120" height="80" rx="6" fill="#2a442a"/>
+  <rect x="16" y="170" width="328" height="120" rx="6" fill="#243824" stroke="#e67e22"/>
+  <text x="32" y="200" fill="#e8f5e8" font-family="Arial,sans-serif" font-size="12">Score, outcome, metrics</text>
+  <rect x="120" y="310" width="120" height="36" rx="6" fill="#e67e22"/>
+  <text x="148" y="333" fill="#fff" font-family="Arial,sans-serif" font-size="12" font-weight="700">Send</text>
+  <text x="32" y="480" fill="#6a8a6a" font-family="Arial,sans-serif" font-size="10">Screenshot: match form</text>
+</svg>

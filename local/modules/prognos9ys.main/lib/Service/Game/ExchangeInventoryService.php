@@ -2,6 +2,7 @@
 
 namespace Prognos9ys\Main\Service\Game;
 
+use Prognos9ys\Main\Model\Repository\AlbumRepository;
 use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
 use Prognos9ys\Main\Model\Repository\ProfessionRepository;
 
@@ -13,13 +14,16 @@ class ExchangeInventoryService
     private GameEconomyRepository $repository;
     private ProfessionRepository $professionRepository;
     private GameEventScopeService $scopeService;
+    private AlbumRepository $albumRepository;
 
     public function __construct(
         ?GameEconomyRepository $repository = null,
-        ?ProfessionRepository $professionRepository = null
+        ?ProfessionRepository $professionRepository = null,
+        ?AlbumRepository $albumRepository = null
     ) {
         $this->repository = $repository ?? new GameEconomyRepository();
         $this->professionRepository = $professionRepository ?? new ProfessionRepository();
+        $this->albumRepository = $albumRepository ?? new AlbumRepository();
         $this->scopeService = new GameEventScopeService();
     }
 
@@ -61,6 +65,10 @@ class ExchangeInventoryService
         }
 
         if ($kind === ExchangeConfig::KIND_LOOT) {
+            if ($this->isSellableAlbum($code, $category)) {
+                return $this->getSellableAlbumQty($userId);
+            }
+
             if (ChestLootConfig::isEventAgnosticLootCategory($category)) {
                 return $this->repository->getEventAgnosticLootItemCount($userId, $code, $category);
             }
@@ -139,6 +147,12 @@ class ExchangeInventoryService
         }
 
         if ($kind === ExchangeConfig::KIND_LOOT) {
+            if ($this->isSellableAlbum($code, $category)) {
+                $this->takeSellableAlbums($userId, $qty);
+
+                return;
+            }
+
             if (ChestLootConfig::isEventAgnosticLootCategory($category)) {
                 $this->repository->decrementEventAgnosticLootItem($userId, $code, $category, $qty);
 
@@ -294,5 +308,48 @@ class ExchangeInventoryService
         }
 
         return $code;
+    }
+
+    private function isSellableAlbum(string $code, string $category): bool
+    {
+        return $code === AlbumConfig::ITEM_CODE
+            && $category === ChestLootConfig::CATEGORY_ALBUM;
+    }
+
+    private function getSellableAlbumQty(int $userId): int
+    {
+        $lootQty = $this->repository->getEventAgnosticLootItemCount(
+            $userId,
+            AlbumConfig::ITEM_CODE,
+            ChestLootConfig::CATEGORY_ALBUM
+        );
+        $this->albumRepository->ensureSchema();
+
+        return $lootQty + $this->albumRepository->countEmptyAlbumsForUser($userId);
+    }
+
+    private function takeSellableAlbums(int $userId, int $qty): void
+    {
+        $remaining = $qty;
+        $lootQty = $this->repository->getEventAgnosticLootItemCount(
+            $userId,
+            AlbumConfig::ITEM_CODE,
+            ChestLootConfig::CATEGORY_ALBUM
+        );
+
+        if ($lootQty > 0) {
+            $take = min($lootQty, $remaining);
+            $this->repository->decrementEventAgnosticLootItem(
+                $userId,
+                AlbumConfig::ITEM_CODE,
+                ChestLootConfig::CATEGORY_ALBUM,
+                $take
+            );
+            $remaining -= $take;
+        }
+
+        if ($remaining > 0) {
+            $this->albumRepository->consumeEmptyAlbumsForUser($userId, $remaining);
+        }
     }
 }

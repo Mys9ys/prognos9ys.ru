@@ -1,50 +1,38 @@
 <template>
   <div class="rules_block">
-    <div class="section_title">Правила и инструкции</div>
+    <div class="section_title">Как играть</div>
+    <p class="rules_lead">
+      Подробные инструкции по прогнозам и экономике — с картинками и пошаговыми подсказками.
+      Читать можно без регистрации.
+    </p>
+    <router-link class="rules_link_main" to="/faq">Открыть все статьи →</router-link>
 
-    <div class="rule_section">
-      <div class="rule_heading">Прогнозы</div>
-      <p class="rule_text">
-        Ставки и баллы за прогнозы — ядро игры. Бонусы усадьбы и фарма на них не влияют.
-      </p>
-    </div>
-
-    <div class="rule_section">
-      <div class="rule_heading">Экономика</div>
-      <p class="rule_text">
-        Прогнобаксы (🪙) — основная валюта ставок и торговли. Рублиусы (💎) — премиум-валюта,
-        покупка в лавке казны и банке (не на бирже).
-      </p>
-    </div>
-
-    <div class="rule_section">
-      <div class="rule_heading">Банк и займы</div>
-      <p class="rule_text">
-        Вклад и займ — на 5 матчей выбранного турнира. Займ фиксированный: 50 🪙, к возврату с процентами.
-        Досрочное погашение — с выплатой всех процентов.
-      </p>
-    </div>
-
-    <div class="rule_section">
-      <div class="rule_heading">Казна и биржа</div>
-      <p class="rule_text">
-        Лавка казны — сундуки ЧМ и премиум. Биржа — торговля предметами из инвентаря.
-        Гос. вклад поддержки — 500 🪙 в ликвидность банка, проценты в казну после 5 туров.
-      </p>
-    </div>
-
-    <div class="rule_section">
-      <div class="rule_heading">Фарм (скоро)</div>
-      <p class="rule_text">
-        На гос. делянке можно добывать ресурсы между матчами: для себя (в инвентарь) или на казну за фиксированную оплату за заход.
-      </p>
+    <div class="rules_quick">
+      <router-link
+        v-for="item in quickLinks"
+        :key="item.slug"
+        class="rules_quick_link"
+        :to="'/faq/' + item.slug"
+      >
+        {{ item.title }}
+      </router-link>
     </div>
   </div>
 </template>
 
 <script>
+import { guideArticles } from '@/config/guideArticles';
+
 export default {
   name: 'ProfileRulesBlock',
+  computed: {
+    quickLinks() {
+      const slugs = ['start', 'prognosis', 'exchange', 'faq-extra'];
+      return slugs
+        .map((slug) => guideArticles.find((item) => item.slug === slug))
+        .filter(Boolean);
+    },
+  },
 };
 </script>
 
@@ -62,28 +50,48 @@ export default {
 .section_title {
   font-size: 13px;
   color: @orange;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
-.rule_section {
-  margin-bottom: 10px;
-
-  &:last-child {
-    margin-bottom: 0;
-  }
-}
-
-.rule_heading {
-  font-size: 12px;
-  font-weight: 700;
-  color: @colorText;
-  margin-bottom: 4px;
-}
-
-.rule_text {
+.rules_lead {
   font-size: 12px;
   color: @colorBlur;
   line-height: 1.4;
-  margin: 0;
+  margin: 0 0 8px;
+}
+
+.rules_link_main {
+  display: inline-block;
+  margin-bottom: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: @YesWrite;
+  text-decoration: none;
+
+  &:hover {
+    color: @orange;
+  }
+}
+
+.rules_quick {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rules_quick_link {
+  font-size: 12px;
+  color: @colorText;
+  text-decoration: none;
+  padding: 4px 0;
+  border-bottom: 1px solid fade(@colorBlur, 15%);
+
+  &:hover {
+    color: @orange;
+  }
+
+  &:last-child {
+    border-bottom: none;
+  }
 }
 </style>
