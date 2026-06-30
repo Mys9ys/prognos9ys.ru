@@ -263,6 +263,14 @@ export const apiActions = {
             'prognos9ys:main.GameController.cancelFarmWork',
             { userToken }
         ),
+        enqueuePremiumWork: (userToken, taskType, payload) => runBitrixAction(
+            'prognos9ys:main.GameController.enqueuePremiumWork',
+            { userToken, taskType, payload: JSON.stringify(payload || {}) }
+        ),
+        cancelPremiumWork: (userToken, taskId) => runBitrixAction(
+            'prognos9ys:main.GameController.cancelPremiumWork',
+            { userToken, taskId }
+        ),
         getAlbumState: (userToken) => runBitrixAction(
             'prognos9ys:main.GameController.getAlbumState',
             { userToken }
@@ -374,6 +382,10 @@ export const apiActions = {
         activateProfessionCertificate: (userToken) => runBitrixAction(
             'prognos9ys:main.GameController.activateProfessionCertificate',
             { userToken }
+        ),
+        activatePremiumScroll: (userToken, days = 0, activateAll = false) => runBitrixAction(
+            'prognos9ys:main.GameController.activatePremiumScroll',
+            { userToken, days, activateAll: activateAll ? 1 : 0 }
         ),
         learnAlbumRecipe: (userToken) => runBitrixAction(
             'prognos9ys:main.GameController.learnAlbumRecipe',

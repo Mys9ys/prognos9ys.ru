@@ -6,7 +6,7 @@
     <PreLoader v-if="loading && !farm" />
 
     <template v-else-if="farm">
-      <div class="farm_tabs" v-if="showFarmTabs">
+      <div class="farm_tabs" v-if="showFarmTabs" :class="{ farm_tabs_three: showQueueLogTab }">
         <button
           type="button"
           class="farm_tab"
@@ -19,6 +19,13 @@
           :class="{ active: activeFarmTab === 'work' }"
           @click="activeFarmTab = 'work'"
         >Запуски</button>
+        <button
+          v-if="showQueueLogTab"
+          type="button"
+          class="farm_tab"
+          :class="{ active: activeFarmTab === 'log' }"
+          @click="activeFarmTab = 'log'"
+        >Журнал</button>
       </div>
 
       <div
@@ -144,6 +151,46 @@
       </div>
 
       <template v-if="!farm.slots?.needs_pick && activeFarmTab === 'work'">
+        <div class="section premium_queue_section" v-if="workQueue.premium_active">
+          <div class="section_title">Очередь Premium ★</div>
+          <p class="hint">
+            Задачи идут по одной, офлайн. Не хватает ресурсов — пропуск с записью в журнал.
+            Добавить ещё — формы ниже (смена, крафт, сдача добычи). История — вкладка «Журнал».
+          </p>
+
+          <div v-if="workQueue.pending?.length" class="queue_list">
+            <div v-for="item in workQueue.pending" :key="'p' + item.id" class="queue_row">
+              <span class="queue_label">{{ item.label }}</span>
+              <span class="queue_status wait">ожидает</span>
+              <button
+                type="button"
+                class="btn secondary mini"
+                :disabled="actionLoading"
+                @click="onCancelPremiumWork(item.id)"
+              >✕</button>
+            </div>
+          </div>
+
+          <div v-if="workQueue.active?.length" class="queue_list">
+            <div v-for="item in workQueue.active" :key="'a' + item.id" class="queue_row">
+              <span class="queue_label">{{ item.label }}</span>
+              <span class="queue_status run">выполняется</span>
+              <button
+                v-if="item.task_type === 'farm'"
+                type="button"
+                class="btn secondary mini"
+                :disabled="actionLoading"
+                @click="onCancelPremiumWork(item.id)"
+              >Стоп</button>
+            </div>
+          </div>
+
+          <p
+            class="hint"
+            v-if="!workQueue.pending?.length && !workQueue.active?.length"
+          >Очередь пуста — добавьте задачи кнопкой «★ В очередь».</p>
+        </div>
+
         <div class="section" v-if="farm.session">
           <div class="section_title">Смена</div>
           <p class="hint">
@@ -190,8 +237,13 @@
           </div>
         </div>
 
-        <div class="section" v-else>
-          <div class="section_title">Начать работу</div>
+        <div class="section" v-if="showWorkPlannerSection">
+          <div class="section_title">
+            {{ farm.session && workQueue.premium_active ? 'Добавить в очередь' : 'Начать работу' }}
+          </div>
+          <p class="hint" v-if="farm.session && workQueue.premium_active">
+            Смена идёт — новые задачи встанут в очередь и стартуют после неё.
+          </p>
           <select v-model="selectedProfession" class="field_select">
             <option v-for="p in farm.professions" :key="p.code" :value="p.code">{{ p.label }}</option>
           </select>
@@ -235,13 +287,26 @@
             </template>
           </p>
           <p class="hint">{{ workModeHint }}</p>
-          <button
-            class="btn"
-            :disabled="actionLoading || !selectedProfession || maxIterationsForWork <= 0"
-            @click="onStartWork"
-          >
-            Начать смену
-          </button>
+          <div class="work_actions_row">
+            <button
+              v-if="!farm.session"
+              type="button"
+              class="btn"
+              :disabled="actionLoading || !selectedProfession || maxIterationsForWork <= 0"
+              @click="onStartWork"
+            >
+              Начать смену
+            </button>
+            <button
+              v-if="workQueue.premium_active"
+              type="button"
+              class="btn secondary"
+              :disabled="actionLoading || !selectedProfession || maxIterationsForWork <= 0"
+              @click="onEnqueueFarmWork"
+            >
+              ★ В очередь
+            </button>
+          </div>
         </div>
 
         <div class="section" v-if="showAlbumCraftSection">
@@ -257,13 +322,56 @@
           <p class="hint">
             Опыт профессии «{{ albumCraftProfessionLabel }}»: +{{ farm.album_craft.xp_gain }}
           </p>
-          <button
-            class="btn"
-            :disabled="actionLoading || !farm.album_craft.can_craft || !albumCraftProfessionCode"
-            @click="onCraftAlbums"
-          >
-            Скрафтить альбомы
-          </button>
+          <div class="work_actions_row">
+            <button
+              v-if="!farm.session"
+              type="button"
+              class="btn"
+              :disabled="actionLoading || !farm.album_craft.can_craft || !albumCraftProfessionCode"
+              @click="onCraftAlbums"
+            >
+              Скрафтить альбомы
+            </button>
+            <button
+              v-if="workQueue.premium_active"
+              type="button"
+              class="btn secondary"
+              :disabled="actionLoading || !albumCraftProfessionCode"
+              @click="onEnqueueAlbumCraft"
+            >
+              ★ В очередь
+            </button>
+          </div>
+        </div>
+
+        <div class="section" v-if="workQueue.premium_active && queueMaterialSellable.length">
+          <div class="section_title">Сдать добычу на биржу</div>
+          <p class="hint">
+            Только материалы с фарма — в очередь Premium, чтобы не кончились 🪙 на смены «для себя».
+            Сундуки и сувениры — вручную на бирже.
+          </p>
+
+          <div class="exchange_sell_list">
+            <div
+              v-for="(item, index) in queueMaterialSellable"
+              :key="exchangeSellKey(item, index)"
+              class="exchange_sell_row"
+            >
+              <div class="exchange_sell_main">
+                <div class="exchange_sell_label">{{ item.label }}</div>
+                <div class="exchange_sell_meta">
+                  В инвентаре: {{ item.available }} · номинал {{ item.nominal }}–{{ item.max_price }} 🪙
+                  · макс. {{ item.pallet_limit }}/лот
+                </div>
+              </div>
+              <button
+                type="button"
+                class="btn secondary mini"
+                :disabled="actionLoading"
+                @click="openExchangeSellModal(item)"
+              >★ В очередь</button>
+            </div>
+          </div>
         </div>
 
         <div class="section" v-if="farm.materials?.length">
@@ -277,7 +385,74 @@
           </div>
         </div>
       </template>
+
+      <template v-if="!farm.slots?.needs_pick && activeFarmTab === 'log' && showQueueLogTab">
+        <div class="section premium_queue_section">
+          <div class="section_title">Журнал очереди Premium ★</div>
+          <p class="hint">
+            Завершённые, отменённые и пропущенные задачи. Новые записи появляются сверху.
+          </p>
+
+          <div v-if="workQueue.log?.length" class="queue_list queue_log">
+            <div v-for="item in workQueue.log" :key="'l' + item.id" class="queue_row log">
+              <div class="queue_log_main">
+                <span class="queue_label">{{ item.label }}</span>
+                <span class="queue_status" :class="item.status">{{ queueStatusLabel(item.status) }}</span>
+                <span class="queue_meta">{{ item.finished_at }}</span>
+              </div>
+              <div class="queue_log_detail" v-if="item.error">{{ item.error }}</div>
+              <div class="queue_log_detail ok" v-else-if="queueResultText(item)">{{ queueResultText(item) }}</div>
+            </div>
+          </div>
+
+          <p v-else class="hint">Пока пусто — здесь появятся результаты очереди.</p>
+        </div>
+      </template>
     </template>
+
+    <div class="sell_modal_overlay" v-if="exchangeSellModalItem" @click.self="closeExchangeSellModal">
+      <div class="sell_modal" role="dialog">
+        <div class="sell_modal_title">Сдать в очередь: {{ exchangeSellModalItem.label }}</div>
+        <p class="sell_modal_meta">
+          В инвентаре: {{ exchangeSellModalItem.available }}
+          · номинал {{ exchangeSellModalItem.nominal }}–{{ exchangeSellModalItem.max_price }} 🪙
+          · макс. {{ exchangeSellModalItem.pallet_limit }}/лот
+        </p>
+
+        <label class="sell_field_label">Количество</label>
+        <input
+          v-model.number="exchangeSellModalForm.qty"
+          type="number"
+          min="1"
+          :max="exchangeSellModalItem.available"
+          class="sell_field_input"
+        >
+
+        <label class="sell_field_label">Цена за шт., 🪙</label>
+        <input
+          v-model.number="exchangeSellModalForm.price"
+          type="number"
+          step="0.1"
+          :min="exchangeSellModalItem.nominal"
+          :max="exchangeSellModalItem.max_price"
+          class="sell_field_input"
+        >
+
+        <div class="sell_modal_actions">
+          <button type="button" class="btn secondary" :disabled="actionLoading" @click="closeExchangeSellModal">
+            Отмена
+          </button>
+          <button
+            type="button"
+            class="btn"
+            :disabled="actionLoading || !exchangeSellModalValid"
+            @click="onEnqueueExchangeList"
+          >
+            ★ В очередь
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -338,6 +513,10 @@ export default {
       expandedChancesCode: '',
       tickRefreshInFlight: false,
       lastCompletedShiftId: 0,
+      exchangeState: null,
+      exchangeSellLoaded: false,
+      exchangeSellModalItem: null,
+      exchangeSellModalForm: { qty: 1, price: 0 },
     };
   },
   computed: {
@@ -365,8 +544,14 @@ export default {
     showPickButton() {
       return Boolean(this.farm?.slots?.needs_pick || this.farm?.slots?.can_add_profession);
     },
+    workQueue() {
+      return this.farm?.work_queue || {};
+    },
     showFarmTabs() {
       return !this.farm?.slots?.needs_pick;
+    },
+    showQueueLogTab() {
+      return Boolean(this.workQueue.premium_active);
     },
     iterationOptions() {
       const max = Math.min(5, Number(this.farm?.economy?.max_iterations) || 5);
@@ -406,13 +591,24 @@ export default {
       }
       return Math.min(max, available);
     },
+    showWorkPlannerSection() {
+      return Boolean(
+        (this.farm?.professions?.length)
+        && (!this.farm?.session || this.workQueue.premium_active),
+      );
+    },
     showAlbumCraftSection() {
       const craft = this.farm?.album_craft;
       const eligible = craft?.profession_codes || [];
+      if (!craft?.recipe_learned || !eligible.length) {
+        return false;
+      }
+      if (this.workQueue.premium_active) {
+        return true;
+      }
       const code = this.selectedProfession;
       return Boolean(
-        craft?.recipe_learned
-        && !this.farm?.session
+        !this.farm?.session
         && ALBUM_CRAFT_PROFESSION_CODES.has(code)
         && eligible.includes(code),
       );
@@ -420,10 +616,13 @@ export default {
     albumCraftProfessionCode() {
       const eligible = this.farm?.album_craft?.profession_codes || [];
       const code = this.selectedProfession;
-      if (!ALBUM_CRAFT_PROFESSION_CODES.has(code) || !eligible.includes(code)) {
-        return '';
+      if (ALBUM_CRAFT_PROFESSION_CODES.has(code) && eligible.includes(code)) {
+        return code;
       }
-      return code;
+      if (this.workQueue.premium_active && eligible.length) {
+        return eligible[0];
+      }
+      return '';
     },
     albumCraftProfessionLabel() {
       const code = this.albumCraftProfessionCode;
@@ -497,6 +696,24 @@ export default {
         };
       });
     },
+    exchangeSellable() {
+      return Array.isArray(this.exchangeState?.sellable) ? this.exchangeState.sellable : [];
+    },
+    queueMaterialSellable() {
+      return this.exchangeSellable.filter((item) => item.kind === 'material' && Number(item.available) > 0);
+    },
+    exchangeSellModalValid() {
+      const item = this.exchangeSellModalItem;
+      if (!item) {
+        return false;
+      }
+      const qty = Number(this.exchangeSellModalForm.qty || 0);
+      const price = Number(this.exchangeSellModalForm.price || 0);
+      const maxQty = Number(item.available || 0);
+      const minPrice = Number(item.nominal || 0);
+      const maxPrice = Number(item.max_price || 0);
+      return qty >= 1 && qty <= maxQty && price >= minPrice && price <= maxPrice;
+    },
   },
   watch: {
     maxIterationsForWork(max) {
@@ -514,6 +731,16 @@ export default {
         this.selectedIterations = this.maxIterationsForWork;
       } else if (this.maxIterationsForWork > 0 && this.selectedIterations < 1) {
         this.selectedIterations = 1;
+      }
+    },
+    activeFarmTab(tab) {
+      if (tab === 'work' && this.workQueue.premium_active) {
+        this.loadExchangeSellState();
+      }
+    },
+    'workQueue.premium_active'(active) {
+      if (active && this.activeFarmTab === 'work') {
+        this.loadExchangeSellState();
       }
     },
   },
@@ -568,8 +795,14 @@ export default {
           } else if (this.farm?.session) {
             this.activeFarmTab = 'work';
           }
+          if (this.activeFarmTab === 'log' && !this.farm?.work_queue?.premium_active) {
+            this.activeFarmTab = 'work';
+          }
           this.schedulePoll();
           this.syncCountdown();
+          if (this.farm?.work_queue?.premium_active && this.activeFarmTab === 'work') {
+            this.loadExchangeSellState(true);
+          }
         } else {
           this.error = data?.message || 'Не удалось загрузить фарм';
         }
@@ -820,6 +1053,210 @@ export default {
       }
     },
 
+    async onEnqueueFarmWork() {
+      const token = this.authData?.token;
+      if (!token || !this.selectedProfession) {
+        return;
+      }
+
+      this.actionLoading = true;
+      this.error = '';
+      this.message = '';
+      try {
+        const data = await apiActions.game.enqueuePremiumWork(token, 'farm', {
+          profession_code: this.selectedProfession,
+          work_mode: this.workMode,
+          iterations: this.selectedIterations,
+        });
+        if (data?.status === 'ok') {
+          this.applyPremiumWorkResponse(data, 'Задача добавлена в очередь Premium');
+        } else {
+          this.error = data?.message || 'Не удалось добавить в очередь';
+        }
+      } catch (e) {
+        this.error = e.message || 'Не удалось добавить в очередь';
+      } finally {
+        this.actionLoading = false;
+      }
+    },
+
+    async onEnqueueAlbumCraft() {
+      const token = this.authData?.token;
+      const professionCode = this.albumCraftProfessionCode;
+      if (!token || !professionCode) {
+        return;
+      }
+
+      this.actionLoading = true;
+      this.error = '';
+      this.message = '';
+      try {
+        const data = await apiActions.game.enqueuePremiumWork(token, 'album_craft', {
+          profession_code: professionCode,
+        });
+        if (data?.status === 'ok') {
+          this.applyPremiumWorkResponse(data, 'Крафт альбомов добавлен в очередь');
+          window.dispatchEvent(new CustomEvent('prognos9ys:album-refresh'));
+        } else {
+          this.error = data?.message || 'Не удалось добавить в очередь';
+        }
+      } catch (e) {
+        this.error = e.message || 'Не удалось добавить в очередь';
+      } finally {
+        this.actionLoading = false;
+      }
+    },
+
+    async onCancelPremiumWork(taskId) {
+      const token = this.authData?.token;
+      if (!token || !taskId) {
+        return;
+      }
+
+      this.actionLoading = true;
+      this.error = '';
+      try {
+        const data = await apiActions.game.cancelPremiumWork(token, taskId);
+        if (data?.status === 'ok') {
+          this.applyPremiumWorkResponse(data, 'Задача отменена');
+        } else {
+          this.error = data?.message || 'Не удалось отменить';
+        }
+      } catch (e) {
+        this.error = e.message || 'Не удалось отменить';
+      } finally {
+        this.actionLoading = false;
+      }
+    },
+
+    applyPremiumWorkResponse(data, fallbackMessage) {
+      if (data.farm) {
+        this.farm = data.farm;
+      }
+      if (data.game) {
+        this.setUserInfo({
+          ...this.$store.state.auth.userInfo,
+          game_info: data.game,
+        });
+      }
+      this.message = fallbackMessage;
+      this.activeFarmTab = 'work';
+      if (this.farm?.session) {
+        this.schedulePoll();
+        this.syncCountdown();
+      }
+      if (this.workQueue.premium_active) {
+        this.loadExchangeSellState(true);
+      }
+    },
+
+    exchangeItemKey(item) {
+      return [item.kind, item.code, item.category, item.event_id, item.team_code].join(':');
+    },
+
+    exchangeSellKey(item, index) {
+      return this.exchangeItemKey(item) + ':' + index;
+    },
+
+    openExchangeSellModal(item) {
+      this.exchangeSellModalItem = item;
+      this.exchangeSellModalForm = {
+        qty: Math.min(Number(item.available || 1), Number(item.pallet_limit || 1)),
+        price: Number(item.nominal || 0),
+      };
+    },
+
+    closeExchangeSellModal() {
+      if (this.actionLoading) {
+        return;
+      }
+      this.exchangeSellModalItem = null;
+    },
+
+    async loadExchangeSellState(silent = false) {
+      const token = this.authData?.token;
+      if (!token || !this.workQueue.premium_active) {
+        return;
+      }
+
+      if (!silent) {
+        this.exchangeSellLoaded = false;
+      }
+
+      try {
+        const data = await apiActions.exchange.getState(token);
+        if (data?.status === 'ok') {
+          this.exchangeState = data;
+        }
+      } catch (e) {
+        if (!silent) {
+          this.error = e.message || 'Не удалось загрузить биржу';
+        }
+      } finally {
+        this.exchangeSellLoaded = true;
+      }
+    },
+
+    async onEnqueueExchangeList() {
+      const token = this.authData?.token;
+      const item = this.exchangeSellModalItem;
+      if (!token || !item || !this.exchangeSellModalValid) {
+        return;
+      }
+
+      this.actionLoading = true;
+      this.error = '';
+      this.message = '';
+      try {
+        const data = await apiActions.game.enqueuePremiumWork(token, 'exchange_list', {
+          kind: item.kind,
+          code: item.code,
+          qty: Number(this.exchangeSellModalForm.qty || 0),
+          price_per_unit: Number(this.exchangeSellModalForm.price || 0),
+          category: item.category || '',
+          event_id: item.event_id || 0,
+          team_code: item.team_code || '',
+        });
+        if (data?.status === 'ok') {
+          this.closeExchangeSellModal();
+          this.applyPremiumWorkResponse(data, 'Материалы добавлены в очередь Premium');
+        } else {
+          this.error = data?.message || 'Не удалось добавить в очередь';
+        }
+      } catch (e) {
+        this.error = e.message || 'Не удалось добавить в очередь';
+      } finally {
+        this.actionLoading = false;
+      }
+    },
+
+    queueStatusLabel(status) {
+      if (status === 'completed') {
+        return 'готово';
+      }
+      if (status === 'failed') {
+        return 'ошибка';
+      }
+      if (status === 'cancelled') {
+        return 'отмена';
+      }
+      return status;
+    },
+
+    queueResultText(item) {
+      const result = item?.result || {};
+      if (result.message) {
+        return result.message;
+      }
+      if (Array.isArray(result.lines)) {
+        return result.lines.map((line) => line.text).filter(Boolean).join(' · ');
+      }
+      if (result.listing) {
+        return 'Лот выставлен';
+      }
+      return '';
+    },
+
     async onStartWork() {
       const token = this.authData?.token;
       if (!token || !this.selectedProfession) {
@@ -928,6 +1365,11 @@ export default {
   display: flex;
   gap: 6px;
   margin-bottom: 10px;
+
+  &.farm_tabs_three .farm_tab {
+    padding: 8px 6px;
+    font-size: 11px;
+  }
 }
 
 .farm_tab {
@@ -1360,6 +1802,202 @@ export default {
   &.ok {
     background: rgba(60, 160, 80, 0.2);
     color: #8f8;
+  }
+}
+
+.premium_queue_section {
+  border: 1px solid fade(@yellow, 35%);
+}
+
+.section_subtitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: @colorText;
+  margin: 10px 0 6px;
+}
+
+.queue_list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.queue_row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: fade(@darkbg, 70%);
+  font-size: 12px;
+
+  .btn.mini {
+    flex-shrink: 0;
+    align-self: center;
+    margin: 0;
+  }
+
+  &.log {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+.queue_log_main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.queue_label {
+  flex: 1;
+  min-width: 120px;
+  color: @colorText;
+  font-weight: 600;
+}
+
+.queue_status {
+  font-size: 11px;
+  font-weight: 700;
+
+  &.wait { color: @colorBlur; }
+  &.run { color: @yellow; }
+  &.completed { color: @YesWrite; }
+  &.failed { color: @NoWrite; }
+  &.cancelled { color: @colorBlur; }
+}
+
+.queue_meta {
+  color: @colorBlur;
+  font-size: 10px;
+}
+
+.queue_log_detail {
+  font-size: 11px;
+  color: @NoWrite;
+  line-height: 1.35;
+
+  &.ok {
+    color: @YesWrite2;
+  }
+}
+
+.work_actions_row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: stretch;
+
+  .btn {
+    flex: 1 1 120px;
+    min-height: 32px;
+  }
+}
+
+.btn.mini {
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+.exchange_sell_list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.exchange_sell_row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: fade(@darkbg, 70%);
+}
+
+.exchange_sell_main {
+  flex: 1;
+  min-width: 120px;
+}
+
+.exchange_sell_label {
+  font-size: 12px;
+  font-weight: 700;
+  color: @colorText;
+}
+
+.exchange_sell_meta {
+  font-size: 11px;
+  color: @colorBlur;
+  margin-top: 2px;
+  line-height: 1.35;
+}
+
+.sell_modal_overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  background: fade(#000, 55%);
+}
+
+.sell_modal {
+  width: 100%;
+  max-width: 360px;
+  padding: 12px;
+  border-radius: 6px;
+  background: @DarkColorBG;
+  border: 1px solid fade(@orange, 45%);
+  color: @colorText;
+}
+
+.sell_modal_title {
+  font-size: 14px;
+  font-weight: 700;
+  color: @orange;
+  margin-bottom: 6px;
+}
+
+.sell_modal_meta {
+  font-size: 11px;
+  color: @colorBlur;
+  line-height: 1.35;
+  margin: 0 0 10px;
+}
+
+.sell_field_label {
+  display: block;
+  font-size: 11px;
+  color: @colorText;
+  margin-bottom: 4px;
+}
+
+.sell_field_input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  margin-bottom: 10px;
+  border-radius: 4px;
+  border: 1px solid fade(@colorBlur, 40%);
+  background: @darkbg;
+  color: @colorText;
+  font-size: 13px;
+}
+
+.sell_modal_actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  .btn {
+    flex: 1 1 120px;
+    min-height: 32px;
   }
 }
 </style>

@@ -38,6 +38,9 @@ class ProfessionFarmService
     {
         $this->processDueTicks($userId);
 
+        $queueService = new PremiumWorkQueueService($this->economyRepository, $this->repository);
+        $queueService->processUser($userId);
+
         return [
             'professions' => $this->formatProfessions($userId),
             'catalog' => $this->formatCatalog(),
@@ -54,7 +57,8 @@ class ProfessionFarmService
                 'max_iterations' => ProfessionEconomyConfig::FREE_ITERATIONS_PER_SESSION,
                 'profession_level_cap' => $this->getPlayerLevel($userId),
             ],
-            'album_craft' => (new AlbumCraftService($this->repository, null))->getCraftState($userId),
+            'album_craft' => (new AlbumCraftService($this->repository, $this->economyRepository))->getCraftState($userId),
+            'work_queue' => $queueService->getStateForUser($userId),
         ];
     }
 
@@ -207,6 +211,20 @@ class ProfessionFarmService
         ]);
 
         return $this->getState($userId);
+    }
+
+    public function processDueTicksPublic(int $userId): void
+    {
+        $this->processDueTicks($userId);
+    }
+
+    public function resolveIterationsPreview(
+        int $userId,
+        string $professionCode,
+        string $workMode,
+        int $iterations
+    ): int {
+        return $this->resolveIterationsForMaterials($userId, $professionCode, $workMode, $iterations);
     }
 
     private function processDueTicks(int $userId): void

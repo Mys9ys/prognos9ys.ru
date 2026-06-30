@@ -6,6 +6,7 @@ define('NOT_CHECK_PERMISSIONS', true);
 $_SERVER['DOCUMENT_ROOT'] = realpath(__DIR__ . '/../../..');
 require $_SERVER['DOCUMENT_ROOT'] . '/bitrix/modules/main/include/prolog_before.php';
 
+use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
 use Prognos9ys\Main\Service\Game\ExperienceService;
 use Prognos9ys\Main\Service\Game\GameEconomyConfig;
 use Prognos9ys\Main\Service\Game\GameEconomyHlInstaller;
@@ -16,7 +17,11 @@ $syncPending = in_array('--sync-pending', $argv ?? [], true);
 $grantExistingUsers = in_array('--grant-existing-users', $argv ?? [], true);
 
 try {
-    $result = (new GameEconomyHlInstaller())->install();
+    $installer = new GameEconomyHlInstaller();
+    $result = $installer->install();
+    $installer->upgradeWalletPremiumHl();
+    $installer->upgradePremiumWorkQueueHl();
+    GameEconomyRepository::resetWalletDataClassCache();
     echo 'HL blocks installed:' . PHP_EOL;
     foreach ($result as $key => $value) {
         echo '  ' . $key . ': ' . $value . PHP_EOL;

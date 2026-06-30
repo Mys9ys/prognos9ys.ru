@@ -33,7 +33,7 @@ class ExchangeService
             'active_listings' => $activeListings,
             'max_listings' => $this->resolveMaxListings($userId),
             'listing_days' => $this->resolveListingDays($userId),
-            'commission_percent' => ExchangeConfig::COMMISSION_PERCENT,
+            'commission_percent' => $this->resolveCommissionPercent($userId),
             'consignment_payout_percent' => BankConsignmentConfig::INSTANT_PAYOUT_PERCENT,
             'catalog_tabs' => ExchangeCatalogConfig::getTabs(),
             'sellable' => $this->buildSellableCatalog($userId),
@@ -341,7 +341,10 @@ class ExchangeService
             $chunkTotal = round($price * $take, 1);
             $commission = $isBankListing
                 ? 0.0
-                : round($chunkTotal * ExchangeConfig::COMMISSION_PERCENT / 100, 1);
+                : round(
+                    $chunkTotal * PremiumService::resolveSellerCommissionPercent($sellerId) / 100,
+                    1
+                );
 
             $chunks[] = [
                 'listing' => $listing,
@@ -856,6 +859,7 @@ class ExchangeService
         $category = (string)($row['UF_ITEM_CATEGORY'] ?? '');
         $teamCode = (string)($row['UF_TEAM_CODE'] ?? '');
         $sellerBankId = (int)($row['UF_SELLER_BANK_ID'] ?? 0);
+        $sellerId = (int)($row['UF_SELLER_ID'] ?? 0);
         $sellerBankName = $this->resolveSellerBankName($sellerBankId);
         $catalogCode = $kind === ExchangeConfig::KIND_CHEST
             ? ExchangeConfig::normalizeChestExchangeCode($code)
@@ -863,8 +867,10 @@ class ExchangeService
 
         return [
             'id' => (int)($row['ID'] ?? 0),
-            'seller_id' => (int)($row['UF_SELLER_ID'] ?? 0),
+            'seller_id' => $sellerId,
             'seller_name' => $this->resolveSellerDisplayName($row),
+            'seller_premium' => $sellerBankId <= 0 && $sellerId > 0
+                && (new PremiumService($this->repository))->hasActivePremium($sellerId),
             'seller_bank_id' => $sellerBankId,
             'seller_bank_name' => $sellerBankName,
             'consignor_id' => (int)($row['UF_ORIGINAL_USER_ID'] ?? 0),
@@ -888,20 +894,27 @@ class ExchangeService
     private function resolveMaxListings(int $userId): int
     {
         return $this->hasActivePremium($userId)
-            ? ExchangeConfig::MAX_LISTINGS_PREMIUM
-            : ExchangeConfig::MAX_LISTINGS_DEFAULT;
+            ? PremiumEconomyConfig::MAX_LISTINGS
+            : PremiumEconomyConfig::MAX_LISTINGS_DEFAULT;
     }
 
     private function resolveListingDays(int $userId): int
     {
         return $this->hasActivePremium($userId)
-            ? ExchangeConfig::LISTING_DAYS_PREMIUM
-            : ExchangeConfig::LISTING_DAYS_DEFAULT;
+            ? PremiumEconomyConfig::LISTING_DAYS
+            : PremiumEconomyConfig::LISTING_DAYS_DEFAULT;
+    }
+
+    private function resolveCommissionPercent(int $userId): float
+    {
+        return $this->hasActivePremium($userId)
+            ? PremiumEconomyConfig::COMMISSION_PERCENT
+            : PremiumEconomyConfig::COMMISSION_PERCENT_DEFAULT;
     }
 
     private function hasActivePremium(int $userId): bool
     {
-        return false;
+        return (new PremiumService($this->repository))->hasActivePremium($userId);
     }
 
     private function resolveSellerBankName(int $bankId): string

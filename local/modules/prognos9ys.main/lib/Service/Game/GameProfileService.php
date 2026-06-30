@@ -137,8 +137,9 @@ class GameProfileService
 
         return [
             'wallet' => $this->walletService->getWalletSummary($userId),
+            'premium' => $this->buildPremiumSummarySafe($userId),
             'progress' => $this->progressService->getSummary($userId),
-            'pending_xp' => (new ExperienceService())->getPendingSummaryForUser($userId),
+            'pending_xp' => (new ExperienceService($this->repository))->getPendingSummaryForUser($userId),
             'treasure' => $this->treasureService->getTreasureSummary($userId),
             'inventory_items' => $inventoryItems,
             'learned_recipes' => $this->repository->getLearnedRecipes($userId),
@@ -191,6 +192,13 @@ class GameProfileService
                     'prognobaks' => 0,
                     'rublius' => 0,
                     'rublius_rate' => GameEconomyConfig::RUBLIUS_TO_PROGNOBAKS,
+                ],
+                'premium' => [
+                    'active' => false,
+                    'until' => null,
+                    'remaining_seconds' => 0,
+                    'scrolls' => [1 => 0, 3 => 0, 5 => 0],
+                    'scrolls_total' => 0,
                 ],
                 'progress' => (new LevelService())->getProgressSummary(0),
                 'pending_xp' => ['count' => 0, 'points' => 0.0],
@@ -259,5 +267,29 @@ class GameProfileService
             'learned_recipes' => $this->repository->getLearnedRecipes($userId),
             'album_meta' => (new AlbumService())->getProfileMeta($userId),
         ];
+    }
+
+    /**
+     * @return array{
+     *   active:bool,
+     *   until:?string,
+     *   remaining_seconds:int,
+     *   scrolls:array{1:int,3:int,5:int},
+     *   scrolls_total:int
+     * }
+     */
+    private function buildPremiumSummarySafe(int $userId): array
+    {
+        try {
+            return (new PremiumService($this->repository))->getSummary($userId);
+        } catch (\Throwable $exception) {
+            return [
+                'active' => false,
+                'until' => null,
+                'remaining_seconds' => 0,
+                'scrolls' => [1 => 0, 3 => 0, 5 => 0],
+                'scrolls_total' => 0,
+            ];
+        }
     }
 }

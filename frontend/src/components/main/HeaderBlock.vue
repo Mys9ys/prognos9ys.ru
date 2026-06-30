@@ -31,6 +31,22 @@
             <AppIcon name="prognobak" :size="16" class="hm_money_icon" />
             <span class="hm_money_value">{{ displayWallet.prognobaks }}</span>
           </div>
+          <div class="hm_premium_box hm_box" v-if="!isGuest">
+            <button
+              v-if="canActivatePremiumScroll"
+              type="button"
+              class="hm_premium_plus"
+              :disabled="activatingPremium"
+              title="Активировать свиток премиума"
+              @click="activatePremiumFromHeader"
+            >+</button>
+            <span class="hm_premium_icon" title="Премиум">⭐</span>
+            <span
+              class="hm_premium_value"
+              :class="{ active: premiumInfo.active }"
+              :title="premiumUntilTitle"
+            >{{ premiumTimeLabel }}</span>
+          </div>
         </div>
         <div class="hm_btn_block">
 <!--          <BtnMini v-for="(btn, index) in l_btns"-->
@@ -85,6 +101,7 @@ import AvaComponent from "@/components/main/AvaComponent";
 import ImpersonationBanner from "@/components/profile/ImpersonationBanner";
 import AppIcon from '@/components/ui/AppIcon.vue';
 import {authRoute} from '@/utils/authRedirect';
+import { apiActions } from '@/api/bitrixClient';
 // import BtnMini from "@/components/ui/btn/BtnMini";
 
 export default {
@@ -111,6 +128,7 @@ export default {
       menu: false,
       claimingAllXp: false,
       claimXpError: '',
+      activatingPremium: false,
     }
   },
 
@@ -223,6 +241,35 @@ export default {
         rublius,
       };
     },
+    premiumInfo() {
+      return this.userInfo?.game_info?.premium || {};
+    },
+    premiumTimeLabel() {
+      if (this.premiumInfo.active) {
+        const untilLabel = this.formatPremiumUntil(this.premiumInfo.until);
+        if (untilLabel) {
+          return untilLabel;
+        }
+        const seconds = Number(this.premiumInfo.remaining_seconds ?? 0);
+        if (seconds > 0) {
+          return this.formatPremiumDuration(seconds);
+        }
+      }
+      if (Number(this.premiumInfo.scrolls_total ?? 0) > 0) {
+        return 'свиток';
+      }
+      return '—';
+    },
+    premiumUntilTitle() {
+      if (!this.premiumInfo.active) {
+        return 'Премиум';
+      }
+      const untilLabel = this.formatPremiumUntil(this.premiumInfo.until, true);
+      return untilLabel ? `Премиум ${untilLabel}` : 'Премиум активен';
+    },
+    canActivatePremiumScroll() {
+      return Number(this.premiumInfo.scrolls_total ?? 0) > 0;
+    },
     pendingXp() {
       const pending = this.userInfo?.game_info?.pending_xp || {};
       return {
@@ -235,7 +282,9 @@ export default {
       return Number.isInteger(points) ? points : points.toFixed(1);
     },
     showClaimXpBtn() {
-      return !this.isGuest && (this.pendingXp.count > 0 || this.pendingXp.points > 0);
+      return !this.isGuest
+        && !this.premiumInfo.active
+        && (this.pendingXp.count > 0 || this.pendingXp.points > 0);
     },
   },
 
@@ -306,12 +355,79 @@ export default {
         this.claimingAllXp = false;
       }
     },
+
+    formatPremiumUntil(until, full = false) {
+      if (!until) {
+        return '';
+      }
+      const normalized = String(until).trim().replace(' ', 'T');
+      const date = new Date(normalized);
+      if (Number.isNaN(date.getTime())) {
+        return '';
+      }
+      const pad = (value) => String(value).padStart(2, '0');
+      const day = pad(date.getDate());
+      const month = pad(date.getMonth() + 1);
+      const hours = pad(date.getHours());
+      const minutes = pad(date.getMinutes());
+      if (full) {
+        return `до ${day}.${month}.${date.getFullYear()} ${hours}:${minutes}`;
+      }
+      return `до ${day}.${month} ${hours}:${minutes}`;
+    },
+
+    formatPremiumDuration(totalSeconds) {
+      const seconds = Math.max(0, Number(totalSeconds) || 0);
+      const days = Math.floor(seconds / 86400);
+      const hours = Math.floor((seconds % 86400) / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      if (days > 0) {
+        return hours > 0 ? `${days}д ${hours}ч` : `${days}д`;
+      }
+      if (hours > 0) {
+        return minutes > 0 ? `${hours}ч ${minutes}м` : `${hours}ч`;
+      }
+      if (minutes > 0) {
+        return `${minutes}м`;
+      }
+      return '<1м';
+    },
+
+    async activatePremiumFromHeader() {
+      if (!this.token || this.activatingPremium || !this.canActivatePremiumScroll) {
+        return;
+      }
+
+      this.activatingPremium = true;
+      try {
+        const data = await apiActions.game.activatePremiumScroll(this.token, 0, false);
+        if (data?.game) {
+          const game = {
+            ...data.game,
+            premium: data.premium || data.game.premium,
+          };
+          this.$store.commit('auth/setUserInfo', {
+            ...this.userInfo,
+            game_info: game,
+          });
+        } else {
+          await this.refreshGameInfo();
+        }
+      } catch (error) {
+        console.log('activatePremiumFromHeader error', error);
+      } finally {
+        this.activatingPremium = false;
+      }
+    },
   },
 }
 </script>
 
 <style lang="less" scoped>
 @import "src/assets/css/variables.less";
+
+@hm-gap: 4px;
+@hm-col-width: 138px;
 
 .header_wrapper {
   position: relative;
@@ -322,7 +438,7 @@ export default {
   transform: translateX(-50%);
   background: @DarkColorBG;
   color: @colorText2;
-  padding: 8px 12px;
+  padding: 8px @hm-gap;
   display: flex;
   flex-direction: column;
   flex-wrap: wrap;
@@ -374,23 +490,23 @@ export default {
     justify-content: space-between;
     align-items: flex-start;
     position: relative;
-    gap: 4px;
+    gap: @hm-gap;
     .hm_left_block {
       display: flex;
       flex-direction: column;
       justify-content: flex-end;
 
       .hm_achieve_block {
-        width: 130px;
+        width: @hm-col-width;
         display: flex;
         flex-direction: column;
-        gap: 4px;
+        gap: @hm-gap;
       }
     }
 
     .hm_right_block {
-      flex: 0 0 130px;
-      width: 130px;
+      flex: 0 0 @hm-col-width;
+      width: @hm-col-width;
       min-width: 0;
       display: flex;
       flex-direction: column;
@@ -398,11 +514,11 @@ export default {
       align-items: stretch;
 
       .hm_user_block {
-        width: 130px;
+        width: @hm-col-width;
         display: flex;
         flex-direction: column;
         align-items: flex-end;
-        gap: 4px;
+        gap: @hm-gap;
       }
 
       .hm_nick_box {
@@ -418,8 +534,8 @@ export default {
       position: relative;
       display: flex;
       flex-direction: row;
-      gap: 4px;
-      width: 128px;
+      gap: @hm-gap;
+      width: @hm-col-width;
       //height: 45px;
       z-index: 15;
 
@@ -454,9 +570,9 @@ export default {
     }
 
     .hm_box {
-      width: 130px;
+      width: @hm-col-width;
       height: 28px;
-      padding: 2px 4px;
+      padding: 2px @hm-gap;
       box-shadow: inset 0 2px 10px 1px rgba(0, 0, 0, .3), inset 0 0 0 60px rgba(0, 0, 0, .3), 0 1px rgba(255, 255, 255, .08);
       //background: linear-gradient(rgb(70,70,70), rgb(120,120,120));
     }
@@ -465,9 +581,9 @@ export default {
       justify-content: flex-start;
     }
     .hm_level_block {
-      width: 130px;
+      width: @hm-col-width;
       height: 28px;
-      padding: 2px 4px;
+      padding: 2px @hm-gap;
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -486,7 +602,7 @@ export default {
         min-width: 0;
         display: flex;
         flex-direction: column;
-        gap: 1px;
+        gap: 0;
       }
 
       .hm_level_title {
@@ -513,6 +629,7 @@ export default {
       .hm_level_bar {
         width: 100%;
         height: 6px;
+        flex-shrink: 0;
         background: @darkbg;
         border-radius: 3px;
         overflow: hidden;
@@ -528,7 +645,8 @@ export default {
       }
 
       .hm_level_xp_line {
-        font-size: 7px;
+        margin-top: 2px;
+        font-size: 9px;
         line-height: 1;
         color: @colorBlur;
         text-align: right;
@@ -555,15 +673,63 @@ export default {
     }
 
     .hm_money_box,
-    .hm_rublius_box {
-      width: 130px;
+    .hm_rublius_box,
+    .hm_premium_box {
+      width: @hm-col-width;
       height: 22px;
       display: flex;
       flex-direction: row;
       align-items: center;
-      gap: 4px;
+      gap: @hm-gap;
       font-size: 11px;
       box-sizing: border-box;
+    }
+
+    .hm_premium_box {
+      justify-content: flex-start;
+      color: @colorBlur;
+      text-align: left;
+    }
+
+    .hm_premium_icon {
+      flex-shrink: 0;
+      font-size: 10px;
+      line-height: 1;
+    }
+
+    .hm_premium_value {
+      flex: 1;
+      min-width: 0;
+      font-weight: 600;
+      line-height: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+
+      &.active {
+        color: @orange;
+      }
+    }
+
+    .hm_premium_plus {
+      flex-shrink: 0;
+      width: 16px;
+      height: 16px;
+      margin-right: 1px;
+      padding: 0;
+      border: 1px solid rgba(247, 196, 23, 0.55);
+      border-radius: 3px;
+      background: @DarkColorBG;
+      color: @orange;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1;
+      cursor: pointer;
+
+      &:disabled {
+        opacity: 0.6;
+        cursor: default;
+      }
     }
 
     .hm_money_box {

@@ -7,13 +7,15 @@ class ExchangeConfig
     public const CURRENCY = GameEconomyConfig::CURRENCY_PROGNOBAKS;
 
     public const COMMISSION_PERCENT = 20.0;
+    /** @deprecated use PremiumEconomyConfig::COMMISSION_PERCENT */
+    public const COMMISSION_PERCENT_PREMIUM = 5.0;
     public const SELLER_PRICE_CAP_MULTIPLIER = 1.03;
 
     public const LISTING_DAYS_DEFAULT = 3;
     public const LISTING_DAYS_PREMIUM = 7;
 
     public const MAX_LISTINGS_DEFAULT = 10;
-    public const MAX_LISTINGS_PREMIUM = 20;
+    public const MAX_LISTINGS_PREMIUM = 30;
 
     public const STATUS_ACTIVE = 'active';
     public const STATUS_FILLED = 'filled';

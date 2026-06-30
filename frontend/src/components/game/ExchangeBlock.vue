@@ -314,7 +314,11 @@
         <div v-for="item in historyItems" :key="item.id" class="history_row">
           <span class="hist_role" :class="item.role">{{ item.role === 'buy' ? 'Покупка' : 'Продажа' }}</span>
           <span class="hist_label">{{ item.label }} ×{{ item.qty }}</span>
-          <span class="hist_total">{{ item.total }} 🪙</span>
+          <div class="hist_amount">
+            <span class="hist_total">{{ historyAmountMain(item) }} 🪙</span>
+            <span v-if="item.role === 'sell'" class="hist_net_caption">на руки</span>
+            <span v-if="historyAmountHint(item)" class="hist_hint">{{ historyAmountHint(item) }}</span>
+          </div>
           <span class="hist_date">{{ item.created_at }}</span>
         </div>
       </div>
@@ -324,7 +328,7 @@
 </template>
 
 <script>
-import { mapMutations, mapState } from 'vuex';
+import { mapActions, mapMutations, mapState } from 'vuex';
 import PreLoader from '@/components/main/PreLoader.vue';
 import { apiActions } from '@/api/bitrixClient';
 
@@ -441,12 +445,36 @@ export default {
     this.bootstrap();
   },
   methods: {
+    ...mapActions({
+      refreshGameInfo: 'auth/refreshGameInfo',
+    }),
     ...mapMutations({
       setUserInfo: 'auth/setUserInfo',
     }),
 
     formatMoney(value) {
       return Number(value ?? 0).toFixed(1).replace(/\.0$/, '');
+    },
+
+    historyAmountMain(item) {
+      if (item?.role === 'sell') {
+        const net = Number(item.seller_net ?? 0);
+        if (net > 0) {
+          return this.formatMoney(net);
+        }
+      }
+      return this.formatMoney(item?.total);
+    },
+
+    historyAmountHint(item) {
+      if (item?.role !== 'sell') {
+        return '';
+      }
+      const commission = Number(item.commission ?? 0);
+      if (commission <= 0) {
+        return '';
+      }
+      return `сумма ${this.formatMoney(item.total)} − ${this.formatMoney(commission)} комиссия`;
     },
 
     itemKey(item) {
@@ -797,7 +825,7 @@ export default {
 
         if (data?.status === 'ok') {
           this.message = `Куплено ${data.bought_qty} шт. за ${data.total_spent} 🪙`;
-          this.applyGame(data.game);
+          await this.syncGameAfterWalletMutation(data.game);
           await this.refreshState();
           await this.loadCatalog(true);
         }
@@ -831,7 +859,7 @@ export default {
 
         if (data?.status === 'ok') {
           this.message = `Куплено ${data.bought_qty} шт. за ${data.total_spent} 🪙`;
-          this.applyGame(data.game);
+          await this.syncGameAfterWalletMutation(data.game);
           await this.refreshState();
           await this.loadCatalog(true);
         }
@@ -870,7 +898,7 @@ export default {
 
         if (data?.status === 'ok') {
           this.message = 'Лот выставлен на биржу';
-          this.applyGame(data.game);
+          await this.syncGameAfterWalletMutation(data.game);
           await this.refreshState();
           this.activeTab = 'my';
           await this.loadMyListings();
@@ -916,7 +944,7 @@ export default {
           const chunks = Array.isArray(data.chunks) ? data.chunks.length : 1;
           this.message = `Сдано в комиссионку: +${data.total_paid} 🪙`
             + (chunks > 1 ? ` (${chunks} лота)` : '');
-          this.applyGame(data.game);
+          await this.syncGameAfterWalletMutation(data.game);
           await this.refreshState();
           await this.loadCatalog(true);
         }
@@ -951,10 +979,16 @@ export default {
       if (!game) {
         return;
       }
+      const prev = this.$store.state.auth.userInfo?.game_info || {};
       this.setUserInfo({
         ...this.$store.state.auth.userInfo,
-        game_info: game,
+        game_info: { ...prev, ...game },
       });
+    },
+
+    async syncGameAfterWalletMutation(game) {
+      this.applyGame(game);
+      await this.refreshGameInfo({ refresh: true });
     },
 
     async refreshDuplicatePlan() {
@@ -1087,7 +1121,7 @@ export default {
   flex-wrap: wrap;
   gap: 10px;
   font-size: 12px;
-  color: @colorBlur;
+  color: @colorText;
   margin-bottom: 8px;
 }
 
@@ -1095,6 +1129,7 @@ export default {
   background: @DarkColorBG;
   border-radius: 5px;
   padding: 8px;
+  color: @colorText;
 }
 
 .catalog_row,
@@ -1262,18 +1297,60 @@ export default {
 
 .history_row {
   display: grid;
-  grid-template-columns: 70px 1fr auto;
-  gap: 4px 8px;
-  align-items: center;
-  font-size: 11px;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  gap: 4px 10px;
+  align-items: start;
+  font-size: 12px;
+}
+
+.hist_role {
+  font-weight: 700;
+  line-height: 1.2;
 }
 
 .hist_role.buy { color: @YesWrite; }
 .hist_role.sell { color: @orange; }
+
+.hist_label {
+  color: @colorText;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.hist_amount {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  text-align: right;
+}
+
+.hist_total {
+  color: @YesWrite2;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.hist_net_caption {
+  color: @orange;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.hist_hint {
+  color: @colorBlur;
+  font-size: 10px;
+  line-height: 1.2;
+  max-width: 160px;
+}
+
 .hist_date {
   grid-column: 1 / -1;
   color: @colorBlur;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .labor_hint {

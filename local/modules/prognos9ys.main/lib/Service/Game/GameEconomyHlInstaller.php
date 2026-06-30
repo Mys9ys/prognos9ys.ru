@@ -38,6 +38,7 @@ class GameEconomyHlInstaller
     public const TABLE_LABOR_ORDER = 'prognos9ys_labor_order';
     public const TABLE_USER_ALBUM = 'prognos9ys_user_album';
     public const TABLE_ALBUM_SLOT = 'prognos9ys_album_slot';
+    public const TABLE_PREMIUM_WORK_QUEUE = 'prognos9ys_premium_work_queue';
 
     public function install(): array
     {
@@ -49,6 +50,7 @@ class GameEconomyHlInstaller
             'UF_USER_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
             'UF_PROGNOBAKS' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
             'UF_RUBLIUS' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
+            'UF_PREMIUM_UNTIL' => ['USER_TYPE_ID' => 'datetime'],
         ]);
 
         $txHlId = $this->ensureHlBlock('Prognos9ysWalletTx', self::TABLE_WALLET_TX, [
@@ -648,6 +650,67 @@ class GameEconomyHlInstaller
         }
 
         return [];
+    }
+
+    /**
+     * HL кошелька: срок действия активного премиума.
+     */
+    public function upgradeWalletPremiumHl(): array
+    {
+        if (!Loader::includeModule('highloadblock')) {
+            throw new \RuntimeException('Модуль highloadblock не установлен');
+        }
+
+        $this->ensureHlBlock('Prognos9ysUserWallet', self::TABLE_WALLET, [
+            'UF_PREMIUM_UNTIL' => ['USER_TYPE_ID' => 'datetime'],
+        ]);
+
+        GameEconomyRepository::resetWalletDataClassCache();
+
+        if (class_exists(\Bitrix\Main\Application::class)) {
+            $app = \Bitrix\Main\Application::getInstance();
+            if ($app) {
+                $app->getManagedCache()->cleanDir('orm');
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * HL очереди офлайн-работ Premium.
+     */
+    public function upgradePremiumWorkQueueHl(): array
+    {
+        if (!Loader::includeModule('highloadblock')) {
+            throw new \RuntimeException('Модуль highloadblock не установлен');
+        }
+
+        $hlId = $this->ensureHlBlock('Prognos9ysPremiumWorkQueue', self::TABLE_PREMIUM_WORK_QUEUE, [
+            'UF_USER_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_SORT' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_TASK_TYPE' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_STATUS' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_LABEL' => ['USER_TYPE_ID' => 'string'],
+            'UF_SESSION_ID' => ['USER_TYPE_ID' => 'integer'],
+            'UF_PAYLOAD_JSON' => ['USER_TYPE_ID' => 'string'],
+            'UF_RESULT_JSON' => ['USER_TYPE_ID' => 'string'],
+            'UF_ERROR_TEXT' => ['USER_TYPE_ID' => 'string'],
+            'UF_CREATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+            'UF_UPDATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+            'UF_FINISHED_AT' => ['USER_TYPE_ID' => 'datetime'],
+        ]);
+
+        GameEconomyRepository::resetPremiumWorkQueueDataClassCache();
+
+        if (class_exists(\Bitrix\Main\Application::class)) {
+            $app = \Bitrix\Main\Application::getInstance();
+            if ($app) {
+                $app->getManagedCache()->cleanDir('orm');
+            }
+        }
+
+        return ['premium_work_queue_hl_id' => $hlId];
     }
 
     /**

@@ -27,6 +27,8 @@ use Prognos9ys\Main\Service\Game\LaborExchangeService;
 use Prognos9ys\Main\Service\Game\MacroEconomyService;
 use Prognos9ys\Main\Service\Game\ProfessionFarmService;
 use Prognos9ys\Main\Service\Game\PackOpenService;
+use Prognos9ys\Main\Service\Game\PremiumService;
+use Prognos9ys\Main\Service\Game\PremiumWorkQueueService;
 use Prognos9ys\Main\Service\Game\ProfessionCertificateService;
 use Prognos9ys\Main\Service\Game\TreasuryService;
 use Prognos9ys\Main\Service\Game\TreasuryShopService;
@@ -76,6 +78,7 @@ class GameController extends BaseController
             'openChests' => $this->getDefaultConfigureForPostToken(),
             'openXpBanks' => $this->getDefaultConfigureForPostToken(),
             'activateProfessionCertificate' => $this->getDefaultConfigureForPostToken(),
+            'activatePremiumScroll' => $this->getDefaultConfigureForPostToken(),
             'learnAlbumRecipe' => $this->getDefaultConfigureForPostToken(),
             'openLootPacks' => $this->getDefaultConfigureForPostToken(),
             'getChestOpenLogMeta' => $this->getDefaultConfigureForPostToken(),
@@ -87,6 +90,8 @@ class GameController extends BaseController
             'pickFarmProfessions' => $this->getDefaultConfigureForPostToken(),
             'startFarmWork' => $this->getDefaultConfigureForPostToken(),
             'cancelFarmWork' => $this->getDefaultConfigureForPostToken(),
+            'enqueuePremiumWork' => $this->getDefaultConfigureForPostToken(),
+            'cancelPremiumWork' => $this->getDefaultConfigureForPostToken(),
             'getAlbumState' => $this->getDefaultConfigureForPostToken(),
             'craftAlbums' => $this->getDefaultConfigureForPostToken(),
             'activateAlbum' => $this->getDefaultConfigureForPostToken(),
@@ -797,6 +802,28 @@ class GameController extends BaseController
         ]);
     }
 
+    public function activatePremiumScrollAction(int $days = 0, bool $activateAll = false): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        try {
+            $result = (new PremiumService())->activateScrolls($userId, $days, $activateAll);
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        GameProfileService::invalidateSummaryCache($userId);
+
+        return array_merge(['status' => 'ok'], $result, [
+            'game' => (new GameProfileService())->getSummary($userId, true, false, true),
+        ]);
+    }
+
     public function learnAlbumRecipeAction(): array
     {
         $userId = TokenAuthService::getCurrentUserId();
@@ -929,6 +956,50 @@ class GameController extends BaseController
             'status' => 'ok',
             'farm' => $farm,
         ];
+    }
+
+    public function enqueuePremiumWorkAction(string $taskType = '', string $payload = ''): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        $decoded = json_decode($payload, true);
+        if (!is_array($decoded)) {
+            throw new ApiException('Некорректные параметры задачи', 400);
+        }
+
+        try {
+            $result = (new PremiumWorkQueueService())->enqueue($userId, $taskType, $decoded);
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok'], $result, [
+            'farm' => (new ProfessionFarmService())->getState($userId),
+            'game' => (new GameProfileService())->getSummary($userId, true, false, true),
+        ]);
+    }
+
+    public function cancelPremiumWorkAction(int $taskId = 0): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        try {
+            $result = (new PremiumWorkQueueService())->cancel($userId, $taskId);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok'], $result, [
+            'farm' => (new ProfessionFarmService())->getState($userId),
+        ]);
     }
 
     public function getAlbumStateAction(): array

@@ -15,6 +15,8 @@ use Prognos9ys\Main\Service\Game\TreasureService;
 use Prognos9ys\Main\Service\Game\UserProgressService;
 use Prognos9ys\Main\Service\Game\XpBankAchievementConfig;
 use Prognos9ys\Main\Service\Game\ExchangeBuyAchievementConfig;
+use Prognos9ys\Main\Service\Game\PremiumService;
+use Prognos9ys\Main\Service\Game\PremiumWorkQueueConfig;
 use Prognos9ys\Main\Service\Game\RecipeAchievementConfig;
 
 class GameEconomyRepository
@@ -25,6 +27,19 @@ class GameEconomyRepository
     /** @var bool */
     private static $learnedRecipesSchemaReady = false;
 
+    /** @var bool */
+    private static $premiumWalletSchemaReady = false;
+
+    /** @var bool */
+    private static $premiumWorkQueueSchemaReady = false;
+
+    /** @var string|null */
+    private static ?string $walletDataClassShared = null;
+
+    /** @var string|null */
+    private static ?string $premiumWorkQueueDataClassShared = null;
+
+    /** @deprecated instance cache replaced by walletDataClassShared */
     private ?string $walletDataClass = null;
     private ?string $walletTxDataClass = null;
     private ?string $levelTierDataClass = null;
@@ -44,10 +59,25 @@ class GameEconomyRepository
     private ?string $exchangeNominalDataClass = null;
     private ?string $bankConsignmentDataClass = null;
     private ?string $treasuryTxDataClass = null;
+    private ?string $premiumWorkQueueDataClass = null;
+
+    public static function resetWalletDataClassCache(): void
+    {
+        self::$walletDataClassShared = null;
+    }
+
+    public static function resetPremiumWorkQueueDataClassCache(): void
+    {
+        self::$premiumWorkQueueDataClassShared = null;
+    }
 
     public function getWalletDataClass(): string
     {
-        return $this->walletDataClass ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_WALLET);
+        if (self::$walletDataClassShared === null) {
+            self::$walletDataClassShared = $this->compileDataClass(GameEconomyHlInstaller::TABLE_WALLET);
+        }
+
+        return self::$walletDataClassShared;
     }
 
     public function getWalletTxDataClass(): string
@@ -138,6 +168,28 @@ class GameEconomyRepository
     public function getTreasuryTxDataClass(): string
     {
         return $this->treasuryTxDataClass ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_TREASURY_TX);
+    }
+
+    public function getPremiumWorkQueueDataClass(): string
+    {
+        if (self::$premiumWorkQueueDataClassShared === null) {
+            self::$premiumWorkQueueDataClassShared = $this->compileDataClass(
+                GameEconomyHlInstaller::TABLE_PREMIUM_WORK_QUEUE
+            );
+        }
+
+        return self::$premiumWorkQueueDataClassShared;
+    }
+
+    public function ensurePremiumWorkQueueSchema(): void
+    {
+        if (self::$premiumWorkQueueSchemaReady) {
+            return;
+        }
+
+        (new GameEconomyHlInstaller())->upgradePremiumWorkQueueHl();
+        self::resetPremiumWorkQueueDataClassCache();
+        self::$premiumWorkQueueSchemaReady = true;
     }
 
     public function addTreasuryTx(array $fields): int
@@ -317,16 +369,28 @@ class GameEconomyRepository
         $primaryId = (int)($primary['ID'] ?? 0);
         $prognobaks = 0.0;
         $rublius = 0.0;
+        $premiumUntil = null;
 
         foreach ($rows as $row) {
             $prognobaks += round((float)($row['UF_PROGNOBAKS'] ?? 0), 1);
             $rublius += round((float)($row['UF_RUBLIUS'] ?? 0), 1);
+            $until = $this->normalizeWalletDateTime($row['UF_PREMIUM_UNTIL'] ?? null);
+            if ($until !== null) {
+                if ($premiumUntil === null || $until->getTimestamp() > $premiumUntil->getTimestamp()) {
+                    $premiumUntil = $until;
+                }
+            }
         }
 
-        $this->updateWallet($primaryId, [
+        $update = [
             'UF_PROGNOBAKS' => round($prognobaks, 1),
             'UF_RUBLIUS' => round($rublius, 1),
-        ]);
+        ];
+        if ($premiumUntil !== null) {
+            $update['UF_PREMIUM_UNTIL'] = $premiumUntil;
+        }
+
+        $this->updateWallet($primaryId, $update);
 
         for ($i = 1, $count = count($rows); $i < $count; $i++) {
             $duplicateId = (int)($rows[$i]['ID'] ?? 0);
@@ -754,6 +818,158 @@ class GameEconomyRepository
         (new GameEconomyHlInstaller())->upgradeLearnedRecipesHl();
         $this->userProgressDataClass = null;
         self::$learnedRecipesSchemaReady = true;
+    }
+
+    public function ensurePremiumWalletSchema(): void
+    {
+        if (self::$premiumWalletSchemaReady && $this->hasWalletField('UF_PREMIUM_UNTIL')) {
+            return;
+        }
+
+        (new GameEconomyHlInstaller())->upgradeWalletPremiumHl();
+        self::resetWalletDataClassCache();
+        self::$premiumWalletSchemaReady = $this->hasWalletField('UF_PREMIUM_UNTIL');
+    }
+
+    private function hasWalletField(string $fieldName): bool
+    {
+        try {
+            $entity = $this->getWalletDataClass()::getEntity();
+
+            return $entity->hasField($fieldName);
+        } catch (\Throwable $exception) {
+            return false;
+        }
+    }
+
+    public function getPremiumUntil(int $userId): ?\Bitrix\Main\Type\DateTime
+    {
+        if ($userId <= 0) {
+            return null;
+        }
+
+        $this->ensurePremiumWalletSchema();
+        $wallet = $this->getWalletByUserId($userId);
+        if (!$wallet) {
+            return null;
+        }
+
+        return $this->normalizeWalletDateTime($wallet['UF_PREMIUM_UNTIL'] ?? null);
+    }
+
+    /**
+     * @param int[] $userIds
+     * @return array<int, \Bitrix\Main\Type\DateTime>
+     */
+    public function getPremiumUntilMap(array $userIds): array
+    {
+        $userIds = array_values(array_unique(array_filter(array_map('intval', $userIds))));
+        if (!$userIds) {
+            return [];
+        }
+
+        $this->ensurePremiumWalletSchema();
+        $map = [];
+        $dataClass = $this->getWalletDataClass();
+        $response = $dataClass::getList([
+            'filter' => ['@UF_USER_ID' => $userIds],
+            'select' => ['UF_USER_ID', 'UF_PREMIUM_UNTIL'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $userId = (int)($row['UF_USER_ID'] ?? 0);
+            $until = $this->normalizeWalletDateTime($row['UF_PREMIUM_UNTIL'] ?? null);
+            if ($userId <= 0 || $until === null) {
+                continue;
+            }
+
+            if (!isset($map[$userId]) || $until->getTimestamp() > $map[$userId]->getTimestamp()) {
+                $map[$userId] = $until;
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * @param mixed $value
+     */
+    private function normalizeWalletDateTime($value): ?\Bitrix\Main\Type\DateTime
+    {
+        if ($value instanceof \Bitrix\Main\Type\DateTime) {
+            return $value;
+        }
+
+        if (!is_string($value)) {
+            return null;
+        }
+
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+
+        try {
+            return new \Bitrix\Main\Type\DateTime($value);
+        } catch (\Throwable $exception) {
+            return null;
+        }
+    }
+
+    public function setPremiumUntil(int $userId, \Bitrix\Main\Type\DateTime $until): void
+    {
+        if ($userId <= 0) {
+            throw new \InvalidArgumentException('Некорректный пользователь');
+        }
+
+        $this->ensurePremiumWalletSchema();
+        $wallet = $this->getWalletByUserId($userId);
+        if (!$wallet) {
+            $this->addWallet([
+                'UF_USER_ID' => $userId,
+                'UF_PROGNOBAKS' => 0,
+                'UF_RUBLIUS' => 0,
+                'UF_PREMIUM_UNTIL' => $until,
+            ]);
+
+            return;
+        }
+
+        $this->updateWallet((int)$wallet['ID'], [
+            'UF_PREMIUM_UNTIL' => $until,
+        ]);
+    }
+
+    /**
+     * Списывает один свиток (FIFO) и возвращает число суток.
+     */
+    public function consumeOldestPremiumScrollUnit(int $userId): int
+    {
+        if ($userId <= 0) {
+            return 0;
+        }
+
+        $dataClass = $this->getTreasureChestDataClass();
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '=UF_TYPE' => TreasureService::CHEST_TYPE_PREMIUM_SCROLL,
+                '=UF_STATUS' => TreasureService::CHEST_STATUS_INVENTORY,
+                '>UF_COUNT' => 0,
+            ],
+            'order' => ['UF_CREATED_AT' => 'ASC', 'ID' => 'ASC'],
+            'limit' => 1,
+        ]);
+
+        $row = $response->fetch();
+        if (!$row) {
+            return 0;
+        }
+
+        $days = $this->resolvePremiumScrollDays((int)($row['UF_MATCH_ID'] ?? 0));
+        $this->consumePremiumScrollUnits($userId, $days, 1);
+
+        return $days;
     }
 
     /**
@@ -4148,7 +4364,7 @@ class GameEconomyRepository
             $rows[] = $row;
         }
 
-        return $rows;
+        return (new PremiumService($this))->sortListingsForCatalog($rows);
     }
 
     /**
@@ -4539,7 +4755,7 @@ class GameEconomyRepository
             $rows[] = $row;
         }
 
-        return $rows;
+        return (new PremiumService($this))->sortListingsForCatalog($rows);
     }
 
     /**
@@ -4552,6 +4768,128 @@ class GameEconomyRepository
         }
 
         return ['=UF_ITEM_CODE' => $code];
+    }
+
+    public function addPremiumWorkQueueItem(array $fields): int
+    {
+        $this->ensurePremiumWorkQueueSchema();
+        $dataClass = $this->getPremiumWorkQueueDataClass();
+        $result = $dataClass::add($fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+
+        return (int)$result->getId();
+    }
+
+    public function updatePremiumWorkQueueItem(int $id, array $fields): void
+    {
+        if ($id <= 0) {
+            return;
+        }
+
+        $this->ensurePremiumWorkQueueSchema();
+        $dataClass = $this->getPremiumWorkQueueDataClass();
+        $result = $dataClass::update($id, $fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+    }
+
+    public function getPremiumWorkQueueItemById(int $id): ?array
+    {
+        if ($id <= 0) {
+            return null;
+        }
+
+        $this->ensurePremiumWorkQueueSchema();
+        $dataClass = $this->getPremiumWorkQueueDataClass();
+
+        return $dataClass::getList([
+            'filter' => ['=ID' => $id],
+            'limit' => 1,
+        ])->fetch() ?: null;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function getPremiumWorkQueueItemsForUser(int $userId, array $statuses): array
+    {
+        if ($userId <= 0 || !$statuses) {
+            return [];
+        }
+
+        $this->ensurePremiumWorkQueueSchema();
+        $dataClass = $this->getPremiumWorkQueueDataClass();
+        $rows = [];
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '@UF_STATUS' => $statuses,
+            ],
+            'order' => ['UF_SORT' => 'ASC', 'ID' => 'ASC'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
+    public function getNextPremiumWorkQueueSort(int $userId): int
+    {
+        if ($userId <= 0) {
+            return 1;
+        }
+
+        $this->ensurePremiumWorkQueueSchema();
+        $dataClass = $this->getPremiumWorkQueueDataClass();
+        $row = $dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '@UF_STATUS' => [
+                    PremiumWorkQueueConfig::STATUS_PENDING,
+                    PremiumWorkQueueConfig::STATUS_ACTIVE,
+                ],
+            ],
+            'order' => ['UF_SORT' => 'DESC'],
+            'select' => ['UF_SORT'],
+            'limit' => 1,
+        ])->fetch();
+
+        return (int)($row['UF_SORT'] ?? 0) + 1;
+    }
+
+    /**
+     * @return int[]
+     */
+    public function getPremiumWorkQueueUserIdsWithDueWork(): array
+    {
+        $this->ensurePremiumWorkQueueSchema();
+        $dataClass = $this->getPremiumWorkQueueDataClass();
+        $userIds = [];
+        $response = $dataClass::getList([
+            'filter' => [
+                '@UF_STATUS' => [
+                    PremiumWorkQueueConfig::STATUS_PENDING,
+                    PremiumWorkQueueConfig::STATUS_ACTIVE,
+                ],
+            ],
+            'select' => ['UF_USER_ID'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $userId = (int)($row['UF_USER_ID'] ?? 0);
+            if ($userId > 0) {
+                $userIds[$userId] = true;
+            }
+        }
+
+        return array_keys($userIds);
     }
 
     private function compileDataClass(string $tableName): string

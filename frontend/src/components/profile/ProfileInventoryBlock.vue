@@ -36,7 +36,8 @@
         @mouseleave="onSlotLeave"
       >
         <div class="slot_icon">
-          <span v-if="item.emoji" class="slot_emoji">{{ item.emoji }}</span>
+          <img v-if="item.imageSrc" :src="item.imageSrc" class="slot_collectible_img" alt="">
+          <span v-else-if="item.emoji" class="slot_emoji">{{ item.emoji }}</span>
           <AppIcon v-else :name="item.icon" size="100%" icon-class="slot_app_icon" />
         </div>
         <span class="slot_count">{{ item.count }}</span>
@@ -91,13 +92,14 @@ import BulkActionProgress from '@/components/game/BulkActionProgress.vue';
 import ChestOpenLogModal from '@/components/profile/ChestOpenLogModal.vue';
 import { apiActions } from '@/api/bitrixClient';
 import { INVENTORY_TABS, resolveInventoryTab } from '@/config/inventoryCatalog';
+import { getWc26PennantIconSrc } from '@/config/wc26PennantIcons';
 
 const OTHER_INVENTORY_SLOTS = [
   { id: 'achievement', field: 'achievement_chests', icon: 'chest_achievement', caption: 'Ачивка', label: 'Сундуки за ачивки', openable: true, pool: 'achievement' },
   { id: 'level', field: 'level_chests', icon: 'chest_xp', caption: 'Уровень', label: 'Сундуки за уровень', openable: true, pool: 'level' },
-  { id: 'premium_1d', field: 'premium_scrolls_1d', icon: 'premium_scroll_1d', caption: '1д', label: 'Свиток премиума (1 сутки)' },
-  { id: 'premium_3d', field: 'premium_scrolls_3d', emoji: '📜', caption: '3д', label: 'Свиток премиума (3 суток)' },
-  { id: 'premium_5d', field: 'premium_scrolls_5d', emoji: '📜', caption: '5д', label: 'Свиток премиума (5 суток)' },
+  { id: 'premium_1d', field: 'premium_scrolls_1d', icon: 'premium_scroll_1d', caption: '1д', label: 'Свиток премиума (1 сутки)', openable: true, premiumScrollDays: 1, actionLabel: 'Активировать' },
+  { id: 'premium_3d', field: 'premium_scrolls_3d', emoji: '📜', caption: '3д', label: 'Свиток премиума (3 суток)', openable: true, premiumScrollDays: 3, actionLabel: 'Активировать' },
+  { id: 'premium_5d', field: 'premium_scrolls_5d', emoji: '📜', caption: '5д', label: 'Свиток премиума (5 суток)', openable: true, premiumScrollDays: 5, actionLabel: 'Активировать' },
   { id: 'pennant_site', field: 'pennant_site', icon: 'pennant_site', caption: 'Сайт', label: 'Вымпел Прогносяус' },
   { id: 'pennant_chm2026', field: 'pennant_chm2026', icon: 'pennant_chm2026', caption: 'ЧМ26', label: 'Вымпел ЧМ-2026' },
 ];
@@ -217,10 +219,7 @@ export default {
       }
 
       OTHER_INVENTORY_SLOTS.forEach((slot) => {
-        let count = Number(this.treasure[slot.field] ?? 0);
-        if (slot.id === 'premium_1d' && !count) {
-          count = Number(this.treasure.premium_scrolls ?? 0);
-        }
+        const count = Number(this.treasure[slot.field] ?? 0);
 
         if (count > 0) {
           slots.push({ ...slot, count });
@@ -253,10 +252,13 @@ export default {
           const gluedTeams = this.game?.album_meta?.glued_teams?.[collectionKey] || [];
           const teamAlreadyGlued = Boolean(teamSlug && gluedTeams.includes(teamSlug));
 
+          const pennantIcon = item.category === 'pennant' ? getWc26PennantIconSrc(item.code) : null;
+
           return {
             id: `loot_${item.code}${item.is_premium ? '_p' : ''}${item.sealed ? '_s' : ''}`,
             count: Number(item.count),
-            emoji: item.emoji || LOOT_EMOJI[item.category] || '📦',
+            emoji: pennantIcon ? null : (item.emoji || LOOT_EMOJI[item.category] || '📦'),
+            imageSrc: pennantIcon,
             caption: item.type_caption || LOOT_CAPTION[item.category] || 'Лут',
             label: item.label || item.code,
             code: item.code,
@@ -409,6 +411,11 @@ export default {
         return;
       }
 
+      if (item.premiumScrollDays) {
+        this.activatePremiumScroll(item, openAll);
+        return;
+      }
+
       if (item.xpBankCode) {
         this.openXpBank(item.xpBankCode, openAll, item);
         return;
@@ -508,6 +515,65 @@ export default {
         }
       } catch (e) {
         this.openLines = [{ text: e.message || 'Ошибка открытия банки опыта', status: 'fail' }];
+        this.openModalDone = true;
+      } finally {
+        this.opening = false;
+      }
+    },
+
+    async activatePremiumScroll(slot, activateAll) {
+      if (!this.authData?.token || this.opening || !slot?.premiumScrollDays || slot.count <= 0) {
+        return;
+      }
+
+      if (activateAll) {
+        const confirmed = window.confirm(
+          `Активировать все свитки «${slot.label}» (${Math.min(slot.count, 30)} шт.)?\n\n`
+          + 'Премиум — ценный ресурс. Продолжить?',
+        );
+        if (!confirmed) {
+          return;
+        }
+      }
+
+      this.opening = true;
+      this.hoveredSlotId = null;
+      this.openModalVisible = true;
+      this.openModalDone = false;
+      this.openModalTitle = activateAll ? 'Активация свитков премиума' : 'Активация свитка премиума';
+      this.openLines = [{ text: 'Продлеваем премиум…', status: 'pending' }];
+      this.openProgressCurrent = 0;
+      this.openProgressTotal = 1;
+
+      try {
+        const data = await apiActions.game.activatePremiumScroll(
+          this.authData.token,
+          slot.premiumScrollDays,
+          activateAll,
+        );
+
+        if (data?.status === 'ok') {
+          this.openLines = (data.lines || []).map((text) => ({ text, status: 'ok' }));
+          this.openProgressCurrent = 1;
+          this.openModalDone = true;
+
+          if (data.game) {
+            this.setUserInfo({
+              ...this.$store.state.auth.userInfo,
+              game_info: {
+                ...data.game,
+                premium: data.premium || data.game.premium,
+              },
+            });
+          } else {
+            await this.refreshGameInfo();
+          }
+        } else {
+          this.openLines = [{ text: 'Не удалось активировать свиток', status: 'fail' }];
+          this.openModalDone = true;
+        }
+      } catch (e) {
+        this.openLines = [{ text: e.message || 'Ошибка активации премиума', status: 'fail' }];
         this.openModalDone = true;
       } finally {
         this.opening = false;
@@ -863,6 +929,14 @@ export default {
   justify-content: center;
   font-size: clamp(22px, 72%, 40px);
   line-height: 1;
+}
+
+.slot_collectible_img {
+  width: 92%;
+  height: 92%;
+  object-fit: contain;
+  object-position: center;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
 }
 
 .slot_count {

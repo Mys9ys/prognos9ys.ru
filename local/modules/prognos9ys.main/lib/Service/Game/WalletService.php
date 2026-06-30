@@ -159,6 +159,8 @@ class WalletService
             'UF_CREATED_AT' => new DateTime(),
         ]);
 
+        GameProfileService::invalidateSummaryCache($userId);
+
         return $this->getWalletSummary($userId);
     }
 
@@ -197,6 +199,8 @@ class WalletService
             'UF_REF_ID' => $refId,
             'UF_CREATED_AT' => new DateTime(),
         ]);
+
+        GameProfileService::invalidateSummaryCache($userId);
 
         return $this->getWalletSummary($userId);
     }

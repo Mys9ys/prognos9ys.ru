@@ -154,6 +154,17 @@ class ExperienceService
             $summary = $this->summarizePendingRows($userId);
         }
 
+        if ($summary['count'] > 0) {
+            try {
+                if ((new PremiumService($this->repository))->hasActivePremium($userId)) {
+                    $this->claimAll($userId, true);
+                    $summary = $this->summarizePendingRows($userId);
+                }
+            } catch (\Throwable $exception) {
+                // авто-сбор XP не должен ломать ответ API
+            }
+        }
+
         return $summary;
     }
 

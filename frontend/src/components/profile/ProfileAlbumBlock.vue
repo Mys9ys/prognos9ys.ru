@@ -122,7 +122,13 @@
               @click="onSlotClick(slot)"
             >
               <span class="slot_flag">{{ slot.team_label }}</span>
-              <span v-if="slot.glued" class="slot_item">{{ slotEmoji(slot) }}</span>
+              <img
+                v-if="slotPennantSrc(slot)"
+                :src="slotPennantSrc(slot)"
+                class="slot_pennant_img"
+                alt=""
+              >
+              <span v-else-if="slot.glued" class="slot_item">{{ slotEmoji(slot) }}</span>
             </button>
           </div>
 
@@ -156,6 +162,7 @@
 import { mapActions, mapMutations, mapState } from 'vuex';
 import { apiActions } from '@/api/bitrixClient';
 import { WC26_TEAMS } from '@/config/wc26Teams';
+import { getWc26PennantIconSrc } from '@/config/wc26PennantIcons';
 
 const MEGA_LABELS = {
   pennant_wc26: 'Мега: вымпелы',
@@ -381,6 +388,17 @@ export default {
         return '🧣';
       }
       return '🏴';
+    },
+
+    slotPennantSrc(slot) {
+      if (!slot?.glued) {
+        return null;
+      }
+      const code = slot.item_code || '';
+      if (!code.startsWith('pennant_wc26_')) {
+        return null;
+      }
+      return getWc26PennantIconSrc(code);
     },
 
     setGameFromResponse(data) {
@@ -752,6 +770,15 @@ export default {
   display: block;
   font-size: 16px;
   margin-top: 2px;
+}
+
+.slot_pennant_img {
+  display: block;
+  width: 100%;
+  max-height: 42px;
+  margin-top: 2px;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
 }
 
 .glue_panel {
