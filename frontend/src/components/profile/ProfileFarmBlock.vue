@@ -158,36 +158,45 @@
             Добавить ещё — формы ниже (смена, крафт, сдача добычи). История — вкладка «Журнал».
           </p>
 
-          <div v-if="workQueue.pending?.length" class="queue_list">
-            <div v-for="item in workQueue.pending" :key="'p' + item.id" class="queue_row">
+          <div v-if="orderedQueueItems.length" class="queue_list">
+            <div
+              v-for="item in orderedQueueItems"
+              :key="'q' + item.id"
+              class="queue_row"
+              :class="{ running: item.status === 'active' }"
+            >
+              <span class="queue_num">{{ item.queuePosition }}</span>
               <span class="queue_label">{{ item.label }}</span>
-              <span class="queue_status wait">ожидает</span>
+              <span
+                class="queue_status"
+                :class="item.status === 'active' ? 'run' : 'wait'"
+              >
+                {{ item.status === 'active' ? 'выполняется' : 'ожидает' }}
+              </span>
               <button
+                v-if="item.status === 'active' && item.task_type === 'farm'"
                 type="button"
                 class="btn secondary mini"
                 :disabled="actionLoading"
                 @click="onCancelPremiumWork(item.id)"
-              >✕</button>
-            </div>
-          </div>
-
-          <div v-if="workQueue.active?.length" class="queue_list">
-            <div v-for="item in workQueue.active" :key="'a' + item.id" class="queue_row">
-              <span class="queue_label">{{ item.label }}</span>
-              <span class="queue_status run">выполняется</span>
+              >
+                Стоп
+              </button>
               <button
-                v-if="item.task_type === 'farm'"
+                v-else-if="item.status !== 'active'"
                 type="button"
                 class="btn secondary mini"
                 :disabled="actionLoading"
                 @click="onCancelPremiumWork(item.id)"
-              >Стоп</button>
+              >
+                ✕
+              </button>
             </div>
           </div>
 
           <p
             class="hint"
-            v-if="!workQueue.pending?.length && !workQueue.active?.length"
+            v-if="!orderedQueueItems.length"
           >Очередь пуста — добавьте задачи кнопкой «★ В очередь».</p>
         </div>
 
@@ -546,6 +555,14 @@ export default {
     },
     workQueue() {
       return this.farm?.work_queue || {};
+    },
+    orderedQueueItems() {
+      const active = Array.isArray(this.workQueue.active) ? this.workQueue.active : [];
+      const pending = Array.isArray(this.workQueue.pending) ? this.workQueue.pending : [];
+      return [...active, ...pending].map((item, index) => ({
+        ...item,
+        queuePosition: index + 1,
+      }));
     },
     showFarmTabs() {
       return !this.farm?.slots?.needs_pick;
@@ -1852,6 +1869,12 @@ export default {
   border-radius: 4px;
   background: fade(@darkbg, 70%);
   font-size: 12px;
+  border: 1px solid transparent;
+
+  &.running {
+    border-color: fade(@yellow, 40%);
+    background: fade(@yellow, 8%);
+  }
 
   .btn.mini {
     flex-shrink: 0;
@@ -1863,6 +1886,25 @@ export default {
     flex-direction: column;
     align-items: stretch;
   }
+}
+
+.queue_num {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  color: @colorText;
+  background: fade(@colorBlur, 25%);
+}
+
+.queue_row.running .queue_num {
+  background: fade(@yellow, 35%);
+  color: @yellow;
 }
 
 .queue_log_main {
