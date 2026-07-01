@@ -59,6 +59,7 @@ class ProfessionFarmService
             ],
             'album_craft' => (new AlbumCraftService($this->repository, $this->economyRepository))->getCraftState($userId),
             'work_queue' => $queueService->getStateForUser($userId),
+            'treasury_labor_open' => (new LaborExchangeService())->getTreasuryLaborOpenByProfession(),
         ];
     }
 

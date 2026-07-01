@@ -99,6 +99,16 @@
             <span class="bulk_emoji">⛏️</span>
             <span>Проф. всем</span>
           </button>
+          <button
+              type="button"
+              class="bulk_btn"
+              :disabled="bulkLoading"
+              title="Всем с одной добывающей — вторая профессия обработки (20% на каждую)"
+              @click="runBulk('farm_pick_processing_professions')"
+          >
+            <span class="bulk_emoji">🪚</span>
+            <span>Обраб. всем</span>
+          </button>
         </div>
         <div class="bulk_subtitle">Добыча на казну (мгновенно)</div>
         <div class="bulk_row">
@@ -344,6 +354,7 @@ const BULK_TITLES = {
   grant_loans_shop: 'Займы 50 (<50 🪙)',
   claim_achievements: 'Сбор ачивок',
   farm_pick_professions: 'Профессии всем',
+  farm_pick_processing_professions: 'Обработка всем (1 проф.)',
   farm_treasury_1: 'Добыча ×1 (всем)',
   farm_treasury_5: 'Добыча ×5 (всем)',
   farm_treasury_gather: 'Добыча ×5 (всем)',
@@ -622,6 +633,7 @@ export default {
         grant_loans_shop: 'Выдать займ 50 прогнобаксов всем, у кого на кошельке меньше 50? (для покупки сундука в лавке). Банк — с максимальной ликвидностью.',
         claim_achievements: 'Забрать все доступные награды за ачивки у всех игроков?',
         farm_pick_professions: 'Назначить всем игрокам добывающую профессию (лес 48%, камень 19%, руда 10%, песок 13%, хлопок 10%)? Только у кого ещё нет профессии.',
+        farm_pick_processing_professions: 'Добавить вторую профессию (обработка, по 20%) всем, у кого ровно одна добывающая?',
         ...FARM_TREASURY_PROMPTS,
       };
 

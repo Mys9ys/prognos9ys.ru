@@ -149,7 +149,9 @@ class ModeratorBulkActionsService
             }
         }
 
-        if ($bulkAction === 'farm_pick_professions' || FarmBulkActionConfig::isTreasuryAction($bulkAction)) {
+        if ($bulkAction === 'farm_pick_professions'
+            || $bulkAction === 'farm_pick_processing_professions'
+            || FarmBulkActionConfig::isTreasuryAction($bulkAction)) {
             try {
                 return $this->executeOne($bulkAction, $userId, $walletRow, []);
             } catch (\Throwable $e) {
@@ -254,6 +256,17 @@ class ModeratorBulkActionsService
 
             case 'farm_pick_professions':
                 $result = $this->botFarmService->pickGatherProfessionIfMissing($userId);
+
+                return $this->oneResult(
+                    $bulkAction,
+                    $userId,
+                    (string)($result['status'] ?? 'failed'),
+                    (string)($result['message'] ?? ''),
+                    $result
+                );
+
+            case 'farm_pick_processing_professions':
+                $result = $this->botFarmService->pickProcessingProfessionIfSingleGather($userId);
 
                 return $this->oneResult(
                     $bulkAction,
@@ -381,6 +394,23 @@ class ModeratorBulkActionsService
 
                 return ['eligible' => true, 'hint' => $label];
 
+            case 'farm_pick_processing_professions':
+                $professions = (new ProfessionRepository())->getProfessionsByUserId($userId);
+                if (count($professions) !== 1) {
+                    return ['eligible' => false, 'skip_reason' => 'Не одна профессия'];
+                }
+
+                $onlyCode = (string)($professions[0]['UF_PROFESSION_CODE'] ?? '');
+                $onlyDef = ProfessionMaterialConfig::getProfession($onlyCode);
+                if (!$onlyDef || ($onlyDef['type'] ?? '') !== 'gather') {
+                    return ['eligible' => false, 'skip_reason' => 'Не только добыча'];
+                }
+
+                $code = BotProfessionPickConfig::pickProcessingCodeForUser($userId);
+                $label = ProfessionMaterialConfig::getProfession($code)['label'] ?? $code;
+
+                return ['eligible' => true, 'hint' => '+ ' . $label];
+
             default:
                 return ['eligible' => false, 'skip_reason' => 'Неизвестное действие'];
         }
@@ -507,6 +537,7 @@ class ModeratorBulkActionsService
             'grant_loans_shop',
             'claim_achievements',
             'farm_pick_professions',
+            'farm_pick_processing_professions',
         ], true) && !FarmBulkActionConfig::isTreasuryAction($bulkAction)) {
             throw new \InvalidArgumentException('Неизвестное массовое действие');
         }

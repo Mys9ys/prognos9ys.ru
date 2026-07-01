@@ -235,6 +235,43 @@ class LaborExchangeService
     }
 
     /**
+     * Есть ли открытый заказ казны на бирже «Работы» по профессии.
+     *
+     * @return array<string, bool>
+     */
+    public function getTreasuryLaborOpenByProfession(): array
+    {
+        $map = [];
+        foreach (ProfessionMaterialConfig::allProfessions() as $definition) {
+            $code = (string)($definition['code'] ?? '');
+            if ($code !== '') {
+                $map[$code] = false;
+            }
+        }
+
+        foreach ($this->orderRepository->getOrdersByPosterKind(LaborExchangeConfig::POSTER_KIND_TREASURY, 100) as $row) {
+            if ((string)($row['UF_STATUS'] ?? '') !== LaborExchangeConfig::STATUS_OPEN) {
+                continue;
+            }
+
+            $orderId = (int)($row['ID'] ?? 0);
+            $professionCode = (string)($row['UF_PROFESSION_CODE'] ?? '');
+            if ($professionCode === '' || !array_key_exists($professionCode, $map)) {
+                continue;
+            }
+
+            $total = (int)($row['UF_ITERATIONS_TOTAL'] ?? 0);
+            $done = (int)($row['UF_ITERATIONS_DONE'] ?? 0);
+            $remaining = max(0, $total - $done - $this->orderRepository->getActiveSessionIterationsSum($orderId));
+            if ($remaining > 0) {
+                $map[$professionCode] = true;
+            }
+        }
+
+        return $map;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function cancelTreasuryOrder(int $orderId): array

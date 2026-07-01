@@ -119,10 +119,13 @@ class PremiumWorkQueueService
         $premiumActive = $this->premiumService->hasActivePremium($userId);
         $pending = [];
         $active = [];
-        foreach ($this->repository->getPremiumWorkQueueItemsForUser($userId, [
+        $rawPending = $this->repository->getPremiumWorkQueueItemsForUser($userId, [
             PremiumWorkQueueConfig::STATUS_PENDING,
+        ]);
+        $rawActive = $this->repository->getPremiumWorkQueueItemsForUser($userId, [
             PremiumWorkQueueConfig::STATUS_ACTIVE,
-        ]) as $row) {
+        ]);
+        foreach (array_merge($rawActive, $rawPending) as $row) {
             $formatted = $this->formatQueueRow($row);
             if ($formatted['status'] === PremiumWorkQueueConfig::STATUS_ACTIVE) {
                 $active[] = $formatted;
@@ -130,6 +133,8 @@ class PremiumWorkQueueService
                 $pending[] = $formatted;
             }
         }
+
+        $eta = $this->buildFarmQueueEta($userId, array_merge($rawActive, $rawPending));
 
         $log = [];
         foreach ($this->repository->getPremiumWorkQueueItemsForUser($userId, PremiumWorkQueueConfig::TERMINAL_STATUSES) as $row) {
@@ -146,6 +151,9 @@ class PremiumWorkQueueService
             'active' => $active,
             'log' => $log,
             'pending_count' => count($pending),
+            'eta_cycles' => (int)($eta['eta_cycles'] ?? 0),
+            'eta_minutes' => (int)($eta['eta_minutes'] ?? 0),
+            'eta_label' => (string)($eta['eta_label'] ?? ''),
         ];
     }
 
@@ -471,6 +479,71 @@ class PremiumWorkQueueService
     }
 
     /**
+     * @param array<int, array<string, mixed>> $rows
+     * @return array{eta_cycles:int,eta_minutes:int,eta_label:string}
+     */
+    private function buildFarmQueueEta(int $userId, array $rows): array
+    {
+        $cycles = 0;
+        $activeSession = $this->professionRepository->getActiveSessionByUserId($userId);
+        $activeSessionId = $activeSession ? (int)($activeSession['ID'] ?? 0) : 0;
+
+        foreach ($rows as $row) {
+            if ((string)($row['UF_TASK_TYPE'] ?? '') !== PremiumWorkQueueConfig::TASK_FARM) {
+                continue;
+            }
+
+            $status = (string)($row['UF_STATUS'] ?? '');
+            $sessionId = (int)($row['UF_SESSION_ID'] ?? 0);
+            if ($status === PremiumWorkQueueConfig::STATUS_ACTIVE
+                && $activeSessionId > 0
+                && $sessionId === $activeSessionId
+                && $activeSession
+            ) {
+                $total = (int)($activeSession['UF_ITERATIONS_TOTAL'] ?? 0);
+                $done = (int)($activeSession['UF_ITERATIONS_DONE'] ?? 0);
+                $cycles += max(0, $total - $done);
+
+                continue;
+            }
+
+            $payload = $this->decodePayload((string)($row['UF_PAYLOAD_JSON'] ?? ''));
+            $iterations = (int)($payload['iterations'] ?? 0);
+            if ($iterations <= 0) {
+                $iterations = ProfessionEconomyConfig::FREE_ITERATIONS_PER_SESSION;
+            }
+            $cycles += $iterations;
+        }
+
+        $minutes = $cycles * ProfessionEconomyConfig::ITERATION_MINUTES;
+
+        return [
+            'eta_cycles' => $cycles,
+            'eta_minutes' => $minutes,
+            'eta_label' => self::formatEtaLabel($minutes),
+        ];
+    }
+
+    private static function formatEtaLabel(int $minutes): string
+    {
+        if ($minutes <= 0) {
+            return '';
+        }
+
+        if ($minutes < 60) {
+            return '~' . $minutes . ' мин';
+        }
+
+        $hours = intdiv($minutes, 60);
+        $rest = $minutes % 60;
+        if ($rest === 0) {
+            return '~' . $hours . ' ч';
+        }
+
+        return '~' . $hours . ' ч ' . $rest . ' мин';
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function formatQueueRow(array $row): array
@@ -545,6 +618,9 @@ class PremiumWorkQueueService
             'active' => [],
             'log' => [],
             'pending_count' => 0,
+            'eta_cycles' => 0,
+            'eta_minutes' => 0,
+            'eta_label' => '',
         ];
     }
 }

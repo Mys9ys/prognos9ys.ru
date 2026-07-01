@@ -126,6 +126,44 @@ class BotFarmService
     }
 
     /**
+     * Вторая профессия (обработка) — только если ровно одна добывающая.
+     *
+     * @return array{status:string,profession_code?:string,label?:string,message:string}
+     */
+    public function pickProcessingProfessionIfSingleGather(int $userId): array
+    {
+        if ($userId <= 0) {
+            return ['status' => 'skipped', 'message' => 'Некорректный пользователь'];
+        }
+
+        $professions = $this->professionRepository->getProfessionsByUserId($userId);
+        if (count($professions) !== 1) {
+            return ['status' => 'skipped', 'message' => 'Нужна ровно одна профессия'];
+        }
+
+        $existingCode = (string)($professions[0]['UF_PROFESSION_CODE'] ?? '');
+        $existingDef = ProfessionMaterialConfig::getProfession($existingCode);
+        if (!$existingDef || ($existingDef['type'] ?? '') !== 'gather') {
+            return ['status' => 'skipped', 'message' => 'Единственная профессия не добыча'];
+        }
+
+        $code = BotProfessionPickConfig::pickProcessingCodeForUser($userId);
+        $definition = ProfessionMaterialConfig::getProfession($code);
+        try {
+            $this->farmService->pickProfessions($userId, [$code]);
+        } catch (\Throwable $exception) {
+            return ['status' => 'failed', 'message' => $exception->getMessage()];
+        }
+
+        return [
+            'status' => 'success',
+            'profession_code' => $code,
+            'label' => $definition['label'] ?? $code,
+            'message' => ($definition['label'] ?? $code) . ' (' . $code . ')',
+        ];
+    }
+
+    /**
      * Мгновенная смена на казну (все циклы сразу) — для модераторского массового действия.
      *
      * @return array{status:string,message:string,profession_code?:string,ticks?:int}

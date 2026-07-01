@@ -157,6 +157,10 @@
             Задачи идут по одной, офлайн. Не хватает ресурсов — пропуск с записью в журнал.
             Добавить ещё — формы ниже (смена, крафт, сдача добычи). История — вкладка «Журнал».
           </p>
+          <p v-if="workQueue.eta_label" class="hint queue_eta">
+            Смен в очереди: {{ workQueue.eta_cycles }}
+            · ориентировочно {{ workQueue.eta_label }}
+          </p>
 
           <div v-if="orderedQueueItems.length" class="queue_list">
             <div
@@ -260,8 +264,10 @@
             <button
               type="button"
               class="work_mode_tab"
-              :class="{ active: workMode === 'treasury' }"
-              @click="workMode = 'treasury'"
+              :class="{ active: workMode === 'treasury', disabled: !treasuryModeAvailable }"
+              :disabled="!treasuryModeAvailable"
+              :title="treasuryModeTitle"
+              @click="selectTreasuryMode"
             >На казну (+{{ farm.economy?.pay_treasury }} 🪙)</button>
             <button
               type="button"
@@ -584,6 +590,22 @@ export default {
         || (this.farm?.catalog || []).find(p => p.code === code)
         || null;
     },
+    treasuryLaborOpenMap() {
+      return this.farm?.treasury_labor_open || {};
+    },
+    treasuryModeAvailable() {
+      const code = this.selectedProfession;
+      if (!code) {
+        return false;
+      }
+      return Boolean(this.treasuryLaborOpenMap[code]);
+    },
+    treasuryModeTitle() {
+      if (this.treasuryModeAvailable) {
+        return '';
+      }
+      return 'Нет открытых заказов казны на бирже для этой профессии';
+    },
     craftInputAvailable() {
       const prof = this.selectedProfessionDef;
       if (!prof || prof.type !== 'process' || !prof.input) {
@@ -749,6 +771,10 @@ export default {
       } else if (this.maxIterationsForWork > 0 && this.selectedIterations < 1) {
         this.selectedIterations = 1;
       }
+      this.ensureWorkModeValid();
+    },
+    treasuryModeAvailable() {
+      this.ensureWorkModeValid();
     },
     activeFarmTab(tab) {
       if (tab === 'work' && this.workQueue.premium_active) {
@@ -806,6 +832,7 @@ export default {
           if (!this.selectedProfession && this.farm?.professions?.length) {
             this.selectedProfession = this.farm.professions[0].code;
           }
+          this.ensureWorkModeValid();
           if (this.farm?.slots?.needs_pick) {
             this.activeFarmTab = 'professions';
           } else if (this.farm?.slots?.can_add_profession) {
@@ -1090,6 +1117,23 @@ export default {
       }
     },
 
+    selectTreasuryMode() {
+      if (this.treasuryModeAvailable) {
+        this.workMode = 'treasury';
+      }
+    },
+
+    ensureWorkModeValid() {
+      if (this.workMode === 'treasury' && !this.treasuryModeAvailable) {
+        this.workMode = 'self';
+      }
+    },
+
+    resolveWorkMode() {
+      this.ensureWorkModeValid();
+      return this.workMode === 'treasury' && !this.treasuryModeAvailable ? 'self' : this.workMode;
+    },
+
     async onEnqueueFarmWork() {
       const token = this.authData?.token;
       if (!token || !this.selectedProfession) {
@@ -1102,7 +1146,7 @@ export default {
       try {
         const data = await apiActions.game.enqueuePremiumWork(token, 'farm', {
           profession_code: this.selectedProfession,
-          work_mode: this.workMode,
+          work_mode: this.resolveWorkMode(),
           iterations: this.selectedIterations,
         });
         if (data?.status === 'ok') {
@@ -1307,7 +1351,7 @@ export default {
         const data = await apiActions.game.startFarmWork(
           token,
           this.selectedProfession,
-          this.workMode,
+          this.resolveWorkMode(),
           this.selectedIterations,
         );
         if (data?.status === 'ok') {
@@ -1745,6 +1789,17 @@ export default {
     background: @orange;
     color: #fff;
   }
+
+  &.disabled,
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+.queue_eta {
+  color: @orange;
+  font-weight: 600;
 }
 
 .iter_row {

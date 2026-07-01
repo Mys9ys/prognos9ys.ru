@@ -70,7 +70,33 @@ class BotProfessionPickConfig
 
     public static function pickGatheringCodeForUser(int $userId, string $profile = self::DEFAULT_PROFILE): string
     {
-        $weights = self::gatheringWeights($profile);
+        return self::pickWeightedCodeForUser($userId, self::gatheringWeights($profile), 'woodcutter');
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    public static function processingWeights(): array
+    {
+        return [
+            'carpenter' => 20,
+            'stonemason' => 20,
+            'smelter' => 20,
+            'glassblower' => 20,
+            'weaver' => 20,
+        ];
+    }
+
+    public static function pickProcessingCodeForUser(int $userId): string
+    {
+        return self::pickWeightedCodeForUser($userId, self::processingWeights(), 'carpenter');
+    }
+
+    /**
+     * @param array<string, int> $weights
+     */
+    private static function pickWeightedCodeForUser(int $userId, array $weights, string $fallback): string
+    {
         $roll = abs($userId) % 100;
         $cursor = 0;
 
@@ -81,7 +107,7 @@ class BotProfessionPickConfig
             }
         }
 
-        return 'woodcutter';
+        return $fallback;
     }
 
     /**
