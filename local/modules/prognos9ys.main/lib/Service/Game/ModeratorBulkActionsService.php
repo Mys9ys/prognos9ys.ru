@@ -152,6 +152,7 @@ class ModeratorBulkActionsService
         if ($bulkAction === 'farm_pick_professions'
             || $bulkAction === 'farm_pick_processing_professions'
             || $bulkAction === 'farm_sell_crafted'
+            || $bulkAction === 'farm_self_process'
             || FarmBulkActionConfig::isTreasuryAction($bulkAction)) {
             try {
                 return $this->executeOne($bulkAction, $userId, $walletRow, []);
@@ -297,6 +298,17 @@ class ModeratorBulkActionsService
                     $userId,
                     'success',
                     'Выставлено ' . $listedQty . ' шт.',
+                    $result
+                );
+
+            case 'farm_self_process':
+                $result = $this->botFarmService->runInstantSelfProcess($userId);
+
+                return $this->oneResult(
+                    $bulkAction,
+                    $userId,
+                    (string)($result['status'] ?? 'failed'),
+                    (string)($result['message'] ?? ''),
                     $result
                 );
 
@@ -450,6 +462,20 @@ class ModeratorBulkActionsService
 
                 return ['eligible' => true, 'hint' => implode(', ', $parts)];
 
+            case 'farm_self_process':
+                $preview = $this->botFarmService->previewSelfProcess($userId);
+                if (!($preview['eligible'] ?? false)) {
+                    return [
+                        'eligible' => false,
+                        'skip_reason' => (string)($preview['skip_reason'] ?? 'Не подходит'),
+                    ];
+                }
+
+                return [
+                    'eligible' => true,
+                    'hint' => (string)($preview['message'] ?? ''),
+                ];
+
             default:
                 return ['eligible' => false, 'skip_reason' => 'Неизвестное действие'];
         }
@@ -578,6 +604,7 @@ class ModeratorBulkActionsService
             'farm_pick_professions',
             'farm_pick_processing_professions',
             'farm_sell_crafted',
+            'farm_self_process',
         ], true) && !FarmBulkActionConfig::isTreasuryAction($bulkAction)) {
             throw new \InvalidArgumentException('Неизвестное массовое действие');
         }

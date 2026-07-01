@@ -461,13 +461,13 @@
 
       <template v-if="!farm.slots?.needs_pick && activeFarmTab === 'log' && showQueueLogTab">
         <div class="section premium_queue_section">
-          <div class="section_title">Журнал очереди Premium ★</div>
+          <div class="section_title">Журнал работ</div>
           <p class="hint">
-            Завершённые, отменённые и пропущенные задачи. Новые записи появляются сверху.
+            Завершённые смены и задачи Premium. Новые записи появляются сверху.
           </p>
 
-          <div v-if="workQueue.log?.length" class="queue_list queue_log">
-            <div v-for="item in workQueue.log" :key="'l' + item.id" class="queue_row log">
+          <div v-if="journalEntries.length" class="queue_list queue_log">
+            <div v-for="item in journalEntries" :key="'l' + item.id" class="queue_row log">
               <div class="queue_log_main">
                 <span class="queue_label">{{ item.label }}</span>
                 <span class="queue_status" :class="item.status">{{ queueStatusLabel(item.status) }}</span>
@@ -634,7 +634,32 @@ export default {
       return !this.farm?.slots?.needs_pick;
     },
     showQueueLogTab() {
-      return Boolean(this.workQueue.premium_active);
+      return Boolean(this.workQueue.premium_active || this.farm?.last_shift?.last_result?.message);
+    },
+    journalEntries() {
+      const log = Array.isArray(this.workQueue.log) ? [...this.workQueue.log] : [];
+      const lastShift = this.farm?.last_shift;
+      if (!lastShift?.last_result?.message) {
+        return log;
+      }
+
+      const sessionId = Number(lastShift.session_id ?? 0);
+      const alreadyLogged = sessionId > 0 && log.some(
+        (item) => Number(item.session_id) === sessionId,
+      );
+      if (alreadyLogged) {
+        return log;
+      }
+
+      return [{
+        id: `shift_${sessionId || 'last'}`,
+        label: `${lastShift.profession_label} · ${this.workModeLabel(lastShift.work_mode)} · ${lastShift.iterations_total} ${this.cycleLabel(lastShift.iterations_total)}`,
+        status: 'completed',
+        finished_at: '',
+        result: lastShift.last_result,
+        error: '',
+        manual_shift: true,
+      }, ...log];
     },
     sessionMaxIterations() {
       return Math.max(1, Number(this.farm?.economy?.max_iterations) || 6);
@@ -923,9 +948,7 @@ export default {
           this.ensureWorkModeValid();
           if (this.farm?.slots?.needs_pick) {
             this.activeFarmTab = 'professions';
-          } else if (this.farm?.slots?.can_add_profession) {
-            this.activeFarmTab = 'professions';
-          } else if (this.farm?.session) {
+          } else if (!silent && this.farm?.session) {
             this.activeFarmTab = 'work';
           }
           if (this.activeFarmTab === 'log' && !this.farm?.work_queue?.premium_active) {
@@ -1511,8 +1534,56 @@ export default {
       if (Array.isArray(result.lines)) {
         return result.lines.map((line) => line.text).filter(Boolean).join(' · ');
       }
+      const parts = [];
+      const userQty = Number(result.user_output_qty ?? 0);
+      if (userQty > 0) {
+        const code = String(result.output_code || '');
+        const label = this.materialLabel(code) || code;
+        parts.push(`+${userQty} ${label}`);
+      }
+      const govQty = Number(result.gov_output_qty ?? 0);
+      if (govQty > 0) {
+        const code = String(result.output_code || '');
+        const label = this.materialLabel(code) || code;
+        parts.push(`+${govQty} ${label} на склад`);
+      }
+      const premiumQty = Number(result.premium_qty ?? 0);
+      if (premiumQty > 0) {
+        const code = String(result.premium_code || '');
+        const label = this.materialLabel(code) || code;
+        parts.push(`+${premiumQty} ${label}`);
+      }
+      if (Number(result.pay_coins ?? 0) > 0) {
+        parts.push(`+${result.pay_coins} 🪙`);
+      }
+      if (Number(result.fee_coins ?? 0) > 0) {
+        parts.push(`−${result.fee_coins} 🪙`);
+      }
+      if (parts.length) {
+        return parts.join(' · ');
+      }
       if (result.listing) {
         return 'Лот выставлен';
+      }
+      return '';
+    },
+
+    materialLabel(code) {
+      if (!code) {
+        return '';
+      }
+      const fromMaterials = (this.farm?.materials || []).find((m) => m.code === code);
+      if (fromMaterials?.label) {
+        return fromMaterials.label;
+      }
+      const fromProf = (this.farm?.professions || []).find(
+        (p) => p.output === code || p.premium === code,
+      );
+      if (fromProf?.output === code) {
+        return fromProf.output_label;
+      }
+      if (fromProf?.premium === code) {
+        return fromProf.premium_label;
       }
       return '';
     },

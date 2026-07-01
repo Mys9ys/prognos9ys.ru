@@ -119,6 +119,16 @@
             <span class="bulk_emoji">🏷️</span>
             <span>Продать крафт</span>
           </button>
+          <button
+              type="button"
+              class="bulk_btn"
+              :disabled="bulkLoading"
+              title="До 5 циклов обработки «для себя»: сырьё из инвентаря + докупка на бирже по лучшей цене"
+              @click="runBulk('farm_self_process')"
+          >
+            <span class="bulk_emoji">🪚</span>
+            <span>Крафт ×5</span>
+          </button>
         </div>
         <div class="bulk_subtitle">Добыча на казну (мгновенно)</div>
         <div class="bulk_row">
@@ -366,6 +376,7 @@ const BULK_TITLES = {
   farm_pick_professions: 'Профессии всем',
   farm_pick_processing_professions: 'Обработка всем (1 проф.)',
   farm_sell_crafted: 'Продать крафт всем',
+  farm_self_process: 'Крафт ×5 (для себя)',
   farm_treasury_1: 'Добыча ×1 (всем)',
   farm_treasury_5: 'Добыча ×6 (всем)',
   farm_treasury_gather: 'Добыча ×6 (всем)',
@@ -646,6 +657,7 @@ export default {
         farm_pick_professions: 'Назначить всем игрокам добывающую профессию (лес 48%, камень 19%, руда 10%, песок 13%, хлопок 10%)? Только у кого ещё нет профессии.',
         farm_pick_processing_professions: 'Добавить вторую профессию (обработка, по 20%) всем, у кого ровно одна добывающая?',
         farm_sell_crafted: 'Выставить на биржу базовые материалы (доска, блок, слиток, стекло, ткань) по номиналу? Лимит лотов соблюдается — остаток пропускается.',
+        farm_self_process: 'Мгновенная обработка «для себя» (до 5 циклов): сырьё из инвентаря, недостающее — покупка на бирже по лучшей цене, затем списание 0,5 🪙/цикл. Пропуск — нет обработки, сырья или монет.',
         ...FARM_TREASURY_PROMPTS,
       };
 
