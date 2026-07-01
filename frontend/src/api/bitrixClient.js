@@ -219,6 +219,14 @@ export const apiActions = {
             'prognos9ys:main.GameController.cancelTreasuryLaborOrder',
             { userToken, orderId }
         ),
+        listTreasuryGovMaterial: (userToken, materialCode, qty) => runBitrixAction(
+            'prognos9ys:main.GameController.listTreasuryGovMaterial',
+            { userToken, materialCode, qty }
+        ),
+        cancelTreasuryGovListing: (userToken, listingId) => runBitrixAction(
+            'prognos9ys:main.GameController.cancelTreasuryGovListing',
+            { userToken, listingId }
+        ),
         getTreasuryShop: (userToken) => runBitrixAction(
             'prognos9ys:main.GameController.getTreasuryShop',
             { userToken }

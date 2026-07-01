@@ -58,11 +58,13 @@ class PremiumFarmMacroPlannerService
         }
 
         $macroType = trim($macroType);
-        $tasks = match ($macroType) {
-            'album' => $this->buildAlbumMacro($userId, $options),
-            'profession' => $this->buildProfessionMacro($userId, $options),
-            default => throw new \InvalidArgumentException('Неизвестный макрос: ' . $macroType),
-        };
+        if ($macroType === 'album') {
+            $tasks = $this->buildAlbumMacro($userId, $options);
+        } elseif ($macroType === 'profession') {
+            $tasks = $this->buildProfessionMacro($userId, $options);
+        } else {
+            throw new \InvalidArgumentException('Неизвестный макрос: ' . $macroType);
+        }
 
         if (!$tasks) {
             throw new \RuntimeException('Не удалось составить план работ');

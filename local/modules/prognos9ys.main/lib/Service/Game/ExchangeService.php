@@ -358,7 +358,8 @@ class ExchangeService
             $sellerId = (int)($listing['UF_SELLER_ID'] ?? 0);
             $sellerBankId = (int)($listing['UF_SELLER_BANK_ID'] ?? 0);
             $isBankListing = $sellerBankId > 0;
-            if (!$isBankListing && $sellerId === $buyerId) {
+            $isTreasuryListing = $this->isTreasuryGovListing($listing);
+            if (!$isBankListing && !$isTreasuryListing && $sellerId === $buyerId) {
                 continue;
             }
 
@@ -370,7 +371,7 @@ class ExchangeService
             $take = min($listingRemaining, $remaining);
             $price = round((float)($listing['UF_PRICE_PER_UNIT'] ?? 0), 1);
             $chunkTotal = round($price * $take, 1);
-            $commission = $isBankListing
+            $commission = ($isBankListing || $isTreasuryListing)
                 ? 0.0
                 : round(
                     $chunkTotal * PremiumService::resolveSellerCommissionPercent($sellerId) / 100,
@@ -383,6 +384,7 @@ class ExchangeService
                 'seller_id' => $sellerId,
                 'seller_bank_id' => $sellerBankId,
                 'is_bank_listing' => $isBankListing,
+                'is_treasury_listing' => $isTreasuryListing,
                 'consignment_id' => (int)($listing['UF_CONSIGNMENT_ID'] ?? 0),
                 'take' => $take,
                 'price' => $price,
@@ -430,9 +432,17 @@ class ExchangeService
             $sellerId = (int)$chunk['seller_id'];
             $sellerBankId = (int)($chunk['seller_bank_id'] ?? 0);
             $isBankListing = !empty($chunk['is_bank_listing']);
+            $isTreasuryListing = !empty($chunk['is_treasury_listing']);
             $take = (int)$chunk['take'];
 
-            if ($isBankListing && $sellerBankId > 0) {
+            if ($isTreasuryListing) {
+                $this->treasuryService->credit(
+                    GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                    (float)$chunk['seller_net'],
+                    'exchange_sell_gov',
+                    $listingId
+                );
+            } elseif ($isBankListing && $sellerBankId > 0) {
                 $this->repository->adjustUserBankLiquid($sellerBankId, (float)$chunk['seller_net']);
             } else {
                 $this->walletService->credit(
@@ -623,6 +633,15 @@ class ExchangeService
     {
         $qty = (int)($row['UF_QTY_REMAINING'] ?? 0);
         if ($qty <= 0) {
+            return;
+        }
+
+        if ($this->isTreasuryGovListing($row)) {
+            $code = (string)($row['UF_ITEM_CODE'] ?? '');
+            if ($code !== '') {
+                (new ProfessionRepository())->addGovWarehouseQty($code, $qty);
+            }
+
             return;
         }
 
@@ -906,6 +925,7 @@ class ExchangeService
             'seller_bank_name' => $sellerBankName,
             'consignor_id' => (int)($row['UF_ORIGINAL_USER_ID'] ?? 0),
             'is_consignment' => $sellerBankId > 0,
+            'is_treasury' => $this->isTreasuryGovListing($row),
             'kind' => $kind,
             'code' => $code,
             'catalog_code' => $catalogCode,
@@ -994,6 +1014,10 @@ class ExchangeService
      */
     private function resolveSellerDisplayName(array $row): string
     {
+        if ($this->isTreasuryGovListing($row)) {
+            return 'Казна';
+        }
+
         $sellerBankId = (int)($row['UF_SELLER_BANK_ID'] ?? 0);
         if ($sellerBankId > 0) {
             $bankName = $this->resolveSellerBankName($sellerBankId);
@@ -1162,5 +1186,223 @@ class ExchangeService
             'sold_qty' => $soldQty,
             'lines' => $lines,
         ];
+    }
+
+    /**
+     * @return array{
+     *   listings: array<int, array<string, mixed>>,
+     *   by_code: array<string, int>
+     * }
+     */
+    public function getTreasuryGovExchangeState(): array
+    {
+        $listings = [];
+        foreach ($this->repository->getActiveTreasuryGovMaterialListings() as $row) {
+            $listings[] = $this->formatListing($row);
+        }
+
+        return [
+            'listings' => $listings,
+            'by_code' => $this->repository->getActiveTreasuryGovMaterialQtyByCode(),
+        ];
+    }
+
+    /**
+     * @return array{listings: array<int, array<string, mixed>>, listed_qty: int}
+     */
+    public function createTreasuryGovMaterialListing(string $materialCode, int $qty): array
+    {
+        $materialCode = trim($materialCode);
+        $qty = max(0, $qty);
+        if ($materialCode === '' || $qty <= 0) {
+            throw new \InvalidArgumentException('Некорректные параметры лота');
+        }
+
+        $catalog = ProfessionMaterialConfig::materialCatalog();
+        if (!isset($catalog[$materialCode]) || !empty($catalog[$materialCode]['is_premium'])) {
+            throw new \InvalidArgumentException('Материал недоступен для продажи с госсклада');
+        }
+
+        $professionRepository = new ProfessionRepository();
+        $available = $professionRepository->getGovWarehouseQty($materialCode);
+        if ($available < $qty) {
+            throw new \RuntimeException('На госскладе только ' . $available . ' шт.');
+        }
+
+        $kind = ExchangeConfig::KIND_MATERIAL;
+        $category = ExchangeConfig::MATERIAL_CATEGORY_NORMAL;
+        $pallet = ExchangeNominalConfig::getPalletLimit($kind, $materialCode, $category);
+        $nominal = ExchangeNominalConfig::getMaterialNominal($materialCode);
+        $created = [];
+        $remaining = $qty;
+
+        while ($remaining > 0) {
+            $chunk = min($remaining, $pallet);
+            $professionRepository->consumeGovWarehouseQty($materialCode, $chunk);
+
+            $now = new DateTime();
+            $expiresAt = DateTime::createFromTimestamp(
+                $now->getTimestamp() + ExchangeConfig::TREASURY_LISTING_DAYS * 86400
+            );
+
+            $listingId = $this->repository->addExchangeListing([
+                'UF_SELLER_ID' => ExchangeConfig::TREASURY_LISTING_SELLER_ID,
+                'UF_ITEM_KIND' => $kind,
+                'UF_ITEM_CODE' => $materialCode,
+                'UF_ITEM_CATEGORY' => $category,
+                'UF_EVENT_ID' => 0,
+                'UF_TEAM_CODE' => '',
+                'UF_QTY_TOTAL' => $chunk,
+                'UF_QTY_REMAINING' => $chunk,
+                'UF_PRICE_PER_UNIT' => $nominal,
+                'UF_NOMINAL_SNAPSHOT' => $nominal,
+                'UF_STATUS' => ExchangeConfig::STATUS_ACTIVE,
+                'UF_ESCROW_REF_TYPE' => ExchangeConfig::ESCROW_REF_TYPE_GOV_WAREHOUSE,
+                'UF_ESCROW_REF_ID' => 0,
+                'UF_EXPIRES_AT' => $expiresAt,
+                'UF_CREATED_AT' => $now,
+                'UF_UPDATED_AT' => $now,
+                'UF_SELLER_BANK_ID' => 0,
+                'UF_CONSIGNMENT_ID' => 0,
+                'UF_ORIGINAL_USER_ID' => 0,
+            ]);
+
+            $row = $this->repository->getExchangeListingById($listingId);
+            if ($row) {
+                $created[] = $this->formatListing($row);
+            }
+
+            $remaining -= $chunk;
+        }
+
+        return [
+            'listings' => $created,
+            'listed_qty' => $qty,
+        ];
+    }
+
+    public function cancelTreasuryGovListing(int $listingId): array
+    {
+        if ($listingId <= 0) {
+            throw new \InvalidArgumentException('Некорректный лот');
+        }
+
+        $row = $this->repository->getExchangeListingById($listingId);
+        if (!$row || !$this->isTreasuryGovListing($row)) {
+            throw new \RuntimeException('Лот казны не найден');
+        }
+        if ((string)($row['UF_STATUS'] ?? '') !== ExchangeConfig::STATUS_ACTIVE) {
+            throw new \RuntimeException('Лот уже закрыт');
+        }
+
+        $this->returnListingToSeller($row);
+        $now = new DateTime();
+        $this->repository->updateExchangeListing($listingId, [
+            'UF_STATUS' => ExchangeConfig::STATUS_CANCELLED,
+            'UF_QTY_REMAINING' => 0,
+            'UF_UPDATED_AT' => $now,
+        ]);
+
+        return ['ok' => true];
+    }
+
+    /**
+     * @return array{
+     *   listed_qty: int,
+     *   listings: array<int, array<string, mixed>>,
+     *   lines: array<int, array{text:string,status:string}>,
+     *   slots_left: int
+     * }
+     */
+    public function sellAllBasicCraftedMaterials(int $userId): array
+    {
+        if ($userId <= 0) {
+            throw new \InvalidArgumentException('Некорректный пользователь');
+        }
+
+        $professionRepository = new ProfessionRepository();
+        $maxListings = $this->resolveMaxListings($userId);
+        $slotsLeft = max(0, $maxListings - $this->repository->countActiveExchangeListingsForUser($userId));
+        $listedQty = 0;
+        $listings = [];
+        $lines = [];
+
+        foreach (ProfessionMaterialConfig::basicProcessedMaterialCodes() as $code) {
+            if ($slotsLeft <= 0) {
+                break;
+            }
+
+            $qty = $professionRepository->getUserMaterialQty($userId, $code, false);
+            if ($qty <= 0) {
+                continue;
+            }
+
+            $label = ProfessionMaterialConfig::getMaterialLabel($code);
+            $nominal = ExchangeNominalConfig::getMaterialNominal($code);
+            $pallet = ExchangeNominalConfig::getPalletLimit(
+                ExchangeConfig::KIND_MATERIAL,
+                $code,
+                ExchangeConfig::MATERIAL_CATEGORY_NORMAL
+            );
+
+            while ($qty > 0 && $slotsLeft > 0) {
+                $chunk = min($qty, $pallet);
+                try {
+                    $result = $this->createListing(
+                        $userId,
+                        ExchangeConfig::KIND_MATERIAL,
+                        $code,
+                        $chunk,
+                        $nominal,
+                        ExchangeConfig::MATERIAL_CATEGORY_NORMAL
+                    );
+                    $listing = $result['listing'] ?? null;
+                    if (is_array($listing)) {
+                        $listings[] = $listing;
+                    }
+                    $listedQty += $chunk;
+                    $qty -= $chunk;
+                    $slotsLeft--;
+                    $lines[] = [
+                        'text' => $label . ' ×' . $chunk . ' · ' . $nominal . ' 🪙',
+                        'status' => 'ok',
+                    ];
+                } catch (\Throwable $exception) {
+                    $lines[] = [
+                        'text' => $label . ': ' . $exception->getMessage(),
+                        'status' => 'fail',
+                    ];
+                    break;
+                }
+            }
+
+            if ($qty > 0 && $slotsLeft <= 0) {
+                $lines[] = [
+                    'text' => $label . ': осталось ' . $qty . ' (лимит лотов)',
+                    'status' => 'skip',
+                ];
+            }
+        }
+
+        if (!$lines) {
+            $lines[] = ['text' => 'Нет базовых материалов для продажи', 'status' => 'skip'];
+        }
+
+        return [
+            'listed_qty' => $listedQty,
+            'listings' => $listings,
+            'lines' => $lines,
+            'slots_left' => $slotsLeft,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
+    private function isTreasuryGovListing(array $row): bool
+    {
+        return (int)($row['UF_SELLER_ID'] ?? -1) === ExchangeConfig::TREASURY_LISTING_SELLER_ID
+            && (int)($row['UF_SELLER_BANK_ID'] ?? 0) === 0
+            && (string)($row['UF_ESCROW_REF_TYPE'] ?? '') === ExchangeConfig::ESCROW_REF_TYPE_GOV_WAREHOUSE;
     }
 }

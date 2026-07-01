@@ -16,6 +16,7 @@ use Prognos9ys\Main\Service\Game\BankOperationsService;
 use Prognos9ys\Main\Service\Game\ChestOpenLogService;
 use Prognos9ys\Main\Service\Game\ChestOpenService;
 use Prognos9ys\Main\Service\Game\ExperienceService;
+use Prognos9ys\Main\Service\Game\ExchangeService;
 use Prognos9ys\Main\Service\Game\GameBankService;
 use Prognos9ys\Main\Service\Game\GameEconomyConfig;
 use Prognos9ys\Main\Service\Game\GameProfileService;
@@ -53,6 +54,8 @@ class GameController extends BaseController
             'getTreasuryLaborOrders' => $this->getDefaultConfigureForPostToken(),
             'createTreasuryLaborOrder' => $this->getDefaultConfigureForPostToken(),
             'cancelTreasuryLaborOrder' => $this->getDefaultConfigureForPostToken(),
+            'listTreasuryGovMaterial' => $this->getDefaultConfigureForPostToken(),
+            'cancelTreasuryGovListing' => $this->getDefaultConfigureForPostToken(),
             'getTreasuryShop' => $this->getDefaultConfigureForPostToken(),
             'buyTreasuryChest' => $this->getDefaultConfigureForPostToken(),
             'buyTreasuryPremium' => $this->getDefaultConfigureForPostToken(),
@@ -284,6 +287,54 @@ class GameController extends BaseController
             'treasury' => (new TreasuryService())->getSummary(),
             'warehouses' => (new GovWarehouseService())->getState(),
         ];
+    }
+
+    public function listTreasuryGovMaterialAction(string $materialCode = '', int $qty = 0): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        if (!(new ImpersonationService())->canImpersonate($userId)) {
+            throw new ApiException('Нет доступа', 403);
+        }
+
+        try {
+            $result = (new ExchangeService())->createTreasuryGovMaterialListing($materialCode, $qty);
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok'], $result, [
+            'warehouses' => (new GovWarehouseService())->getState(),
+        ]);
+    }
+
+    public function cancelTreasuryGovListingAction(int $listingId = 0): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        if (!(new ImpersonationService())->canImpersonate($userId)) {
+            throw new ApiException('Нет доступа', 403);
+        }
+
+        try {
+            $result = (new ExchangeService())->cancelTreasuryGovListing($listingId);
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok'], $result, [
+            'warehouses' => (new GovWarehouseService())->getState(),
+        ]);
     }
 
     public function getTreasuryShopAction(): array

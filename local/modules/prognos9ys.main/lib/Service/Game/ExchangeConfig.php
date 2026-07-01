@@ -33,6 +33,12 @@ class ExchangeConfig
     public const MATERIAL_CATEGORY_PREMIUM = 'premium';
 
     public const ESCROW_REF_TYPE = 'exchange_listing';
+    public const ESCROW_REF_TYPE_GOV_WAREHOUSE = 'gov_warehouse';
+
+    /** Лоты госсклада на бирже (UF_SELLER_ID = 0). */
+    public const TREASURY_LISTING_SELLER_ID = 0;
+
+    public const TREASURY_LISTING_DAYS = 30;
 
     /** @var array<string, int> */
     public const PALLET_LIMITS = [

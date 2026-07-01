@@ -296,6 +296,68 @@
                 <span class="stock_qty" :class="{ zero: item.qty <= 0 }">{{ item.qty }}</span>
                 <span class="stock_qty" :class="{ zero: (item.hands_qty || 0) <= 0 }">{{ item.hands_qty || 0 }}</span>
                 <span class="stock_qty" :class="{ zero: (item.exchange_qty || 0) <= 0 }">{{ item.exchange_qty || 0 }}</span>
+                <button
+                  v-if="canImpersonate && !item.is_premium && item.qty > 0"
+                  type="button"
+                  class="action_btn mini"
+                  :disabled="actionLoading"
+                  @click="openGovListModal(item)"
+                >
+                  На биржу
+                </button>
+              </div>
+            </div>
+
+            <div class="treasury_exchange_section" v-if="canImpersonate">
+              <div class="subsection_title">Продажа с госсклада (биржа)</div>
+              <p class="hint">
+                Лоты от имени «Казна», цена по номиналу, без комиссии. Покупка зачисляет 🪙 в казну.
+              </p>
+              <div v-if="treasuryGovListings.length" class="treasury_exchange_list">
+                <div
+                  v-for="lot in treasuryGovListings"
+                  :key="'tg' + lot.id"
+                  class="treasury_exchange_row"
+                >
+                  <span class="treasury_exchange_label">
+                    {{ lot.label }} ×{{ lot.qty_remaining }} · {{ lot.price_per_unit }} 🪙
+                  </span>
+                  <button
+                    type="button"
+                    class="action_btn mini secondary"
+                    :disabled="actionLoading"
+                    @click="cancelTreasuryGovListing(lot.id)"
+                  >
+                    Снять
+                  </button>
+                </div>
+              </div>
+              <p v-else class="hint">Нет активных лотов казны на бирже.</p>
+            </div>
+
+            <div
+              v-if="govListModal"
+              class="gov_list_modal_backdrop"
+              @click.self="closeGovListModal"
+            >
+              <div class="gov_list_modal">
+                <div class="subsection_title">Выставить {{ govListModal.label }}</div>
+                <p class="hint">
+                  На складе: {{ govListModal.maxQty }} · номинал {{ govListModal.nominal }} 🪙
+                </p>
+                <input
+                  v-model.number="govListModal.qty"
+                  type="number"
+                  min="1"
+                  :max="govListModal.maxQty"
+                  class="qty_input"
+                />
+                <div class="gov_list_modal_actions">
+                  <button type="button" class="action_btn" :disabled="actionLoading" @click="submitGovListMaterial">
+                    Выставить
+                  </button>
+                  <button type="button" class="action_btn secondary" @click="closeGovListModal">Отмена</button>
+                </div>
               </div>
             </div>
 
@@ -463,6 +525,7 @@ export default {
         iterations: 5,
         payPerCycle: 2,
       },
+      govListModal: null,
     };
   },
   computed: {
@@ -506,6 +569,12 @@ export default {
     },
     warehouseFlows() {
       return this.warehouses?.flows?.profession || null;
+    },
+    treasuryGovListings() {
+      return this.warehouses?.treasury_exchange?.listings || [];
+    },
+    treasuryGovQtyByCode() {
+      return this.warehouses?.treasury_exchange?.by_code || {};
     },
     prognobakRows() {
       return [
@@ -709,6 +778,81 @@ export default {
         }
       } catch (e) {
         this.error = e.message || 'Не удалось снять заказ';
+      } finally {
+        this.actionLoading = false;
+      }
+    },
+
+    openGovListModal(item) {
+      const maxQty = Math.max(0, Number(item?.qty) || 0);
+      if (!item?.code || maxQty <= 0) {
+        return;
+      }
+      this.govListModal = {
+        code: item.code,
+        label: item.label,
+        nominal: Number(item.nominal) || 0,
+        maxQty,
+        qty: Math.min(maxQty, 50),
+      };
+    },
+
+    closeGovListModal() {
+      if (this.actionLoading) {
+        return;
+      }
+      this.govListModal = null;
+    },
+
+    async submitGovListMaterial() {
+      const modal = this.govListModal;
+      if (!modal?.code) {
+        return;
+      }
+      const qty = Number(modal.qty) || 0;
+      if (qty < 1 || qty > modal.maxQty) {
+        this.error = 'Укажите количество от 1 до ' + modal.maxQty;
+        return;
+      }
+
+      this.actionLoading = true;
+      this.error = '';
+      this.message = '';
+
+      try {
+        const data = await apiActions.game.listTreasuryGovMaterial(
+          this.authData.token,
+          modal.code,
+          qty,
+        );
+        if (data?.status === 'ok') {
+          this.message = 'На биржу выставлено ' + (data.listed_qty || qty) + ' шт.';
+          this.warehouses = data.warehouses || this.warehouses;
+          this.govListModal = null;
+        }
+      } catch (e) {
+        this.error = e.message || 'Не удалось выставить лот';
+      } finally {
+        this.actionLoading = false;
+      }
+    },
+
+    async cancelTreasuryGovListing(listingId) {
+      if (!listingId) {
+        return;
+      }
+      this.actionLoading = true;
+      this.error = '';
+      this.message = '';
+
+      try {
+        const data = await apiActions.game.cancelTreasuryGovListing(this.authData.token, listingId);
+        if (data?.status === 'ok') {
+          this.message = 'Лот казны снят, материал возвращён на госсклад';
+          this.warehouses = data.warehouses || this.warehouses;
+        }
+      } catch (e) {
+        this.error = e.message || 'Не удалось снять лот';
       } finally {
         this.actionLoading = false;
       }
@@ -1057,12 +1201,67 @@ export default {
 
 .stock_row {
   display: grid;
-  grid-template-columns: 1fr 52px 52px 52px;
+  grid-template-columns: 1fr 52px 52px 52px auto;
   gap: 6px;
   align-items: center;
   font-size: 12px;
   color: @colorBlur;
   padding: 3px 0;
+}
+
+.treasury_exchange_section {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid fade(@colorBlur, 20%);
+}
+
+.treasury_exchange_list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.treasury_exchange_row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.treasury_exchange_label {
+  flex: 1;
+}
+
+.gov_list_modal_backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1200;
+  padding: 16px;
+}
+
+.gov_list_modal {
+  background: @darkbg;
+  border: 1px solid fade(@colorBlur, 25%);
+  border-radius: 8px;
+  padding: 16px;
+  width: 100%;
+  max-width: 320px;
+}
+
+.gov_list_modal_actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.action_btn.mini {
+  padding: 4px 8px;
+  font-size: 11px;
 }
 
 .stock_label {

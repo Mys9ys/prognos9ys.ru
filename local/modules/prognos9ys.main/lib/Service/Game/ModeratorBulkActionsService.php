@@ -151,6 +151,7 @@ class ModeratorBulkActionsService
 
         if ($bulkAction === 'farm_pick_professions'
             || $bulkAction === 'farm_pick_processing_professions'
+            || $bulkAction === 'farm_sell_crafted'
             || FarmBulkActionConfig::isTreasuryAction($bulkAction)) {
             try {
                 return $this->executeOne($bulkAction, $userId, $walletRow, []);
@@ -273,6 +274,29 @@ class ModeratorBulkActionsService
                     $userId,
                     (string)($result['status'] ?? 'failed'),
                     (string)($result['message'] ?? ''),
+                    $result
+                );
+
+            case 'farm_sell_crafted':
+                $result = (new ExchangeService($this->repository))->sellAllBasicCraftedMaterials($userId);
+                $listedQty = (int)($result['listed_qty'] ?? 0);
+                if ($listedQty <= 0) {
+                    $message = 'Нечего выставить';
+                    foreach ($result['lines'] ?? [] as $line) {
+                        if (($line['status'] ?? '') === 'fail') {
+                            $message = (string)($line['text'] ?? $message);
+                            break;
+                        }
+                    }
+
+                    return $this->oneResult($bulkAction, $userId, 'skipped', $message, $result);
+                }
+
+                return $this->oneResult(
+                    $bulkAction,
+                    $userId,
+                    'success',
+                    'Выставлено ' . $listedQty . ' шт.',
                     $result
                 );
 
@@ -411,6 +435,21 @@ class ModeratorBulkActionsService
 
                 return ['eligible' => true, 'hint' => '+ ' . $label];
 
+            case 'farm_sell_crafted':
+                $parts = [];
+                $professionRepository = new ProfessionRepository();
+                foreach (ProfessionMaterialConfig::basicProcessedMaterialCodes() as $code) {
+                    $qty = $professionRepository->getUserMaterialQty($userId, $code, false);
+                    if ($qty > 0) {
+                        $parts[] = ProfessionMaterialConfig::getMaterialLabel($code) . ' ' . $qty;
+                    }
+                }
+                if (!$parts) {
+                    return ['eligible' => false, 'skip_reason' => 'Нет материалов'];
+                }
+
+                return ['eligible' => true, 'hint' => implode(', ', $parts)];
+
             default:
                 return ['eligible' => false, 'skip_reason' => 'Неизвестное действие'];
         }
@@ -538,6 +577,7 @@ class ModeratorBulkActionsService
             'claim_achievements',
             'farm_pick_professions',
             'farm_pick_processing_professions',
+            'farm_sell_crafted',
         ], true) && !FarmBulkActionConfig::isTreasuryAction($bulkAction)) {
             throw new \InvalidArgumentException('Неизвестное массовое действие');
         }

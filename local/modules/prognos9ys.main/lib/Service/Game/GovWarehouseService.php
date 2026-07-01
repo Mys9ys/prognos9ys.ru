@@ -80,6 +80,7 @@ class GovWarehouseService
                 'total_hands_units' => array_sum($handsMap),
                 'total_exchange_units' => array_sum($exchangeMap),
             ],
+            'treasury_exchange' => (new ExchangeService($this->economyRepository))->getTreasuryGovExchangeState(),
             'flows' => [
                 'profession' => [
                     'treasury_out' => $this->economyRepository->sumTreasuryTxAmountByReasons(

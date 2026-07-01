@@ -4349,6 +4349,51 @@ class GameEconomyRepository
     }
 
     /**
+     * Активные лоты госсклада (казна) на бирже.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function getActiveTreasuryGovMaterialListings(): array
+    {
+        $dataClass = $this->getExchangeListingDataClass();
+        $rows = [];
+        $response = $dataClass::getList([
+            'select' => ['*'],
+            'filter' => [
+                '=UF_STATUS' => ExchangeConfig::STATUS_ACTIVE,
+                '>UF_QTY_REMAINING' => 0,
+                '=UF_ITEM_KIND' => ExchangeConfig::KIND_MATERIAL,
+                '=UF_SELLER_ID' => ExchangeConfig::TREASURY_LISTING_SELLER_ID,
+                '=UF_ESCROW_REF_TYPE' => ExchangeConfig::ESCROW_REF_TYPE_GOV_WAREHOUSE,
+            ],
+            'order' => ['UF_CREATED_AT' => 'DESC'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    public function getActiveTreasuryGovMaterialQtyByCode(): array
+    {
+        $map = [];
+        foreach ($this->getActiveTreasuryGovMaterialListings() as $row) {
+            $code = (string)($row['UF_ITEM_CODE'] ?? '');
+            if ($code === '') {
+                continue;
+            }
+            $map[$code] = ($map[$code] ?? 0) + (int)($row['UF_QTY_REMAINING'] ?? 0);
+        }
+
+        return $map;
+    }
+
+    /**
      * @return array<int, array<string, mixed>>
      */
     public function findActiveExchangeListingsForSku(

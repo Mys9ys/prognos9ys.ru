@@ -356,4 +356,19 @@ class ProfessionMaterialConfig
     {
         return self::materialCatalog()[$code]['label'] ?? $code;
     }
+
+    /**
+     * Базовые переработанные материалы (доска, блок, слиток, стекло, ткань).
+     *
+     * @return string[]
+     */
+    public static function basicProcessedMaterialCodes(): array
+    {
+        return ['plank', 'block', 'ingot', 'glass', 'cloth'];
+    }
+
+    public static function isBasicProcessedMaterial(string $code): bool
+    {
+        return in_array($code, self::basicProcessedMaterialCodes(), true);
+    }
 }
