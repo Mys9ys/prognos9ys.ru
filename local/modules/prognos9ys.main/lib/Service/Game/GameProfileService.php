@@ -248,6 +248,31 @@ class GameProfileService
 
         self::invalidateSummaryCache($userId);
 
+        return $this->buildMutationPayload($userId);
+    }
+
+    /**
+     * Кошелёк + инвентарь/альбом после биржевой покупки (без банка, прогресса, сундуков).
+     */
+    public function getWalletMutationSummary(int $userId): array
+    {
+        if ($userId <= 0) {
+            return [];
+        }
+
+        self::invalidateSummaryCache($userId);
+
+        return array_merge(
+            ['wallet' => $this->walletService->getWalletSummary($userId)],
+            $this->buildMutationPayload($userId)
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildMutationPayload(int $userId): array
+    {
         $anchorEventId = (new GameEventScopeService())->getAnchorEventId();
         $lootStacks = ChestLootConfig::mergeInventoryLootStacks(array_merge(
             $this->repository->getLootItemStacksForUser($userId, ChestLootConfig::LOOT_EVENT_GLOBAL),

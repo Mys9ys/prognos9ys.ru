@@ -166,7 +166,7 @@ class ExchangeController extends BaseController
         }
 
         return array_merge(['status' => 'ok'], $result, [
-            'game' => (new GameProfileService())->getSummary($userId),
+            'game' => (new GameProfileService())->getWalletMutationSummary($userId),
         ]);
     }
 

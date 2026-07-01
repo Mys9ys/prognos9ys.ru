@@ -1083,9 +1083,9 @@ export default {
 
         if (data?.status === 'ok') {
           this.message = `Куплено ${data.bought_qty} шт. за ${data.total_spent} 🪙`;
-          await this.syncGameAfterWalletMutation(data.game);
-          await this.refreshState();
-          await this.loadCatalog(true);
+          this.applyGame(data.game);
+          this.patchExchangeWalletFromGame(data.game);
+          this.patchCatalogAfterBuy(group, data.bought_qty);
         }
       } catch (e) {
         this.error = e.message || 'Не удалось купить';
@@ -1117,9 +1117,9 @@ export default {
 
         if (data?.status === 'ok') {
           this.message = `Куплено ${data.bought_qty} шт. за ${data.total_spent} 🪙`;
-          await this.syncGameAfterWalletMutation(data.game);
-          await this.refreshState();
-          await this.loadCatalog(true);
+          this.applyGame(data.game);
+          this.patchExchangeWalletFromGame(data.game);
+          this.patchCatalogAfterBuy(item, data.bought_qty);
         }
       } catch (e) {
         this.error = e.message || 'Не удалось купить';
@@ -1242,6 +1242,37 @@ export default {
         ...this.$store.state.auth.userInfo,
         game_info: { ...prev, ...game },
       });
+    },
+
+    patchExchangeWalletFromGame(game) {
+      const prognobaks = Number(game?.wallet?.prognobaks);
+      if (!Number.isFinite(prognobaks) || !this.state) {
+        return;
+      }
+      this.state = { ...this.state, wallet_prognobaks: prognobaks };
+    },
+
+    patchCatalogAfterBuy(group, boughtQty) {
+      const qty = Number(boughtQty) || 0;
+      if (!qty || !group?.group_key) {
+        return;
+      }
+
+      const idx = this.catalogItems.findIndex((item) => item.group_key === group.group_key);
+      if (idx < 0) {
+        return;
+      }
+
+      const current = this.catalogItems[idx];
+      const nextQty = Math.max(0, (Number(current.qty_total) || 0) - qty);
+      if (nextQty <= 0) {
+        this.catalogItems = this.catalogItems.filter((item) => item.group_key !== group.group_key);
+        return;
+      }
+
+      const items = [...this.catalogItems];
+      items[idx] = { ...current, qty_total: nextQty };
+      this.catalogItems = items;
     },
 
     async syncGameAfterWalletMutation(game) {

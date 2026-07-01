@@ -18,8 +18,10 @@ if (!\Bitrix\Main\Loader::includeModule('prognos9ys.main')) {
 }
 
 use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
+use Prognos9ys\Main\Service\Game\ChestLootConfig;
 use Prognos9ys\Main\Service\Game\ExchangeConfig;
 use Prognos9ys\Main\Service\Game\ExchangeService;
+use Prognos9ys\Main\Service\Game\GameProfileService;
 use Prognos9ys\Main\Service\Game\MacroEconomyService;
 use Prognos9ys\Main\Service\Game\WalletService;
 
@@ -308,6 +310,54 @@ function runBuy(
     echo json_encode($trades, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) . "\n";
 }
 
+function benchBuyPath(GameEconomyRepository $repo, int $userId): void
+{
+    if ($userId <= 0) {
+        echo "Usage: php diag_exchange_purchase.php bench <userId> [catalogTab]\n";
+        exit(1);
+    }
+
+    $catalogTab = (string)($GLOBALS['argv'][3] ?? 'souvenir');
+    $profile = new GameProfileService();
+    $exchange = new ExchangeService();
+
+    $samples = [
+        ['loot', 'pack_pennant_wc26', ChestLootConfig::CATEGORY_PACK],
+        ['loot', 'pack_scarf_wc26', ChestLootConfig::CATEGORY_PACK],
+    ];
+
+    echo "=== Buy path timing (user #{$userId}, tab={$catalogTab}) ===\n\n";
+
+    $steps = [
+        'getSummary (old buy response)' => static fn() => $profile->getSummary($userId, true, false, true),
+        'getWalletMutationSummary (new buy response)' => static fn() => $profile->getWalletMutationSummary($userId),
+        'getState (old refresh after buy)' => static fn() => $exchange->getState($userId),
+        'getCatalog souvenir tab (old reload after buy)' => static fn() => $exchange->getCatalog(0, 25, $catalogTab),
+    ];
+
+    foreach ($steps as $label => $fn) {
+        $start = microtime(true);
+        $fn();
+        $ms = round((microtime(true) - $start) * 1000, 1);
+        echo sprintf("  %-45s %6.1f ms\n", $label, $ms);
+    }
+
+    echo "\n=== Per-SKU listing lookup (buy core) ===\n";
+    foreach ($samples as [$kind, $code, $category]) {
+        $start = microtime(true);
+        $rows = $repo->findActiveExchangeListingsForSku($kind, $code, $category);
+        $ms = round((microtime(true) - $start) * 1000, 1);
+        echo sprintf(
+            "  %-24s %6.1f ms  (%d listings)\n",
+            "{$kind}/{$code}",
+            $ms,
+            count($rows)
+        );
+    }
+
+    echo "\nNote: UI after buy was ~4 sequential requests; now 1 request + local catalog patch.\n";
+}
+
 switch ($mode) {
     case 'survey':
         survey($repo);
@@ -321,9 +371,13 @@ switch ($mode) {
         $price = isset($argv[7]) ? (float)$argv[7] : 0.0;
         runBuy($repo, $walletService, $buyerId, $kind, $code, $qty, $category, $price);
         break;
+    case 'bench':
+        benchBuyPath($repo, (int)($argv[2] ?? 0));
+        break;
     default:
         echo "Usage:\n";
         echo "  php diag_exchange_purchase.php survey\n";
+        echo "  php diag_exchange_purchase.php bench <userId> [catalogTab]\n";
         echo "  php diag_exchange_purchase.php buy <buyerId> <kind> <code> <qty> [category] [pricePerUnit]\n";
         exit(1);
 }
