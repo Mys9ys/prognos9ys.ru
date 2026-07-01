@@ -68,6 +68,21 @@
               <span v-else-if="tierRow.claimed" class="mega_claimed">✓</span>
             </div>
           </div>
+          <div v-if="buyTiersForRow(row).length" class="mega_buy_row">
+            <button
+              v-for="tier in buyTiersForRow(row)"
+              :key="key + '-buy-' + tier"
+              type="button"
+              class="mega_buy_btn"
+              :disabled="busy"
+              @click="buyCollectionToTier(key, tier)"
+            >
+              Докупить до {{ tier }}
+            </button>
+          </div>
+          <p v-if="buyTiersForRow(row).length" class="hint mega_buy_hint">
+            Сначала вклейка из инвентаря, затем покупка на бирже (пока хватает 🪙).
+          </p>
         </div>
       </div>
 
@@ -470,6 +485,61 @@ export default {
       }
     },
 
+    buyTiersForRow(row) {
+      const glued = Number(row?.glued) || 0;
+      const thresholds = Array.isArray(row?.thresholds) ? row.thresholds : [16, 32, 48];
+      return thresholds.filter((tier) => glued < tier);
+    },
+
+    async buyCollectionToTier(collection, targetTier) {
+      const token = this.authData?.token;
+      if (!token || !collection || !targetTier || this.busy) {
+        return;
+      }
+
+      const label = this.megaLabels[collection] || 'коллекцию';
+      const ok = window.confirm(
+        `Докупить ${label.toLowerCase()} до ${targetTier} шт.?\n`
+        + 'Сначала вклейка из инвентаря, затем покупка на бирже по лучшей цене, пока хватает 🪙.',
+      );
+      if (!ok) {
+        return;
+      }
+
+      this.busy = true;
+      this.message = '';
+      this.messageFail = false;
+
+      try {
+        const data = await apiActions.game.buyAlbumCollectionToTier(token, collection, targetTier);
+        if (data?.status === 'ok') {
+          this.applyState(data.album);
+          const parts = (data.lines || []).map((line) => line.text).filter(Boolean);
+          const summary = [];
+          if (Number(data.bought) > 0) {
+            summary.push(`куплено: ${data.bought}`);
+          }
+          if (Number(data.glued_from_inventory) > 0) {
+            summary.push(`из инвентаря: ${data.glued_from_inventory}`);
+          }
+          if (Number(data.spent) > 0) {
+            summary.push(`−${data.spent} 🪙`);
+          }
+          this.message = parts.join(' · ')
+            || (summary.length ? summary.join(', ') : 'Готово');
+          this.setGameFromResponse(data);
+        } else {
+          this.messageFail = true;
+          this.message = data?.message || 'Не удалось докупить';
+        }
+      } catch (e) {
+        this.messageFail = true;
+        this.message = e.message || 'Ошибка докупки';
+      } finally {
+        this.busy = false;
+      }
+    },
+
     async glueAllEligible() {
       const token = this.authData?.token;
       if (!token || this.busy) {
@@ -673,6 +743,32 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.mega_buy_row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.mega_buy_btn {
+  background: fade(@orange, 12%);
+  color: @orange;
+  border: 1px solid fade(@orange, 35%);
+  border-radius: 4px;
+  padding: 5px 8px;
+  font-size: 11px;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+}
+
+.mega_buy_hint {
+  margin-top: 4px;
 }
 
 .mega_reward_row {

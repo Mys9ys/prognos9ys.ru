@@ -311,6 +311,10 @@ export const apiActions = {
             'prognos9ys:main.GameController.glueAllAlbumItems',
             { userToken, albumId: albumId || undefined }
         ),
+        buyAlbumCollectionToTier: (userToken, collection, targetTier) => runBitrixAction(
+            'prognos9ys:main.GameController.buyAlbumCollectionToTier',
+            { userToken, collection, targetTier }
+        ),
         moderatorBulkAction: (userToken, bulkAction) => runBitrixAction(
             'prognos9ys:main.GameController.moderatorBulkAction',
             { userToken, bulkAction }

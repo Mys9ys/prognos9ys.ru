@@ -5,6 +5,7 @@ namespace Prognos9ys\Main\Controller;
 use Prognos9ys\Main\Service\Auth\ImpersonationService;
 use Prognos9ys\Main\Service\Auth\TokenAuthService;
 use Prognos9ys\Main\Service\Game\AchievementService;
+use Prognos9ys\Main\Service\Game\AlbumCollectionBuyService;
 use Prognos9ys\Main\Service\Game\AlbumCraftService;
 use Prognos9ys\Main\Service\Game\AlbumRecipeService;
 use Prognos9ys\Main\Service\Game\AlbumService;
@@ -103,6 +104,7 @@ class GameController extends BaseController
             'activateAlbum' => $this->getDefaultConfigureForPostToken(),
             'glueAlbumItem' => $this->getDefaultConfigureForPostToken(),
             'glueAllAlbumItems' => $this->getDefaultConfigureForPostToken(),
+            'buyAlbumCollectionToTier' => $this->getDefaultConfigureForPostToken(),
         ];
     }
 
@@ -1198,6 +1200,27 @@ class GameController extends BaseController
 
         return array_merge(['status' => 'ok'], $result, [
             'album' => $albumService->getState($userId),
+            'game' => (new GameProfileService())->getMutationSummary($userId),
+        ]);
+    }
+
+    public function buyAlbumCollectionToTierAction(string $collection = '', int $targetTier = 0): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        try {
+            $result = (new AlbumCollectionBuyService())->buyMissingToTier($userId, $collection, $targetTier);
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok'], $result, [
+            'album' => (new AlbumService())->getState($userId),
             'game' => (new GameProfileService())->getMutationSummary($userId),
         ]);
     }

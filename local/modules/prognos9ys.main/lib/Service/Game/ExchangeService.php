@@ -318,7 +318,8 @@ class ExchangeService
         string $category = '',
         int $eventId = 0,
         string $teamCode = '',
-        float $pricePerUnit = 0
+        float $pricePerUnit = 0,
+        string $listingSort = 'price'
     ): array {
         if ($buyerId <= 0 || $qty <= 0) {
             throw new \InvalidArgumentException('Некорректная покупка');
@@ -346,6 +347,8 @@ class ExchangeService
                 static fn(array $listing): bool => round((float)($listing['UF_PRICE_PER_UNIT'] ?? 0), 1) === $targetPrice
             ));
         }
+
+        $listings = $this->sortListingsForPurchase($listings, $listingSort, $buyerId);
 
         $chunks = [];
         $remaining = $qty;
@@ -1007,6 +1010,47 @@ class ExchangeService
         }
 
         return $eventId;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $listings
+     * @return array<int, array<string, mixed>>
+     */
+    private function sortListingsForPurchase(array $listings, string $listingSort, int $buyerId): array
+    {
+        $listingSort = trim($listingSort);
+        if ($listingSort !== 'fat_lots') {
+            return $listings;
+        }
+
+        $filtered = [];
+        foreach ($listings as $listing) {
+            $sellerId = (int)($listing['UF_SELLER_ID'] ?? 0);
+            $sellerBankId = (int)($listing['UF_SELLER_BANK_ID'] ?? 0);
+            $isTreasuryListing = $this->isTreasuryGovListing($listing);
+            if ($sellerBankId <= 0 && !$isTreasuryListing && $sellerId === $buyerId) {
+                continue;
+            }
+            $filtered[] = $listing;
+        }
+
+        usort($filtered, static function (array $a, array $b): int {
+            $qtyA = (int)($a['UF_QTY_REMAINING'] ?? 0);
+            $qtyB = (int)($b['UF_QTY_REMAINING'] ?? 0);
+            if ($qtyA !== $qtyB) {
+                return $qtyB <=> $qtyA;
+            }
+
+            $priceA = (float)($a['UF_PRICE_PER_UNIT'] ?? 0);
+            $priceB = (float)($b['UF_PRICE_PER_UNIT'] ?? 0);
+            if ($priceA !== $priceB) {
+                return $priceA <=> $priceB;
+            }
+
+            return ((int)($a['ID'] ?? 0)) <=> ((int)($b['ID'] ?? 0));
+        });
+
+        return $filtered;
     }
 
     /**

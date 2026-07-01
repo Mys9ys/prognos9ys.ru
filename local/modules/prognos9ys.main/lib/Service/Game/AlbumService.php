@@ -173,6 +173,41 @@ class AlbumService
     }
 
     /**
+     * Альбом для вклейки коллекции (точное совпадение или универсальный).
+     */
+    public function resolveAlbumIdForCollection(int $userId, string $collection): int
+    {
+        if ($userId <= 0 || $collection === '') {
+            return 0;
+        }
+
+        $this->albumRepository->ensureSchema();
+        $rows = $this->albumRepository->getAlbumsByUserId($userId);
+
+        foreach ($rows as $row) {
+            if ((string)($row['UF_COLLECTION'] ?? '') === $collection) {
+                return (int)($row['ID'] ?? 0);
+            }
+        }
+
+        foreach ($rows as $row) {
+            $albumCollection = (string)($row['UF_COLLECTION'] ?? '');
+            if ($albumCollection !== '' && $albumCollection !== AlbumConfig::COLLECTION_UNIVERSAL) {
+                continue;
+            }
+
+            $required = $this->resolveRequiredCollectionForAlbum($userId, $row);
+            if ($required !== null && $required !== $collection) {
+                continue;
+            }
+
+            return (int)($row['ID'] ?? 0);
+        }
+
+        return 0;
+    }
+
+    /**
      * @return array{lines:array<int, array{text:string,status:string}>,album:array<string,mixed>}
      */
     public function glue(int $userId, int $albumId, string $itemCode): array
