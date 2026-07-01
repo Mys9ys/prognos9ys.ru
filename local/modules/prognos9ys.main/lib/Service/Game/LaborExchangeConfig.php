@@ -4,7 +4,7 @@ namespace Prognos9ys\Main\Service\Game;
 
 class LaborExchangeConfig
 {
-    public const MAX_CYCLES_PER_CLAIM = 5;
+    public const MAX_CYCLES_PER_CLAIM = 6;
 
     public const MIN_ITERATIONS = 1;
 

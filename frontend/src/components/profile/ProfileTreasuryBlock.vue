@@ -522,7 +522,7 @@ export default {
       treasuryLaborOrders: [],
       laborForm: {
         professionCode: '',
-        iterations: 5,
+        iterations: 6,
         payPerCycle: 2,
       },
       govListModal: null,

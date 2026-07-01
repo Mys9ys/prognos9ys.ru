@@ -636,8 +636,11 @@ export default {
     showQueueLogTab() {
       return Boolean(this.workQueue.premium_active);
     },
+    sessionMaxIterations() {
+      return Math.max(1, Number(this.farm?.economy?.max_iterations) || 6);
+    },
     iterationOptions() {
-      const max = Math.min(5, Number(this.farm?.economy?.max_iterations) || 5);
+      const max = this.sessionMaxIterations;
       const cap = Math.min(max, this.maxIterationsForWork || max);
       return Array.from({ length: cap }, (_, i) => i + 1);
     },
@@ -686,7 +689,7 @@ export default {
       return Number(row?.qty ?? 0);
     },
     maxIterationsForWork() {
-      const max = Math.min(5, Number(this.farm?.economy?.max_iterations) || 5);
+      const max = this.sessionMaxIterations;
       const prof = this.selectedProfessionDef;
       if (!prof || prof.type !== 'process' || !prof.input) {
         return max;
@@ -743,7 +746,7 @@ export default {
       return perCraft * (Number(this.albumMacroBatches) || 1);
     },
     macroOutputQty() {
-      return Math.max(1, Math.min(5, Number(this.selectedIterations) || 1));
+      return Math.max(1, Math.min(this.sessionMaxIterations, Number(this.selectedIterations) || 1));
     },
     professionMacroLabel() {
       const prof = this.selectedProfessionDef;

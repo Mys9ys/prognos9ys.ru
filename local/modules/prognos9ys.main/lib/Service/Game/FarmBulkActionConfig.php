@@ -3,7 +3,7 @@
 namespace Prognos9ys\Main\Service\Game;
 
 /**
- * Массовая добыча на казну: циклы (1 / 5) и аудитория (все / бедные / в долгах).
+ * Массовая добыча на казну: циклы (1 / полная смена) и аудитория (все / бедные / в долгах).
  */
 class FarmBulkActionConfig
 {
@@ -39,12 +39,24 @@ class FarmBulkActionConfig
     {
         $map = [
             'farm_treasury_1' => ['iterations' => 1, 'scope' => self::SCOPE_ALL],
-            'farm_treasury_5' => ['iterations' => 5, 'scope' => self::SCOPE_ALL],
-            'farm_treasury_gather' => ['iterations' => 5, 'scope' => self::SCOPE_ALL],
+            'farm_treasury_5' => [
+                'iterations' => ProfessionEconomyConfig::FREE_ITERATIONS_PER_SESSION,
+                'scope' => self::SCOPE_ALL,
+            ],
+            'farm_treasury_gather' => [
+                'iterations' => ProfessionEconomyConfig::FREE_ITERATIONS_PER_SESSION,
+                'scope' => self::SCOPE_ALL,
+            ],
             'farm_treasury_1_poor' => ['iterations' => 1, 'scope' => self::SCOPE_POOR],
-            'farm_treasury_5_poor' => ['iterations' => 5, 'scope' => self::SCOPE_POOR],
+            'farm_treasury_5_poor' => [
+                'iterations' => ProfessionEconomyConfig::FREE_ITERATIONS_PER_SESSION,
+                'scope' => self::SCOPE_POOR,
+            ],
             'farm_treasury_1_indebted' => ['iterations' => 1, 'scope' => self::SCOPE_INDEBTED],
-            'farm_treasury_5_indebted' => ['iterations' => 5, 'scope' => self::SCOPE_INDEBTED],
+            'farm_treasury_5_indebted' => [
+                'iterations' => ProfessionEconomyConfig::FREE_ITERATIONS_PER_SESSION,
+                'scope' => self::SCOPE_INDEBTED,
+            ],
         ];
 
         return $map[$action] ?? null;

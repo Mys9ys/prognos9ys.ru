@@ -363,7 +363,7 @@ class LaborExchangeService
     }
 
     /**
-     * Исполнитель берёт заказ (до 5 циклов).
+     * Исполнитель берёт заказ (до полной смены — FREE_ITERATIONS_PER_SESSION).
      *
      * @return array{order: array<string, mixed>, farm: array<string, mixed>}
      */

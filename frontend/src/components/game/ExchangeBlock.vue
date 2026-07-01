@@ -535,7 +535,7 @@ export default {
       laborPagination: { offset: 0, limit: 25, has_more: false },
       laborForm: {
         professionCode: '',
-        iterations: 5,
+        iterations: 6,
         payPerCycle: 2,
       },
       laborClaimQty: {},
