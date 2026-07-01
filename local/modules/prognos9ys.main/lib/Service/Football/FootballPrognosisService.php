@@ -14,6 +14,21 @@ class FootballPrognosisService
             $normalizedFields[is_numeric($key) ? (int)$key : $key] = $value;
         }
 
+        $userId = (int)((new \GetUserIdForToken($userToken))->getId() ?: 0);
+        $matchId = (int)($normalizedFields[17] ?? 0);
+
+        if ($userId > 0 && $matchId > 0) {
+            try {
+                $normalizedFields = (new FootballPrognosisEditService())
+                    ->prepareFieldsForSubmit($userId, $matchId, $normalizedFields);
+            } catch (\RuntimeException $exception) {
+                return [
+                    'status' => 'error',
+                    'mes' => $exception->getMessage(),
+                ];
+            }
+        }
+
         if ($withBet !== null) {
             $normalizedFields[GameEconomyConfig::PROGNOSIS_PROP_BET_ENABLED] = $withBet
                 ? GameEconomyConfig::PROGNOSIS_BET_ENABLED_YES

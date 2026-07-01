@@ -97,6 +97,10 @@ export const apiActions = {
             'prognos9ys:main.FootballController.sendPrognosis',
             { userToken, fields, withBet: withBet === null ? undefined : withBet }
         ),
+        randomPrognosis: (userToken, matchId) => runBitrixAction(
+            'prognos9ys:main.FootballController.randomPrognosis',
+            { userToken, matchId }
+        ),
     },
     cs2: {
         getEventMatches: (events, userToken = '') => runBitrixAction(

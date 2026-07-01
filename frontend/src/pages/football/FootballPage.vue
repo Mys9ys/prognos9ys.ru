@@ -72,14 +72,17 @@
         </div>
       </div>
 
-      <div class="match_record_wrapper" v-else-if="arMatch.active === 'Y'">
+      <div class="match_record_wrapper" v-else-if="showPrognosisForm">
         <div class="prognosis_block">
           <div class="time_send" v-if="prognosis?.time_send">
             <div class="title_block">
               Заполнено: {{prognosis.time_send}}
             </div>
           </div>
-          <div class="part_block">
+          <div class="premium_edit_hint" v-if="premiumEditActive">
+            ★ Premium: правка счёта и карточек ещё {{ premiumEditTimerLabel }}
+          </div>
+          <div class="part_block" :class="fieldLockedClass(15)">
             <div class="title_block">
               <div class="item icon"><FootballMetricIcon context="prognosis" :field-id="1" badge :size="22" /></div>
               <div class="item title">{{ title[1] }}:</div>
@@ -105,12 +108,16 @@
           </div>
           <div class="prognosis_dash_line"></div>
 
-          <div class="part_block">
+          <div class="part_block" :class="fieldLockedClass(18)">
             <div class="title_block auto_block_title">
               <div class="item auto_title_text">Заполняется автоматически</div>
               <div class="more_btn" @click="autoBlock = !autoBlock"><span
                   :class="{'close' : !autoBlock, 'open' : autoBlock}"> > </span></div>
-              <label class="bet_checkbox" :class="{ bet_checkbox_disabled: !canAffordBet }">
+              <label
+                v-if="!isPremiumLimitedEdit"
+                class="bet_checkbox"
+                :class="{ bet_checkbox_disabled: !canAffordBet }"
+              >
                 <input
                   class="bet_input"
                   type="checkbox"
@@ -127,7 +134,7 @@
           </div>
 
 
-          <div class="auto_block" v-if="autoBlock">
+          <div class="auto_block" v-if="autoBlock" :class="{ field_locked: isPremiumLimitedEdit }">
             <div class="prognosis_dash_line"></div>
             <div class="part_block">
               <div class="title_block block_absolute">
@@ -174,7 +181,7 @@
 
           <div class="prognosis_dash_line"></div>
 
-          <div class="part_block">
+          <div class="part_block" :class="fieldLockedClass(32)">
             <div class="title_block">
               <div class="item icon"><FootballMetricIcon context="prognosis" :field-id="32" badge :size="22" /></div>
               <div class="item title">{{ title[32] }}:</div>
@@ -191,7 +198,7 @@
             </div>
           </div>
           <div class="prognosis_dash_line"></div>
-          <div class="part_block yellow">
+          <div class="part_block yellow" :class="fieldLockedClass(21)">
             <div class="title_block block_absolute">
               <div class="item icon"><FootballMetricIcon context="prognosis" :field-id="21" badge :size="22" /></div>
               <div class="item title">{{ title[21] }}:</div>
@@ -207,7 +214,7 @@
             </div>
           </div>
           <div class="prognosis_dash_line"></div>
-          <div class="part_block red">
+          <div class="part_block red" :class="fieldLockedClass(22)">
             <div class="title_block block_absolute">
               <div class="item icon"><FootballMetricIcon context="prognosis" :field-id="22" badge :size="22" /></div>
               <div class="item title">{{ title[22] }}:</div>
@@ -223,7 +230,7 @@
             </div>
           </div>
           <div class="prognosis_dash_line"></div>
-          <div class="part_block">
+          <div class="part_block" :class="fieldLockedClass(20)">
             <div class="title_block block_absolute">
               <div class="item icon"><FootballMetricIcon context="prognosis" :field-id="20" badge :size="22" /></div>
               <div class="item title">{{ title[20] }}:</div>
@@ -240,7 +247,7 @@
             </div>
           </div>
           <div class="prognosis_dash_line"></div>
-          <div class="part_block">
+          <div class="part_block" :class="fieldLockedClass(23)">
             <div class="title_block block_absolute">
               <div class="item icon"><FootballMetricIcon context="prognosis" :field-id="23" badge :size="22" /></div>
               <div class="item title">{{ title[23] }}:</div>
@@ -263,7 +270,7 @@
           </div>
 
           <div class="play_off_block" v-if="isPlayoff">
-            <div class="part_block">
+            <div class="part_block" :class="fieldLockedClass(45)">
               <div class="title_block block_absolute">
                 <div class="item icon"><FootballMetricIcon context="prognosis" :field-id="45" badge :size="22" /></div>
                 <div class="item title">{{ title[45] }}:</div>
@@ -278,7 +285,7 @@
 
             <div class="prognosis_dash_line"></div>
 
-            <div class="part_block">
+            <div class="part_block" :class="fieldLockedClass(46)">
               <div class="title_block block_absolute">
                 <div class="item icon"><FootballMetricIcon context="prognosis" :field-id="46" badge :size="22" /></div>
                 <div class="item title">{{ title[46] }}:</div>
@@ -299,6 +306,15 @@
             <div class="annotation_btn" @click="annotationVis = !annotationVis">Расшифровка
               <span class="annotation_arrow" :class="{'up' : annotationVis === true}">v</span>
             </div>
+            <button
+              v-if="premiumRandomAvailable"
+              type="button"
+              class="btn_random"
+              :disabled="prognosisLoader"
+              @click="fillRandomPrognosis"
+            >
+              ★ Рандом
+            </button>
             <div class="btn_send" @click="sendPrognosis" v-if="!prognosis?.result">Отправить</div>
             <div class="btn_send rewrite" @click="sendPrognosis" v-else>Изменить</div>
 
@@ -364,6 +380,7 @@ import TeamFormDots from "@/components/football/TeamFormDots";
 import AppIcon from "@/components/ui/AppIcon.vue";
 import FootballMetricIcon from "@/components/football/FootballMetricIcon.vue";
 import {authRoute, registerRoute} from "@/utils/authRedirect";
+import { apiActions } from '@/api/bitrixClient';
 
 
 export default {
@@ -399,6 +416,8 @@ export default {
       annotationVis: false,
       withBet: true,
       withBetUserTouched: false,
+      premiumEditSeconds: 0,
+      premiumEditTimer: null,
       data: {
         30: this.$route.params.number, //number
         17: '', //matchId
@@ -509,7 +528,7 @@ export default {
         this.data[30] = this.$route.params.number
         this.data[52] = this.$route.params.event
         this.queryPrognosis.fields = { ...this.data }
-        this.queryPrognosis.withBet = this.withBet
+        this.queryPrognosis.withBet = this.isPremiumLimitedEdit ? null : this.withBet
 
         const result = await this.sendUserPrognosis()
 
@@ -517,6 +536,7 @@ export default {
           this.prognosisSuccess = true
           await this.getMatchRequest()
           this.syncFormFromPrognosis()
+          this.startPremiumEditTimer()
         } else {
           this.actionFailure = true
         }
@@ -682,8 +702,89 @@ export default {
       await Promise.all([matchPromise, gamePromise])
       this.syncFormFromPrognosis()
       this.applyDefaultWithBet()
+      this.startPremiumEditTimer()
 
       this.prognosisLoader = false
+    },
+
+    startPremiumEditTimer() {
+      if (this.premiumEditTimer) {
+        clearInterval(this.premiumEditTimer)
+        this.premiumEditTimer = null
+      }
+
+      const seconds = Number(this.premiumPrognosis.premium_edit_remaining_seconds || 0)
+      this.premiumEditSeconds = seconds
+      if (seconds <= 0) {
+        return
+      }
+
+      this.premiumEditTimer = setInterval(() => {
+        if (this.premiumEditSeconds > 0) {
+          this.premiumEditSeconds -= 1
+        } else if (this.premiumEditTimer) {
+          clearInterval(this.premiumEditTimer)
+          this.premiumEditTimer = null
+        }
+      }, 1000)
+    },
+
+    fieldLockedClass(fieldId) {
+      return this.isPremiumLimitedEdit && !this.canEditField(fieldId) ? 'field_locked' : ''
+    },
+
+    canEditField(fieldId) {
+      if (!this.isPremiumLimitedEdit) {
+        return true
+      }
+
+      const editable = this.premiumPrognosis.editable_fields || []
+      return editable.includes(fieldId)
+    },
+
+    async fillRandomPrognosis() {
+      if (!this.token || !this.arMatch?.id || this.prognosisLoader) {
+        return
+      }
+
+      this.prognosisLoader = true
+      this.error = ''
+
+      try {
+        const data = await apiActions.football.randomPrognosis(this.token, this.arMatch.id)
+        if (data?.status === 'ok' && data.fields) {
+          this.applyRandomFields(data.fields)
+        } else {
+          this.error = data?.mes || 'Не удалось сгенерировать прогноз'
+        }
+      } catch (e) {
+        this.error = e?.message || 'Не удалось сгенерировать прогноз'
+      } finally {
+        this.prognosisLoader = false
+      }
+    },
+
+    applyRandomFields(fields) {
+      this.data[15] = Number(fields.goal_home ?? 0)
+      this.data[16] = Number(fields.goal_guest ?? 0)
+      this.data[18] = fields.result ?? ''
+      this.data[19] = fields.diff ?? ''
+      this.data[28] = fields.sum ?? ''
+      this.data[32] = Number(fields.domination ?? 50)
+      this.data[21] = fields.yellow ?? ''
+      this.data[22] = fields.red ?? ''
+      this.data[20] = fields.corner ?? ''
+      this.data[23] = fields.penalty ?? ''
+      this.data[45] = fields.otime ?? ''
+      this.data[46] = fields.spenalty ?? ''
+      this.syncScoreFromGoals()
+      this.error = ''
+    },
+  },
+  beforeUnmount() {
+    if (this.premiumEditTimer) {
+      clearInterval(this.premiumEditTimer)
+      this.premiumEditTimer = null
     }
   },
   computed: {
@@ -706,6 +807,35 @@ export default {
     canAffordBet() {
       const prognobaks = Number(this.userInfo?.game_info?.wallet?.prognobaks ?? 0)
       return prognobaks >= 10
+    },
+    premiumPrognosis() {
+      return this.arMatch?.premium_prognosis || {}
+    },
+    premiumRandomAvailable() {
+      return Boolean(this.premiumPrognosis.random_available)
+    },
+    premiumEditActive() {
+      if (!this.premiumPrognosis.premium_edit_active) {
+        return false
+      }
+
+      return this.premiumEditSeconds > 0
+    },
+    isPremiumLimitedEdit() {
+      return Boolean(this.premiumPrognosis.premium_edit_active)
+    },
+    showPrognosisForm() {
+      if (this.arMatch?.active === 'Y') {
+        return true
+      }
+
+      return this.premiumEditActive
+    },
+    premiumEditTimerLabel() {
+      const total = Math.max(0, Number(this.premiumEditSeconds) || 0)
+      const minutes = Math.floor(total / 60)
+      const seconds = total % 60
+      return `${minutes}:${String(seconds).padStart(2, '0')}`
     },
     isPlayoff() {
       return this.matchR?.stage === 'Плей-офф'
@@ -1294,6 +1424,37 @@ export default {
         background: @NoWrite;
       }
     }
+
+    .btn_random {
+      .prognosis_btn;
+      min-width: 88px;
+      background: fade(@yellow, 25%);
+      border: 1px solid fade(@yellow, 55%);
+      color: @colorText;
+      font-size: 12px;
+      cursor: pointer;
+
+      &:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+    }
+  }
+
+  .premium_edit_hint {
+    margin: 6px 0 8px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    background: fade(@yellow, 15%);
+    border: 1px solid fade(@yellow, 40%);
+    color: @colorText;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .field_locked {
+    opacity: 0.5;
+    pointer-events: none;
   }
 }
 

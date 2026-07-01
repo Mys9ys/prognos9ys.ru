@@ -6,7 +6,9 @@ use Prognos9ys\Main\Service\Football\EventStatisticsService;
 use Prognos9ys\Main\Service\Football\FootballEventListService;
 use Prognos9ys\Main\Service\Football\FootballMatchService;
 use Prognos9ys\Main\Service\Football\FootballPrognosisService;
+use Prognos9ys\Main\Service\Football\FootballRandomPrognosisService;
 use Prognos9ys\Main\Service\Football\MatchListService;
+use Prognos9ys\Main\Service\Auth\TokenAuthService;
 
 class FootballController extends BaseController
 {
@@ -18,6 +20,7 @@ class FootballController extends BaseController
             'getMatchesByEvent' => $this->getDefaultConfigureForPostPublic(),
             'getMatch' => $this->getDefaultConfigureForPost(true),
             'sendPrognosis' => $this->getDefaultConfigureForPostToken(),
+            'randomPrognosis' => $this->getDefaultConfigureForPostToken(),
         ];
     }
 
@@ -90,5 +93,18 @@ class FootballController extends BaseController
         }
 
         return (new FootballPrognosisService())->send($token, $fields, $withBetFlag);
+    }
+
+    public function randomPrognosisAction(int $matchId, ?string $userToken = null): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        return [
+            'status' => 'ok',
+            'fields' => (new FootballRandomPrognosisService())->generateForUser($userId, $matchId),
+        ];
     }
 }

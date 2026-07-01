@@ -12,6 +12,19 @@ class FootballMatchService
             'userToken' => $userToken ?? '',
         ]);
 
-        return $handler->result();
+        $result = $handler->result();
+        if (($result['status'] ?? '') !== 'ok' || !is_array($result['result'] ?? null)) {
+            return $result;
+        }
+
+        $userId = 0;
+        if ($userToken) {
+            $userId = (int)((new \GetUserIdForToken($userToken))->getId() ?: 0);
+        }
+
+        $result['result']['premium_prognosis'] = (new FootballPrognosisEditService())
+            ->buildState($userId, $result['result']);
+
+        return $result;
     }
 }
