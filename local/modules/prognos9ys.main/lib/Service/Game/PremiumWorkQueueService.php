@@ -220,14 +220,21 @@ class PremiumWorkQueueService
 
         $eta = $this->buildFarmQueueEta($userId, array_merge($rawActive, $rawPending));
 
+        $terminalRows = $this->repository->getPremiumWorkQueueItemsForUser($userId, PremiumWorkQueueConfig::TERMINAL_STATUSES);
+        usort($terminalRows, static function (array $a, array $b): int {
+            $tsA = ($a['UF_FINISHED_AT'] ?? null) instanceof DateTime ? $a['UF_FINISHED_AT']->getTimestamp() : 0;
+            $tsB = ($b['UF_FINISHED_AT'] ?? null) instanceof DateTime ? $b['UF_FINISHED_AT']->getTimestamp() : 0;
+            if ($tsA !== $tsB) {
+                return $tsB <=> $tsA;
+            }
+
+            return ((int)($b['ID'] ?? 0)) <=> ((int)($a['ID'] ?? 0));
+        });
+
         $log = [];
-        foreach ($this->repository->getPremiumWorkQueueItemsForUser($userId, PremiumWorkQueueConfig::TERMINAL_STATUSES) as $row) {
+        foreach (array_slice($terminalRows, 0, PremiumWorkQueueConfig::LOG_LIMIT) as $row) {
             $log[] = $this->formatQueueRow($row);
         }
-        usort($log, static function (array $a, array $b): int {
-            return strcmp((string)($b['finished_at'] ?? ''), (string)($a['finished_at'] ?? ''));
-        });
-        $log = array_slice($log, 0, PremiumWorkQueueConfig::LOG_LIMIT);
 
         return [
             'premium_active' => $premiumActive,

@@ -31,5 +31,5 @@ class PremiumWorkQueueConfig
         self::STATUS_CANCELLED,
     ];
 
-    public const LOG_LIMIT = 50;
+    public const LOG_LIMIT = 20;
 }

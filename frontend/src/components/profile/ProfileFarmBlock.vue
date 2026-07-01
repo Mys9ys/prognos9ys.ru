@@ -10,15 +10,15 @@
         <button
           type="button"
           class="farm_tab"
-          :class="{ active: activeFarmTab === 'professions' }"
-          @click="activeFarmTab = 'professions'"
-        >Профессии</button>
-        <button
-          type="button"
-          class="farm_tab"
           :class="{ active: activeFarmTab === 'work' }"
           @click="activeFarmTab = 'work'"
         >Запуски</button>
+        <button
+          type="button"
+          class="farm_tab"
+          :class="{ active: activeFarmTab === 'professions' }"
+          @click="activeFarmTab = 'professions'"
+        >Профессии</button>
         <button
           v-if="showQueueLogTab"
           type="button"
@@ -283,17 +283,17 @@
             <button
               type="button"
               class="work_mode_tab"
+              :class="{ active: workMode === 'self' }"
+              @click="workMode = 'self'"
+            >Для себя (−{{ farm.economy?.fee_self }} 🪙/цикл, после смены)</button>
+            <button
+              type="button"
+              class="work_mode_tab"
               :class="{ active: workMode === 'treasury', disabled: !treasuryModeAvailable }"
               :disabled="!treasuryModeAvailable"
               :title="treasuryModeTitle"
               @click="selectTreasuryMode"
             >На казну (+{{ farm.economy?.pay_treasury }} 🪙)</button>
-            <button
-              type="button"
-              class="work_mode_tab"
-              :class="{ active: workMode === 'self' }"
-              @click="workMode = 'self'"
-            >Для себя (−{{ farm.economy?.fee_self }} 🪙/цикл, после смены)</button>
           </div>
           <div class="iter_row">
             <span class="iter_label">Циклов за смену</span>
@@ -573,9 +573,9 @@ export default {
       farm: null,
       pickCodes: [],
       selectedProfession: '',
-      workMode: 'treasury',
+      workMode: 'self',
       selectedIterations: 1,
-      activeFarmTab: 'professions',
+      activeFarmTab: 'work',
       error: '',
       message: '',
       pollTimer: null,
