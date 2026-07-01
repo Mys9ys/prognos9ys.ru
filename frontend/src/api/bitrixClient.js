@@ -399,9 +399,14 @@ export const apiActions = {
             'prognos9ys:main.GameController.openChests',
             { userToken, pool, openAll: openAll ? 1 : 0 }
         ),
-        openXpBanks: (userToken, code, openAll = false) => runBitrixAction(
+        openXpBanks: (userToken, code, openAll = false, professionCode = '') => runBitrixAction(
             'prognos9ys:main.GameController.openXpBanks',
-            { userToken, code, openAll: openAll ? 1 : 0 }
+            {
+                userToken,
+                code,
+                openAll: openAll ? 1 : 0,
+                professionCode: professionCode || undefined,
+            }
         ),
         activateProfessionCertificate: (userToken) => runBitrixAction(
             'prognos9ys:main.GameController.activateProfessionCertificate',

@@ -37,7 +37,7 @@ class XpBankService
      *   profession?:array<string, mixed>
      * }
      */
-    public function open(int $userId, string $code, int $qty = 1): array
+    public function open(int $userId, string $code, int $qty = 1, string $professionCode = ''): array
     {
         if ($userId <= 0) {
             throw new \InvalidArgumentException('Некорректный пользователь');
@@ -103,7 +103,12 @@ class XpBankService
                 $levelRewards
             ));
         } else {
-            $professionResult = $this->applyProfessionXp($userId, (string)$definition['kind'], (int)round($totalXp));
+            $professionResult = $this->applyProfessionXp(
+                $userId,
+                (string)$definition['kind'],
+                (int)round($totalXp),
+                $professionCode
+            );
             $professionCode = (string)($professionResult['profession']['code'] ?? '');
             $result['profession'] = $professionResult['profession'];
             $result['profession_level_rewards'] = $professionResult['level_rewards'];
@@ -130,9 +135,9 @@ class XpBankService
      *   lines:array<int, array{text:string,status:string}>
      * }
      */
-    private function applyProfessionXp(int $userId, string $kind, int $totalXpGain): array
+    private function applyProfessionXp(int $userId, string $kind, int $totalXpGain, string $professionCode = ''): array
     {
-        $professionRow = $this->resolveProfessionRowForXpBank($userId, $kind);
+        $professionRow = $this->resolveProfessionRowForXpBank($userId, $kind, $professionCode);
         if (!$professionRow) {
             $hint = $kind === 'mining'
                 ? 'Сначала изучите профессию добычи'
@@ -202,11 +207,26 @@ class XpBankService
     /**
      * @return array<string, mixed>|null
      */
-    private function resolveProfessionRowForXpBank(int $userId, string $kind): ?array
+    private function resolveProfessionRowForXpBank(int $userId, string $kind, string $professionCode = ''): ?array
     {
         $pool = $kind === 'mining'
             ? ProfessionMaterialConfig::gatheringProfessions()
             : ProfessionMaterialConfig::processingProfessions();
+
+        $professionCode = trim($professionCode);
+        if ($professionCode !== '') {
+            if (!isset($pool[$professionCode])) {
+                throw new \RuntimeException('Эта профессия не подходит для данной банки опыта');
+            }
+
+            foreach ($this->professionRepository->getProfessionsByUserId($userId) as $row) {
+                if ((string)($row['UF_PROFESSION_CODE'] ?? '') === $professionCode) {
+                    return $row;
+                }
+            }
+
+            throw new \RuntimeException('Профессия не изучена');
+        }
 
         $best = null;
         foreach ($this->professionRepository->getProfessionsByUserId($userId) as $row) {

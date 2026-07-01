@@ -817,7 +817,7 @@ class GameController extends BaseController
         ]);
     }
 
-    public function openXpBanksAction(string $code, int $openAll = 0): array
+    public function openXpBanksAction(string $code, int $openAll = 0, string $professionCode = ''): array
     {
         $userId = TokenAuthService::getCurrentUserId();
         if (!$userId) {
@@ -826,7 +826,7 @@ class GameController extends BaseController
 
         try {
             $qty = $openAll > 0 ? 30 : 1;
-            $result = (new XpBankService())->open($userId, $code, $qty);
+            $result = (new XpBankService())->open($userId, $code, $qty, $professionCode);
         } catch (\InvalidArgumentException $e) {
             throw new ApiException($e->getMessage(), 400);
         } catch (\RuntimeException $e) {

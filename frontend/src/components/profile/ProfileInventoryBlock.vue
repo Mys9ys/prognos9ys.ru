@@ -82,6 +82,32 @@
       :user-token="authData?.token || ''"
       @close="logModalVisible = false"
     />
+
+    <div
+      v-if="xpBankPickerVisible"
+      class="xp_bank_picker_overlay"
+      @click.self="closeXpBankPicker"
+    >
+      <div class="xp_bank_picker">
+        <div class="xp_bank_picker_title">Куда начислить опыт?</div>
+        <p class="xp_bank_picker_hint">{{ xpBankPickerHint }}</p>
+        <div class="xp_bank_picker_list">
+          <button
+            v-for="prof in xpBankPickerProfessions"
+            :key="prof.code"
+            type="button"
+            class="xp_bank_picker_item"
+            @click="confirmXpBankProfession(prof.code)"
+          >
+            <span class="xp_bank_picker_label">{{ prof.label }}</span>
+            <span class="xp_bank_picker_meta">ур. {{ prof.level }}</span>
+          </button>
+        </div>
+        <button type="button" class="xp_bank_picker_cancel" @click="closeXpBankPicker">
+          Отмена
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -162,6 +188,11 @@ function getWc26CollectibleIconSrc(item) {
   return null;
 }
 
+function parseXpBankKind(code) {
+  const match = String(code || '').match(/^xp_bank_(player|mining|crafting)_\d+$/);
+  return match ? match[1] : null;
+}
+
 function resolveAlbumForGlue(albums, collection, teamSlug) {
   for (const album of albums || []) {
     const albumCollection = album.collection || '';
@@ -199,6 +230,10 @@ export default {
       openProgressTotal: 0,
       logModalVisible: false,
       categoryTab: 'all',
+      xpBankPickerVisible: false,
+      xpBankPickerProfessions: [],
+      xpBankPickerHint: '',
+      xpBankPickerPending: null,
     };
   },
   computed: {
@@ -432,7 +467,7 @@ export default {
       }
 
       if (item.xpBankCode) {
-        this.openXpBank(item.xpBankCode, openAll, item);
+        this.promptXpBankOpen(item.xpBankCode, openAll, item);
         return;
       }
 
@@ -494,7 +529,79 @@ export default {
       }
     },
 
-    async openXpBank(code, openAll, slot) {
+    async promptXpBankOpen(code, openAll, slot) {
+      if (!this.authData?.token || this.opening || !code || !slot || slot.count <= 0) {
+        return;
+      }
+
+      const kind = parseXpBankKind(code);
+      if (!kind || kind === 'player') {
+        await this.openXpBank(code, openAll, slot);
+        return;
+      }
+
+      const professionType = kind === 'mining' ? 'gather' : 'process';
+      const kindLabel = kind === 'mining' ? 'добычи' : 'крафта';
+
+      this.hoveredSlotId = null;
+
+      try {
+        const data = await apiActions.game.getFarmState(this.authData.token);
+        const professions = (data?.farm?.professions || [])
+          .filter((prof) => prof.type === professionType);
+
+        if (!professions.length) {
+          this.openModalVisible = true;
+          this.openModalDone = false;
+          this.openModalTitle = 'Банка опыта';
+          this.openLines = [{
+            text: kind === 'mining'
+              ? 'Сначала изучите профессию добычи на вкладке «Работа»'
+              : 'Сначала изучите профессию крафта на вкладке «Работа»',
+            status: 'fail',
+          }];
+          this.openProgressCurrent = 0;
+          this.openProgressTotal = 0;
+          return;
+        }
+
+        if (professions.length === 1) {
+          await this.openXpBank(code, openAll, slot, professions[0].code);
+          return;
+        }
+
+        this.xpBankPickerPending = { code, openAll, slot };
+        this.xpBankPickerProfessions = professions;
+        this.xpBankPickerHint = `Выберите профессию ${kindLabel} — опыт пойдёт в неё`;
+        this.xpBankPickerVisible = true;
+      } catch (e) {
+        this.openModalVisible = true;
+        this.openModalDone = false;
+        this.openModalTitle = 'Банка опыта';
+        this.openLines = [{ text: e.message || 'Не удалось загрузить профессии', status: 'fail' }];
+        this.openProgressCurrent = 0;
+        this.openProgressTotal = 0;
+      }
+    },
+
+    closeXpBankPicker() {
+      this.xpBankPickerVisible = false;
+      this.xpBankPickerProfessions = [];
+      this.xpBankPickerHint = '';
+      this.xpBankPickerPending = null;
+    },
+
+    async confirmXpBankProfession(professionCode) {
+      const pending = this.xpBankPickerPending;
+      if (!pending || !professionCode) {
+        return;
+      }
+
+      this.closeXpBankPicker();
+      await this.openXpBank(pending.code, pending.openAll, pending.slot, professionCode);
+    },
+
+    async openXpBank(code, openAll, slot, professionCode = '') {
       if (!this.authData?.token || this.opening || !code || !slot || slot.count <= 0) {
         return;
       }
@@ -509,7 +616,12 @@ export default {
       this.openProgressTotal = openAll ? Math.min(slot.count, 30) : 1;
 
       try {
-        const data = await apiActions.game.openXpBanks(this.authData.token, code, openAll);
+        const data = await apiActions.game.openXpBanks(
+          this.authData.token,
+          code,
+          openAll,
+          professionCode,
+        );
 
         if (data?.status === 'ok') {
           this.openLines = Array.isArray(data.lines) ? data.lines : [];
@@ -1025,6 +1137,89 @@ export default {
     background: fade(@YesWrite, 18%);
     border-color: fade(@YesWrite, 70%);
   }
+}
+
+.xp_bank_picker_overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: fade(#000, 55%);
+}
+
+.xp_bank_picker {
+  width: 100%;
+  max-width: 320px;
+  padding: 14px 12px 12px;
+  border-radius: 6px;
+  background: @darkbg;
+  border: 1px solid fade(@colorBlur, 50%);
+  box-shadow: 0 8px 24px fade(#000, 45%);
+}
+
+.xp_bank_picker_title {
+  font-size: 14px;
+  font-weight: 700;
+  color: @colorText;
+  margin-bottom: 6px;
+}
+
+.xp_bank_picker_hint {
+  margin: 0 0 10px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: fade(@colorText, 75%);
+}
+
+.xp_bank_picker_list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.xp_bank_picker_item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid fade(@orange, 70%);
+  border-radius: 4px;
+  background: fade(@orange, 18%);
+  color: @colorText;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+
+  &:hover {
+    background: fade(@orange, 28%);
+  }
+}
+
+.xp_bank_picker_label {
+  font-weight: 700;
+}
+
+.xp_bank_picker_meta {
+  font-size: 11px;
+  color: fade(@colorText, 70%);
+  white-space: nowrap;
+}
+
+.xp_bank_picker_cancel {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid fade(@colorBlur, 45%);
+  border-radius: 4px;
+  background: transparent;
+  color: fade(@colorText, 80%);
+  font-size: 12px;
+  cursor: pointer;
 }
 
 .inventory_empty {
