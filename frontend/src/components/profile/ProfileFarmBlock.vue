@@ -161,6 +161,13 @@
             Смен в очереди: {{ workQueue.eta_cycles }}
             · ориентировочно {{ workQueue.eta_label }}
           </p>
+          <p
+            v-if="workQueue.premium_active && Number(farm.queue_projection?.reserved_prognobaks) > 0"
+            class="hint"
+          >
+            Зарезервировано под очередь: {{ formatMoney(farm.queue_projection.reserved_prognobaks) }} 🪙
+            · доступно для «для себя»: {{ formatMoney(farm.queue_projection.wallet_available_self_farm) }} 🪙
+          </p>
 
           <div v-if="orderedQueueItems.length" class="queue_list">
             <div
@@ -611,6 +618,13 @@ export default {
       if (!prof || prof.type !== 'process' || !prof.input) {
         return 0;
       }
+      if (this.workQueue.premium_active && this.farm?.queue_projection) {
+        const projection = this.farm.queue_projection;
+        if (this.workMode === 'treasury') {
+          return Number(projection.materials_gov?.[prof.input] ?? 0);
+        }
+        return Number(projection.materials_self?.[prof.input] ?? 0);
+      }
       if (this.workMode === 'treasury') {
         const row = (this.farm?.gov_materials || []).find(m => m.code === prof.input);
         return Number(row?.qty ?? 0);
@@ -807,6 +821,10 @@ export default {
   methods: {
     ...mapActions('auth', ['refreshGameInfo']),
     ...mapMutations('auth', ['setUserInfo']),
+
+    formatMoney(value) {
+      return Number(value ?? 0).toFixed(1).replace(/\.0$/, '');
+    },
 
     async refresh(silent = false) {
       const token = this.authData?.token;

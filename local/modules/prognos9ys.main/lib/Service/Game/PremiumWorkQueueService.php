@@ -403,6 +403,8 @@ class PremiumWorkQueueService
                 throw new \InvalidArgumentException('Профессия не изучена');
             }
 
+            $this->validateFarmQueueAffordability($userId, $payload);
+
             return;
         }
 
@@ -436,12 +438,50 @@ class PremiumWorkQueueService
             if ($iterations <= 0) {
                 $iterations = ProfessionEconomyConfig::FREE_ITERATIONS_PER_SESSION;
             }
-            $resolved = (new ProfessionFarmService($this->professionRepository, null, $this->repository))
-                ->resolveIterationsPreview($userId, $payload['profession_code'], $payload['work_mode'], $iterations);
+            $planner = new PremiumFarmQueueProjectionService($this->professionRepository, $this->repository);
+            $resolved = $planner->resolveMaxFarmIterationsAfterQueue(
+                $userId,
+                (string)$payload['profession_code'],
+                (string)$payload['work_mode'],
+                $iterations
+            );
             if ($resolved <= 0) {
                 throw new \RuntimeException('Недостаточно ресурсов для смены');
             }
         }
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function validateFarmQueueAffordability(int $userId, array $payload): void
+    {
+        $iterations = (int)($payload['iterations'] ?? 0);
+        if ($iterations <= 0) {
+            $iterations = ProfessionEconomyConfig::FREE_ITERATIONS_PER_SESSION;
+        }
+
+        $planner = new PremiumFarmQueueProjectionService($this->professionRepository, $this->repository);
+        $resolved = $planner->resolveMaxFarmIterationsAfterQueue(
+            $userId,
+            (string)$payload['profession_code'],
+            (string)$payload['work_mode'],
+            $iterations
+        );
+        if ($resolved <= 0) {
+            throw new \InvalidArgumentException('Недостаточно ресурсов с учётом очереди Premium');
+        }
+
+        if (($payload['work_mode'] ?? '') !== ProfessionMaterialConfig::WORK_MODE_SELF) {
+            return;
+        }
+
+        $preview = $planner->buildPreview($userId);
+        $planner->assertSelfFarmAffordable(
+            $userId,
+            $resolved,
+            (float)($preview['reserved_prognobaks'] ?? 0)
+        );
     }
 
     /**

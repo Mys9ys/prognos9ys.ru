@@ -41,6 +41,12 @@ class ProfessionFarmService
         $queueService = new PremiumWorkQueueService($this->economyRepository, $this->repository);
         $queueService->processUser($userId);
 
+        $premiumActive = (new PremiumService($this->economyRepository))->hasActivePremium($userId);
+        $queueProjection = $premiumActive
+            ? (new PremiumFarmQueueProjectionService($this->repository, $this->economyRepository))
+                ->buildPreview($userId)
+            : null;
+
         return [
             'professions' => $this->formatProfessions($userId),
             'catalog' => $this->formatCatalog(),
@@ -60,6 +66,7 @@ class ProfessionFarmService
             'album_craft' => (new AlbumCraftService($this->repository, $this->economyRepository))->getCraftState($userId),
             'work_queue' => $queueService->getStateForUser($userId),
             'treasury_labor_open' => (new LaborExchangeService())->getTreasuryLaborOpenByProfession(),
+            'queue_projection' => $queueProjection,
         ];
     }
 
