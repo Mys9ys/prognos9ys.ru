@@ -271,6 +271,14 @@ export const apiActions = {
             'prognos9ys:main.GameController.enqueuePremiumWork',
             { userToken, taskType, payload: JSON.stringify(payload || {}) }
         ),
+        enqueuePremiumMacro: (userToken, macroType, options) => runBitrixAction(
+            'prognos9ys:main.GameController.enqueuePremiumMacro',
+            { userToken, macroType, options: JSON.stringify(options || {}) }
+        ),
+        updatePremiumWorkSellMode: (userToken, taskId, sellMode) => runBitrixAction(
+            'prognos9ys:main.GameController.updatePremiumWorkSellMode',
+            { userToken, taskId, sellMode }
+        ),
         cancelPremiumWork: (userToken, taskId) => runBitrixAction(
             'prognos9ys:main.GameController.cancelPremiumWork',
             { userToken, taskId }

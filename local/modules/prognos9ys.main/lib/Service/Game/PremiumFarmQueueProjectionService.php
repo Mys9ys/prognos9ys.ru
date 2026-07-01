@@ -39,39 +39,135 @@ class PremiumFarmQueueProjectionService
             return $this->emptyPreview();
         }
 
-        $selfMaterials = $this->loadSelfMaterialMap($userId);
-        $govMaterials = $this->loadGovMaterialMap();
-        $queueRows = $this->loadQueueRows($userId);
-        $activeSession = $this->professionRepository->getActiveSessionByUserId($userId);
-
-        $reserved = 0.0;
-        foreach ($queueRows as $row) {
-            if ((string)($row['UF_TASK_TYPE'] ?? '') !== PremiumWorkQueueConfig::TASK_FARM) {
-                continue;
-            }
-
-            $payload = $this->decodePayload((string)($row['UF_PAYLOAD_JSON'] ?? ''));
-            $iterations = $this->resolveFarmTaskIterations($row, $activeSession, $payload);
-            $this->applyFarmTaskToVirtualBalances($selfMaterials, $govMaterials, $payload, $iterations);
-
-            if (($payload['work_mode'] ?? '') === ProfessionMaterialConfig::WORK_MODE_SELF) {
-                $reserved = round(
-                    $reserved + $iterations * ProfessionEconomyConfig::FEE_SELF_PER_ITERATION,
-                    1
-                );
-            }
-        }
-
+        $state = $this->createVirtualState($userId);
         $wallet = $this->walletService->getWalletSummary($userId);
         $walletPrognobaks = round((float)($wallet['prognobaks'] ?? 0), 1);
+        $reserved = round((float)($state['reserved_prognobaks'] ?? 0), 1);
 
         return [
-            'materials_self' => $selfMaterials,
-            'materials_gov' => $govMaterials,
+            'materials_self' => $state['materials_self'],
+            'materials_gov' => $state['materials_gov'],
+            'albums' => (int)($state['albums'] ?? 0),
             'reserved_prognobaks' => $reserved,
             'wallet_prognobaks' => $walletPrognobaks,
             'wallet_available_self_farm' => round(max(0.0, $walletPrognobaks - $reserved), 1),
         ];
+    }
+
+    /**
+     * Виртуальное состояние после симуляции текущей очереди (для макросов и превью).
+     *
+     * @return array{
+     *   materials_self: array<string, int>,
+     *   materials_gov: array<string, int>,
+     *   albums: int,
+     *   reserved_prognobaks: float
+     * }
+     */
+    public function createVirtualState(int $userId): array
+    {
+        $selfMaterials = $this->loadSelfMaterialMap($userId);
+        $govMaterials = $this->loadGovMaterialMap();
+        $albums = $this->loadSellableAlbumQty($userId);
+        $queueRows = $this->loadQueueRows($userId);
+        $activeSession = $this->professionRepository->getActiveSessionByUserId($userId);
+
+        $state = [
+            'materials_self' => $selfMaterials,
+            'materials_gov' => $govMaterials,
+            'albums' => $albums,
+            'reserved_prognobaks' => 0.0,
+        ];
+
+        foreach ($queueRows as $row) {
+            $this->simulateQueueRow($state, $row, $activeSession);
+        }
+
+        return $state;
+    }
+
+    /**
+     * @param array{
+     *   materials_self: array<string, int>,
+     *   materials_gov: array<string, int>,
+     *   albums: int,
+     *   reserved_prognobaks: float
+     * } $state
+     * @param array<string, mixed> $payload
+     */
+    public function simulateFarmTask(array &$state, array $payload, int $iterations): void
+    {
+        if ($iterations <= 0) {
+            return;
+        }
+
+        $this->applyFarmTaskToVirtualBalances(
+            $state['materials_self'],
+            $state['materials_gov'],
+            $payload,
+            $iterations
+        );
+
+        if (($payload['work_mode'] ?? '') === ProfessionMaterialConfig::WORK_MODE_SELF) {
+            $state['reserved_prognobaks'] = round(
+                (float)$state['reserved_prognobaks'] + $iterations * ProfessionEconomyConfig::FEE_SELF_PER_ITERATION,
+                1
+            );
+        }
+    }
+
+    /**
+     * @param array{
+     *   materials_self: array<string, int>,
+     *   materials_gov: array<string, int>,
+     *   albums: int,
+     *   reserved_prognobaks: float
+     * } $state
+     */
+    public function simulateAlbumCraft(array &$state): void
+    {
+        $plank = AlbumConfig::RECIPE_PLANK;
+        $cloth = AlbumConfig::RECIPE_CLOTH;
+        $state['materials_self']['plank'] = max(0, (int)($state['materials_self']['plank'] ?? 0) - $plank);
+        $state['materials_self']['cloth'] = max(0, (int)($state['materials_self']['cloth'] ?? 0) - $cloth);
+        $state['albums'] = (int)($state['albums'] ?? 0) + AlbumConfig::CRAFT_OUTPUT_COUNT;
+    }
+
+    /**
+     * @param array{
+     *   materials_self: array<string, int>,
+     *   materials_gov: array<string, int>,
+     *   albums: int,
+     *   reserved_prognobaks: float
+     * } $state
+     * @param array<string, mixed> $payload
+     */
+    public function simulateExchangeList(array &$state, array $payload): void
+    {
+        $kind = (string)($payload['kind'] ?? '');
+        $code = (string)($payload['code'] ?? '');
+        $category = (string)($payload['category'] ?? '');
+        $qty = max(0, (int)($payload['qty'] ?? 0));
+        if ($qty <= 0) {
+            return;
+        }
+
+        if ($kind === ExchangeConfig::KIND_LOOT
+            && $code === AlbumConfig::ITEM_CODE
+            && $category === ChestLootConfig::CATEGORY_ALBUM
+        ) {
+            $state['albums'] = max(0, (int)($state['albums'] ?? 0) - $qty);
+
+            return;
+        }
+
+        if ($kind === ExchangeConfig::KIND_MATERIAL) {
+            if ($category === ExchangeConfig::MATERIAL_CATEGORY_PREMIUM) {
+                return;
+            }
+
+            $state['materials_self'][$code] = max(0, (int)($state['materials_self'][$code] ?? 0) - $qty);
+        }
     }
 
     /**
@@ -96,15 +192,17 @@ class PremiumFarmQueueProjectionService
         $queueRows = $this->loadQueueRows($userId);
         $activeSession = $this->professionRepository->getActiveSessionByUserId($userId);
 
+        $state = [
+            'materials_self' => $selfMaterials,
+            'materials_gov' => $govMaterials,
+            'albums' => 0,
+            'reserved_prognobaks' => 0.0,
+        ];
         foreach ($queueRows as $row) {
-            if ((string)($row['UF_TASK_TYPE'] ?? '') !== PremiumWorkQueueConfig::TASK_FARM) {
-                continue;
-            }
-
-            $payload = $this->decodePayload((string)($row['UF_PAYLOAD_JSON'] ?? ''));
-            $iterations = $this->resolveFarmTaskIterations($row, $activeSession, $payload);
-            $this->applyFarmTaskToVirtualBalances($selfMaterials, $govMaterials, $payload, $iterations);
+            $this->simulateQueueRow($state, $row, $activeSession);
         }
+        $selfMaterials = $state['materials_self'];
+        $govMaterials = $state['materials_gov'];
 
         return $this->resolveMaxForSingleTask(
             $selfMaterials,
@@ -282,6 +380,53 @@ class PremiumFarmQueueProjectionService
     }
 
     /**
+     * @param array{
+     *   materials_self: array<string, int>,
+     *   materials_gov: array<string, int>,
+     *   albums: int,
+     *   reserved_prognobaks: float
+     * } $state
+     * @param array<string, mixed> $row
+     * @param array<string, mixed>|null $activeSession
+     */
+    private function simulateQueueRow(array &$state, array $row, ?array $activeSession): void
+    {
+        $taskType = (string)($row['UF_TASK_TYPE'] ?? '');
+        $payload = $this->decodePayload((string)($row['UF_PAYLOAD_JSON'] ?? ''));
+
+        if ($taskType === PremiumWorkQueueConfig::TASK_FARM) {
+            $iterations = $this->resolveFarmTaskIterations($row, $activeSession, $payload);
+            $this->simulateFarmTask($state, $payload, $iterations);
+
+            return;
+        }
+
+        if ($taskType === PremiumWorkQueueConfig::TASK_ALBUM_CRAFT) {
+            $this->simulateAlbumCraft($state);
+
+            return;
+        }
+
+        if ($taskType === PremiumWorkQueueConfig::TASK_EXCHANGE_LIST) {
+            $this->simulateExchangeList($state, $payload);
+        }
+    }
+
+    private function loadSellableAlbumQty(int $userId): int
+    {
+        if ($userId <= 0) {
+            return 0;
+        }
+
+        return (new ExchangeInventoryService($this->economyRepository))->getAvailableQty(
+            $userId,
+            ExchangeConfig::KIND_LOOT,
+            AlbumConfig::ITEM_CODE,
+            ChestLootConfig::CATEGORY_ALBUM
+        );
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function decodePayload(string $json): array
@@ -309,6 +454,7 @@ class PremiumFarmQueueProjectionService
         return [
             'materials_self' => [],
             'materials_gov' => [],
+            'albums' => 0,
             'reserved_prognobaks' => 0.0,
             'wallet_prognobaks' => 0.0,
             'wallet_available_self_farm' => 0.0,

@@ -184,6 +184,18 @@
               >
                 {{ item.status === 'active' ? 'выполняется' : 'ожидает' }}
               </span>
+              <label
+                v-if="item.status !== 'active' && item.task_type === 'exchange_list'"
+                class="queue_sell_mode"
+              >
+                <input
+                  type="checkbox"
+                  :checked="item.payload?.sell_mode === 'consign'"
+                  :disabled="actionLoading"
+                  @change="onToggleQueueSellMode(item, $event)"
+                />
+                комиссия
+              </label>
               <button
                 v-if="item.status === 'active' && item.task_type === 'farm'"
                 type="button"
@@ -328,6 +340,15 @@
             >
               ★ В очередь
             </button>
+            <button
+              v-if="workQueue.premium_active && selectedProfession"
+              type="button"
+              class="btn macro"
+              :disabled="actionLoading || !selectedProfession || macroOutputQty <= 0"
+              @click="onEnqueueProfessionMacro"
+            >
+              {{ professionMacroLabel }}
+            </button>
           </div>
         </div>
 
@@ -344,6 +365,27 @@
           <p class="hint">
             Опыт профессии «{{ albumCraftProfessionLabel }}»: +{{ farm.album_craft.xp_gain }}
           </p>
+          <div v-if="workQueue.premium_active" class="album_macro_controls">
+            <label class="macro_batches">
+              Партий за клик:
+              <select v-model.number="albumMacroBatches" :disabled="actionLoading">
+                <option v-for="n in 5" :key="'ab' + n" :value="n">{{ n }}</option>
+              </select>
+            </label>
+            <p class="hint">
+              Макрос: добыча/крафт материалов (для себя) → {{ albumMacroBatches }}
+              {{ albumMacroBatches === 1 ? 'крафт' : 'крафта' }}
+              → {{ albumMacroOutputQty }} альбома на биржу
+            </p>
+            <label class="macro_consign">
+              <input
+                v-model="albumMacroConsign"
+                type="checkbox"
+                :disabled="actionLoading"
+              />
+              Сдать в комиссию банка (иначе — листинг на бирже)
+            </label>
+          </div>
           <div class="work_actions_row">
             <button
               v-if="!farm.session"
@@ -362,6 +404,15 @@
               @click="onEnqueueAlbumCraft"
             >
               ★ В очередь
+            </button>
+            <button
+              v-if="workQueue.premium_active"
+              type="button"
+              class="btn macro"
+              :disabled="actionLoading || !albumCraftProfessionCode"
+              @click="onEnqueueAlbumMacro"
+            >
+              Собрать ресурсы и изготовить
             </button>
           </div>
         </div>
@@ -539,6 +590,8 @@ export default {
       exchangeSellLoaded: false,
       exchangeSellModalItem: null,
       exchangeSellModalForm: { qty: 1, price: 0 },
+      albumMacroBatches: 1,
+      albumMacroConsign: false,
     };
   },
   computed: {
@@ -684,6 +737,20 @@ export default {
       }
       const prof = (this.farm?.professions || []).find(p => p.code === code);
       return prof?.label || code;
+    },
+    albumMacroOutputQty() {
+      const perCraft = Number(this.farm?.album_craft?.output_count) || 2;
+      return perCraft * (Number(this.albumMacroBatches) || 1);
+    },
+    macroOutputQty() {
+      return Math.max(1, Math.min(5, Number(this.selectedIterations) || 1));
+    },
+    professionMacroLabel() {
+      const prof = this.selectedProfessionDef;
+      if (!prof) {
+        return 'Собрать и изготовить';
+      }
+      return prof.type === 'process' ? 'Собрать и изготовить' : 'Собрать ресурсы';
     },
     workModeHint() {
       const minutes = Number(this.farm?.economy?.iteration_minutes) || 5;
@@ -1201,6 +1268,97 @@ export default {
         }
       } catch (e) {
         this.error = e.message || 'Не удалось добавить в очередь';
+      } finally {
+        this.actionLoading = false;
+      }
+    },
+
+    async onEnqueueAlbumMacro() {
+      const token = this.authData?.token;
+      if (!token || !this.albumCraftProfessionCode) {
+        return;
+      }
+
+      this.actionLoading = true;
+      this.error = '';
+      this.message = '';
+      try {
+        const data = await apiActions.game.enqueuePremiumMacro(token, 'album', {
+          batches: Number(this.albumMacroBatches) || 1,
+          sell: true,
+          sell_mode: this.albumMacroConsign ? 'consign' : 'listing',
+        });
+        if (data?.status === 'ok') {
+          const count = Number(data.queued) || 0;
+          this.applyPremiumWorkResponse(
+            data,
+            `Макрос добавлен: ${count} ${count === 1 ? 'задача' : 'задач'} в очередь`,
+          );
+          window.dispatchEvent(new CustomEvent('prognos9ys:album-refresh'));
+        } else {
+          this.error = data?.message || 'Не удалось запустить макрос';
+        }
+      } catch (e) {
+        this.error = e.message || 'Не удалось запустить макрос';
+      } finally {
+        this.actionLoading = false;
+      }
+    },
+
+    async onEnqueueProfessionMacro() {
+      const token = this.authData?.token;
+      if (!token || !this.selectedProfession) {
+        return;
+      }
+
+      this.actionLoading = true;
+      this.error = '';
+      this.message = '';
+      try {
+        const data = await apiActions.game.enqueuePremiumMacro(token, 'profession', {
+          profession_code: this.selectedProfession,
+          output_qty: this.macroOutputQty,
+        });
+        if (data?.status === 'ok') {
+          const count = Number(data.queued) || 0;
+          this.applyPremiumWorkResponse(
+            data,
+            `Макрос добавлен: ${count} ${count === 1 ? 'задача' : 'задач'} в очередь`,
+          );
+        } else {
+          this.error = data?.message || 'Не удалось запустить макрос';
+        }
+      } catch (e) {
+        this.error = e.message || 'Не удалось запустить макрос';
+      } finally {
+        this.actionLoading = false;
+      }
+    },
+
+    async onToggleQueueSellMode(item, event) {
+      const token = this.authData?.token;
+      if (!token || !item?.id || item.status === 'active') {
+        return;
+      }
+
+      const sellMode = event?.target?.checked ? 'consign' : 'listing';
+      this.actionLoading = true;
+      this.error = '';
+      try {
+        const data = await apiActions.game.updatePremiumWorkSellMode(token, item.id, sellMode);
+        if (data?.status === 'ok') {
+          this.applyPremiumWorkResponse(data, sellMode === 'consign' ? 'Комиссия банка' : 'Листинг на бирже');
+        } else {
+          this.error = data?.message || 'Не удалось обновить режим';
+          if (event?.target) {
+            event.target.checked = item.payload?.sell_mode === 'consign';
+          }
+        }
+      } catch (e) {
+        this.error = e.message || 'Не удалось обновить режим';
+        if (event?.target) {
+          event.target.checked = item.payload?.sell_mode === 'consign';
+        }
       } finally {
         this.actionLoading = false;
       }
@@ -1931,6 +2089,43 @@ export default {
   flex-direction: column;
   gap: 6px;
   margin-bottom: 8px;
+}
+
+.queue_sell_mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+}
+
+.album_macro_controls {
+  margin: 8px 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.macro_batches select {
+  margin-left: 6px;
+}
+
+.macro_consign {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.btn.macro {
+  background: linear-gradient(135deg, #5c4d9e, #3d6e8f);
+  border: none;
+}
+
+.work_actions_row .btn.macro {
+  flex: 1 1 auto;
 }
 
 .queue_row {

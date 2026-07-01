@@ -61,6 +61,90 @@ class PremiumWorkQueueService
         ];
     }
 
+    /**
+     * @param array<int, array{task_type:string, payload:array<string, mixed>}> $tasks
+     * @return array{queued:int, tasks:array<int, array<string, mixed>>, state:array<string, mixed>}
+     */
+    public function enqueueMany(int $userId, array $tasks): array
+    {
+        $this->assertPremiumActive($userId);
+        if (!$tasks) {
+            throw new \InvalidArgumentException('Пустой план задач');
+        }
+
+        $added = [];
+        $now = new DateTime();
+
+        foreach ($tasks as $task) {
+            $taskType = trim((string)($task['task_type'] ?? ''));
+            if (!in_array($taskType, PremiumWorkQueueConfig::TASK_TYPES, true)) {
+                throw new \InvalidArgumentException('Неизвестный тип задачи');
+            }
+
+            $payload = $this->normalizePayload($taskType, (array)($task['payload'] ?? []));
+            $this->validatePayloadForEnqueue($userId, $taskType, $payload);
+
+            $id = $this->repository->addPremiumWorkQueueItem([
+                'UF_USER_ID' => $userId,
+                'UF_SORT' => $this->repository->getNextPremiumWorkQueueSort($userId),
+                'UF_TASK_TYPE' => $taskType,
+                'UF_STATUS' => PremiumWorkQueueConfig::STATUS_PENDING,
+                'UF_LABEL' => $this->buildTaskLabel($taskType, $payload),
+                'UF_SESSION_ID' => 0,
+                'UF_PAYLOAD_JSON' => json_encode($payload, JSON_UNESCAPED_UNICODE),
+                'UF_RESULT_JSON' => '',
+                'UF_ERROR_TEXT' => '',
+                'UF_CREATED_AT' => $now,
+                'UF_UPDATED_AT' => $now,
+            ]);
+            $added[] = $this->formatQueueRow($this->repository->getPremiumWorkQueueItemById($id) ?? []);
+        }
+
+        $this->processUser($userId);
+
+        return [
+            'queued' => count($added),
+            'tasks' => $added,
+            'state' => $this->getStateForUser($userId),
+        ];
+    }
+
+    public function updatePendingExchangeSellMode(int $userId, int $taskId, string $sellMode): array
+    {
+        $this->assertPremiumActive($userId);
+        $sellMode = trim($sellMode);
+        if (!in_array($sellMode, ['listing', 'consign'], true)) {
+            throw new \InvalidArgumentException('Некорректный режим продажи');
+        }
+
+        $row = $this->repository->getPremiumWorkQueueItemById($taskId);
+        if (!$row || (int)($row['UF_USER_ID'] ?? 0) !== $userId) {
+            throw new \RuntimeException('Задача не найдена');
+        }
+        if ((string)($row['UF_STATUS'] ?? '') !== PremiumWorkQueueConfig::STATUS_PENDING) {
+            throw new \RuntimeException('Режим продажи можно менять только у ожидающих задач');
+        }
+        if ((string)($row['UF_TASK_TYPE'] ?? '') !== PremiumWorkQueueConfig::TASK_EXCHANGE_LIST) {
+            throw new \RuntimeException('Режим продажи доступен только для задач биржи');
+        }
+
+        $payload = $this->decodePayload((string)($row['UF_PAYLOAD_JSON'] ?? ''));
+        $payload['sell_mode'] = $sellMode;
+        $payload = $this->normalizePayload(PremiumWorkQueueConfig::TASK_EXCHANGE_LIST, $payload);
+
+        $now = new DateTime();
+        $this->repository->updatePremiumWorkQueueItem($taskId, [
+            'UF_PAYLOAD_JSON' => json_encode($payload, JSON_UNESCAPED_UNICODE),
+            'UF_LABEL' => $this->buildTaskLabel(PremiumWorkQueueConfig::TASK_EXCHANGE_LIST, $payload),
+            'UF_UPDATED_AT' => $now,
+        ]);
+
+        return [
+            'item' => $this->formatQueueRow($this->repository->getPremiumWorkQueueItemById($taskId) ?? []),
+            'state' => $this->getStateForUser($userId),
+        ];
+    }
+
     public function cancel(int $userId, int $taskId): array
     {
         $row = $this->repository->getPremiumWorkQueueItemById($taskId);
@@ -228,16 +312,30 @@ class PremiumWorkQueueService
                 );
                 $this->dispatchNext($userId);
             } elseif ($taskType === PremiumWorkQueueConfig::TASK_EXCHANGE_LIST) {
-                $result = (new ExchangeService($this->repository))->createListing(
-                    $userId,
-                    (string)($payload['kind'] ?? ''),
-                    (string)($payload['code'] ?? ''),
-                    (int)($payload['qty'] ?? 0),
-                    (float)($payload['price_per_unit'] ?? 0),
-                    (string)($payload['category'] ?? ''),
-                    (int)($payload['event_id'] ?? 0),
-                    (string)($payload['team_code'] ?? '')
-                );
+                $exchange = new ExchangeService($this->repository);
+                $sellMode = (string)($payload['sell_mode'] ?? 'listing');
+                if ($sellMode === 'consign') {
+                    $result = $exchange->consignToBank(
+                        $userId,
+                        (string)($payload['kind'] ?? ''),
+                        (string)($payload['code'] ?? ''),
+                        (int)($payload['qty'] ?? 0),
+                        (string)($payload['category'] ?? ''),
+                        (int)($payload['event_id'] ?? 0),
+                        (string)($payload['team_code'] ?? '')
+                    );
+                } else {
+                    $result = $exchange->createListing(
+                        $userId,
+                        (string)($payload['kind'] ?? ''),
+                        (string)($payload['code'] ?? ''),
+                        (int)($payload['qty'] ?? 0),
+                        (float)($payload['price_per_unit'] ?? 0),
+                        (string)($payload['category'] ?? ''),
+                        (int)($payload['event_id'] ?? 0),
+                        (string)($payload['team_code'] ?? '')
+                    );
+                }
                 $this->completeInstantTask($userId, $taskId, $result);
                 $this->dispatchNext($userId);
             }
@@ -389,6 +487,9 @@ class PremiumWorkQueueService
             'category' => trim((string)($payload['category'] ?? '')),
             'event_id' => (int)($payload['event_id'] ?? 0),
             'team_code' => trim((string)($payload['team_code'] ?? '')),
+            'sell_mode' => in_array((string)($payload['sell_mode'] ?? 'listing'), ['listing', 'consign'], true)
+                ? (string)($payload['sell_mode'] ?? 'listing')
+                : 'listing',
         ];
     }
 
@@ -514,8 +615,9 @@ class PremiumWorkQueueService
             (string)($payload['category'] ?? ''),
             ((string)($payload['team_code'] ?? '')) ?: null
         );
+        $modeLabel = ($payload['sell_mode'] ?? 'listing') === 'consign' ? 'комиссия' : 'листинг';
 
-        return 'Биржа · ' . $label . ' ×' . (int)($payload['qty'] ?? 0);
+        return 'Биржа · ' . $label . ' ×' . (int)($payload['qty'] ?? 0) . ' · ' . $modeLabel;
     }
 
     /**
@@ -603,11 +705,14 @@ class PremiumWorkQueueService
             }
         }
 
+        $payload = $this->decodePayload((string)($row['UF_PAYLOAD_JSON'] ?? ''));
+
         return [
             'id' => (int)($row['ID'] ?? 0),
             'task_type' => (string)($row['UF_TASK_TYPE'] ?? ''),
             'status' => (string)($row['UF_STATUS'] ?? ''),
             'label' => (string)($row['UF_LABEL'] ?? ''),
+            'payload' => $payload,
             'session_id' => (int)($row['UF_SESSION_ID'] ?? 0),
             'error' => (string)($row['UF_ERROR_TEXT'] ?? ''),
             'result' => $result,

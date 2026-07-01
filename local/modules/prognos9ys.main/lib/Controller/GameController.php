@@ -27,6 +27,7 @@ use Prognos9ys\Main\Service\Game\LaborExchangeService;
 use Prognos9ys\Main\Service\Game\MacroEconomyService;
 use Prognos9ys\Main\Service\Game\ProfessionFarmService;
 use Prognos9ys\Main\Service\Game\PackOpenService;
+use Prognos9ys\Main\Service\Game\PremiumFarmMacroPlannerService;
 use Prognos9ys\Main\Service\Game\PremiumService;
 use Prognos9ys\Main\Service\Game\PremiumWorkQueueService;
 use Prognos9ys\Main\Service\Game\ProfessionCertificateService;
@@ -91,6 +92,8 @@ class GameController extends BaseController
             'startFarmWork' => $this->getDefaultConfigureForPostToken(),
             'cancelFarmWork' => $this->getDefaultConfigureForPostToken(),
             'enqueuePremiumWork' => $this->getDefaultConfigureForPostToken(),
+            'enqueuePremiumMacro' => $this->getDefaultConfigureForPostToken(),
+            'updatePremiumWorkSellMode' => $this->getDefaultConfigureForPostToken(),
             'cancelPremiumWork' => $this->getDefaultConfigureForPostToken(),
             'getAlbumState' => $this->getDefaultConfigureForPostToken(),
             'craftAlbums' => $this->getDefaultConfigureForPostToken(),
@@ -980,7 +983,53 @@ class GameController extends BaseController
 
         return array_merge(['status' => 'ok'], $result, [
             'farm' => (new ProfessionFarmService())->getState($userId),
-            'game' => (new GameProfileService())->getSummary($userId, true, false, true),
+            'game' => (new GameProfileService())->getWalletMutationSummary($userId),
+        ]);
+    }
+
+    public function enqueuePremiumMacroAction(string $macroType = '', string $options = ''): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        $decoded = json_decode($options, true);
+        if (!is_array($decoded)) {
+            throw new ApiException('Некорректные параметры макроса', 400);
+        }
+
+        try {
+            $result = (new PremiumFarmMacroPlannerService())->planAndEnqueue($userId, $macroType, $decoded);
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok'], $result, [
+            'farm' => (new ProfessionFarmService())->getState($userId),
+            'game' => (new GameProfileService())->getWalletMutationSummary($userId),
+        ]);
+    }
+
+    public function updatePremiumWorkSellModeAction(int $taskId = 0, string $sellMode = 'listing'): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        try {
+            $result = (new PremiumWorkQueueService())->updatePendingExchangeSellMode($userId, $taskId, $sellMode);
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok'], $result, [
+            'farm' => (new ProfessionFarmService())->getState($userId),
         ]);
     }
 
