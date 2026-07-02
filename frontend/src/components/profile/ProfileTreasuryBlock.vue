@@ -389,59 +389,6 @@
               </div>
             </div>
 
-            <div class="treasury_exchange_section" v-if="canImpersonate">
-              <div class="subsection_title">Продажа с госсклада (биржа)</div>
-              <p class="hint">
-                Лоты от имени «Казна», цена по номиналу, без комиссии. Покупка зачисляет 🪙 в казну.
-              </p>
-              <div v-if="treasuryGovListings.length" class="treasury_exchange_list">
-                <div
-                  v-for="lot in treasuryGovListings"
-                  :key="'tg' + lot.id"
-                  class="treasury_exchange_row"
-                >
-                  <span class="treasury_exchange_label">
-                    {{ lot.label }} ×{{ lot.qty_remaining }} · {{ lot.price_per_unit }} 🪙
-                  </span>
-                  <button
-                    type="button"
-                    class="action_btn mini secondary"
-                    :disabled="actionLoading"
-                    @click="cancelTreasuryGovListing(lot.id)"
-                  >
-                    Снять
-                  </button>
-                </div>
-              </div>
-              <p v-else class="hint">Нет активных лотов казны на бирже.</p>
-            </div>
-
-            <div
-              v-if="govListModal"
-              class="gov_list_modal_backdrop"
-              @click.self="closeGovListModal"
-            >
-              <div class="gov_list_modal">
-                <div class="subsection_title">Выставить {{ govListModal.label }}</div>
-                <p class="hint">
-                  На складе: {{ govListModal.maxQty }} · номинал {{ govListModal.nominal }} 🪙
-                </p>
-                <input
-                  v-model.number="govListModal.qty"
-                  type="number"
-                  min="1"
-                  :max="govListModal.maxQty"
-                  class="qty_input"
-                />
-                <div class="gov_list_modal_actions">
-                  <button type="button" class="action_btn" :disabled="actionLoading" @click="submitGovListMaterial">
-                    Выставить
-                  </button>
-                  <button type="button" class="action_btn secondary" @click="closeGovListModal">Отмена</button>
-                </div>
-              </div>
-            </div>
-
             <div class="labor_treasury_section" v-if="canImpersonate && laborState">
               <div class="subsection_title">Заказы на работу (казна)</div>
               <p class="hint">
@@ -522,6 +469,59 @@
                 </div>
               </div>
               <p v-else class="hint section_hint">Нет заказов казны на бирже труда.</p>
+            </div>
+
+            <div class="treasury_exchange_section" v-if="canImpersonate">
+              <div class="subsection_title">Продажа с госсклада (биржа)</div>
+              <p class="hint">
+                Лоты от имени «Казна», цена по номиналу, без комиссии. Покупка зачисляет 🪙 в казну.
+              </p>
+              <div v-if="treasuryGovListings.length" class="treasury_exchange_list">
+                <div
+                  v-for="lot in treasuryGovListings"
+                  :key="'tg' + lot.id"
+                  class="treasury_exchange_row"
+                >
+                  <span class="treasury_exchange_label">
+                    {{ lot.label }} ×{{ lot.qty_remaining }} · {{ lot.price_per_unit }} 🪙
+                  </span>
+                  <button
+                    type="button"
+                    class="action_btn mini secondary"
+                    :disabled="actionLoading"
+                    @click="cancelTreasuryGovListing(lot.id)"
+                  >
+                    Снять
+                  </button>
+                </div>
+              </div>
+              <p v-else class="hint">Нет активных лотов казны на бирже.</p>
+            </div>
+
+            <div
+              v-if="govListModal"
+              class="gov_list_modal_backdrop"
+              @click.self="closeGovListModal"
+            >
+              <div class="gov_list_modal">
+                <div class="subsection_title">Выставить {{ govListModal.label }}</div>
+                <p class="hint">
+                  На складе: {{ govListModal.maxQty }} · номинал {{ govListModal.nominal }} 🪙
+                </p>
+                <input
+                  v-model.number="govListModal.qty"
+                  type="number"
+                  min="1"
+                  :max="govListModal.maxQty"
+                  class="qty_input"
+                />
+                <div class="gov_list_modal_actions">
+                  <button type="button" class="action_btn" :disabled="actionLoading" @click="submitGovListMaterial">
+                    Выставить
+                  </button>
+                  <button type="button" class="action_btn secondary" @click="closeGovListModal">Отмена</button>
+                </div>
+              </div>
             </div>
 
             <div class="macro_block macro_monitor" v-if="warehouseFlows">
