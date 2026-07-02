@@ -3,7 +3,7 @@
 namespace Prognos9ys\Main\Service\Game;
 
 /**
- * Массовая добыча на казну: циклы (1 / полная смена) и аудитория (все / бедные / в долгах).
+ * Массовая добыча и крафт на казну: циклы (1 / полная смена) и аудитория.
  */
 class FarmBulkActionConfig
 {
@@ -62,8 +62,47 @@ class FarmBulkActionConfig
         return $map[$action] ?? null;
     }
 
+    /**
+     * @return string[]
+     */
+    public static function treasuryCraftActionIds(): array
+    {
+        return [
+            'farm_treasury_craft_1',
+            'farm_treasury_craft_5',
+        ];
+    }
+
+    public static function isTreasuryCraftAction(string $action): bool
+    {
+        return self::parseTreasuryCraftAction($action) !== null;
+    }
+
+    /**
+     * @return array{iterations:int,scope:string}|null
+     */
+    public static function parseTreasuryCraftAction(string $action): ?array
+    {
+        $map = [
+            'farm_treasury_craft_1' => ['iterations' => 1, 'scope' => self::SCOPE_ALL],
+            'farm_treasury_craft_5' => [
+                'iterations' => ProfessionEconomyConfig::FREE_ITERATIONS_PER_SESSION,
+                'scope' => self::SCOPE_ALL,
+            ],
+        ];
+
+        return $map[$action] ?? null;
+    }
+
     public static function moderatorTitle(string $action): string
     {
+        $craftParsed = self::parseTreasuryCraftAction($action);
+        if ($craftParsed) {
+            $cycles = (int)$craftParsed['iterations'];
+
+            return 'Крафт ×' . $cycles . ' (всем)';
+        }
+
         $parsed = self::parseTreasuryAction($action);
         if (!$parsed) {
             return 'Добыча на казну';
@@ -81,6 +120,18 @@ class FarmBulkActionConfig
 
     public static function moderatorConfirm(string $action): string
     {
+        $craftParsed = self::parseTreasuryCraftAction($action);
+        if ($craftParsed) {
+            $cycles = (int)$craftParsed['iterations'];
+            $payPerUser = $cycles * ProfessionEconomyConfig::PAY_TREASURY_PER_ITERATION;
+
+            return 'Мгновенный крафт на казну (×' . $cycles . ' цикл'
+                . ($cycles > 1 ? 'а' : '')
+                . ', +' . $payPerUser . ' 🪙 каждому) по профессии обработки игрока?'
+                . ' Сырьё — с госсклада или по заказу казны на бирже.'
+                . ' Пропуск — нет обработки, смена активна или нет заказа/сырья.';
+        }
+
         $parsed = self::parseTreasuryAction($action);
         if (!$parsed) {
             return 'Запустить массовую добычу на казну?';

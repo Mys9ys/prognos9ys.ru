@@ -201,6 +201,99 @@ class BotFarmService
             ? min(ProfessionEconomyConfig::FREE_ITERATIONS_PER_SESSION, $iterations)
             : ProfessionEconomyConfig::FREE_ITERATIONS_PER_SESSION;
 
+        return $this->runInstantTreasuryWork(
+            $userId,
+            $professionCode,
+            $iterations,
+            static fn(LaborExchangeService $laborService): bool => $laborService->hasOpenTreasuryGatherOrders()
+        );
+    }
+
+    /**
+     * Мгновенный крафт на казну по профессии обработки игрока.
+     *
+     * @return array{status:string,message:string,profession_code?:string,ticks?:int}
+     */
+    public function runInstantTreasuryCraft(int $userId, int $iterations = 0): array
+    {
+        if ($userId <= 0) {
+            return ['status' => 'skipped', 'message' => 'Некорректный пользователь'];
+        }
+
+        if ($this->professionRepository->getActiveSessionByUserId($userId)) {
+            return ['status' => 'skipped', 'message' => 'Уже идёт смена'];
+        }
+
+        $professionCode = $this->resolveProcessingProfessionCode($userId);
+        if ($professionCode === '') {
+            return ['status' => 'skipped', 'message' => 'Нет профессии обработки'];
+        }
+
+        $iterations = $iterations > 0
+            ? min(ProfessionEconomyConfig::FREE_ITERATIONS_PER_SESSION, $iterations)
+            : ProfessionEconomyConfig::FREE_ITERATIONS_PER_SESSION;
+
+        return $this->runInstantTreasuryWork(
+            $userId,
+            $professionCode,
+            $iterations,
+            static fn(LaborExchangeService $laborService): bool => $laborService->hasOpenTreasuryProcessingOrders()
+        );
+    }
+
+    public function getProcessingProfessionCode(int $userId): string
+    {
+        return $this->resolveProcessingProfessionCode($userId);
+    }
+
+    /**
+     * @param callable(LaborExchangeService):bool $hasOtherCategoryOrders
+     * @return array{status:string,message:string,profession_code?:string,ticks?:int,labor_order_id?:int}
+     */
+    private function runInstantTreasuryWork(
+        int $userId,
+        string $professionCode,
+        int $iterations,
+        callable $hasOtherCategoryOrders
+    ): array {
+        $definition = ProfessionMaterialConfig::getProfession($professionCode);
+        $laborService = new LaborExchangeService(null, $this->professionRepository);
+        $order = $laborService->findOpenTreasuryOrderForProfession($professionCode);
+
+        if ($order !== null) {
+            $claimIterations = min(
+                $iterations,
+                LaborExchangeConfig::MAX_CYCLES_PER_CLAIM,
+                $laborService->getTreasuryOrderRemainingIterations($order)
+            );
+            if ($claimIterations <= 0) {
+                return ['status' => 'skipped', 'message' => 'В заказе казны не осталось циклов'];
+            }
+
+            try {
+                $laborService->claimOrder($userId, (int)$order['ID'], $claimIterations);
+                $ticks = $this->farmService->forceRunAllSessionTicks($userId);
+
+                return [
+                    'status' => 'success',
+                    'profession_code' => $professionCode,
+                    'ticks' => $ticks,
+                    'labor_order_id' => (int)$order['ID'],
+                    'message' => ($definition['label'] ?? $professionCode)
+                        . ': ' . $ticks . ' цикл. по заказу казны на бирже',
+                ];
+            } catch (\Throwable $e) {
+                return ['status' => 'skipped', 'message' => $e->getMessage()];
+            }
+        }
+
+        if ($hasOtherCategoryOrders($laborService)) {
+            return [
+                'status' => 'skipped',
+                'message' => 'Нет заказа казны на бирже для ' . ($definition['label'] ?? $professionCode),
+            ];
+        }
+
         $payTotal = $iterations * ProfessionEconomyConfig::PAY_TREASURY_PER_ITERATION;
         $treasury = (new TreasuryService())->getSummary();
         if ((float)($treasury['prognobaks'] ?? 0) < $payTotal) {
@@ -210,13 +303,17 @@ class BotFarmService
             ];
         }
 
-        $definition = ProfessionMaterialConfig::getProfession($professionCode);
-        $this->farmService->startWork(
-            $userId,
-            $professionCode,
-            ProfessionMaterialConfig::WORK_MODE_TREASURY,
-            $iterations
-        );
+        try {
+            $this->farmService->startWork(
+                $userId,
+                $professionCode,
+                ProfessionMaterialConfig::WORK_MODE_TREASURY,
+                $iterations
+            );
+        } catch (\Throwable $e) {
+            return ['status' => 'skipped', 'message' => $e->getMessage()];
+        }
+
         $ticks = $this->farmService->forceRunAllSessionTicks($userId);
 
         return [

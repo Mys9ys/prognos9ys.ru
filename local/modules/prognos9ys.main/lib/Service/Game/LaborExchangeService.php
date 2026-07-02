@@ -254,21 +254,94 @@ class LaborExchangeService
                 continue;
             }
 
-            $orderId = (int)($row['ID'] ?? 0);
             $professionCode = (string)($row['UF_PROFESSION_CODE'] ?? '');
             if ($professionCode === '' || !array_key_exists($professionCode, $map)) {
                 continue;
             }
 
-            $total = (int)($row['UF_ITERATIONS_TOTAL'] ?? 0);
-            $done = (int)($row['UF_ITERATIONS_DONE'] ?? 0);
-            $remaining = max(0, $total - $done - $this->orderRepository->getActiveSessionIterationsSum($orderId));
-            if ($remaining > 0) {
+            if ($this->getTreasuryOrderRemainingIterations($row) > 0) {
                 $map[$professionCode] = true;
             }
         }
 
         return $map;
+    }
+
+    public function getTreasuryOrderRemainingIterations(array $order): int
+    {
+        $orderId = (int)($order['ID'] ?? 0);
+        if ($orderId <= 0) {
+            return 0;
+        }
+
+        $total = (int)($order['UF_ITERATIONS_TOTAL'] ?? 0);
+        $done = (int)($order['UF_ITERATIONS_DONE'] ?? 0);
+
+        return max(0, $total - $done - $this->orderRepository->getActiveSessionIterationsSum($orderId));
+    }
+
+    public function findOpenTreasuryOrderForProfession(string $professionCode): ?array
+    {
+        $professionCode = trim($professionCode);
+        if ($professionCode === '') {
+            return null;
+        }
+
+        foreach ($this->orderRepository->getOrdersByPosterKind(LaborExchangeConfig::POSTER_KIND_TREASURY, 100) as $row) {
+            if ((string)($row['UF_STATUS'] ?? '') !== LaborExchangeConfig::STATUS_OPEN) {
+                continue;
+            }
+            if ((string)($row['UF_PROFESSION_CODE'] ?? '') !== $professionCode) {
+                continue;
+            }
+            if ($this->getTreasuryOrderRemainingIterations($row) > 0) {
+                return $row;
+            }
+        }
+
+        return null;
+    }
+
+    public function hasOpenTreasuryGatherOrders(): bool
+    {
+        foreach ($this->orderRepository->getOrdersByPosterKind(LaborExchangeConfig::POSTER_KIND_TREASURY, 100) as $row) {
+            if ((string)($row['UF_STATUS'] ?? '') !== LaborExchangeConfig::STATUS_OPEN) {
+                continue;
+            }
+
+            $professionCode = (string)($row['UF_PROFESSION_CODE'] ?? '');
+            $definition = ProfessionMaterialConfig::getProfession($professionCode);
+            if (!$definition || ProfessionMaterialConfig::isProcessingProfession($definition)) {
+                continue;
+            }
+
+            if ($this->getTreasuryOrderRemainingIterations($row) > 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function hasOpenTreasuryProcessingOrders(): bool
+    {
+        foreach ($this->orderRepository->getOrdersByPosterKind(LaborExchangeConfig::POSTER_KIND_TREASURY, 100) as $row) {
+            if ((string)($row['UF_STATUS'] ?? '') !== LaborExchangeConfig::STATUS_OPEN) {
+                continue;
+            }
+
+            $professionCode = (string)($row['UF_PROFESSION_CODE'] ?? '');
+            $definition = ProfessionMaterialConfig::getProfession($professionCode);
+            if (!$definition || !ProfessionMaterialConfig::isProcessingProfession($definition)) {
+                continue;
+            }
+
+            if ($this->getTreasuryOrderRemainingIterations($row) > 0) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

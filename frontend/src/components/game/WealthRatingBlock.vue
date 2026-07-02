@@ -153,6 +153,29 @@
             <span>×6 всем</span>
           </button>
         </div>
+        <div class="bulk_subtitle">Крафт на казну (мгновенно)</div>
+        <div class="bulk_row">
+          <button
+              type="button"
+              class="bulk_btn"
+              :disabled="bulkLoading"
+              title="1 цикл крафта на казну — по профессии обработки, через биржу если есть заказ"
+              @click="runBulk('farm_treasury_craft_1')"
+          >
+            <span class="bulk_emoji">🪚</span>
+            <span>×1 всем</span>
+          </button>
+          <button
+              type="button"
+              class="bulk_btn"
+              :disabled="bulkLoading"
+              title="6 циклов крафта на казну — по профессии обработки"
+              @click="runBulk('farm_treasury_craft_5')"
+          >
+            <span class="bulk_emoji">🪚</span>
+            <span>×6 всем</span>
+          </button>
+        </div>
         <div class="bulk_msg ok" v-if="bulkMessage">{{ bulkMessage }}</div>
         <div class="bulk_msg error" v-if="bulkError">{{ bulkError }}</div>
         <div class="bulk_msg error" v-if="impersonateError">{{ impersonateError }}</div>
@@ -365,6 +388,10 @@ const FARM_TREASURY_BULK = [
   'farm_treasury_5',
   'farm_treasury_gather',
 ];
+const FARM_TREASURY_CRAFT_BULK = [
+  'farm_treasury_craft_1',
+  'farm_treasury_craft_5',
+];
 const BULK_TITLES = {
   prognobaks_chests: 'Сундуки за 50 прогнобаксов',
   claim_xp: 'Сбор опыта',
@@ -380,11 +407,17 @@ const BULK_TITLES = {
   farm_treasury_1: 'Добыча ×1 (всем)',
   farm_treasury_5: 'Добыча ×6 (всем)',
   farm_treasury_gather: 'Добыча ×6 (всем)',
+  farm_treasury_craft_1: 'Крафт ×1 (всем)',
+  farm_treasury_craft_5: 'Крафт ×6 (всем)',
 };
 const FARM_TREASURY_PROMPTS = {
   farm_treasury_1: 'Мгновенная смена на казну (×1 цикл, +2 🪙 каждому) для всех игроков с кошельком? Пропуск — если уже идёт смена или в казне не хватает монет.',
   farm_treasury_5: 'Мгновенная смена на казну (×6 циклов, +12 🪙 каждому) для всех игроков с кошельком? Пропуск — если уже идёт смена или в казне не хватает монет.',
   farm_treasury_gather: 'Мгновенная смена на казну (×6 циклов, +12 🪙 каждому) для всех игроков с кошельком? Пропуск — если уже идёт смена или в казне не хватает монет.',
+};
+const FARM_TREASURY_CRAFT_PROMPTS = {
+  farm_treasury_craft_1: 'Мгновенный крафт на казну (×1 цикл) по профессии обработки каждого игрока? Сырьё с госсклада или заказ казны на бирже.',
+  farm_treasury_craft_5: 'Мгновенный крафт на казну (×6 циклов) по профессии обработки каждого игрока? Сырьё с госсклада или заказ казны на бирже.',
 };
 
 export default {
@@ -659,10 +692,12 @@ export default {
         farm_sell_crafted: 'Выставить на биржу базовые материалы (доска, блок, слиток, стекло, ткань) по номиналу? Лимит лотов соблюдается — остаток пропускается.',
         farm_self_process: 'Мгновенная обработка «для себя» (до 5 циклов): сырьё из инвентаря, недостающее — покупка на бирже по лучшей цене, затем списание 0,5 🪙/цикл. Пропуск — нет обработки, сырья или монет.',
         ...FARM_TREASURY_PROMPTS,
+        ...FARM_TREASURY_CRAFT_PROMPTS,
       };
 
       const confirmText = prompts[bulkAction]
         || (FARM_TREASURY_BULK.includes(bulkAction) ? FARM_TREASURY_PROMPTS.farm_treasury_5 : null)
+        || (FARM_TREASURY_CRAFT_BULK.includes(bulkAction) ? FARM_TREASURY_CRAFT_PROMPTS.farm_treasury_craft_5 : null)
         || 'Выполнить массовое действие?';
 
       if (!window.confirm(confirmText)) {

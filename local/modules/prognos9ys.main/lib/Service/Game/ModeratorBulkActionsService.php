@@ -62,7 +62,9 @@ class ModeratorBulkActionsService
 
         $loanMap = [];
         $treasuryParsed = FarmBulkActionConfig::parseTreasuryAction($bulkAction);
-        if ($treasuryParsed && $treasuryParsed['scope'] === FarmBulkActionConfig::SCOPE_INDEBTED) {
+        $craftParsed = FarmBulkActionConfig::parseTreasuryCraftAction($bulkAction);
+        if (($treasuryParsed || $craftParsed)
+            && (($treasuryParsed['scope'] ?? $craftParsed['scope'] ?? '') === FarmBulkActionConfig::SCOPE_INDEBTED)) {
             $loanMap = $this->repository->getActiveLoanAggregatesByUser();
         }
 
@@ -153,7 +155,8 @@ class ModeratorBulkActionsService
             || $bulkAction === 'farm_pick_processing_professions'
             || $bulkAction === 'farm_sell_crafted'
             || $bulkAction === 'farm_self_process'
-            || FarmBulkActionConfig::isTreasuryAction($bulkAction)) {
+            || FarmBulkActionConfig::isTreasuryAction($bulkAction)
+            || FarmBulkActionConfig::isTreasuryCraftAction($bulkAction)) {
             try {
                 return $this->executeOne($bulkAction, $userId, $walletRow, []);
             } catch (\Throwable $e) {
@@ -313,6 +316,22 @@ class ModeratorBulkActionsService
                 );
 
             default:
+                $craftParsed = FarmBulkActionConfig::parseTreasuryCraftAction($bulkAction);
+                if ($craftParsed) {
+                    $result = $this->botFarmService->runInstantTreasuryCraft(
+                        $userId,
+                        (int)$craftParsed['iterations']
+                    );
+
+                    return $this->oneResult(
+                        $bulkAction,
+                        $userId,
+                        (string)($result['status'] ?? 'failed'),
+                        (string)($result['message'] ?? ''),
+                        $result
+                    );
+                }
+
                 $treasuryParsed = FarmBulkActionConfig::parseTreasuryAction($bulkAction);
                 if ($treasuryParsed) {
                     $result = $this->botFarmService->runInstantTreasuryGather(
@@ -350,6 +369,11 @@ class ModeratorBulkActionsService
         $treasuryParsed = FarmBulkActionConfig::parseTreasuryAction($bulkAction);
         if ($treasuryParsed) {
             return $this->evaluateFarmTreasuryEligibility($userId, $wallet, $treasuryParsed, $loanMap);
+        }
+
+        $craftParsed = FarmBulkActionConfig::parseTreasuryCraftAction($bulkAction);
+        if ($craftParsed) {
+            return $this->evaluateFarmTreasuryCraftEligibility($userId, $wallet, $craftParsed, $loanMap);
         }
 
         switch ($bulkAction) {
@@ -525,13 +549,122 @@ class ModeratorBulkActionsService
             $hint = $label;
         }
 
+        $hint .= ', ×' . $iterations;
+
+        $laborService = new LaborExchangeService();
+        $order = $laborService->findOpenTreasuryOrderForProfession($code);
+        if ($order) {
+            $remaining = $laborService->getTreasuryOrderRemainingIterations($order);
+            $claimIterations = min($iterations, LaborExchangeConfig::MAX_CYCLES_PER_CLAIM, $remaining);
+            if ($claimIterations <= 0) {
+                return ['eligible' => false, 'skip_reason' => 'В заказе казны не осталось циклов'];
+            }
+
+            $hint .= ', биржа';
+            if ($scope === FarmBulkActionConfig::SCOPE_POOR) {
+                $hint .= ', ' . round($wallet['prognobaks'], 1) . ' 🪙';
+            }
+            if ($scope === FarmBulkActionConfig::SCOPE_INDEBTED) {
+                $due = round((float)(($loanMap[$userId] ?? [])['total_due'] ?? 0), 1);
+                $hint .= ', долг ' . $due . ' 🪙';
+            }
+
+            return ['eligible' => true, 'hint' => $hint];
+        }
+
+        if ($laborService->hasOpenTreasuryGatherOrders()) {
+            return ['eligible' => false, 'skip_reason' => 'Нет заказа казны на бирже для профессии'];
+        }
+
         $payTotal = $iterations * ProfessionEconomyConfig::PAY_TREASURY_PER_ITERATION;
         $treasury = (new TreasuryService())->getSummary();
         if ((float)($treasury['prognobaks'] ?? 0) < $payTotal) {
             return ['eligible' => false, 'skip_reason' => 'Мало 🪙 в казне'];
         }
 
-        $hint .= ', ×' . $iterations;
+        if ($scope === FarmBulkActionConfig::SCOPE_POOR) {
+            $hint .= ', ' . round($wallet['prognobaks'], 1) . ' 🪙';
+        }
+        if ($scope === FarmBulkActionConfig::SCOPE_INDEBTED) {
+            $due = round((float)(($loanMap[$userId] ?? [])['total_due'] ?? 0), 1);
+            $hint .= ', долг ' . $due . ' 🪙';
+        }
+
+        return ['eligible' => true, 'hint' => $hint];
+    }
+
+    /**
+     * @param array{iterations:int,scope:string} $parsed
+     * @param array<int, array{count:int,total_due:float}> $loanMap
+     * @return array{eligible:bool,hint?:string,skip_reason?:string}
+     */
+    private function evaluateFarmTreasuryCraftEligibility(
+        int $userId,
+        array $wallet,
+        array $parsed,
+        array $loanMap
+    ): array {
+        $iterations = (int)$parsed['iterations'];
+        $scope = (string)$parsed['scope'];
+
+        if ($scope === FarmBulkActionConfig::SCOPE_POOR
+            && $wallet['prognobaks'] >= GameEconomyConfig::MODERATOR_BULK_LOAN_SHOP_WALLET_MAX) {
+            return [
+                'eligible' => false,
+                'skip_reason' => 'Не бедный (≥' . (int)GameEconomyConfig::MODERATOR_BULK_LOAN_SHOP_WALLET_MAX . ' 🪙)',
+            ];
+        }
+
+        if ($scope === FarmBulkActionConfig::SCOPE_INDEBTED) {
+            $loans = $loanMap[$userId] ?? ['count' => 0, 'total_due' => 0.0];
+            if ((int)($loans['count'] ?? 0) <= 0) {
+                return ['eligible' => false, 'skip_reason' => 'Нет займа'];
+            }
+        }
+
+        if ($this->professionRepositoryHasActiveSession($userId)) {
+            return ['eligible' => false, 'skip_reason' => 'Смена активна'];
+        }
+
+        $code = $this->botFarmService->getProcessingProfessionCode($userId);
+        if ($code === '') {
+            return ['eligible' => false, 'skip_reason' => 'Нет профессии обработки'];
+        }
+
+        $label = ProfessionMaterialConfig::getProfession($code)['label'] ?? $code;
+        $hint = $label . ', ×' . $iterations;
+
+        $laborService = new LaborExchangeService();
+        $order = $laborService->findOpenTreasuryOrderForProfession($code);
+        if ($order) {
+            $remaining = $laborService->getTreasuryOrderRemainingIterations($order);
+            $claimIterations = min($iterations, LaborExchangeConfig::MAX_CYCLES_PER_CLAIM, $remaining);
+            if ($claimIterations <= 0) {
+                return ['eligible' => false, 'skip_reason' => 'В заказе казны не осталось циклов'];
+            }
+
+            $hint .= ', биржа';
+            if ($scope === FarmBulkActionConfig::SCOPE_POOR) {
+                $hint .= ', ' . round($wallet['prognobaks'], 1) . ' 🪙';
+            }
+            if ($scope === FarmBulkActionConfig::SCOPE_INDEBTED) {
+                $due = round((float)(($loanMap[$userId] ?? [])['total_due'] ?? 0), 1);
+                $hint .= ', долг ' . $due . ' 🪙';
+            }
+
+            return ['eligible' => true, 'hint' => $hint];
+        }
+
+        if ($laborService->hasOpenTreasuryProcessingOrders()) {
+            return ['eligible' => false, 'skip_reason' => 'Нет заказа казны на бирже для профессии'];
+        }
+
+        $payTotal = $iterations * ProfessionEconomyConfig::PAY_TREASURY_PER_ITERATION;
+        $treasury = (new TreasuryService())->getSummary();
+        if ((float)($treasury['prognobaks'] ?? 0) < $payTotal) {
+            return ['eligible' => false, 'skip_reason' => 'Мало 🪙 в казне'];
+        }
+
         if ($scope === FarmBulkActionConfig::SCOPE_POOR) {
             $hint .= ', ' . round($wallet['prognobaks'], 1) . ' 🪙';
         }
@@ -605,7 +738,8 @@ class ModeratorBulkActionsService
             'farm_pick_processing_professions',
             'farm_sell_crafted',
             'farm_self_process',
-        ], true) && !FarmBulkActionConfig::isTreasuryAction($bulkAction)) {
+        ], true) && !FarmBulkActionConfig::isTreasuryAction($bulkAction)
+            && !FarmBulkActionConfig::isTreasuryCraftAction($bulkAction)) {
             throw new \InvalidArgumentException('Неизвестное массовое действие');
         }
     }

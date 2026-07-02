@@ -163,6 +163,30 @@ class ProfessionFarmService
             ? min(ProfessionEconomyConfig::FREE_ITERATIONS_PER_SESSION, $iterations)
             : ProfessionEconomyConfig::FREE_ITERATIONS_PER_SESSION;
 
+        if ($workMode === ProfessionMaterialConfig::WORK_MODE_TREASURY) {
+            $laborService = new LaborExchangeService(
+                null,
+                $this->repository,
+                $this->walletService,
+                $this->treasuryService
+            );
+            $order = $laborService->findOpenTreasuryOrderForProfession($professionCode);
+            if (!$order) {
+                throw new \RuntimeException('Нет открытого заказа казны на бирже для этой профессии');
+            }
+
+            $claimIterations = min(
+                $iterations,
+                LaborExchangeConfig::MAX_CYCLES_PER_CLAIM,
+                $laborService->getTreasuryOrderRemainingIterations($order)
+            );
+            if ($claimIterations <= 0) {
+                throw new \RuntimeException('В заказе казны не осталось циклов');
+            }
+
+            return $laborService->claimOrder($userId, (int)$order['ID'], $claimIterations)['farm'];
+        }
+
         $iterations = $this->resolveIterationsForMaterials($userId, $professionCode, $workMode, $iterations);
         if ($iterations <= 0) {
             throw new \RuntimeException('Недостаточно сырья для начала смены');
