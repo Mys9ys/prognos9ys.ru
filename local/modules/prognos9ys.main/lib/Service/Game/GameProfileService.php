@@ -144,6 +144,7 @@ class GameProfileService
             'inventory_items' => $inventoryItems,
             'learned_recipes' => $this->repository->getLearnedRecipes($userId),
             'album_meta' => (new AlbumService())->getProfileMeta($userId),
+            'equipment' => (new EquipmentService($this->repository))->getSummary($userId),
             'bank' => $bankBlock,
         ];
     }

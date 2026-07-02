@@ -29,6 +29,20 @@
       </div>
 
       <div
+        v-if="equippedCaftanLabel"
+        class="farm_equipment_bar"
+      >
+        <span class="farm_equipment_label">🥋 {{ equippedCaftanLabel }}</span>
+        <span class="farm_equipment_bonus" v-if="equipmentBonusText">{{ equipmentBonusText }}</span>
+        <button
+          type="button"
+          class="farm_equipment_unequip"
+          :disabled="loading"
+          @click="unequipCaftan"
+        >Снять</button>
+      </div>
+
+      <div
         class="section"
         v-if="(activeFarmTab === 'professions' || farm.slots?.needs_pick) && showProfessionSection"
       >
@@ -692,6 +706,26 @@ export default {
     showQueueLogTab() {
       return true;
     },
+    equippedCaftanLabel() {
+      return this.farm?.equipment?.equipped_label || '';
+    },
+    equipmentBonusText() {
+      const eq = this.farm?.equipment;
+      if (!eq?.equipped_caftan) {
+        return '';
+      }
+      const parts = [];
+      if (Number(eq.combo_x2_bonus_pp) > 0) {
+        parts.push(`+${eq.combo_x2_bonus_pp} п.п. ×2`);
+      }
+      if (Number(eq.combo_x3_bonus_pp) > 0) {
+        parts.push(`+${eq.combo_x3_bonus_pp} п.п. ×3`);
+      }
+      if (Number(eq.premium_bonus_pp) > 0) {
+        parts.push(`+${eq.premium_bonus_pp} п.п. премиум`);
+      }
+      return parts.join(', ');
+    },
     journalEntries() {
       const log = Array.isArray(this.workQueue.log) ? [...this.workQueue.log] : [];
       const lastShift = this.farm?.last_shift;
@@ -1032,6 +1066,35 @@ export default {
       }
     },
 
+    async unequipCaftan() {
+      const token = this.authData?.token;
+      if (!token || this.loading) {
+        return;
+      }
+
+      this.loading = true;
+      this.error = '';
+      this.message = '';
+
+      try {
+        const data = await apiActions.game.unequipCaftan(token);
+        if (data?.status === 'ok') {
+          this.message = (data.lines || []).map((line) => line.text).filter(Boolean).join(' · ')
+            || 'Кафтан снят';
+          if (data.game) {
+            this.setUserInfo({ ...this.authData, game: data.game });
+          }
+          await this.refresh(true);
+        } else {
+          this.error = data?.message || 'Не удалось снять кафтан';
+        }
+      } catch (e) {
+        this.error = e.message || 'Не удалось снять кафтан';
+      } finally {
+        this.loading = false;
+      }
+    },
+
     schedulePoll() {
       this.clearPoll();
       if (this.tickRefreshInFlight) {
@@ -1159,10 +1222,13 @@ export default {
 
     chancesHint(card) {
       const lvl = Math.max(1, card.level);
+      const caftan = this.equippedCaftanLabel
+        ? ` Кафтан: ${this.equippedCaftanLabel}.`
+        : '';
       if (card.type === 'process') {
-        return `Ур. ${lvl}. Крафт: комбо и премиум (${card.premium_label}) — как у добычи; на казну премиум вам.`;
+        return `Ур. ${lvl}. Крафт: комбо и премиум (${card.premium_label}) — как у добычи; на казну премиум вам.${caftan}`;
       }
-      return `Ур. ${lvl}. Добыча: комбо даёт доп. ${card.output_label}; премиум с ур. ${card.premium_min_level || 2}.`;
+      return `Ур. ${lvl}. Добыча: комбо даёт доп. ${card.output_label}; премиум с ур. ${card.premium_min_level || 2}.${caftan}`;
     },
 
     cycleLabel(count) {
@@ -1828,6 +1894,37 @@ export default {
     padding: 8px 6px;
     font-size: 11px;
   }
+}
+
+.farm_equipment_bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: fade(@orange, 12%);
+  border: 1px solid fade(@orange, 28%);
+}
+
+.farm_equipment_label {
+  font-weight: 600;
+}
+
+.farm_equipment_bonus {
+  flex: 1 1 auto;
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.farm_equipment_unequip {
+  margin-left: auto;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid fade(@colorText, 25%);
+  background: @darkbg;
+  cursor: pointer;
 }
 
 .farm_tab {

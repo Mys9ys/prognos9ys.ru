@@ -678,6 +678,31 @@ class GameEconomyHlInstaller
     }
 
     /**
+     * HL кошелька: надетый кафтан (код экипировки).
+     */
+    public function upgradeWalletEquipmentHl(): array
+    {
+        if (!Loader::includeModule('highloadblock')) {
+            throw new \RuntimeException('Модуль highloadblock не установлен');
+        }
+
+        $this->ensureHlBlock('Prognos9ysUserWallet', self::TABLE_WALLET, [
+            'UF_EQUIPPED_CAFTAN' => ['USER_TYPE_ID' => 'string'],
+        ]);
+
+        GameEconomyRepository::resetWalletDataClassCache();
+
+        if (class_exists(\Bitrix\Main\Application::class)) {
+            $app = \Bitrix\Main\Application::getInstance();
+            if ($app) {
+                $app->getManagedCache()->cleanDir('orm');
+            }
+        }
+
+        return [];
+    }
+
+    /**
      * HL очереди офлайн-работ Premium.
      */
     public function upgradePremiumWorkQueueHl(): array

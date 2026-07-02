@@ -352,6 +352,36 @@ class GameEconomyRepository
         return $rows[0];
     }
 
+    public function getEquippedCaftanCode(int $userId): string
+    {
+        if ($userId <= 0) {
+            return '';
+        }
+
+        $wallet = $this->getWalletByUserId($userId);
+        if (!$wallet) {
+            return '';
+        }
+
+        return trim((string)($wallet['UF_EQUIPPED_CAFTAN'] ?? ''));
+    }
+
+    public function setEquippedCaftanCode(int $userId, string $code): void
+    {
+        if ($userId <= 0) {
+            throw new \InvalidArgumentException('Некорректный пользователь');
+        }
+
+        $wallet = $this->getWalletByUserId($userId);
+        if (!$wallet) {
+            throw new \RuntimeException('Кошелёк не найден');
+        }
+
+        $this->updateWallet((int)$wallet['ID'], [
+            'UF_EQUIPPED_CAFTAN' => trim($code),
+        ]);
+    }
+
     /**
      * @param array<int, array<string, mixed>> $rows
      */
@@ -382,12 +412,23 @@ class GameEconomyRepository
             }
         }
 
+        $equippedCaftan = '';
+        foreach ($rows as $row) {
+            $code = trim((string)($row['UF_EQUIPPED_CAFTAN'] ?? ''));
+            if ($code !== '') {
+                $equippedCaftan = $code;
+            }
+        }
+
         $update = [
             'UF_PROGNOBAKS' => round($prognobaks, 1),
             'UF_RUBLIUS' => round($rublius, 1),
         ];
         if ($premiumUntil !== null) {
             $update['UF_PREMIUM_UNTIL'] = $premiumUntil;
+        }
+        if ($equippedCaftan !== '') {
+            $update['UF_EQUIPPED_CAFTAN'] = $equippedCaftan;
         }
 
         $this->updateWallet($primaryId, $update);

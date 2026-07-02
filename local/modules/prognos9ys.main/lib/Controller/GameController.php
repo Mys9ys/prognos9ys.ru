@@ -85,6 +85,8 @@ class GameController extends BaseController
             'openChests' => $this->getDefaultConfigureForPostToken(),
             'openXpBanks' => $this->getDefaultConfigureForPostToken(),
             'activateProfessionCertificate' => $this->getDefaultConfigureForPostToken(),
+            'equipCaftan' => $this->getDefaultConfigureForPostToken(),
+            'unequipCaftan' => $this->getDefaultConfigureForPostToken(),
             'activatePremiumScroll' => $this->getDefaultConfigureForPostToken(),
             'learnAlbumRecipe' => $this->getDefaultConfigureForPostToken(),
             'craftProfessionRecipe' => $this->getDefaultConfigureForPostToken(),
@@ -862,6 +864,46 @@ class GameController extends BaseController
 
         try {
             $result = (new ProfessionCertificateService())->activate($userId);
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok'], $result, [
+            'game' => (new GameProfileService())->getMutationSummary($userId),
+        ]);
+    }
+
+    public function equipCaftanAction(string $equipmentCode = ''): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        try {
+            $result = (new EquipmentService())->equipCaftan($userId, $equipmentCode);
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok'], $result, [
+            'game' => (new GameProfileService())->getMutationSummary($userId),
+        ]);
+    }
+
+    public function unequipCaftanAction(): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        try {
+            $result = (new EquipmentService())->unequipCaftan($userId);
         } catch (\InvalidArgumentException $e) {
             throw new ApiException($e->getMessage(), 400);
         } catch (\RuntimeException $e) {

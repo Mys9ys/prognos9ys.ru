@@ -68,6 +68,7 @@ class ProfessionFarmService
             'work_queue' => $queueService->getStateForUser($userId),
             'treasury_labor_open' => (new LaborExchangeService())->getTreasuryLaborOpenByProfession(),
             'queue_projection' => $queueProjection,
+            'equipment' => (new EquipmentService($this->economyRepository))->getSummary($userId),
         ];
     }
 
@@ -298,6 +299,7 @@ class ProfessionFarmService
         $playerLevel = $this->getPlayerLevel($userId);
         $level = min((int)($professionRow['UF_LEVEL'] ?? 0), $playerLevel);
         $comboLevel = max(1, $level);
+        $equippedCaftan = $this->repository->getEquippedCaftanCode($userId);
         $outputCode = $definition['output'];
         $premiumCode = $definition['premium'];
         $isProcessing = ProfessionMaterialConfig::isProcessingProfession($definition);
@@ -312,8 +314,8 @@ class ProfessionFarmService
         $totalXpGain = 0;
 
         for ($i = 0; $i < $iterations; $i++) {
-            $combo = $this->rollComboMultiplier($comboLevel);
-            $premiumQty = $this->rollPremiumDrop($comboLevel) ? 1 : 0;
+            $combo = $this->rollComboMultiplier($comboLevel, $equippedCaftan);
+            $premiumQty = $this->rollPremiumDrop($comboLevel, $equippedCaftan) ? 1 : 0;
             $totalComboYield += $combo;
             $totalPremiumQty += $premiumQty;
             $totalXpGain += $combo * ProfessionEconomyConfig::XP_PER_NORMAL_UNIT
@@ -507,10 +509,11 @@ class ProfessionFarmService
         ]);
     }
 
-    private function rollComboMultiplier(int $level): int
+    private function rollComboMultiplier(int $level, string $equippedCaftan = ''): int
     {
-        $p3 = ProfessionEconomyConfig::comboTripleChance($level);
-        $p2 = ProfessionEconomyConfig::comboDoubleChance($level);
+        $chances = EquipmentConfig::chancesForLevel($level, $equippedCaftan);
+        $p3 = ($chances['combo_x3'] ?? 0) / 100;
+        $p2 = ($chances['combo_x2'] ?? 0) / 100;
         $roll = mt_rand(0, 1000000) / 1000000;
 
         if ($roll < $p3) {
@@ -525,9 +528,10 @@ class ProfessionFarmService
         return 1;
     }
 
-    private function rollPremiumDrop(int $level): bool
+    private function rollPremiumDrop(int $level, string $equippedCaftan = ''): bool
     {
-        $chance = ProfessionEconomyConfig::premiumDropChance($level);
+        $chances = EquipmentConfig::chancesForLevel($level, $equippedCaftan);
+        $chance = ($chances['premium'] ?? 0) / 100;
         $roll = mt_rand(0, 1000000) / 1000000;
 
         return $roll < $chance;
@@ -539,6 +543,7 @@ class ProfessionFarmService
     private function formatProfessions(int $userId): array
     {
         $playerLevel = $this->getPlayerLevel($userId);
+        $equippedCaftan = $this->repository->getEquippedCaftanCode($userId);
         $items = [];
         foreach ($this->repository->getProfessionsByUserId($userId) as $row) {
             $code = (string)($row['UF_PROFESSION_CODE'] ?? '');
@@ -553,7 +558,7 @@ class ProfessionFarmService
             $progress = $this->levelService->getProgressSummary($xp);
             $maxXp = $this->repository->maxXpForProfessionLevel($playerLevel);
             $chanceLevel = max(1, $effectiveLevel);
-            $chances = ProfessionEconomyConfig::chancesForLevel($chanceLevel);
+            $chances = EquipmentConfig::chancesForLevel($chanceLevel, $equippedCaftan);
 
             $items[] = [
                 'code' => $code,

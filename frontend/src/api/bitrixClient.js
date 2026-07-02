@@ -416,6 +416,14 @@ export const apiActions = {
             'prognos9ys:main.GameController.activatePremiumScroll',
             { userToken, days, qty }
         ),
+        equipCaftan: (userToken, equipmentCode) => runBitrixAction(
+            'prognos9ys:main.GameController.equipCaftan',
+            { userToken, equipmentCode }
+        ),
+        unequipCaftan: (userToken) => runBitrixAction(
+            'prognos9ys:main.GameController.unequipCaftan',
+            { userToken }
+        ),
         learnAlbumRecipe: (userToken, recipeCode = '') => runBitrixAction(
             'prognos9ys:main.GameController.learnAlbumRecipe',
             { userToken, recipeCode: recipeCode || undefined }

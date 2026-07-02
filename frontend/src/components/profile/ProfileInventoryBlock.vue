@@ -133,7 +133,9 @@ import { getWc26PackIconSrc } from '@/config/wc26PackIcons';
 const OTHER_INVENTORY_SLOTS = [
   { id: 'achievement', field: 'achievement_chests', icon: 'chest_achievement', caption: 'Ачивка', label: 'Сундуки за ачивки', openable: true, pool: 'achievement' },
   { id: 'level', field: 'level_chests', icon: 'chest_xp', caption: 'Уровень', label: 'Сундуки за уровень', openable: true, pool: 'level' },
-  { id: 'profession', field: 'profession_chests', icon: 'chest_achievement', caption: 'Проф', label: 'Сундуки профессий (тираж 1/2/3)', openable: true, pool: 'profession' },
+  { id: 'profession_t1', field: 'profession_chests_tier_1', icon: 'chest_xp', caption: 'Т1', label: 'Сундук проф.: новичок', openable: true, pool: 'profession' },
+  { id: 'profession_t2', field: 'profession_chests_tier_2', icon: 'chest_xp', caption: 'Т2', label: 'Сундук проф.: мастер', openable: true, pool: 'profession' },
+  { id: 'profession_t3', field: 'profession_chests_tier_3', icon: 'chest_xp', caption: 'Т3', label: 'Сундук проф.: профи', openable: true, pool: 'profession' },
   { id: 'premium_1d', field: 'premium_scrolls_1d', icon: 'premium_scroll_1d', caption: '1д', label: 'Свиток премиума (1 сутки)', openable: true, premiumScrollDays: 1, actionLabel: 'Применить' },
   { id: 'premium_3d', field: 'premium_scrolls_3d', emoji: '📜', caption: '3д', label: 'Свиток премиума (3 суток)', openable: true, premiumScrollDays: 3, actionLabel: 'Применить' },
   { id: 'premium_5d', field: 'premium_scrolls_5d', emoji: '📜', caption: '5д', label: 'Свиток премиума (5 суток)', openable: true, premiumScrollDays: 5, actionLabel: 'Применить' },
@@ -301,6 +303,8 @@ export default {
         .map((item) => {
           const isProfessionCert = item.code === 'cert_profession' && item.category === 'cert';
           const isRecipeItem = item.category === 'recipe';
+          const isCaftanEquipment = item.category === 'equipment' && String(item.code || '').startsWith('caftan_');
+          const equippedCaftan = this.game?.equipment?.equipped_caftan || '';
           const recipeLearned = isRecipeItem && learnedRecipes.includes(item.code);
           const isAlbumRecipe = item.code === 'recipe_album' && isRecipeItem;
           const isOpenablePack = item.category === 'pack'
@@ -329,11 +333,14 @@ export default {
             code: item.code,
             category: item.category,
             openable: item.category === 'xp_bank' || isProfessionCert || isOpenablePack || isStubPack
+              || isCaftanEquipment
               || (isRecipeItem && !recipeLearned) || isWc26Glueable,
             xpBankCode: item.category === 'xp_bank' ? item.code : null,
             packCode: isOpenablePack ? item.code : null,
             packStub: isStubPack,
             professionCert: isProfessionCert,
+            caftanEquipment: isCaftanEquipment,
+            caftanEquipped: isCaftanEquipment && equippedCaftan === item.code,
             recipeItem: isRecipeItem,
             albumRecipe: isAlbumRecipe,
             glueableCollectible: isWc26Glueable,
@@ -345,9 +352,11 @@ export default {
               ? (teamAlreadyGlued ? 'В альбоме' : 'В альбом')
               : (isStubPack
                 ? 'Скоро'
-                : (isRecipeItem
-                  ? (recipeLearned ? 'Изучено' : 'Изучить')
-                  : (isProfessionCert ? 'Активировать' : null))),
+                : (isCaftanEquipment
+                  ? 'Надеть'
+                  : (isRecipeItem
+                    ? (recipeLearned ? 'Изучено' : 'Изучить')
+                    : (isProfessionCert ? 'Активировать' : null)))),
           };
         });
     },
@@ -468,6 +477,10 @@ export default {
         return [{ qty: 1, label: 'Активировать', kind: 'primary' }];
       }
 
+      if (item.caftanEquipment) {
+        return [{ qty: 1, label: 'Надеть', kind: 'primary' }];
+      }
+
       if (item.glueableCollectible) {
         return [{
           qty: 1,
@@ -499,6 +512,11 @@ export default {
     openInventoryItem(item, qty = 1) {
       if (item.professionCert) {
         this.activateProfessionCertificate(item);
+        return;
+      }
+
+      if (item.caftanEquipment) {
+        this.equipCaftan(item);
         return;
       }
 
@@ -809,6 +827,47 @@ export default {
         }
       } catch (e) {
         this.openLines = [{ text: e.message || 'Ошибка активации сертификата', status: 'fail' }];
+        this.openModalDone = true;
+      } finally {
+        this.opening = false;
+      }
+    },
+
+    async equipCaftan(slot) {
+      if (!this.authData?.token || this.opening || !slot?.code || slot.count <= 0) {
+        return;
+      }
+
+      this.opening = true;
+      this.hoveredSlotId = null;
+      this.openModalVisible = true;
+      this.openModalDone = false;
+      this.openModalTitle = 'Экипировка';
+      this.openLines = [{ text: `Надеваем: ${slot.label}…`, status: 'pending' }];
+      this.openProgressCurrent = 0;
+      this.openProgressTotal = 1;
+
+      try {
+        const data = await apiActions.game.equipCaftan(this.authData.token, slot.code);
+
+        if (data?.status === 'ok') {
+          this.openLines = Array.isArray(data.lines) ? data.lines : [];
+          this.openProgressCurrent = 1;
+          this.openModalDone = true;
+
+          if (data.game) {
+            this.patchGameInfo(data.game);
+          } else {
+            await this.refreshGameInfo();
+          }
+
+          window.dispatchEvent(new CustomEvent('prognos9ys:farm-refresh'));
+        } else {
+          this.openLines = [{ text: 'Не удалось надеть кафтан', status: 'fail' }];
+          this.openModalDone = true;
+        }
+      } catch (e) {
+        this.openLines = [{ text: e.message || 'Ошибка экипировки', status: 'fail' }];
         this.openModalDone = true;
       } finally {
         this.opening = false;
