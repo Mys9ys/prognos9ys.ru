@@ -1777,10 +1777,6 @@ class GameEconomyRepository
                 $type === TreasureService::CHEST_TYPE_ACHIEVEMENT
                 && TreasureService::isChm2026AchievementSyntheticMatchId($matchId)
             ) {
-                $this->updateTreasureChest((int)$row['ID'], [
-                    'UF_TYPE' => TreasureService::CHEST_TYPE_WC26_ACHIEVEMENT,
-                    'UF_UPDATED_AT' => new \Bitrix\Main\Type\DateTime(),
-                ]);
                 $type = TreasureService::CHEST_TYPE_WC26_ACHIEVEMENT;
             }
 

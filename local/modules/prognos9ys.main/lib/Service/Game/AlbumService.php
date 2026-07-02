@@ -109,12 +109,16 @@ class AlbumService
 
         $this->albumRepository->ensureSchema();
         $albumRows = $this->getUserAlbumRows($userId);
+        $albumIds = array_values(array_filter(array_map(static function (array $row): int {
+            return (int)($row['ID'] ?? 0);
+        }, $albumRows)));
+        $slotsByAlbum = $this->albumRepository->getSlotsByAlbumIds($albumIds);
         $albums = [];
 
         foreach ($albumRows as $row) {
             $albumId = (int)($row['ID'] ?? 0);
             $gluedSlugs = [];
-            foreach ($this->getAlbumSlots($albumId) as $slot) {
+            foreach ($slotsByAlbum[$albumId] ?? [] as $slot) {
                 $slug = (string)($slot['UF_TEAM_SLUG'] ?? '');
                 if ($slug !== '') {
                     $gluedSlugs[] = $slug;

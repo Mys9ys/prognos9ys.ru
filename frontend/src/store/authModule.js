@@ -4,6 +4,10 @@ import axios from "axios";
 import {baseConfig} from "@/store/config";
 import {apiActions} from "@/api/bitrixClient";
 
+let refreshGameInfoPromise = null;
+let refreshGameInfoAt = 0;
+const REFRESH_GAME_INFO_TTL_MS = 12000;
+
 export const authModule = {
     state: () => ({
         loginData: {
@@ -243,20 +247,41 @@ export const authModule = {
                 return;
             }
 
-            try {
-                const data = await apiActions.game.getState(state.authData.token, {
-                    withGrants: Boolean(options.withGrants),
-                    refresh: Boolean(options.refresh),
-                });
-                if (data?.game) {
-                    commit('setUserInfo', {
-                        ...state.userInfo,
-                        game_info: data.game,
-                    });
-                }
-            } catch (e) {
-                console.log('refreshGameInfo error', e);
+            const force = Boolean(options.refresh) || Boolean(options.withGrants);
+            const now = Date.now();
+            if (
+                !force
+                && state.userInfo?.game_info
+                && now - refreshGameInfoAt < REFRESH_GAME_INFO_TTL_MS
+            ) {
+                return;
             }
+
+            if (refreshGameInfoPromise && !force) {
+                return refreshGameInfoPromise;
+            }
+
+            refreshGameInfoPromise = (async () => {
+                try {
+                    const data = await apiActions.game.getState(state.authData.token, {
+                        withGrants: Boolean(options.withGrants),
+                        refresh: Boolean(options.refresh),
+                    });
+                    if (data?.game) {
+                        commit('setUserInfo', {
+                            ...state.userInfo,
+                            game_info: data.game,
+                        });
+                        refreshGameInfoAt = Date.now();
+                    }
+                } catch (e) {
+                    console.log('refreshGameInfo error', e);
+                } finally {
+                    refreshGameInfoPromise = null;
+                }
+            })();
+
+            return refreshGameInfoPromise;
         },
 
         async avaSetRequest({state, commit}) {

@@ -125,9 +125,12 @@ class TreasureService
         ]);
     }
 
-    public function getTreasureSummary(int $userId): array
+    public function getTreasureSummary(int $userId, bool $runMigrations = false): array
     {
-        $this->migrateChm2026ChestsForUser($userId);
+        if ($runMigrations) {
+            $this->migrateChm2026ChestsForUser($userId);
+        }
+
         $breakdown = $this->repository->getTreasureChestBreakdownForUser($userId);
         $premiumScrolls = $this->repository->getPremiumScrollBreakdownForUser($userId);
         $pennants = $this->repository->getPennantInventoryCountsForUser($userId);

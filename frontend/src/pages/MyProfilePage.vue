@@ -225,8 +225,10 @@ export default {
     this.syncRouteTab()
 
     this.fillProfile()
+    if (!this.gameInfo) {
+      this.refreshGameInfo()
+    }
     this.lastGameRefreshAt = Date.now()
-    this.$store.dispatch('auth/refreshGameInfo')
   },
 
   methods: {
@@ -395,7 +397,7 @@ export default {
     active(tab) {
       if (tab === 'inventory' || tab === 'economy' || tab === 'collection') {
         const now = Date.now();
-        if (now - this.lastGameRefreshAt < 15000) {
+        if (now - this.lastGameRefreshAt < 30000) {
           return;
         }
         this.lastGameRefreshAt = now;
