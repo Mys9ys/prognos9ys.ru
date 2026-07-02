@@ -611,12 +611,18 @@ class AchievementService
                     $chests
                 );
             } elseif (AchievementConfig::grantsProfessionChest($code)
-                || (($reward['chest_type'] ?? '') === 'profession')) {
+                || in_array((string)($reward['chest_type'] ?? ''), [
+                    'profession',
+                    TreasureService::CHEST_TYPE_PROFESSION_TIER_1,
+                    TreasureService::CHEST_TYPE_PROFESSION_TIER_2,
+                    TreasureService::CHEST_TYPE_PROFESSION_TIER_3,
+                ], true)) {
                 $granted = $this->treasureService->grantProfessionAchievementChests(
                     $userId,
                     $code,
                     $targetThreshold,
-                    $chests
+                    $chests,
+                    (string)($reward['chest_type'] ?? '')
                 );
             } else {
                 $granted = $this->treasureService->grantAchievementChests(

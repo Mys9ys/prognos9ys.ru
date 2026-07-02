@@ -143,6 +143,13 @@ class TreasureService
             'achievement_chests' => $breakdown['achievement'],
             'wc26_achievement_chests' => $breakdown['wc26_achievement'],
             'shop_chests' => $breakdown['shop'],
+            'profession_chests' => ($breakdown['profession'] ?? 0)
+                + ($breakdown['profession_tier_1'] ?? 0)
+                + ($breakdown['profession_tier_2'] ?? 0)
+                + ($breakdown['profession_tier_3'] ?? 0),
+            'profession_chests_tier_1' => $breakdown['profession_tier_1'] ?? 0,
+            'profession_chests_tier_2' => $breakdown['profession_tier_2'] ?? 0,
+            'profession_chests_tier_3' => $breakdown['profession_tier_3'] ?? 0,
             'wc26_openable_chests' => $wc26Openable,
             'premium_scrolls' => $this->repository->getPremiumScrollCountForUser($userId),
             'premium_scrolls_1d' => $premiumScrolls[1] ?? 0,
@@ -712,14 +719,22 @@ class TreasureService
         int $userId,
         string $achievementCode,
         int $threshold,
-        int $count
+        int $count,
+        string $chestType = ''
     ): bool {
         if ($userId <= 0 || $achievementCode === '' || $threshold <= 0 || $count <= 0) {
             return false;
         }
 
+        if (!in_array($chestType, [
+            self::CHEST_TYPE_PROFESSION_TIER_1,
+            self::CHEST_TYPE_PROFESSION_TIER_2,
+            self::CHEST_TYPE_PROFESSION_TIER_3,
+        ], true)) {
+            $chestType = self::resolveProfessionChestTypeByAchievementThreshold($threshold);
+        }
+
         $syntheticMatchId = self::achievementSyntheticMatchId('prof:' . $achievementCode, $threshold);
-        $chestType = self::resolveProfessionChestTypeByAchievementThreshold($threshold);
         $existing = $this->repository->getTreasureChestByType($userId, $syntheticMatchId, $chestType);
         if (!$existing && $chestType !== self::CHEST_TYPE_PROFESSION) {
             $existing = $this->repository->getTreasureChestByType($userId, $syntheticMatchId, self::CHEST_TYPE_PROFESSION);

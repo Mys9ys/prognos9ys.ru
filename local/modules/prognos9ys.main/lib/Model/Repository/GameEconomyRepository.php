@@ -1735,6 +1735,10 @@ class GameEconomyRepository
                 'achievement' => 0,
                 'shop' => 0,
                 'wc26_achievement' => 0,
+                'profession' => 0,
+                'profession_tier_1' => 0,
+                'profession_tier_2' => 0,
+                'profession_tier_3' => 0,
             ];
         }
 
@@ -1746,6 +1750,10 @@ class GameEconomyRepository
             'achievement' => 0,
             'shop' => 0,
             'wc26_achievement' => 0,
+            'profession' => 0,
+            'profession_tier_1' => 0,
+            'profession_tier_2' => 0,
+            'profession_tier_3' => 0,
         ];
 
         $response = $dataClass::getList([
@@ -1790,6 +1798,23 @@ class GameEconomyRepository
 
             if ($type === 'achievement') {
                 $breakdown['achievement'] += $count;
+                continue;
+            }
+
+            if ($type === TreasureService::CHEST_TYPE_PROFESSION) {
+                $breakdown['profession'] += $count;
+                continue;
+            }
+            if ($type === TreasureService::CHEST_TYPE_PROFESSION_TIER_1) {
+                $breakdown['profession_tier_1'] += $count;
+                continue;
+            }
+            if ($type === TreasureService::CHEST_TYPE_PROFESSION_TIER_2) {
+                $breakdown['profession_tier_2'] += $count;
+                continue;
+            }
+            if ($type === TreasureService::CHEST_TYPE_PROFESSION_TIER_3) {
+                $breakdown['profession_tier_3'] += $count;
                 continue;
             }
 

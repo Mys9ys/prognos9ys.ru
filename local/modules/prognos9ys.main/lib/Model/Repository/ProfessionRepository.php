@@ -49,6 +49,36 @@ class ProfessionRepository
         return $rows;
     }
 
+    /**
+     * @return int[]
+     */
+    public function getDistinctProfessionUserIds(int $limit = 0, int $offset = 0): array
+    {
+        $limit = max(0, $limit);
+        $offset = max(0, $offset);
+        $dataClass = $this->getUserProfessionDataClass();
+        $query = [
+            'select' => ['UF_USER_ID'],
+            'order' => ['UF_USER_ID' => 'ASC'],
+            'group' => ['UF_USER_ID'],
+        ];
+        if ($limit > 0) {
+            $query['limit'] = $limit;
+            $query['offset'] = $offset;
+        }
+
+        $rows = [];
+        $response = $dataClass::getList($query);
+        while ($row = $response->fetch()) {
+            $userId = (int)($row['UF_USER_ID'] ?? 0);
+            if ($userId > 0) {
+                $rows[] = $userId;
+            }
+        }
+
+        return $rows;
+    }
+
     public function getProfessionByUserAndCode(int $userId, string $code): ?array
     {
         if ($userId <= 0 || $code === '') {

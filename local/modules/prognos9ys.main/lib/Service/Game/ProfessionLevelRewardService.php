@@ -47,6 +47,86 @@ class ProfessionLevelRewardService
     }
 
     /**
+     * @return array{
+     *   user_id:int,
+     *   scanned_levels:int,
+     *   granted_chests:int,
+     *   lines:array<int,string>
+     * }
+     */
+    public function backfillLevelChestsForUser(int $userId): array
+    {
+        $result = [
+            'user_id' => $userId,
+            'scanned_levels' => 0,
+            'granted_chests' => 0,
+            'lines' => [],
+        ];
+        if ($userId <= 0) {
+            return $result;
+        }
+
+        $professions = $this->professionRepository->getProfessionsByUserId($userId);
+        foreach ($professions as $row) {
+            $professionCode = trim((string)($row['UF_PROFESSION_CODE'] ?? ''));
+            $level = max(0, (int)($row['UF_LEVEL'] ?? 0));
+            if ($professionCode === '' || $level <= 0) {
+                continue;
+            }
+
+            for ($i = 1; $i <= $level; $i++) {
+                $config = ProfessionEconomyConfig::getProfessionLevelReward($i);
+                $count = (int)($config['chests'] ?? 0);
+                if ($count <= 0) {
+                    continue;
+                }
+                $result['scanned_levels']++;
+                if ($this->treasureService->grantProfessionLevelChest($userId, $professionCode, $i)) {
+                    $result['granted_chests'] += $count;
+                    $result['lines'][] = $professionCode . ' lvl ' . $i . ' +' . $count;
+                }
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * @return array{
+     *   users_scanned:int,
+     *   granted_chests:int,
+     *   granted_rows:int,
+     *   details:array<int,array<string,mixed>>
+     * }
+     */
+    public function backfillLevelChestsForAll(int $limitUsers = 0): array
+    {
+        $userIds = $this->professionRepository->getDistinctProfessionUserIds();
+        if ($limitUsers > 0) {
+            $userIds = array_slice($userIds, 0, $limitUsers);
+        }
+
+        $summary = [
+            'users_scanned' => count($userIds),
+            'granted_chests' => 0,
+            'granted_rows' => 0,
+            'details' => [],
+        ];
+
+        foreach ($userIds as $userId) {
+            $row = $this->backfillLevelChestsForUser((int)$userId);
+            if ((int)($row['granted_chests'] ?? 0) <= 0) {
+                continue;
+            }
+            $summary['granted_chests'] += (int)$row['granted_chests'];
+            $summary['granted_rows'] += 1;
+            $summary['details'][] = $row;
+        }
+
+        return $summary;
+    }
+
+    /**
      * @return array<string, mixed>|null
      */
     private function grantForLevel(int $userId, string $professionCode, int $level): ?array

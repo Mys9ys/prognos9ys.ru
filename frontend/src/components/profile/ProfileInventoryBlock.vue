@@ -125,6 +125,7 @@ import { getWc26PackIconSrc } from '@/config/wc26PackIcons';
 const OTHER_INVENTORY_SLOTS = [
   { id: 'achievement', field: 'achievement_chests', icon: 'chest_achievement', caption: 'Ачивка', label: 'Сундуки за ачивки', openable: true, pool: 'achievement' },
   { id: 'level', field: 'level_chests', icon: 'chest_xp', caption: 'Уровень', label: 'Сундуки за уровень', openable: true, pool: 'level' },
+  { id: 'profession', field: 'profession_chests', icon: 'chest_achievement', caption: 'Проф', label: 'Сундуки профессий (тираж 1/2/3)', openable: true, pool: 'profession' },
   { id: 'premium_1d', field: 'premium_scrolls_1d', icon: 'premium_scroll_1d', caption: '1д', label: 'Свиток премиума (1 сутки)', openable: true, premiumScrollDays: 1, actionLabel: 'Активировать' },
   { id: 'premium_3d', field: 'premium_scrolls_3d', emoji: '📜', caption: '3д', label: 'Свиток премиума (3 суток)', openable: true, premiumScrollDays: 3, actionLabel: 'Активировать' },
   { id: 'premium_5d', field: 'premium_scrolls_5d', emoji: '📜', caption: '5д', label: 'Свиток премиума (5 суток)', openable: true, premiumScrollDays: 5, actionLabel: 'Активировать' },
@@ -355,6 +356,7 @@ export default {
       return Number(this.treasure.match_chests ?? 0)
         + Number(this.treasure.level_chests ?? 0)
         + Number(this.treasure.achievement_chests ?? 0)
+        + Number(this.treasure.profession_chests ?? 0)
         + Number(this.treasure.wc26_achievement_chests ?? 0)
         + Number(this.treasure.shop_chests ?? 0);
     },
@@ -405,6 +407,7 @@ export default {
       const match = Number(this.treasure.match_chests ?? 0);
       const wc26Achievement = Number(this.treasure.wc26_achievement_chests ?? 0);
       const achievement = Number(this.treasure.achievement_chests ?? 0);
+      const profession = Number(this.treasure.profession_chests ?? 0);
       const shop = Number(this.treasure.shop_chests ?? 0);
 
       if (match > 0) {
@@ -415,6 +418,9 @@ export default {
       }
       if (achievement > 0) {
         parts.push(`ачивки: ${achievement}`);
+      }
+      if (profession > 0) {
+        parts.push(`проф. сундуки: ${profession}`);
       }
       if (shop > 0) {
         parts.push(`лавка: ${shop}`);

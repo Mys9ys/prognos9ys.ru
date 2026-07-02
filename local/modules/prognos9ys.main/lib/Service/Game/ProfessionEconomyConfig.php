@@ -118,12 +118,7 @@ class ProfessionEconomyConfig
 
         $player = GameEconomyConfig::getLevelUpReward($level);
         $materialQty = ($level % 5 === 0) ? 5 : 3;
-        $chests = 0;
-        if ($level === 5) {
-            $chests = 1;
-        } elseif ($level === 10) {
-            $chests = 2;
-        }
+        $chests = 1;
 
         return [
             'prognobaks' => round($player['prognobaks'] * 0.4, 1),

@@ -109,7 +109,7 @@ class ProfessionAchievementConfig
             $reward = [
                 'rublius' => $rublius[$index],
                 'chests' => $chests[$index],
-                'chest_type' => 'profession',
+                'chest_type' => self::resolveProfessionChestTypeForStage($stage, $index),
                 'materials' => [[
                     'code' => (string)$profession['output'],
                     'qty' => self::NORMAL_RESOURCE_REWARDS[$index],
@@ -163,7 +163,7 @@ class ProfessionAchievementConfig
                 'reward' => [
                     'rublius' => $rublius[$index],
                     'chests' => $chests[$index],
-                    'chest_type' => 'profession',
+                    'chest_type' => self::resolveProfessionChestTypeForStage($stage, $index),
                     'materials' => [[
                         'code' => (string)$profession['premium'],
                         'qty' => $resourceRewards[$index],
@@ -185,5 +185,16 @@ class ProfessionAchievementConfig
                 'levels' => $levels,
             ],
         ];
+    }
+
+    private static function resolveProfessionChestTypeForStage(int $stage, int $index): string
+    {
+        if ($stage <= 1) {
+            return TreasureService::CHEST_TYPE_PROFESSION_TIER_1;
+        }
+
+        return $index >= 3
+            ? TreasureService::CHEST_TYPE_PROFESSION_TIER_3
+            : TreasureService::CHEST_TYPE_PROFESSION_TIER_2;
     }
 }
