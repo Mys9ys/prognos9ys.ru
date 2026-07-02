@@ -33,8 +33,8 @@ class GameEconomyConfig
     /** Премиум 3д/5д — на бирже (в разработке), не в лавке. */
     public const TREASURY_SHOP_PREMIUM_1D_RUBLIUS_PRICE = 3.0;
     /** Для будущей биржи. */
-    public const EXCHANGE_PREMIUM_3D_RUBLIUS_PRICE = 7.0;
-    public const EXCHANGE_PREMIUM_5D_RUBLIUS_PRICE = 10.0;
+    public const EXCHANGE_PREMIUM_3D_RUBLIUS_PRICE = 15.0;
+    public const EXCHANGE_PREMIUM_5D_RUBLIUS_PRICE = 25.0;
 
     public const CONTRACT_TYPE_REGULAR = 'regular';
     public const CONTRACT_TYPE_GOV_SUPPORT = 'gov_support';

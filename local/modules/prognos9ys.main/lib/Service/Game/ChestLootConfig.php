@@ -17,6 +17,7 @@ class ChestLootConfig
     public const CATEGORY_SCARF = 'scarf';
     public const CATEGORY_ALBUM = 'album';
     public const CATEGORY_RECIPE = 'recipe';
+    public const CATEGORY_MATERIAL = 'material';
 
     /** Лут без привязки к событию (паки level / классические ачивки). */
     public const LOOT_EVENT_GLOBAL = 0;
@@ -33,6 +34,9 @@ class ChestLootConfig
         TreasureService::CHEST_TYPE_LEVEL,
         TreasureService::CHEST_TYPE_ACHIEVEMENT,
         TreasureService::CHEST_TYPE_PROFESSION,
+        TreasureService::CHEST_TYPE_PROFESSION_TIER_1,
+        TreasureService::CHEST_TYPE_PROFESSION_TIER_2,
+        TreasureService::CHEST_TYPE_PROFESSION_TIER_3,
     ];
 
     /**
@@ -138,8 +142,13 @@ class ChestLootConfig
             return AlbumConfig::itemLabel();
         }
 
-        if ($code === AlbumConfig::RECIPE_ITEM_CODE) {
-            return AlbumConfig::recipeLabel();
+        if (ProfessionRecipeConfig::isKnownRecipe($code)) {
+            return ProfessionRecipeConfig::getRecipeLabel($code);
+        }
+
+        $materialLabel = ProfessionMaterialConfig::getMaterialLabel($code);
+        if ($materialLabel !== $code) {
+            return $materialLabel;
         }
 
         return $code;
@@ -315,20 +324,35 @@ class ChestLootConfig
      *
      * @return array{block1:array|null,block2:array|null,block3:array|null}
      */
-    public static function rollProfessionLoot(): array
+    public static function rollProfessionLoot(int $tier = 1, array $professionCodes = []): array
     {
-        $block1 = self::rollFromTable(self::getBlock1Table());
-
-        $block2 = null;
-        if (random_int(1, 100) <= self::BLOCK2_CHANCE_PERCENT) {
-            $block2 = self::rollFromTable(self::getProfessionBlock2Table());
+        $tier = max(1, min(3, $tier));
+        $professionCode = self::pickProfessionCode($professionCodes);
+        $block1 = self::rollFromTable(self::getProfessionTierBlock1Table($tier, $professionCode));
+        $block2 = self::rollFromTable(self::getProfessionTierBlock2Table($tier, $professionCode));
+        $block3 = null;
+        $block3Chance = $tier === 2 ? 40 : ($tier >= 3 ? 55 : 0);
+        if ($block3Chance > 0 && random_int(1, 100) <= $block3Chance) {
+            $block3 = self::rollFromTable(self::getProfessionTierBlock3Table($tier));
         }
 
         return [
             'block1' => $block1,
             'block2' => $block2,
-            'block3' => null,
+            'block3' => $block3,
         ];
+    }
+
+    public static function resolveProfessionTierByChestType(string $chestType): int
+    {
+        if ($chestType === TreasureService::CHEST_TYPE_PROFESSION_TIER_3) {
+            return 3;
+        }
+        if ($chestType === TreasureService::CHEST_TYPE_PROFESSION_TIER_2) {
+            return 2;
+        }
+
+        return 1;
     }
 
     /**
@@ -337,6 +361,124 @@ class ChestLootConfig
     public static function getProfessionBlock2Table(): array
     {
         return self::getBlock2Table();
+    }
+
+    /**
+     * @return array<int, array{code:string,weight:int,kind:string,category:string,label:string}>
+     */
+    public static function getProfessionBlock3Table(): array
+    {
+        return ProfessionRecipeConfig::professionChestRecipeDrops();
+    }
+
+    /**
+     * @return array<int, array{code:string,weight:int,kind:string,currency?:string,amount?:float,category?:string,label:string,qty?:int}>
+     */
+    public static function getProfessionTierBlock1Table(int $tier, string $professionCode): array
+    {
+        $profession = ProfessionMaterialConfig::getProfession($professionCode)
+            ?? reset(ProfessionMaterialConfig::allProfessions());
+        $materialCode = (string)($profession['output'] ?? 'log');
+        $materialLabel = ProfessionMaterialConfig::getMaterialLabel($materialCode);
+
+        $currencyTable = $tier >= 3
+            ? [
+                ['code' => 'rublius_3', 'weight' => 50, 'kind' => 'currency', 'currency' => GameEconomyConfig::CURRENCY_RUBLIUS, 'amount' => 3.0, 'label' => '3 рублиуса'],
+                ['code' => 'rublius_5', 'weight' => 30, 'kind' => 'currency', 'currency' => GameEconomyConfig::CURRENCY_RUBLIUS, 'amount' => 5.0, 'label' => '5 рублиусов'],
+            ]
+            : ($tier === 2
+                ? [
+                    ['code' => 'rublius_2', 'weight' => 55, 'kind' => 'currency', 'currency' => GameEconomyConfig::CURRENCY_RUBLIUS, 'amount' => 2.0, 'label' => '2 рублиуса'],
+                    ['code' => 'rublius_3', 'weight' => 25, 'kind' => 'currency', 'currency' => GameEconomyConfig::CURRENCY_RUBLIUS, 'amount' => 3.0, 'label' => '3 рублиуса'],
+                ]
+                : [
+                    ['code' => 'rublius_1', 'weight' => 65, 'kind' => 'currency', 'currency' => GameEconomyConfig::CURRENCY_RUBLIUS, 'amount' => 1.0, 'label' => '1 рублиус'],
+                    ['code' => 'rublius_2', 'weight' => 20, 'kind' => 'currency', 'currency' => GameEconomyConfig::CURRENCY_RUBLIUS, 'amount' => 2.0, 'label' => '2 рублиуса'],
+                ]);
+
+        $materialQty = $tier >= 3 ? 4 : ($tier === 2 ? 3 : 2);
+        $currencyTable[] = [
+            'code' => $materialCode,
+            'weight' => $tier >= 3 ? 95 : 115,
+            'kind' => 'item',
+            'category' => self::CATEGORY_MATERIAL,
+            'qty' => $materialQty,
+            'label' => $materialLabel . ' ×' . $materialQty,
+        ];
+
+        return $currencyTable;
+    }
+
+    /**
+     * @return array<int, array{code:string,weight:int,kind:string,category:string,label:string,qty?:int,is_premium?:bool}>
+     */
+    public static function getProfessionTierBlock2Table(int $tier, string $professionCode): array
+    {
+        $profession = ProfessionMaterialConfig::getProfession($professionCode)
+            ?? reset(ProfessionMaterialConfig::allProfessions());
+        $premiumCode = (string)($profession['premium'] ?? 'oak_log');
+        $premiumLabel = ProfessionMaterialConfig::getMaterialLabel($premiumCode);
+
+        $table = [
+            ['code' => 'xp_bank_player_25', 'weight' => 40, 'kind' => 'item', 'category' => self::CATEGORY_XP_BANK, 'label' => 'Банка XP игрока (25)'],
+            ['code' => 'xp_bank_mining_25', 'weight' => 20, 'kind' => 'item', 'category' => self::CATEGORY_XP_BANK, 'label' => 'Банка XP добычи (25)'],
+            ['code' => 'xp_bank_crafting_25', 'weight' => 20, 'kind' => 'item', 'category' => self::CATEGORY_XP_BANK, 'label' => 'Банка XP крафта (25)'],
+            [
+                'code' => $premiumCode,
+                'weight' => $tier >= 3 ? 18 : ($tier === 2 ? 12 : 8),
+                'kind' => 'item',
+                'category' => self::CATEGORY_MATERIAL,
+                'qty' => 1,
+                'is_premium' => true,
+                'label' => $premiumLabel . ' ×1',
+            ],
+            [
+                'code' => ProfessionRecipeConfig::RECIPE_CLEAN_SCROLL,
+                'weight' => $tier >= 3 ? 4 : ($tier === 2 ? 6 : 8),
+                'kind' => 'item',
+                'category' => self::CATEGORY_RECIPE,
+                'label' => ProfessionRecipeConfig::getRecipeLabel(ProfessionRecipeConfig::RECIPE_CLEAN_SCROLL),
+            ],
+            ['code' => 'cert_profession', 'weight' => $tier >= 3 ? 8 : ($tier === 2 ? 5 : 4), 'kind' => 'item', 'category' => self::CATEGORY_CERT, 'label' => 'Сертификат на профессию'],
+        ];
+
+        return $table;
+    }
+
+    /**
+     * @return array<int, array{code:string,weight:int,kind:string,category:string,label:string}>
+     */
+    public static function getProfessionTierBlock3Table(int $tier): array
+    {
+        if ($tier <= 1) {
+            return [];
+        }
+
+        $table = [
+            ['code' => ProfessionRecipeConfig::RECIPE_DOOR, 'weight' => $tier >= 3 ? 22 : 8, 'kind' => 'item', 'category' => self::CATEGORY_RECIPE, 'label' => ProfessionRecipeConfig::getRecipeLabel(ProfessionRecipeConfig::RECIPE_DOOR)],
+            ['code' => ProfessionRecipeConfig::RECIPE_WINDOW_SMALL, 'weight' => $tier >= 3 ? 38 : 20, 'kind' => 'item', 'category' => self::CATEGORY_RECIPE, 'label' => ProfessionRecipeConfig::getRecipeLabel(ProfessionRecipeConfig::RECIPE_WINDOW_SMALL)],
+            ['code' => ProfessionRecipeConfig::RECIPE_WINDOW_REGULAR, 'weight' => $tier >= 3 ? 24 : 12, 'kind' => 'item', 'category' => self::CATEGORY_RECIPE, 'label' => ProfessionRecipeConfig::getRecipeLabel(ProfessionRecipeConfig::RECIPE_WINDOW_REGULAR)],
+            ['code' => ProfessionRecipeConfig::RECIPE_NAILS, 'weight' => $tier >= 3 ? 45 : 25, 'kind' => 'item', 'category' => self::CATEGORY_RECIPE, 'label' => ProfessionRecipeConfig::getRecipeLabel(ProfessionRecipeConfig::RECIPE_NAILS)],
+            ['code' => ProfessionRecipeConfig::RECIPE_HINGE, 'weight' => $tier >= 3 ? 40 : 22, 'kind' => 'item', 'category' => self::CATEGORY_RECIPE, 'label' => ProfessionRecipeConfig::getRecipeLabel(ProfessionRecipeConfig::RECIPE_HINGE)],
+            ['code' => ProfessionRecipeConfig::RECIPE_CAFTAN_BASIC, 'weight' => $tier >= 3 ? 30 : 12, 'kind' => 'item', 'category' => self::CATEGORY_RECIPE, 'label' => ProfessionRecipeConfig::getRecipeLabel(ProfessionRecipeConfig::RECIPE_CAFTAN_BASIC)],
+            ['code' => ProfessionRecipeConfig::RECIPE_CAFTAN_EMBROIDERED, 'weight' => $tier >= 3 ? 16 : 5, 'kind' => 'item', 'category' => self::CATEGORY_RECIPE, 'label' => ProfessionRecipeConfig::getRecipeLabel(ProfessionRecipeConfig::RECIPE_CAFTAN_EMBROIDERED)],
+            ['code' => ProfessionRecipeConfig::RECIPE_CAFTAN_GRAND, 'weight' => $tier >= 3 ? 8 : 2, 'kind' => 'item', 'category' => self::CATEGORY_RECIPE, 'label' => ProfessionRecipeConfig::getRecipeLabel(ProfessionRecipeConfig::RECIPE_CAFTAN_GRAND)],
+        ];
+
+        return $table;
+    }
+
+    /**
+     * @param string[] $professionCodes
+     */
+    private static function pickProfessionCode(array $professionCodes): string
+    {
+        $available = array_values(array_filter(array_map('trim', $professionCodes), static fn(string $code): bool => $code !== ''));
+        if (!$available) {
+            $available = array_keys(ProfessionMaterialConfig::allProfessions());
+        }
+
+        return (string)$available[array_rand($available)];
     }
 
     public static function getItemCategory(string $code): string

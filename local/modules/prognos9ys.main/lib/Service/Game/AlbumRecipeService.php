@@ -26,7 +26,7 @@ class AlbumRecipeService
         }
 
         $recipeCode = trim($recipeCode);
-        if ($recipeCode !== AlbumConfig::RECIPE_ITEM_CODE) {
+        if (!ProfessionRecipeConfig::isKnownRecipe($recipeCode)) {
             throw new \InvalidArgumentException('Неизвестный рецепт');
         }
 
@@ -56,7 +56,7 @@ class AlbumRecipeService
         return [
             'lines' => [
                 [
-                    'text' => 'Изучен: ' . AlbumConfig::recipeLabel(),
+                    'text' => 'Изучен: ' . ProfessionRecipeConfig::getRecipeLabel($recipeCode),
                     'status' => 'ok',
                 ],
             ],

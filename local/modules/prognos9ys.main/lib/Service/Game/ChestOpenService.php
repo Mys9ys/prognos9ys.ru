@@ -4,6 +4,7 @@ namespace Prognos9ys\Main\Service\Game;
 
 use Bitrix\Main\Type\DateTime;
 use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
+use Prognos9ys\Main\Model\Repository\ProfessionRepository;
 
 class ChestOpenService
 {
@@ -18,6 +19,7 @@ class ChestOpenService
     private WalletService $walletService;
     private GameEventScopeService $scopeService;
     private ChestOpenLogService $logService;
+    private ProfessionRepository $professionRepository;
 
     public function __construct(?GameEconomyRepository $repository = null)
     {
@@ -25,6 +27,7 @@ class ChestOpenService
         $this->walletService = new WalletService($this->repository);
         $this->scopeService = new GameEventScopeService();
         $this->logService = new ChestOpenLogService($this->repository, $this->scopeService);
+        $this->professionRepository = new ProfessionRepository();
     }
 
     public function openWc26Chests(int $userId, bool $openAll): array
@@ -87,7 +90,7 @@ class ChestOpenService
                 break;
             }
 
-            $loot = $this->rollLootForConfig($config);
+            $loot = $this->rollLootForConfig($config, (string)($chest['UF_TYPE'] ?? ''), $userId);
             $this->applyLoot($userId, $config['loot_event_id'], (int)$chest['ID'], $loot);
             $persistMeta = $this->logService->extractPersistFieldsFromChest($chest);
             $this->repository->addChestOpenLog(array_merge([
@@ -159,7 +162,12 @@ class ChestOpenService
 
         if ($pool === self::POOL_PROFESSION) {
             return [
-                'types' => [TreasureService::CHEST_TYPE_PROFESSION],
+                'types' => [
+                    TreasureService::CHEST_TYPE_PROFESSION,
+                    TreasureService::CHEST_TYPE_PROFESSION_TIER_1,
+                    TreasureService::CHEST_TYPE_PROFESSION_TIER_2,
+                    TreasureService::CHEST_TYPE_PROFESSION_TIER_3,
+                ],
                 'loot_event_id' => ChestLootConfig::LOOT_EVENT_GLOBAL,
                 'generic_block3' => false,
                 'empty_error' => 'Нет сундуков профессий',
@@ -174,10 +182,19 @@ class ChestOpenService
      * @param array{types:string[],loot_event_id:int,generic_block3:bool,empty_error:string,profession_loot?:bool} $config
      * @return array{block1:array|null,block2:array|null,block3:array|null}
      */
-    private function rollLootForConfig(array $config): array
+    private function rollLootForConfig(array $config, string $chestType, int $userId): array
     {
         if (!empty($config['profession_loot'])) {
-            return ChestLootConfig::rollProfessionLoot();
+            $tier = ChestLootConfig::resolveProfessionTierByChestType($chestType);
+            $professionCodes = [];
+            foreach ($this->professionRepository->getProfessionsByUserId($userId) as $row) {
+                $code = trim((string)($row['UF_PROFESSION_CODE'] ?? ''));
+                if ($code !== '') {
+                    $professionCodes[] = $code;
+                }
+            }
+
+            return ChestLootConfig::rollProfessionLoot($tier, array_values(array_unique($professionCodes)));
         }
 
         return $this->rollLoot((bool)$config['generic_block3']);
@@ -216,18 +233,22 @@ class ChestOpenService
     private function applyLoot(int $userId, int $eventId, int $chestId, array $loot): void
     {
         $block1 = $loot['block1'] ?? null;
-        if (is_array($block1) && ($block1['kind'] ?? '') === 'currency') {
-            $currency = (string)($block1['currency'] ?? '');
-            $amount = round((float)($block1['amount'] ?? 0), 1);
-            if ($amount > 0 && $currency !== '') {
-                $this->walletService->credit(
-                    $userId,
-                    $currency,
-                    $amount,
-                    'chest_open_loot',
-                    'treasure_chest',
-                    $chestId
-                );
+        if (is_array($block1)) {
+            if (($block1['kind'] ?? '') === 'currency') {
+                $currency = (string)($block1['currency'] ?? '');
+                $amount = round((float)($block1['amount'] ?? 0), 1);
+                if ($amount > 0 && $currency !== '') {
+                    $this->walletService->credit(
+                        $userId,
+                        $currency,
+                        $amount,
+                        'chest_open_loot',
+                        'treasure_chest',
+                        $chestId
+                    );
+                }
+            } elseif (($block1['kind'] ?? '') === 'item') {
+                $this->grantLootItem($userId, $eventId, $block1);
             }
         }
 
@@ -236,17 +257,35 @@ class ChestOpenService
             if (!is_array($block) || ($block['kind'] ?? '') !== 'item') {
                 continue;
             }
-
-            $code = (string)($block['code'] ?? '');
-            if ($code === '') {
-                continue;
-            }
-
-            $category = (string)($block['category'] ?? ChestLootConfig::getItemCategory($code));
-            $sealed = $category === ChestLootConfig::CATEGORY_PACK ? 'Y' : 'N';
-
-            $this->repository->incrementLootItem($userId, $eventId, $code, $category, 1, $sealed);
+            $this->grantLootItem($userId, $eventId, $block);
         }
+    }
+
+    /**
+     * @param array<string, mixed> $block
+     */
+    private function grantLootItem(int $userId, int $eventId, array $block): void
+    {
+        $code = (string)($block['code'] ?? '');
+        if ($code === '') {
+            return;
+        }
+
+        $category = (string)($block['category'] ?? ChestLootConfig::getItemCategory($code));
+        $qty = max(1, (int)($block['qty'] ?? 1));
+        if ($category === ChestLootConfig::CATEGORY_MATERIAL) {
+            $this->professionRepository->addUserMaterialQty(
+                $userId,
+                $code,
+                $qty,
+                !empty($block['is_premium'])
+            );
+
+            return;
+        }
+
+        $sealed = $category === ChestLootConfig::CATEGORY_PACK ? 'Y' : 'N';
+        $this->repository->incrementLootItem($userId, $eventId, $code, $category, $qty, $sealed);
     }
 
     /**
@@ -335,13 +374,24 @@ class ChestOpenService
     private function accumulateSummary(array &$summary, array $loot): void
     {
         $block1 = $loot['block1'] ?? null;
-        if (is_array($block1) && ($block1['kind'] ?? '') === 'currency') {
-            $currency = (string)($block1['currency'] ?? '');
-            $amount = round((float)($block1['amount'] ?? 0), 1);
-            if ($currency === GameEconomyConfig::CURRENCY_PROGNOBAKS) {
-                $summary['prognobaks'] = round((float)$summary['prognobaks'] + $amount, 1);
-            } elseif ($currency === GameEconomyConfig::CURRENCY_RUBLIUS) {
-                $summary['rublius'] = round((float)$summary['rublius'] + $amount, 1);
+        if (is_array($block1)) {
+            if (($block1['kind'] ?? '') === 'currency') {
+                $currency = (string)($block1['currency'] ?? '');
+                $amount = round((float)($block1['amount'] ?? 0), 1);
+                if ($currency === GameEconomyConfig::CURRENCY_PROGNOBAKS) {
+                    $summary['prognobaks'] = round((float)$summary['prognobaks'] + $amount, 1);
+                } elseif ($currency === GameEconomyConfig::CURRENCY_RUBLIUS) {
+                    $summary['rublius'] = round((float)$summary['rublius'] + $amount, 1);
+                }
+            } elseif (($block1['kind'] ?? '') === 'item') {
+                $code = (string)($block1['code'] ?? '');
+                $qty = max(1, (int)($block1['qty'] ?? 1));
+                if ($code !== '') {
+                    if (!isset($summary['items'][$code])) {
+                        $summary['items'][$code] = 0;
+                    }
+                    $summary['items'][$code] += $qty;
+                }
             }
         }
 
@@ -357,7 +407,7 @@ class ChestOpenService
             if (!isset($summary['items'][$code])) {
                 $summary['items'][$code] = 0;
             }
-            $summary['items'][$code]++;
+            $summary['items'][$code] += max(1, (int)($block['qty'] ?? 1));
         }
     }
 }

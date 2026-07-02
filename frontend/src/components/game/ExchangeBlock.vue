@@ -15,6 +15,7 @@
 
     <div class="exchange_meta" v-if="state">
       <span>🪙 {{ formatMoney(state.wallet_prognobaks) }}</span>
+      <span>💎 {{ formatMoney(state.wallet_rublius) }}</span>
       <span>Лоты: {{ state.active_listings }}/{{ state.max_listings }}</span>
       <span>Комиссия: {{ state.commission_percent }}%</span>
     </div>
@@ -79,7 +80,7 @@
           <div class="row_body">
             <div class="row_label" :title="group.label">{{ group.label }}</div>
             <div class="row_line row_price">
-              {{ group.qty_total }} шт. · {{ group.price_per_unit }} 🪙
+              {{ group.qty_total }} шт. · {{ group.price_per_unit }} {{ currencySymbol(group.currency) }}
               <span v-if="group.has_consignment" class="badge_consignment">комиссионка</span>
             </div>
             <div class="row_line row_sellers">
@@ -198,12 +199,12 @@
           <div class="row_body">
             <div class="row_label" :title="item.label">{{ item.label }}</div>
             <div class="row_line">
-              В инвентаре: {{ item.available }} · {{ item.nominal }}–{{ item.max_price }} 🪙
+              В инвентаре: {{ item.available }} · {{ item.nominal }}–{{ item.max_price }} {{ currencySymbol(item.currency) }}
             </div>
             <div class="row_line">
               макс. {{ item.pallet_limit }}/лот
               <span v-if="item.consign_price">
-                · комисс. {{ item.consign_price }} 🪙
+                · комисс. {{ item.consign_price }} {{ currencySymbol(item.currency) }}
               </span>
             </div>
           </div>
@@ -255,7 +256,7 @@
           <div class="row_body">
             <div class="row_label" :title="item.label">{{ item.label }}</div>
             <div class="row_line">
-              {{ item.qty_remaining }}/{{ item.qty_total }} · {{ item.price_per_unit }} 🪙
+              {{ item.qty_remaining }}/{{ item.qty_total }} · {{ item.price_per_unit }} {{ currencySymbol(item.currency) }}
             </div>
             <div class="row_line">до {{ item.expires_at }}</div>
           </div>
@@ -484,7 +485,7 @@
           <span class="hist_role" :class="item.role">{{ item.role === 'buy' ? 'Покупка' : 'Продажа' }}</span>
           <span class="hist_label">{{ item.label }} ×{{ item.qty }}</span>
           <div class="hist_amount">
-            <span class="hist_total">{{ historyAmountMain(item) }} 🪙</span>
+            <span class="hist_total">{{ historyAmountMain(item) }} {{ currencySymbol(item.currency) }}</span>
             <span v-if="item.role === 'sell'" class="hist_net_caption">на руки</span>
             <span v-if="historyAmountHint(item)" class="hist_hint">{{ historyAmountHint(item) }}</span>
           </div>
@@ -679,6 +680,9 @@ export default {
 
     formatMoney(value) {
       return Number(value ?? 0).toFixed(1).replace(/\.0$/, '');
+    },
+    currencySymbol(currency) {
+      return currency === 'rublius' ? '💎' : '🪙';
     },
 
     sortByQty(items, getQty, direction) {
@@ -1082,7 +1086,7 @@ export default {
         );
 
         if (data?.status === 'ok') {
-          this.message = `Куплено ${data.bought_qty} шт. за ${data.total_spent} 🪙`;
+          this.message = `Куплено ${data.bought_qty} шт. за ${data.total_spent} ${this.currencySymbol(data.currency)}`;
           this.applyGame(data.game);
           this.patchExchangeWalletFromGame(data.game);
           this.patchCatalogAfterBuy(group, data.bought_qty);
@@ -1116,7 +1120,7 @@ export default {
         );
 
         if (data?.status === 'ok') {
-          this.message = `Куплено ${data.bought_qty} шт. за ${data.total_spent} 🪙`;
+          this.message = `Куплено ${data.bought_qty} шт. за ${data.total_spent} ${this.currencySymbol(data.currency)}`;
           this.applyGame(data.game);
           this.patchExchangeWalletFromGame(data.game);
           this.patchCatalogAfterBuy(item, data.bought_qty);
@@ -1246,10 +1250,11 @@ export default {
 
     patchExchangeWalletFromGame(game) {
       const prognobaks = Number(game?.wallet?.prognobaks);
-      if (!Number.isFinite(prognobaks) || !this.state) {
+      const rublius = Number(game?.wallet?.rublius);
+      if (!Number.isFinite(prognobaks) || !Number.isFinite(rublius) || !this.state) {
         return;
       }
-      this.state = { ...this.state, wallet_prognobaks: prognobaks };
+      this.state = { ...this.state, wallet_prognobaks: prognobaks, wallet_rublius: rublius };
     },
 
     patchCatalogAfterBuy(group, boughtQty) {

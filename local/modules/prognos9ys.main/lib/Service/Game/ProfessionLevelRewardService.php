@@ -129,7 +129,7 @@ class ProfessionLevelRewardService
             'material_label' => $definition['output_label'],
             'material_qty' => $alreadyGranted ? 0 : $config['material_qty'],
             'chests' => $chestGranted ? $config['chests'] : 0,
-            'chest_type' => TreasureService::CHEST_TYPE_PROFESSION,
+            'chest_type' => TreasureService::resolveProfessionChestTypeByLevel($level),
             'title' => $config['title'] ?? null,
         ];
     }

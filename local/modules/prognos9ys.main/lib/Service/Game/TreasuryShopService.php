@@ -2,6 +2,7 @@
 
 namespace Prognos9ys\Main\Service\Game;
 
+use Bitrix\Main\UserTable;
 use Bitrix\Main\Type\DateTime;
 use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
 
@@ -71,6 +72,8 @@ class TreasuryShopService
             'eligible' => 0,
             'waves_created' => 0,
             'waves_existing' => 0,
+            'premium_3d_listed' => 0,
+            'premium_5d_listed' => 0,
             'log_text' => '',
         ];
 
@@ -110,7 +113,15 @@ class TreasuryShopService
         }
 
         $eligible = count($userIds);
+        $premium3dListed = 0;
+        $premium5dListed = 0;
+        if (!$dryRun) {
+            [$premium3dListed, $premium5dListed] = $this->provisionTreasuryPremiumGovListings($matchNumber);
+        }
         $logText = $this->buildProvisionLogText($matchNumber, $eligible, $created, $existing);
+        if ($premium3dListed > 0 || $premium5dListed > 0) {
+            $logText .= ' · лоты премиума: 3д ×' . $premium3dListed . ', 5д ×' . $premium5dListed;
+        }
 
         return [
             'is_milestone' => true,
@@ -118,6 +129,8 @@ class TreasuryShopService
             'eligible' => $eligible,
             'waves_created' => $created,
             'waves_existing' => $existing,
+            'premium_3d_listed' => $premium3dListed,
+            'premium_5d_listed' => $premium5dListed,
             'log_text' => $logText,
         ];
     }
@@ -648,5 +661,33 @@ class TreasuryShopService
 
         return 'Лавка ЧМ-26 пополнена: волна ' . $milestone
             . ' — ' . $eligible . ' игроков (записи уже были)';
+    }
+
+    /**
+     * @return array{0:int,1:int}
+     */
+    private function provisionTreasuryPremiumGovListings(int $milestone): array
+    {
+        if ($milestone < 50 || $milestone > 200 || $milestone % 10 !== 0) {
+            return [0, 0];
+        }
+
+        $usersTotal = max(0, (int)UserTable::getCount(['>ID' => 0]));
+        if ($usersTotal <= 0) {
+            return [0, 0];
+        }
+
+        $qty3d = (int)ceil($usersTotal * 0.50);
+        $qty5d = (int)ceil($usersTotal * 0.10);
+
+        $exchangeService = new ExchangeService($this->repository);
+        if ($qty3d > 0) {
+            $exchangeService->createTreasuryGovPremiumListing(3, $qty3d);
+        }
+        if ($qty5d > 0) {
+            $exchangeService->createTreasuryGovPremiumListing(5, $qty5d);
+        }
+
+        return [$qty3d, $qty5d];
     }
 }

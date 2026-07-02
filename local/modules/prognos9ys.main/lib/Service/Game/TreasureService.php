@@ -14,6 +14,9 @@ class TreasureService
     public const CHEST_TYPE_LEVEL = 'level';
     public const CHEST_TYPE_ACHIEVEMENT = 'achievement';
     public const CHEST_TYPE_PROFESSION = 'profession';
+    public const CHEST_TYPE_PROFESSION_TIER_1 = 'profession_tier_1';
+    public const CHEST_TYPE_PROFESSION_TIER_2 = 'profession_tier_2';
+    public const CHEST_TYPE_PROFESSION_TIER_3 = 'profession_tier_3';
     public const CHEST_TYPE_WC26_ACHIEVEMENT = 'wc26_achievement';
     public const CHEST_TYPE_SHOP_WC26 = 'shop_wc26';
     public const CHEST_TYPE_PREMIUM_SCROLL = 'premium_scroll';
@@ -636,6 +639,30 @@ class TreasureService
         return -($unsigned % 2000000000 + 1);
     }
 
+    public static function resolveProfessionChestTypeByLevel(int $level): string
+    {
+        if ($level >= 8) {
+            return self::CHEST_TYPE_PROFESSION_TIER_3;
+        }
+        if ($level >= 4) {
+            return self::CHEST_TYPE_PROFESSION_TIER_2;
+        }
+
+        return self::CHEST_TYPE_PROFESSION_TIER_1;
+    }
+
+    public static function resolveProfessionChestTypeByAchievementThreshold(int $threshold): string
+    {
+        if ($threshold >= 1000) {
+            return self::CHEST_TYPE_PROFESSION_TIER_3;
+        }
+        if ($threshold >= 100) {
+            return self::CHEST_TYPE_PROFESSION_TIER_2;
+        }
+
+        return self::CHEST_TYPE_PROFESSION_TIER_1;
+    }
+
     /**
      * Сундук за уровень профессии (идемпотентно).
      */
@@ -652,11 +679,11 @@ class TreasureService
         }
 
         $syntheticMatchId = self::professionLevelSyntheticMatchId($professionCode, $level);
-        $existing = $this->repository->getTreasureChestByType(
-            $userId,
-            $syntheticMatchId,
-            self::CHEST_TYPE_PROFESSION
-        );
+        $chestType = self::resolveProfessionChestTypeByLevel($level);
+        $existing = $this->repository->getTreasureChestByType($userId, $syntheticMatchId, $chestType);
+        if (!$existing && $chestType !== self::CHEST_TYPE_PROFESSION) {
+            $existing = $this->repository->getTreasureChestByType($userId, $syntheticMatchId, self::CHEST_TYPE_PROFESSION);
+        }
         if ($existing) {
             return false;
         }
@@ -670,7 +697,7 @@ class TreasureService
             'UF_EVENT_ID' => $eventId > 0 ? $eventId : GameEconomyConfig::ANCHOR_EVENT_ID,
             'UF_COUNT' => $count,
             'UF_STATUS' => self::CHEST_STATUS_CLOSED,
-            'UF_TYPE' => self::CHEST_TYPE_PROFESSION,
+            'UF_TYPE' => $chestType,
             'UF_CREATED_AT' => $now,
             'UF_UPDATED_AT' => $now,
         ]);
@@ -692,11 +719,11 @@ class TreasureService
         }
 
         $syntheticMatchId = self::achievementSyntheticMatchId('prof:' . $achievementCode, $threshold);
-        $existing = $this->repository->getTreasureChestByType(
-            $userId,
-            $syntheticMatchId,
-            self::CHEST_TYPE_PROFESSION
-        );
+        $chestType = self::resolveProfessionChestTypeByAchievementThreshold($threshold);
+        $existing = $this->repository->getTreasureChestByType($userId, $syntheticMatchId, $chestType);
+        if (!$existing && $chestType !== self::CHEST_TYPE_PROFESSION) {
+            $existing = $this->repository->getTreasureChestByType($userId, $syntheticMatchId, self::CHEST_TYPE_PROFESSION);
+        }
         if ($existing) {
             return false;
         }
@@ -710,7 +737,7 @@ class TreasureService
             'UF_EVENT_ID' => $eventId > 0 ? $eventId : GameEconomyConfig::ANCHOR_EVENT_ID,
             'UF_COUNT' => $count,
             'UF_STATUS' => self::CHEST_STATUS_CLOSED,
-            'UF_TYPE' => self::CHEST_TYPE_PROFESSION,
+            'UF_TYPE' => $chestType,
             'UF_CREATED_AT' => $now,
             'UF_UPDATED_AT' => $now,
         ]);

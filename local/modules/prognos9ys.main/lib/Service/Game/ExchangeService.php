@@ -30,6 +30,7 @@ class ExchangeService
 
         return [
             'wallet_prognobaks' => (float)($wallet['prognobaks'] ?? 0),
+            'wallet_rublius' => (float)($wallet['rublius'] ?? 0),
             'active_listings' => $activeListings,
             'max_listings' => $this->resolveMaxListings($userId),
             'listing_days' => $this->resolveListingDays($userId),
@@ -218,8 +219,9 @@ class ExchangeService
         $pricePerUnit = round($pricePerUnit, 1);
 
         if ($pricePerUnit < $nominal || $pricePerUnit > $maxPrice + 0.01) {
+            $priceCurrency = $this->currencySymbol($this->resolveSettlementCurrencyByKind($kind));
             throw new \RuntimeException(
-                'Цена должна быть от ' . $nominal . ' до ' . $maxPrice . ' 🪙'
+                'Цена должна быть от ' . $nominal . ' до ' . $maxPrice . ' ' . $priceCurrency
             );
         }
 
@@ -411,15 +413,21 @@ class ExchangeService
             $totalCommission = round($totalCommission + (float)$chunk['commission'], 1);
         }
 
+        $settlementCurrency = $this->resolveSettlementCurrencyByKind($kind);
+        $balanceKey = $settlementCurrency === GameEconomyConfig::CURRENCY_RUBLIUS ? 'rublius' : 'prognobaks';
         $wallet = $this->walletService->getWalletSummary($buyerId);
-        if (round((float)($wallet['prognobaks'] ?? 0), 1) < round($totalCost, 1)) {
-            throw new \RuntimeException('Недостаточно прогнобаксов');
+        if (round((float)($wallet[$balanceKey] ?? 0), 1) < round($totalCost, 1)) {
+            throw new \RuntimeException(
+                $settlementCurrency === GameEconomyConfig::CURRENCY_RUBLIUS
+                    ? 'Недостаточно рублиусов'
+                    : 'Недостаточно прогнобаксов'
+            );
         }
 
         $batchRef = (int)(microtime(true) * 1000) % 2000000000;
         $this->walletService->debit(
             $buyerId,
-            GameEconomyConfig::CURRENCY_PROGNOBAKS,
+            $settlementCurrency,
             $totalCost,
             'exchange_buy',
             'exchange_batch',
@@ -440,7 +448,7 @@ class ExchangeService
 
             if ($isTreasuryListing) {
                 $this->treasuryService->credit(
-                    GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                    $settlementCurrency,
                     (float)$chunk['seller_net'],
                     'exchange_sell_gov',
                     $listingId
@@ -450,7 +458,7 @@ class ExchangeService
             } else {
                 $this->walletService->credit(
                     $sellerId,
-                    GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                    $settlementCurrency,
                     (float)$chunk['seller_net'],
                     'exchange_sell',
                     'exchange_listing',
@@ -517,7 +525,7 @@ class ExchangeService
 
         if ($totalCommission > 0) {
             $this->treasuryService->credit(
-                GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                $settlementCurrency,
                 $totalCommission,
                 'exchange_commission',
                 $batchRef
@@ -528,6 +536,7 @@ class ExchangeService
             'bought_qty' => $qty,
             'total_spent' => $totalCost,
             'commission' => $totalCommission,
+            'currency' => $settlementCurrency,
             'trades' => $trades,
         ];
     }
@@ -571,6 +580,7 @@ class ExchangeService
                 'id' => (int)($row['ID'] ?? 0),
                 'listing_id' => (int)($row['UF_LISTING_ID'] ?? 0),
                 'role' => (int)($row['UF_BUYER_ID'] ?? 0) === $userId ? 'buy' : 'sell',
+                'currency' => $this->resolveSettlementCurrencyByKind((string)($row['UF_ITEM_KIND'] ?? '')),
                 'label' => $this->inventoryService->buildItemLabel(
                     (string)($row['UF_ITEM_KIND'] ?? ''),
                     (string)($row['UF_ITEM_CODE'] ?? ''),
@@ -640,6 +650,10 @@ class ExchangeService
         }
 
         if ($this->isTreasuryGovListing($row)) {
+            $kind = (string)($row['UF_ITEM_KIND'] ?? '');
+            if ($kind !== ExchangeConfig::KIND_MATERIAL) {
+                return;
+            }
             $code = (string)($row['UF_ITEM_CODE'] ?? '');
             if ($code !== '') {
                 (new ProfessionRepository())->addGovWarehouseQty($code, $qty);
@@ -895,6 +909,7 @@ class ExchangeService
                 $consignPrice * BankConsignmentConfig::INSTANT_PAYOUT_PERCENT / 100,
                 1
             ),
+            'currency' => $this->resolveSettlementCurrencyByKind($kind),
             'catalog_tab' => ExchangeCatalogConfig::resolveTab($kind, $category, $code),
         ];
     }
@@ -940,6 +955,7 @@ class ExchangeService
             'qty_remaining' => (int)($row['UF_QTY_REMAINING'] ?? 0),
             'price_per_unit' => (float)($row['UF_PRICE_PER_UNIT'] ?? 0),
             'nominal' => (float)($row['UF_NOMINAL_SNAPSHOT'] ?? 0),
+            'currency' => $this->resolveSettlementCurrencyByKind($kind),
             'status' => (string)($row['UF_STATUS'] ?? ''),
             'expires_at' => $expiresLabel,
         ];
@@ -1351,6 +1367,67 @@ class ExchangeService
     }
 
     /**
+     * @return array{listed_qty:int,listings:array<int,array<string,mixed>>}
+     */
+    public function createTreasuryGovPremiumListing(int $days, int $qty): array
+    {
+        $days = max(0, $days);
+        $qty = max(0, $qty);
+        if (!in_array($days, [3, 5], true) || $qty <= 0) {
+            throw new \InvalidArgumentException('Некорректные параметры премиум-лота казны');
+        }
+
+        $kind = ExchangeConfig::KIND_PREMIUM_SCROLL;
+        $code = (string)$days;
+        $price = ExchangeNominalConfig::getPremiumScrollNominal($days);
+        $pallet = ExchangeNominalConfig::getPalletLimit($kind, $code);
+        $remaining = $qty;
+        $created = [];
+
+        while ($remaining > 0) {
+            $chunk = min($remaining, $pallet);
+            $now = new DateTime();
+            $expiresAt = DateTime::createFromTimestamp(
+                $now->getTimestamp() + ExchangeConfig::TREASURY_LISTING_DAYS * 86400
+            );
+
+            $listingId = $this->repository->addExchangeListing([
+                'UF_SELLER_ID' => ExchangeConfig::TREASURY_LISTING_SELLER_ID,
+                'UF_ITEM_KIND' => $kind,
+                'UF_ITEM_CODE' => $code,
+                'UF_ITEM_CATEGORY' => '',
+                'UF_EVENT_ID' => 0,
+                'UF_TEAM_CODE' => '',
+                'UF_QTY_TOTAL' => $chunk,
+                'UF_QTY_REMAINING' => $chunk,
+                'UF_PRICE_PER_UNIT' => $price,
+                'UF_NOMINAL_SNAPSHOT' => $price,
+                'UF_STATUS' => ExchangeConfig::STATUS_ACTIVE,
+                'UF_ESCROW_REF_TYPE' => ExchangeConfig::ESCROW_REF_TYPE_GOV_WAREHOUSE,
+                'UF_ESCROW_REF_ID' => 0,
+                'UF_EXPIRES_AT' => $expiresAt,
+                'UF_CREATED_AT' => $now,
+                'UF_UPDATED_AT' => $now,
+                'UF_SELLER_BANK_ID' => 0,
+                'UF_CONSIGNMENT_ID' => 0,
+                'UF_ORIGINAL_USER_ID' => 0,
+            ]);
+
+            $row = $this->repository->getExchangeListingById($listingId);
+            if ($row) {
+                $created[] = $this->formatListing($row);
+            }
+
+            $remaining -= $chunk;
+        }
+
+        return [
+            'listed_qty' => $qty,
+            'listings' => $created,
+        ];
+    }
+
+    /**
      * @return array{
      *   listed_qty: int,
      *   listings: array<int, array<string, mixed>>,
@@ -1448,5 +1525,17 @@ class ExchangeService
         return (int)($row['UF_SELLER_ID'] ?? -1) === ExchangeConfig::TREASURY_LISTING_SELLER_ID
             && (int)($row['UF_SELLER_BANK_ID'] ?? 0) === 0
             && (string)($row['UF_ESCROW_REF_TYPE'] ?? '') === ExchangeConfig::ESCROW_REF_TYPE_GOV_WAREHOUSE;
+    }
+
+    private function resolveSettlementCurrencyByKind(string $kind): string
+    {
+        return $kind === ExchangeConfig::KIND_PREMIUM_SCROLL
+            ? GameEconomyConfig::CURRENCY_RUBLIUS
+            : GameEconomyConfig::CURRENCY_PROGNOBAKS;
+    }
+
+    private function currencySymbol(string $currency): string
+    {
+        return $currency === GameEconomyConfig::CURRENCY_RUBLIUS ? '💎' : '🪙';
     }
 }

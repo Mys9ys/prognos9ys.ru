@@ -19,9 +19,9 @@ class ExchangeNominalConfig
 
     /** @var array<int, float> */
     private const PREMIUM_SCROLL_NOMINALS = [
-        1 => 30.0,
-        3 => 70.0,
-        5 => 100.0,
+        1 => 5.0,
+        3 => 15.0,
+        5 => 25.0,
     ];
 
     /** @var array<string, float> */
@@ -113,11 +113,7 @@ class ExchangeNominalConfig
         }
 
         if ($category === ChestLootConfig::CATEGORY_RECIPE) {
-            if ($itemCode === AlbumConfig::RECIPE_ITEM_CODE) {
-                return AlbumConfig::RECIPE_NOMINAL;
-            }
-
-            return 10.0;
+            return ProfessionRecipeConfig::getRecipeNominal($itemCode);
         }
 
         if ($teamCode !== null && $teamCode !== '') {
