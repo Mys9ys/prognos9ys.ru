@@ -2,7 +2,7 @@
   <div class="navbar_double">
     <div class="menu_row menu_row_top">
       <div
-        v-for="item in topRow"
+        v-for="item in topRowItems"
         :key="item.id"
         class="menu_item"
         :class="{
@@ -46,6 +46,7 @@
 <script>
 import { mapState } from 'vuex';
 import AppIcon from '@/components/ui/AppIcon.vue';
+import { authRoute } from '@/utils/authRedirect';
 
 export default {
   name: 'NavbarMenu',
@@ -56,7 +57,7 @@ export default {
       topRow: [
         { id: 'main', title: 'Главная', img: require('@/assets/icon/menu/home.svg'), img_a: require('@/assets/icon/menu/home_a.svg'), route: '/main' },
         { id: 'catalog', title: 'События', img: require('@/assets/icon/menu/catalog.svg'), img_a: require('@/assets/icon/menu/catalog_a.svg'), route: '/catalog' },
-        { id: 'profile', title: 'Профиль', img: require('@/assets/icon/menu/profile.svg'), img_a: require('@/assets/icon/menu/profile_a.svg'), route: '/profile', auth: true },
+        { id: 'profile', title: 'Профиль', img: require('@/assets/icon/menu/profile.svg'), img_a: require('@/assets/icon/menu/profile_a.svg'), route: '/profile' },
         { id: 'inventory', title: 'Инвентарь', emoji: '🎒', route: '/inventory', auth: true },
         { id: 'ratings', title: 'Рейтинги', img: require('@/assets/icon/menu/ratings.svg'), img_a: require('@/assets/icon/menu/ratings_a.svg'), route: '/ratings' },
       ],
@@ -73,6 +74,18 @@ export default {
     ...mapState({
       token: (state) => state.auth.authData.token,
     }),
+    topRowItems() {
+      return this.topRow.map((item) => {
+        if (item.id === 'profile' && !this.token) {
+          return {
+            ...item,
+            title: 'Войти',
+            guestLogin: true,
+          };
+        }
+        return item;
+      });
+    },
   },
   watch: {
     $route: {
@@ -111,6 +124,9 @@ export default {
       if (path.startsWith('/main')) {
         return 'main';
       }
+      if (path.startsWith('/auth') || path.startsWith('/register')) {
+        return 'profile';
+      }
 
       const segment = path.split('/').filter(Boolean)[0] || 'catalog';
       return segment;
@@ -120,6 +136,11 @@ export default {
     },
     onNav(item) {
       if (this.isLocked(item)) {
+        return;
+      }
+
+      if (item.guestLogin) {
+        this.$router.push(authRoute(this.$route.fullPath));
         return;
       }
 
