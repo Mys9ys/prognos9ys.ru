@@ -315,7 +315,6 @@ export default {
       }
 
       await this.loginRequest()
-      await this.refreshGameInfo()
       if (location.pathname === '/mob_app/') this.$router.push('/main')
     },
     onGuestHeaderClick() {

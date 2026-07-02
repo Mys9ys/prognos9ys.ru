@@ -41,7 +41,7 @@ class ProfileController extends BaseController
         }
 
         $service = new PublicProfileService();
-        $profile = $service->getByUserId($userId, true);
+        $profile = $service->getByUserId($userId, true, false);
 
         return [
             'status' => 'ok',

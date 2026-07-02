@@ -43,7 +43,7 @@ class Prognos9ysAuthClass
                     $this->genToken();
                     $this->setToken();
                 }
-                $this->loadUserInfo();
+                $this->loadUserInfo(false);
                 $this->setResult('ok', '', $this->userInfo);
             }
         }
@@ -55,7 +55,7 @@ class Prognos9ysAuthClass
         if (!$this->data['login']) {
             $this->setResult('error', 'Токен не верный');
         } else {
-            $this->loadUserInfo();
+            $this->loadUserInfo(false);
             $this->setResult('ok', '', $this->userInfo);
         }
     }

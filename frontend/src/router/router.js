@@ -2,6 +2,8 @@
 import {createRouter, createWebHistory} from "vue-router";
 import routes from "@/router/routes";
 import store from "@/store";
+import { resolveLegacyProfileRedirect } from "@/router/legacyRedirects";
+import { authRoute } from "@/utils/authRedirect";
 
 const router = createRouter({
     routes,
@@ -9,8 +11,18 @@ const router = createRouter({
 })
 
 router.beforeEach((to) => {
+    const legacy = resolveLegacyProfileRedirect(to);
+    if (legacy) {
+        return legacy;
+    }
+
     const token = store.state.auth.authData.token;
     const isPublic = to.matched.some((record) => record.meta.public);
+    const requiresAuth = to.matched.some((record) => record.meta.auth);
+
+    if (requiresAuth && !token) {
+        return authRoute(to.fullPath);
+    }
 
     if (!token && !isPublic) {
         return '/catalog';

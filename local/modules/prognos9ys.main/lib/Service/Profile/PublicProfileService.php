@@ -6,8 +6,11 @@ use Prognos9ys\Main\Controller\ApiException;
 
 class PublicProfileService
 {
-    public function getByUserId(int $userId, bool $includePrivateGameDetails = false): array
-    {
+    public function getByUserId(
+        int $userId,
+        bool $includePrivateGameDetails = false,
+        bool $includeGame = true
+    ): array {
         if ($userId <= 0) {
             throw new ApiException('Некорректный ID пользователя', 400);
         }
@@ -21,7 +24,7 @@ class PublicProfileService
 
         $profile = $result['profile'] ?? [];
 
-        return [
+        $payload = [
             'user' => [
                 'id' => (int)($profile['info']['ID'] ?? $userId),
                 'name' => (string)($profile['info']['NAME'] ?? ''),
@@ -29,14 +32,21 @@ class PublicProfileService
                 'registered_at' => (string)($profile['info']['reg'] ?? ''),
             ],
             'rank' => $profile['rank_info'] ?? [],
-            'game' => (new \Prognos9ys\Main\Service\Game\GameProfileService())->getSummary(
-                $userId,
-                $includePrivateGameDetails
-            ),
             'football' => $profile['football'] ?? [],
             'race' => $profile['race'] ?? [],
             'racers' => $profile['racers'] ?? [],
         ];
+
+        if ($includeGame) {
+            $payload['game'] = (new \Prognos9ys\Main\Service\Game\GameProfileService())->getSummary(
+                $userId,
+                $includePrivateGameDetails
+            );
+        } else {
+            $payload['game'] = [];
+        }
+
+        return $payload;
     }
 
     public function toLegacyFormat(array $profile): array

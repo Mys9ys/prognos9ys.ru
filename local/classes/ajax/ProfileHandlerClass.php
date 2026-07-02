@@ -18,6 +18,12 @@ class ProfileHandlerClass
     protected $arCountry = [];
     protected $arRacers = [];
 
+    /** @var array<int, bool> */
+    protected $neededFootballMatchIds = [];
+
+    /** @var array<int, bool> */
+    protected $neededRaceIds = [];
+
     protected $arStageName = [
         'qual' => 'Квалификация',
         'race' => 'Гонка',
@@ -61,7 +67,7 @@ class ProfileHandlerClass
         $this->arEvents = (new GetPrognosisEvents())->result()['events'];
         $this->arTeams = (new GetFootballTeams())->result();
 
-        $this->arCountry = (new GetFootballTeams())->result();
+        $this->arCountry = $this->arTeams;
         $this->arRacers = (new GetF1RacersClass())->result();
 
         $this->getUserInfo();
@@ -103,14 +109,13 @@ class ProfileHandlerClass
 
     protected function getUserPrognosis()
     {
-        foreach ($this->arFootballIbs as $code => $arr) {
-            $this->getFootBallPr($arr, $code);
-        }
+        $this->getFootBallPr($this->arFootballIbs['result'], 'result');
+        $this->getFootBallPr($this->arFootballIbs['prognosis'], 'prognosis');
+        $this->getFootBallPr($this->arFootballIbs['matches'], 'matches');
 
-        foreach ($this->arRaceIbs as $code => $arr){
-            $this->getRaceData($arr, $code);
-        }
-
+        $this->getRaceData($this->arRaceIbs['prognosf1'], 'prognosf1');
+        $this->getRaceData($this->arRaceIbs['resultf1'], 'resultf1');
+        $this->getRaceData($this->arRaceIbs['f1races'], 'f1races');
     }
 
     protected function getRaceData($arr, $code){
@@ -119,6 +124,14 @@ class ProfileHandlerClass
         ];
 
         if($arr['filter']) $arFilter[$arr['filter']] = $this->data['userId'];
+
+        if ($code === 'f1races') {
+            $raceIds = array_keys($this->neededRaceIds);
+            if (!$raceIds) {
+                return;
+            }
+            $arFilter['ID'] = $raceIds;
+        }
 
         $arSelect = [
             "ID",
@@ -193,6 +206,13 @@ class ProfileHandlerClass
 
             $el["number"] = $res["PROPERTY_NUMBER_VALUE"];
 
+            if (in_array($code, ['prognosf1', 'resultf1'], true)) {
+                $raceId = (int)($res['PROPERTY_RACE_ID_VALUE'] ?? 0);
+                if ($raceId > 0) {
+                    $this->neededRaceIds[$raceId] = true;
+                }
+            }
+
             $this->arRes['race'][$events]['items'][$el["number"]][$code] = $el;
 
 
@@ -244,6 +264,14 @@ class ProfileHandlerClass
         ];
 
         if($info['filter']) $arFilter[$info['filter']] = $this->data['userId'];
+
+        if ($code === 'matches') {
+            $matchIds = array_keys($this->neededFootballMatchIds);
+            if (!$matchIds) {
+                return;
+            }
+            $arFilter['ID'] = $matchIds;
+        }
 
         $arSelect = [
             "ID",
@@ -301,6 +329,13 @@ class ProfileHandlerClass
             $arr["otime"] = $res["PROPERTY_OTIME_VALUE"];
             $arr["spenalty"] = $res["PROPERTY_SPENALTY_VALUE"];
             $arr["number"] = $res["PROPERTY_NUMBER_VALUE"];
+
+            if (in_array($code, ['prognosis', 'result'], true)) {
+                $matchId = (int)$arr['id'];
+                if ($matchId > 0) {
+                    $this->neededFootballMatchIds[$matchId] = true;
+                }
+            }
 
             if (isset($res["ACTIVE"])) {
                 $arr["active"] = $res["ACTIVE"];

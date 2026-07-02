@@ -66,17 +66,10 @@ class GameProfileService
                     (new LevelUpRewardService())->grantMissedRewards($userId);
                 } catch (\Throwable $exception) {
                 }
-
-                try {
-                    (new LevelUpRewardService())->grantMissedLevelChests($userId);
-                } catch (\Throwable $exception) {
-                }
             }
 
-            $data = $this->buildSummaryPayload($userId, $includeBankDetails, $withGrants);
-            if (!$withGrants) {
-                $this->writeSummaryCache($cacheKey, $data);
-            }
+            $data = $this->buildSummaryPayload($userId, $includeBankDetails);
+            $this->writeSummaryCache($cacheKey, $data);
 
             return $data;
         } catch (\Throwable $exception) {
@@ -95,7 +88,7 @@ class GameProfileService
         $cache->clean('summary_' . $userId . '_0', self::SUMMARY_CACHE_DIR);
     }
 
-    private function buildSummaryPayload(int $userId, bool $includeBankDetails, bool $runChestMigrations = false): array
+    private function buildSummaryPayload(int $userId, bool $includeBankDetails): array
     {
         $myBank = $includeBankDetails ? $this->bankService->getMyBank($userId) : null;
         $hasBank = $includeBankDetails
@@ -140,7 +133,7 @@ class GameProfileService
             'premium' => $this->buildPremiumSummarySafe($userId),
             'progress' => $this->progressService->getSummary($userId),
             'pending_xp' => (new ExperienceService($this->repository))->getPendingSummaryForUser($userId),
-            'treasure' => $this->treasureService->getTreasureSummary($userId, $runChestMigrations),
+            'treasure' => $this->treasureService->getTreasureSummary($userId),
             'inventory_items' => $inventoryItems,
             'learned_recipes' => $this->repository->getLearnedRecipes($userId),
             'album_meta' => (new AlbumService())->getProfileMeta($userId),

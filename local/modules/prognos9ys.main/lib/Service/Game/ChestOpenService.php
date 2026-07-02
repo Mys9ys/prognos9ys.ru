@@ -354,7 +354,7 @@ class ChestOpenService
                 continue;
             }
             $lines[] = [
-                'text' => ChestLootConfig::getLabel((string)$code) . ' ×' . (int)$count,
+                'text' => ChestLootConfig::formatSummaryItemLine((string)$code, (int)$count),
                 'status' => 'ok',
             ];
         }

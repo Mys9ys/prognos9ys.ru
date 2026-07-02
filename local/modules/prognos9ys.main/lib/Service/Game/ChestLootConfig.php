@@ -116,6 +116,26 @@ class ChestLootConfig
         ];
     }
 
+    public static function isProfessionRecipePack(string $code): bool
+    {
+        return in_array($code, [
+            ProfessionRecipeConfig::PACK_RECIPE_BASIC,
+            ProfessionRecipeConfig::PACK_RECIPE_ADVANCED,
+            ProfessionRecipeConfig::PACK_EQUIPMENT_WORK,
+        ], true);
+    }
+
+    public static function getProfessionPackLabel(string $code): string
+    {
+        $map = [
+            ProfessionRecipeConfig::PACK_RECIPE_BASIC => 'Пак рецептов: базовый',
+            ProfessionRecipeConfig::PACK_RECIPE_ADVANCED => 'Пак рецептов: продвинутый',
+            ProfessionRecipeConfig::PACK_EQUIPMENT_WORK => 'Пак экипировки: рабочий',
+        ];
+
+        return $map[$code] ?? $code;
+    }
+
     public static function getLabel(string $code): string
     {
         foreach ([
@@ -123,12 +143,22 @@ class ChestLootConfig
             self::getBlock2Table(),
             self::getWc26Block3Table(),
             self::getGenericBlock3Table(),
+            self::getProfessionTierBlock3Table(2),
+            self::getProfessionTierBlock3Table(3),
         ] as $table) {
             foreach ($table as $row) {
                 if (($row['code'] ?? '') === $code) {
                     return (string)($row['label'] ?? $code);
                 }
             }
+        }
+
+        if (self::isProfessionRecipePack($code)) {
+            return self::getProfessionPackLabel($code);
+        }
+
+        if (preg_match('/^rublius_(\d+)$/', $code, $matches)) {
+            return self::formatRubliusAmount((float)$matches[1]);
         }
 
         if (Wc26CollectibleConfig::parsePennantSlug($code) !== null) {
@@ -267,11 +297,6 @@ class ChestLootConfig
             return '';
         }
 
-        $code = (string)($block['code'] ?? '');
-        if ($code !== '') {
-            return self::getLabel($code);
-        }
-
         if (($block['kind'] ?? '') === 'currency') {
             $amount = (float)($block['amount'] ?? 0);
             $currency = (string)($block['currency'] ?? '');
@@ -284,7 +309,31 @@ class ChestLootConfig
             }
         }
 
-        return trim((string)($block['label'] ?? ''));
+        $code = (string)($block['code'] ?? '');
+        $inlineLabel = trim((string)($block['label'] ?? ''));
+        $label = $inlineLabel !== '' ? $inlineLabel : ($code !== '' ? self::getLabel($code) : '');
+
+        return self::decorateOpenLogLabel($code, $label);
+    }
+
+    public static function formatSummaryItemLine(string $code, int $count): string
+    {
+        $label = self::decorateOpenLogLabel($code, self::getLabel($code));
+
+        return $label . ' ×' . $count;
+    }
+
+    public static function decorateOpenLogLabel(string $code, string $label): string
+    {
+        if ($label === '') {
+            return '';
+        }
+
+        if (self::isProfessionRecipePack($code)) {
+            return '⚙️ ' . $label;
+        }
+
+        return $label;
     }
 
     public static function formatRubliusAmount(float $amount): string

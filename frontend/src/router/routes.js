@@ -4,7 +4,6 @@ import RegisterPage from "@/pages/auth/RegisterPage";
 import {kvnEvent, kvnGame} from "@/pages/kvn/routes";
 import CatalogPage from "@/pages/CatalogPage";
 import RatingPage from "@/pages/RatingPage";
-import MyProfilePage from "@/pages/MyProfilePage";
 import ProfilePage from "@/pages/ProfilePage";
 import RecoverMail from "@/pages/auth/RecoverMail";
 import RecoverSuccess from "@/pages/auth/RecoverSuccess";
@@ -20,6 +19,7 @@ import ChampionshipPage from "@/pages/ChampionshipPage";
 import FaqPage from "@/pages/FaqPage";
 import FaqArticlePage from "@/pages/FaqArticlePage";
 
+const authRoute = { meta: { auth: true } };
 
 const routes = [
     {
@@ -79,7 +79,62 @@ const routes = [
 
     {
         path: '/profile',
-        component: MyProfilePage,
+        component: () => import('@/pages/profile/ProfileOverviewPage.vue'),
+        ...authRoute,
+    },
+
+    {
+        path: '/prognosis',
+        component: () => import('@/pages/profile/ProfilePrognosisPage.vue'),
+        ...authRoute,
+    },
+
+    {
+        path: '/inventory',
+        component: () => import('@/pages/game/InventoryPage.vue'),
+        ...authRoute,
+    },
+
+    {
+        path: '/collection',
+        component: () => import('@/pages/game/CollectionPage.vue'),
+        ...authRoute,
+    },
+
+    {
+        path: '/achievements',
+        component: () => import('@/pages/game/AchievementsPage.vue'),
+        ...authRoute,
+    },
+
+    {
+        path: '/settings',
+        component: () => import('@/pages/SettingsPage.vue'),
+        ...authRoute,
+    },
+
+    {
+        path: '/bank',
+        component: () => import('@/pages/game/BankPage.vue'),
+        ...authRoute,
+    },
+
+    {
+        path: '/treasury',
+        component: () => import('@/pages/game/TreasuryPage.vue'),
+        ...authRoute,
+    },
+
+    {
+        path: '/market',
+        component: () => import('@/pages/game/MarketPage.vue'),
+        ...authRoute,
+    },
+
+    {
+        path: '/work',
+        component: () => import('@/pages/game/WorkPage.vue'),
+        ...authRoute,
     },
 
     {

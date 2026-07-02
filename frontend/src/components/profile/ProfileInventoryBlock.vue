@@ -166,12 +166,16 @@ const LOOT_CAPTION = {
   scarf: 'Шарф',
 };
 
-const OPENABLE_PACK_CODES = new Set([
-  'pack_pennant_wc26',
-  'pack_scarf_wc26',
+const PROFESSION_PACK_CODES = new Set([
   'pack_recipe_basic',
   'pack_recipe_advanced',
   'pack_equipment_work',
+]);
+
+const OPENABLE_PACK_CODES = new Set([
+  'pack_pennant_wc26',
+  'pack_scarf_wc26',
+  ...PROFESSION_PACK_CODES,
 ]);
 
 const STUB_PACK_CODES = new Set([
@@ -323,12 +327,14 @@ export default {
 
           const collectibleIcon = getWc26CollectibleIconSrc(item);
 
+          const isProfessionPack = PROFESSION_PACK_CODES.has(item.code);
+
           return {
             id: `loot_${item.code}${item.is_premium ? '_p' : ''}${item.sealed ? '_s' : ''}`,
             count: Number(item.count),
-            emoji: collectibleIcon ? null : (item.emoji || LOOT_EMOJI[item.category] || '📦'),
+            emoji: collectibleIcon ? null : (isProfessionPack ? '⚙️' : (item.emoji || LOOT_EMOJI[item.category] || '📦')),
             imageSrc: collectibleIcon,
-            caption: item.type_caption || LOOT_CAPTION[item.category] || 'Лут',
+            caption: isProfessionPack ? 'Рецепты' : (item.type_caption || LOOT_CAPTION[item.category] || 'Лут'),
             label: item.label || item.code,
             code: item.code,
             category: item.category,

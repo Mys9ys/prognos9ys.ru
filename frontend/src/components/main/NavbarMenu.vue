@@ -5,13 +5,17 @@
         v-for="item in topRow"
         :key="item.id"
         class="menu_item"
-        :class="{ active: isActive(item.id) }"
+        :class="{
+          active: isActive(item.id),
+          locked: isLocked(item),
+        }"
         @click="onNav(item)"
       >
         <div class="icon_wrap">
           <img v-if="item.img" class="icon_img" :src="isActive(item.id) ? item.img_a : item.img" alt="">
           <AppIcon v-else-if="item.appIcon" :name="item.appIcon" :size="24" />
           <span v-else-if="item.emoji" class="emoji_icon">{{ item.emoji }}</span>
+          <span v-if="isLocked(item)" class="lock_badge" aria-hidden="true">🔒</span>
         </div>
         <div class="title">{{ item.title }}</div>
       </div>
@@ -22,13 +26,17 @@
         v-for="item in bottomRow"
         :key="item.id"
         class="menu_item menu_item_inverted"
-        :class="{ active: isActive(item.id) }"
+        :class="{
+          active: isActive(item.id),
+          locked: isLocked(item),
+        }"
         @click="onNav(item)"
       >
         <div class="title">{{ item.title }}</div>
         <div class="icon_wrap">
           <img v-if="item.img" class="icon_img" :src="isActive(item.id) ? item.img_a : item.img" alt="">
           <AppIcon v-else-if="item.appIcon" :name="item.appIcon" :size="24" />
+          <span v-if="isLocked(item)" class="lock_badge" aria-hidden="true">🔒</span>
         </div>
       </div>
     </div>
@@ -38,7 +46,6 @@
 <script>
 import { mapState } from 'vuex';
 import AppIcon from '@/components/ui/AppIcon.vue';
-import { authRoute } from '@/utils/authRedirect';
 
 export default {
   name: 'NavbarMenu',
@@ -49,15 +56,15 @@ export default {
       topRow: [
         { id: 'main', title: 'Главная', img: require('@/assets/icon/menu/home.svg'), img_a: require('@/assets/icon/menu/home_a.svg'), route: '/main' },
         { id: 'catalog', title: 'События', img: require('@/assets/icon/menu/catalog.svg'), img_a: require('@/assets/icon/menu/catalog_a.svg'), route: '/catalog' },
-        { id: 'profile', title: 'Профиль', img: require('@/assets/icon/menu/profile.svg'), img_a: require('@/assets/icon/menu/profile_a.svg'), route: '/profile' },
-        { id: 'inventory', title: 'Инвентарь', emoji: '🎒', route: { path: '/profile', query: { tab: 'inventory' } }, auth: true },
+        { id: 'profile', title: 'Профиль', img: require('@/assets/icon/menu/profile.svg'), img_a: require('@/assets/icon/menu/profile_a.svg'), route: '/profile', auth: true },
+        { id: 'inventory', title: 'Инвентарь', emoji: '🎒', route: '/inventory', auth: true },
         { id: 'ratings', title: 'Рейтинги', img: require('@/assets/icon/menu/ratings.svg'), img_a: require('@/assets/icon/menu/ratings_a.svg'), route: '/ratings' },
       ],
       bottomRow: [
-        { id: 'bank', title: 'Банки', appIcon: 'bank', route: { path: '/profile', query: { tab: 'economy', eco: 'bank' } }, auth: true },
-        { id: 'exchange', title: 'Биржа', appIcon: 'rublius', route: { path: '/profile', query: { tab: 'economy', eco: 'exchange' } }, auth: true },
-        { id: 'farm', title: 'Работа', appIcon: 'xp', route: { path: '/profile', query: { tab: 'economy', eco: 'farm' } }, auth: true },
-        { id: 'treasury', title: 'Казна', appIcon: 'chest_wc2026', route: { path: '/profile', query: { tab: 'economy', eco: 'treasury' } }, auth: true },
+        { id: 'bank', title: 'Банки', appIcon: 'bank', route: '/bank', auth: true },
+        { id: 'market', title: 'Биржа', appIcon: 'rublius', route: '/market', auth: true },
+        { id: 'work', title: 'Работа', appIcon: 'xp', route: '/work', auth: true },
+        { id: 'treasury', title: 'Казна', appIcon: 'chest_wc2026', route: '/treasury', auth: true },
         { id: 'faq', title: 'Как играть', img: require('@/assets/icon/menu/faq.svg'), img_a: require('@/assets/icon/menu/faq_a.svg'), route: '/faq' },
       ],
     };
@@ -76,26 +83,24 @@ export default {
     },
   },
   methods: {
+    isLocked(item) {
+      return Boolean(item.auth && !this.token);
+    },
     resolveActive(route) {
       const path = route.path || '';
-      const tab = route.query?.tab || '';
-      const eco = route.query?.eco || '';
 
-      if (tab === 'inventory') {
-        return 'inventory';
-      }
-      if (tab === 'economy') {
-        if (eco === 'bank') return 'bank';
-        if (eco === 'exchange') return 'exchange';
-        if (eco === 'farm') return 'farm';
-        if (eco === 'treasury') return 'treasury';
-      }
+      if (path === '/inventory') return 'inventory';
+      if (path === '/bank') return 'bank';
+      if (path === '/market') return 'market';
+      if (path === '/work') return 'work';
+      if (path === '/treasury') return 'treasury';
+      if (path === '/prognosis') return 'profile';
 
       if (path.startsWith('/football') || path.startsWith('/championship') || path.startsWith('/cs2') || path.startsWith('/race')) {
         return 'catalog';
       }
       if (path.startsWith('/profile')) {
-        return tab === 'inventory' ? 'inventory' : 'profile';
+        return 'profile';
       }
       if (path.startsWith('/ratings')) {
         return 'ratings';
@@ -114,13 +119,7 @@ export default {
       return this.activeId === id;
     },
     onNav(item) {
-      if (item.auth && !this.token) {
-        this.$router.push(authRoute(this.$route.fullPath));
-        return;
-      }
-
-      if (item.id === 'profile' && !this.token) {
-        this.$router.push(authRoute(this.$route.fullPath));
+      if (this.isLocked(item)) {
         return;
       }
 
@@ -175,6 +174,11 @@ export default {
   &.active .title {
     color: @YesWrite;
   }
+
+  &.locked {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
 }
 
 .menu_item_inverted {
@@ -182,6 +186,7 @@ export default {
 }
 
 .icon_wrap {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -196,6 +201,14 @@ export default {
 
 .emoji_icon {
   font-size: 20px;
+  line-height: 1;
+}
+
+.lock_badge {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  font-size: 10px;
   line-height: 1;
 }
 </style>

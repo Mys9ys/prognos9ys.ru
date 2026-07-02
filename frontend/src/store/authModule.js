@@ -121,6 +121,7 @@ export const authModule = {
             commit('setUserInfo', [])
             commit('setImpersonation', { active: false, originalToken: '' })
             commit('mainPage/setNearest', {}, { root: true })
+            commit('profile/resetProfile', null, { root: true })
         },
 
         applyAuthUser({ commit }, userInfo) {
@@ -232,7 +233,7 @@ export const authModule = {
                     console.log('axios response', response.data)
                     commit('setUserInfo', response.data.info)
                     commit('setAuth', true)
-                    await dispatch('refreshGameInfo', { withGrants: true })
+                    await dispatch('refreshGameInfo')
                 } else {
                     commit('setAuth', false)
                 }

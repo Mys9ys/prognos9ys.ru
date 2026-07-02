@@ -21,6 +21,10 @@ export const profileModule = {
         setError(state, message) {
             state.profileData.error = message
         },
+        resetProfile(state) {
+            state.profileData = { load: false }
+            state.profileRequest = {}
+        },
     },
     actions: {
 

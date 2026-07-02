@@ -299,7 +299,7 @@ class ProfessionFarmService
         $playerLevel = $this->getPlayerLevel($userId);
         $level = min((int)($professionRow['UF_LEVEL'] ?? 0), $playerLevel);
         $comboLevel = max(1, $level);
-        $equippedCaftan = $this->repository->getEquippedCaftanCode($userId);
+        $equippedCaftan = $this->economyRepository->getEquippedCaftanCode($userId);
         $outputCode = $definition['output'];
         $premiumCode = $definition['premium'];
         $isProcessing = ProfessionMaterialConfig::isProcessingProfession($definition);
@@ -543,7 +543,7 @@ class ProfessionFarmService
     private function formatProfessions(int $userId): array
     {
         $playerLevel = $this->getPlayerLevel($userId);
-        $equippedCaftan = $this->repository->getEquippedCaftanCode($userId);
+        $equippedCaftan = $this->economyRepository->getEquippedCaftanCode($userId);
         $items = [];
         foreach ($this->repository->getProfessionsByUserId($userId) as $row) {
             $code = (string)($row['UF_PROFESSION_CODE'] ?? '');
