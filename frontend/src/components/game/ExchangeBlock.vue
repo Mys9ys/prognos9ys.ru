@@ -457,6 +457,58 @@
       </button>
     </div>
 
+    <!-- Госстройка -->
+    <div v-if="activeTab === 'citybuild'" class="panel">
+      <div class="labor_hint">
+        Сдача крафтовых компонентов в стройку городов ЧМ-26. Комиссия 0% — материалы списываются из инвентаря.
+      </div>
+
+      <div class="citybuild_list" v-if="cityBuildOrders.length">
+        <div
+          v-for="order in cityBuildOrders"
+          :key="order.project_id + '-' + order.recipe_code"
+          class="citybuild_order"
+        >
+          <div class="citybuild_order_head">
+            <div>
+              <div class="citybuild_city">{{ order.city_name }}</div>
+              <div class="citybuild_building">{{ order.label }} · {{ order.progress_pct }}%</div>
+            </div>
+            <span class="citybuild_nominal">~{{ order.nominal_total }} 🪙</span>
+          </div>
+
+          <div
+            v-for="item in order.remaining_items"
+            :key="order.project_id + '-' + item.code"
+            class="catalog_row citybuild_component_row"
+          >
+            <div class="row_body">
+              <div class="row_label">{{ item.label }}</div>
+              <div class="row_line">нужно ещё {{ item.qty }}</div>
+            </div>
+            <div class="row_actions">
+              <input
+                v-model.number="cityBuildQty[buildDonateKey(order, item.code)]"
+                type="number"
+                min="1"
+                :max="item.qty"
+                class="qty_input"
+              />
+              <button
+                type="button"
+                class="action_btn"
+                :disabled="busy"
+                @click="submitCityBuild(order, item.code)"
+              >
+                Сдать
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="empty" v-else-if="!loading">Нет активных госзаказов на стройку</div>
+    </div>
+
     <!-- История -->
     <div v-if="activeTab === 'history'" class="panel">
       <div class="exchange_sort exchange_sort_standalone">
@@ -516,6 +568,7 @@ export default {
         { id: 'sell', label: 'Продать' },
         { id: 'my', label: 'Мои лоты' },
         { id: 'labor', label: 'Работы' },
+        { id: 'citybuild', label: 'Госстройка' },
         { id: 'history', label: 'История' },
       ],
       loading: false,
@@ -540,6 +593,8 @@ export default {
         payPerCycle: 2,
       },
       laborClaimQty: {},
+      cityBuildOrders: [],
+      cityBuildQty: {},
       duplicatePlanTotal: 0,
       catalogSearchQuery: '',
       sellSearchQuery: '',
@@ -622,6 +677,8 @@ export default {
         this.loadHistory();
       } else if (tab === 'labor') {
         this.loadLabor(true);
+      } else if (tab === 'citybuild') {
+        this.loadCityBuildOrders();
       }
     },
     sellCategoryTab(tab) {
@@ -958,6 +1015,88 @@ export default {
     loadMoreLaborOrders() {
       this.laborPagination.offset += this.laborPagination.limit;
       this.loadLabor(false);
+    },
+
+    buildDonateKey(order, componentCode) {
+      return `${order.city_slug}:${order.recipe_code}:${componentCode}`;
+    },
+
+    ensureCityBuildQty(orders) {
+      const qty = { ...this.cityBuildQty };
+      orders.forEach((order) => {
+        (order.remaining_items || []).forEach((item) => {
+          const key = this.buildDonateKey(order, item.code);
+          if (!qty[key]) {
+            qty[key] = 1;
+          }
+        });
+      });
+      this.cityBuildQty = qty;
+    },
+
+    async loadCityBuildOrders() {
+      if (!this.authData?.token) {
+        return;
+      }
+
+      this.loading = true;
+      this.error = '';
+
+      try {
+        const data = await apiActions.exchange.getCityBuildOrders(this.authData.token);
+        if (data?.status === 'ok') {
+          this.cityBuildOrders = Array.isArray(data.orders) ? data.orders : [];
+          this.ensureCityBuildQty(this.cityBuildOrders);
+        }
+      } catch (e) {
+        this.error = e.message || 'Ошибка загрузки госстройки';
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async submitCityBuild(order, componentCode) {
+      const key = this.buildDonateKey(order, componentCode);
+      const remainingItem = (order.remaining_items || []).find((item) => item.code === componentCode);
+      const maxQty = Number(remainingItem?.qty) || 1;
+      const qty = Math.max(1, Math.min(maxQty, Number(this.cityBuildQty[key]) || 1));
+
+      this.busy = true;
+      this.error = '';
+      this.message = '';
+
+      try {
+        const data = await apiActions.exchange.submitCityBuildComponent(
+          this.authData.token,
+          order.city_slug,
+          order.recipe_code,
+          componentCode,
+          qty
+        );
+
+        if (data?.status === 'ok') {
+          this.cityBuildOrders = Array.isArray(data.orders) ? data.orders : this.cityBuildOrders;
+          this.ensureCityBuildQty(this.cityBuildOrders);
+          if (data.game) {
+            this.setUserInfo({ game: data.game });
+          } else {
+            await this.refreshGameInfo();
+          }
+          const label = data.component_label || componentCode;
+          let msg = `Сдано: ${label} ×${data.donated_qty || qty}`;
+          if (data.building_complete) {
+            msg += ` · ${order.label} готово`;
+          }
+          if (data.city_opened) {
+            msg += ' · город открыт на карте';
+          }
+          this.message = msg;
+        }
+      } catch (e) {
+        this.error = e.message || 'Не удалось сдать компонент';
+      } finally {
+        this.busy = false;
+      }
     },
 
     async createLaborOrder() {
@@ -1807,5 +1946,44 @@ export default {
   margin-top: 6px;
   font-size: 11px;
   color: @colorBlur;
+}
+
+.citybuild_list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.citybuild_order {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.citybuild_order_head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.citybuild_city {
+  font-weight: 600;
+}
+
+.citybuild_building {
+  font-size: 12px;
+  opacity: 0.75;
+  margin-top: 2px;
+}
+
+.citybuild_nominal {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.citybuild_component_row {
+  margin-top: 6px;
 }
 </style>

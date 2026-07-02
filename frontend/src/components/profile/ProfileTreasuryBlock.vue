@@ -248,6 +248,87 @@
           <p v-else class="hint section_hint">Нет доступных соревнований для гос. вкладов.</p>
         </template>
 
+        <template v-else-if="activeMainTab === 'cities'">
+          <div class="section">
+            <div class="section_title">Города ЧМ-26</div>
+            <p class="hint">
+              Основание из казны: три госздания (управа, биржа, банк). Крафтеры сдают компоненты на бирже → «Госстройка», без комиссии.
+              После сдачи управы город открывается на карте — 20 участков под усадьбы.
+            </p>
+            <p class="hint cities_summary" v-if="treasuryCities.length">
+              Основано: <strong>{{ citiesFoundedCount }}</strong> · открыто: <strong>{{ citiesOpenCount }}</strong> из 48
+            </p>
+
+            <div class="cities_filter" v-if="treasuryCities.length">
+              <button
+                v-for="filter in cityFilters"
+                :key="filter.id"
+                type="button"
+                class="warehouse_subtab"
+                :class="{ active: cityStatusFilter === filter.id }"
+                @click="cityStatusFilter = filter.id"
+              >{{ filter.label }}</button>
+            </div>
+
+            <div class="cities_list" v-if="filteredTreasuryCities.length">
+              <div
+                v-for="city in filteredTreasuryCities"
+                :key="city.slug"
+                class="city_row"
+              >
+                <div class="city_row_head" @click="toggleCityExpand(city.slug)">
+                  <div class="city_row_title">
+                    <span class="city_name">{{ city.city_name }}</span>
+                    <span class="city_country">{{ city.country_label }}</span>
+                  </div>
+                  <div class="city_row_meta">
+                    <span class="city_status" :class="'status_' + city.status">{{ cityStatusLabel(city.status) }}</span>
+                    <span class="city_expand">{{ expandedCitySlug === city.slug ? '▾' : '▸' }}</span>
+                  </div>
+                </div>
+
+                <div class="city_row_actions" v-if="canImpersonate && city.status === 'planned'">
+                  <button
+                    type="button"
+                    class="action_btn"
+                    :disabled="actionLoading"
+                    @click.stop="startCityFounding(city.slug)"
+                  >
+                    Основать
+                  </button>
+                </div>
+
+                <div class="city_buildings" v-if="expandedCitySlug === city.slug && city.buildings?.length">
+                  <div
+                    v-for="building in city.buildings"
+                    :key="city.slug + '-' + building.recipe_code"
+                    class="city_building_row"
+                  >
+                    <div class="city_building_head">
+                      <span>{{ building.label }}</span>
+                      <span class="city_building_pct">{{ building.progress_pct }}%</span>
+                    </div>
+                    <div class="city_progress_bar">
+                      <div
+                        class="city_progress_fill"
+                        :class="{ complete: building.status === 'complete' }"
+                        :style="{ width: building.progress_pct + '%' }"
+                      />
+                    </div>
+                    <p class="hint city_building_hint" v-if="building.opens_city_map">
+                      Открывает город на карте
+                    </p>
+                  </div>
+                  <p class="hint" v-if="city.status === 'open'">
+                    Участки: {{ city.plots_claimed }}/{{ city.plots_total }} занято
+                  </p>
+                </div>
+              </div>
+            </div>
+            <p v-else-if="!citiesLoading" class="hint section_hint">Нет городов по выбранному фильтру.</p>
+          </div>
+        </template>
+
         <template v-else-if="activeMainTab === 'warehouses'">
           <div class="section" v-if="warehouses">
             <div class="section_title">Государственные склады</div>
@@ -526,6 +607,12 @@ export default {
         payPerCycle: 2,
       },
       govListModal: null,
+      treasuryCities: [],
+      citiesFoundedCount: 0,
+      citiesOpenCount: 0,
+      citiesLoading: false,
+      cityStatusFilter: 'all',
+      expandedCitySlug: '',
     };
   },
   computed: {
@@ -556,8 +643,24 @@ export default {
       return [
         { id: 'overview', label: 'Общая информация' },
         { id: 'gov', label: 'Гос. поддержка' },
+        { id: 'cities', label: 'Города' },
         { id: 'warehouses', label: 'Склады' },
       ];
+    },
+    cityFilters() {
+      return [
+        { id: 'all', label: 'Все' },
+        { id: 'planned', label: 'Не основаны' },
+        { id: 'founding', label: 'В стройке' },
+        { id: 'open', label: 'Открыты' },
+      ];
+    },
+    filteredTreasuryCities() {
+      const list = Array.isArray(this.treasuryCities) ? this.treasuryCities : [];
+      if (this.cityStatusFilter === 'all') {
+        return list;
+      }
+      return list.filter((city) => city.status === this.cityStatusFilter);
     },
     warehouseGroups() {
       return this.warehouses?.groups || [];
@@ -704,7 +807,72 @@ export default {
         this.loadBanks(),
         this.loadGovDeposits(),
         this.loadTreasuryLaborOrders(),
+        this.loadTreasuryCities(),
       ]);
+    },
+
+    async loadTreasuryCities() {
+      if (!this.authData?.token) {
+        this.treasuryCities = [];
+        return;
+      }
+
+      this.citiesLoading = true;
+      try {
+        const data = await apiActions.game.getTreasuryCities(this.authData.token);
+        if (data?.status === 'ok') {
+          this.treasuryCities = Array.isArray(data.cities) ? data.cities : [];
+          this.citiesFoundedCount = Number(data.founded_count) || 0;
+          this.citiesOpenCount = Number(data.open_count) || 0;
+        }
+      } catch (e) {
+        console.log('treasury cities load error', e);
+      } finally {
+        this.citiesLoading = false;
+      }
+    },
+
+    cityStatusLabel(status) {
+      if (status === 'open') {
+        return 'открыт';
+      }
+      if (status === 'founding') {
+        return 'стройка';
+      }
+      if (status === 'planned') {
+        return 'не основан';
+      }
+      return status;
+    },
+
+    toggleCityExpand(slug) {
+      this.expandedCitySlug = this.expandedCitySlug === slug ? '' : slug;
+    },
+
+    async startCityFounding(slug) {
+      if (!this.canImpersonate || !this.authData?.token) {
+        return;
+      }
+
+      this.error = '';
+      this.message = '';
+      this.actionLoading = true;
+
+      try {
+        const data = await apiActions.game.startTreasuryCity(this.authData.token, slug);
+        if (data?.status === 'ok') {
+          this.treasuryCities = Array.isArray(data.cities) ? data.cities : this.treasuryCities;
+          this.citiesFoundedCount = Number(data.founded_count) || this.citiesFoundedCount;
+          this.citiesOpenCount = Number(data.open_count) || this.citiesOpenCount;
+          this.expandedCitySlug = slug;
+          const city = data.city || {};
+          this.message = `Основан ${city.city_name || slug}: заказы на госстройку открыты на бирже.`;
+        }
+      } catch (e) {
+        this.error = e?.message || 'Не удалось основать город';
+      } finally {
+        this.actionLoading = false;
+      }
     },
 
     async loadTreasuryLaborOrders() {
@@ -1382,6 +1550,117 @@ export default {
 
 .labor_escrow_hint {
   margin-top: 4px;
+}
+
+.cities_summary {
+  margin-bottom: 10px;
+}
+
+.cities_filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.cities_list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.city_row {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.city_row_head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.city_row_title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.city_name {
+  font-weight: 600;
+}
+
+.city_country {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.city_row_meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.city_status {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.city_status.status_open {
+  background: rgba(72, 187, 120, 0.2);
+}
+
+.city_status.status_founding {
+  background: rgba(237, 137, 54, 0.2);
+}
+
+.city_row_actions {
+  margin-top: 8px;
+}
+
+.city_buildings {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.city_building_row + .city_building_row {
+  margin-top: 10px;
+}
+
+.city_building_head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.city_progress_bar {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.city_progress_fill {
+  height: 100%;
+  background: #ed8936;
+  border-radius: 999px;
+}
+
+.city_progress_fill.complete {
+  background: #48bb78;
+}
+
+.city_building_hint {
+  margin-top: 4px;
+  font-size: 11px;
 }
 
 .ledger_section {

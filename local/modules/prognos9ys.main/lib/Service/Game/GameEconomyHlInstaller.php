@@ -34,6 +34,8 @@ class GameEconomyHlInstaller
     public const TABLE_USER_MATERIAL = 'prognos9ys_user_material';
     public const TABLE_GOV_WAREHOUSE = 'prognos9ys_gov_warehouse';
     public const TABLE_CONSTRUCTION_PROJECT = 'prognos9ys_construction_project';
+    public const TABLE_CITY = 'prognos9ys_city';
+    public const TABLE_CITY_PLOT = 'prognos9ys_city_plot';
     public const TABLE_TREASURY_TX = 'prognos9ys_treasury_tx';
     public const TABLE_LABOR_ORDER = 'prognos9ys_labor_order';
     public const TABLE_USER_ALBUM = 'prognos9ys_user_album';
@@ -626,6 +628,47 @@ class GameEconomyHlInstaller
         }
 
         return [];
+    }
+
+    /**
+     * HL городов ЧМ-26, участков улицы и привязка стройки к городу.
+     */
+    public function upgradeCityHl(): array
+    {
+        if (!Loader::includeModule('highloadblock')) {
+            throw new \RuntimeException('Модуль highloadblock не установлен');
+        }
+
+        $cityHlId = $this->ensureHlBlock('Prognos9ysCity', self::TABLE_CITY, [
+            'UF_TEAM_SLUG' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_STATUS' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_FOUNDED_BY_USER_ID' => ['USER_TYPE_ID' => 'integer'],
+            'UF_FOUNDED_AT' => ['USER_TYPE_ID' => 'datetime'],
+            'UF_OPENED_AT' => ['USER_TYPE_ID' => 'datetime'],
+        ]);
+
+        $plotHlId = $this->ensureHlBlock('Prognos9ysCityPlot', self::TABLE_CITY_PLOT, [
+            'UF_CITY_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_PLOT_NUMBER' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_OWNER_USER_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_CLAIMED_AT' => ['USER_TYPE_ID' => 'datetime'],
+        ]);
+
+        $this->ensureHlBlock('Prognos9ysConstructionProject', self::TABLE_CONSTRUCTION_PROJECT, [
+            'UF_CITY_SLUG' => ['USER_TYPE_ID' => 'string'],
+        ]);
+
+        if (class_exists(\Bitrix\Main\Application::class)) {
+            $app = \Bitrix\Main\Application::getInstance();
+            if ($app) {
+                $app->getManagedCache()->cleanDir('orm');
+            }
+        }
+
+        return [
+            'city_hl_id' => $cityHlId,
+            'city_plot_hl_id' => $plotHlId,
+        ];
     }
 
     /**

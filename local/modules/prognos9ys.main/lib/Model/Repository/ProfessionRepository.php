@@ -754,9 +754,155 @@ class ProfessionRepository
             'filter' => [
                 '=UF_OWNER_USER_ID' => 0,
                 '=UF_RECIPE_CODE' => $recipeCode,
+                '=UF_CITY_SLUG' => false,
             ],
             'limit' => 1,
         ])->fetch() ?: null;
+    }
+
+    public function getCityConstructionProject(string $citySlug, string $recipeCode): ?array
+    {
+        $citySlug = strtolower(trim($citySlug));
+        $recipeCode = trim($recipeCode);
+        if ($citySlug === '' || $recipeCode === '') {
+            return null;
+        }
+
+        $dataClass = $this->getConstructionProjectDataClass();
+
+        return $dataClass::getList([
+            'filter' => [
+                '=UF_OWNER_USER_ID' => 0,
+                '=UF_CITY_SLUG' => $citySlug,
+                '=UF_RECIPE_CODE' => $recipeCode,
+            ],
+            'limit' => 1,
+        ])->fetch() ?: null;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function getConstructionProjectsByCity(string $citySlug): array
+    {
+        $citySlug = strtolower(trim($citySlug));
+        if ($citySlug === '') {
+            return [];
+        }
+
+        $dataClass = $this->getConstructionProjectDataClass();
+        $rows = [];
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_OWNER_USER_ID' => 0,
+                '=UF_CITY_SLUG' => $citySlug,
+            ],
+            'order' => ['ID' => 'ASC'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function getActiveCityConstructionProjects(): array
+    {
+        $dataClass = $this->getConstructionProjectDataClass();
+        $rows = [];
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_OWNER_USER_ID' => 0,
+                '!UF_CITY_SLUG' => false,
+                '=UF_STATUS' => 'building',
+            ],
+            'order' => ['UF_CITY_SLUG' => 'ASC', 'ID' => 'ASC'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
+    public function ensureCityConstructionProject(string $citySlug, string $recipeCode, string $kind): array
+    {
+        $existing = $this->getCityConstructionProject($citySlug, $recipeCode);
+        if ($existing) {
+            return $existing;
+        }
+
+        $now = new DateTime();
+        $dataClass = $this->getConstructionProjectDataClass();
+        $result = $dataClass::add([
+            'UF_OWNER_USER_ID' => 0,
+            'UF_CITY_SLUG' => strtolower(trim($citySlug)),
+            'UF_RECIPE_CODE' => $recipeCode,
+            'UF_KIND' => $kind,
+            'UF_PROGRESS' => 0,
+            'UF_STATUS' => 'building',
+            'UF_STASH_JSON' => '{}',
+            'UF_BRIGADE_JSON' => '[]',
+            'UF_CREATED_AT' => $now,
+            'UF_UPDATED_AT' => $now,
+        ]);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+
+        return $dataClass::getById((int)$result->getId())->fetch();
+    }
+
+    /**
+     * @param array<string, int> $stash
+     */
+    public function updateConstructionProject(int $projectId, array $fields): void
+    {
+        if ($projectId <= 0) {
+            throw new \InvalidArgumentException('Некорректный проект');
+        }
+
+        $dataClass = $this->getConstructionProjectDataClass();
+        $result = $dataClass::update($projectId, $fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+    }
+
+    public function decodeStashJson(?string $json): array
+    {
+        if ($json === null || trim($json) === '') {
+            return [];
+        }
+
+        $decoded = json_decode($json, true);
+        if (!is_array($decoded)) {
+            return [];
+        }
+
+        $stash = [];
+        foreach ($decoded as $code => $qty) {
+            $qty = (int)$qty;
+            if ($qty > 0) {
+                $stash[(string)$code] = $qty;
+            }
+        }
+
+        return $stash;
+    }
+
+    public function encodeStashJson(array $stash): string
+    {
+        ksort($stash);
+
+        return json_encode($stash, JSON_UNESCAPED_UNICODE);
     }
 
     public function ensureCivicConstructionProject(string $recipeCode, string $kind): array

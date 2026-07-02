@@ -36,6 +36,7 @@ use Prognos9ys\Main\Service\Game\PremiumService;
 use Prognos9ys\Main\Service\Game\PremiumWorkQueueService;
 use Prognos9ys\Main\Service\Game\ProfessionCertificateService;
 use Prognos9ys\Main\Service\Game\TreasuryService;
+use Prognos9ys\Main\Service\Game\TreasuryCityService;
 use Prognos9ys\Main\Service\Game\TreasuryShopService;
 use Prognos9ys\Main\Service\Game\UserBankService;
 use Prognos9ys\Main\Service\Game\WalletService;
@@ -59,6 +60,8 @@ class GameController extends BaseController
             'cancelTreasuryLaborOrder' => $this->getDefaultConfigureForPostToken(),
             'listTreasuryGovMaterial' => $this->getDefaultConfigureForPostToken(),
             'cancelTreasuryGovListing' => $this->getDefaultConfigureForPostToken(),
+            'getTreasuryCities' => $this->getDefaultConfigureForPostToken(),
+            'startTreasuryCity' => $this->getDefaultConfigureForPostToken(),
             'getTreasuryShop' => $this->getDefaultConfigureForPostToken(),
             'buyTreasuryChest' => $this->getDefaultConfigureForPostToken(),
             'buyTreasuryPremium' => $this->getDefaultConfigureForPostToken(),
@@ -343,6 +346,55 @@ class GameController extends BaseController
         return array_merge(['status' => 'ok'], $result, [
             'warehouses' => (new GovWarehouseService())->getState(),
         ]);
+    }
+
+    public function getTreasuryCitiesAction(): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        $service = new TreasuryCityService();
+        $catalog = $service->getCatalog();
+
+        return [
+            'status' => 'ok',
+            'cities' => $catalog['cities'],
+            'founded_count' => $catalog['founded_count'],
+            'open_count' => $catalog['open_count'],
+            'can_manage' => (new ImpersonationService())->canImpersonate($userId),
+        ];
+    }
+
+    public function startTreasuryCityAction(string $citySlug): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        if (!(new ImpersonationService())->canImpersonate($userId)) {
+            throw new ApiException('Нет доступа', 403);
+        }
+
+        try {
+            $city = (new TreasuryCityService())->startFounding($citySlug, $userId);
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        $catalog = (new TreasuryCityService())->getCatalog();
+
+        return [
+            'status' => 'ok',
+            'city' => $city,
+            'cities' => $catalog['cities'],
+            'founded_count' => $catalog['founded_count'],
+            'open_count' => $catalog['open_count'],
+        ];
     }
 
     public function getTreasuryShopAction(): array

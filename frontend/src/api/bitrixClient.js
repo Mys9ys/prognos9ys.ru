@@ -227,6 +227,14 @@ export const apiActions = {
             'prognos9ys:main.GameController.cancelTreasuryGovListing',
             { userToken, listingId }
         ),
+        getTreasuryCities: (userToken) => runBitrixAction(
+            'prognos9ys:main.GameController.getTreasuryCities',
+            { userToken }
+        ),
+        startTreasuryCity: (userToken, citySlug) => runBitrixAction(
+            'prognos9ys:main.GameController.startTreasuryCity',
+            { userToken, citySlug }
+        ),
         getTreasuryShop: (userToken) => runBitrixAction(
             'prognos9ys:main.GameController.getTreasuryShop',
             { userToken }
@@ -561,6 +569,14 @@ export const apiActions = {
         startLaborWorkshop: (userToken, orderId, iterations = 0) => runBitrixAction(
             'prognos9ys:main.ExchangeController.startLaborWorkshop',
             { userToken, orderId, iterations: iterations > 0 ? iterations : undefined }
+        ),
+        getCityBuildOrders: (userToken) => runBitrixAction(
+            'prognos9ys:main.ExchangeController.getCityBuildOrders',
+            { userToken }
+        ),
+        submitCityBuildComponent: (userToken, citySlug, recipeCode, componentCode, qty = 1) => runBitrixAction(
+            'prognos9ys:main.ExchangeController.submitCityBuildComponent',
+            { userToken, citySlug, recipeCode, componentCode, qty }
         ),
     },
     impersonation: {

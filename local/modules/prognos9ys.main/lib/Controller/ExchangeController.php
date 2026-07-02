@@ -9,6 +9,7 @@ use Prognos9ys\Main\Service\Game\ExchangeService;
 use Prognos9ys\Main\Service\Game\GameProfileService;
 use Prognos9ys\Main\Service\Game\LaborExchangeConfig;
 use Prognos9ys\Main\Service\Game\LaborExchangeService;
+use Prognos9ys\Main\Service\Game\TreasuryCityService;
 
 class ExchangeController extends BaseController
 {
@@ -33,6 +34,8 @@ class ExchangeController extends BaseController
             'cancelLaborOrder' => $this->getDefaultConfigureForPostToken(),
             'claimLaborOrder' => $this->getDefaultConfigureForPostToken(),
             'startLaborWorkshop' => $this->getDefaultConfigureForPostToken(),
+            'getCityBuildOrders' => $this->getDefaultConfigureForPostToken(),
+            'submitCityBuildComponent' => $this->getDefaultConfigureForPostToken(),
         ];
     }
 
@@ -400,6 +403,50 @@ class ExchangeController extends BaseController
         }
 
         return array_merge(['status' => 'ok'], $result, [
+            'game' => (new GameProfileService())->getSummary($userId),
+        ]);
+    }
+
+    public function getCityBuildOrdersAction(): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        return [
+            'status' => 'ok',
+            'orders' => (new TreasuryCityService())->getBuildOrdersForExchange(),
+        ];
+    }
+
+    public function submitCityBuildComponentAction(
+        string $citySlug,
+        string $recipeCode,
+        string $componentCode,
+        int $qty = 1
+    ): array {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        try {
+            $result = (new TreasuryCityService())->donateComponent(
+                $userId,
+                $citySlug,
+                $recipeCode,
+                $componentCode,
+                $qty
+            );
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok'], $result, [
+            'orders' => (new TreasuryCityService())->getBuildOrdersForExchange(),
             'game' => (new GameProfileService())->getSummary($userId),
         ]);
     }

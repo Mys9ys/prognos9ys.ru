@@ -5,18 +5,38 @@ namespace Prognos9ys\Main\Service\Game;
 /**
  * 48 городов ЧМ-2026: поселения, основанные в эпоху чемпионата.
  *
- * Улица = дома друг напротив друга: по 5 усадеб на сторону (10 участков).
+ * Улица = дома друг напротив друга: по 10 усадеб на сторону (20 участков).
  * Нечётные номера — одна сторона, чётные — другая.
  */
 class EstateCityConfig
 {
     public const FOUNDING_EVENT = 'wc26';
 
-    /** Усадеб на одну сторону улицы. */
-    public const PLOTS_PER_SIDE = 5;
+    /** Город ещё не основан (нет строки в HL). */
+    public const STATUS_PLANNED = 'planned';
 
-    /** Всего участков в городе (5 + 5). */
-    public const TOTAL_PLOTS = 10;
+    /** Идёт сбор компонентов на госздания. */
+    public const STATUS_FOUNDING = 'founding';
+
+    /** Управа сдана — город на карте, можно брать участки. */
+    public const STATUS_OPEN = 'open';
+
+    /**
+     * Госздания при основании поселения (порядок отображения).
+     *
+     * @var array<int, string>
+     */
+    public const FOUNDING_BUILDINGS = [
+        'civic_city_hall',
+        'civic_exchange_branch',
+        'civic_bank_branch',
+    ];
+
+    /** Усадеб на одну сторону улицы. */
+    public const PLOTS_PER_SIDE = 10;
+
+    /** Всего участков в городе (10 + 10). */
+    public const TOTAL_PLOTS = 20;
 
     /** Разовый символический взнос за «присутствие» у филиала банка в городе. */
     public const BRANCH_PRESENCE_FEE = 50.0;
@@ -131,7 +151,7 @@ class EstateCityConfig
     }
 
     /**
-     * Номер участка на стороне улицы: нечётные 1,3,5,7,9 — сторона A; чётные 2,4,6,8,10 — сторона B.
+     * Номер участка на стороне улицы: нечётные 1,3,5…19 — сторона A; чётные 2,4,6…20 — сторона B.
      *
      * @return 'odd'|'even'
      */
