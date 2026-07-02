@@ -46,19 +46,26 @@
         <div
           v-if="item.openable && item.count > 0 && hoveredSlotId === item.id"
           class="slot_actions"
-          :class="{ slot_actions_many: getOpenActions(item).length > 2 }"
+          :class="{ slot_actions_many: getOpenActionRows(item).length > 1 }"
         >
-          <button
-            v-for="(action, actionIndex) in getOpenActions(item)"
-            :key="item.id + '_action_' + actionIndex"
-            type="button"
-            class="slot_action_btn"
-            :class="{ slot_action_btn_all: action.kind === 'all' }"
-            :disabled="opening || item.actionDisabled || action.disabled"
-            @click.stop="openInventoryItem(item, action.qty)"
+          <div
+            v-for="(row, rowIndex) in getOpenActionRows(item)"
+            :key="item.id + '_row_' + rowIndex"
+            class="slot_actions_row"
+            :class="{ slot_actions_row_split: row.length > 1 }"
           >
-            {{ action.label }}
-          </button>
+            <button
+              v-for="(action, actionIndex) in row"
+              :key="item.id + '_action_' + rowIndex + '_' + actionIndex"
+              type="button"
+              class="slot_action_btn"
+              :class="{ slot_action_btn_all: action.kind === 'all' }"
+              :disabled="opening || item.actionDisabled || action.disabled"
+              @click.stop="openInventoryItem(item, action.qty)"
+            >
+              {{ action.label }}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -117,7 +124,7 @@ import AppIcon from '@/components/ui/AppIcon.vue';
 import BulkActionProgress from '@/components/game/BulkActionProgress.vue';
 import ChestOpenLogModal from '@/components/profile/ChestOpenLogModal.vue';
 import { apiActions } from '@/api/bitrixClient';
-import { buildInventoryOpenActions, isInventoryOpenAllAction } from '@/utils/inventoryOpenActions';
+import { buildInventoryOpenActions, groupInventoryOpenActions, isInventoryOpenAllAction } from '@/utils/inventoryOpenActions';
 import { INVENTORY_TABS, resolveInventoryTab } from '@/config/inventoryCatalog';
 import { getWc26PennantIconSrc } from '@/config/wc26PennantIcons';
 import { getWc26ScarfIconSrc } from '@/config/wc26ScarfIcons';
@@ -127,9 +134,9 @@ const OTHER_INVENTORY_SLOTS = [
   { id: 'achievement', field: 'achievement_chests', icon: 'chest_achievement', caption: 'Ачивка', label: 'Сундуки за ачивки', openable: true, pool: 'achievement' },
   { id: 'level', field: 'level_chests', icon: 'chest_xp', caption: 'Уровень', label: 'Сундуки за уровень', openable: true, pool: 'level' },
   { id: 'profession', field: 'profession_chests', icon: 'chest_achievement', caption: 'Проф', label: 'Сундуки профессий (тираж 1/2/3)', openable: true, pool: 'profession' },
-  { id: 'premium_1d', field: 'premium_scrolls_1d', icon: 'premium_scroll_1d', caption: '1д', label: 'Свиток премиума (1 сутки)', openable: true, premiumScrollDays: 1, actionLabel: 'Активировать' },
-  { id: 'premium_3d', field: 'premium_scrolls_3d', emoji: '📜', caption: '3д', label: 'Свиток премиума (3 суток)', openable: true, premiumScrollDays: 3, actionLabel: 'Активировать' },
-  { id: 'premium_5d', field: 'premium_scrolls_5d', emoji: '📜', caption: '5д', label: 'Свиток премиума (5 суток)', openable: true, premiumScrollDays: 5, actionLabel: 'Активировать' },
+  { id: 'premium_1d', field: 'premium_scrolls_1d', icon: 'premium_scroll_1d', caption: '1д', label: 'Свиток премиума (1 сутки)', openable: true, premiumScrollDays: 1, actionLabel: 'Применить' },
+  { id: 'premium_3d', field: 'premium_scrolls_3d', emoji: '📜', caption: '3д', label: 'Свиток премиума (3 суток)', openable: true, premiumScrollDays: 3, actionLabel: 'Применить' },
+  { id: 'premium_5d', field: 'premium_scrolls_5d', emoji: '📜', caption: '5д', label: 'Свиток премиума (5 суток)', openable: true, premiumScrollDays: 5, actionLabel: 'Применить' },
   { id: 'pennant_site', field: 'pennant_site', icon: 'pennant_site', caption: 'Сайт', label: 'Вымпел Прогносяус' },
   { id: 'pennant_chm2026', field: 'pennant_chm2026', icon: 'pennant_chm2026', caption: 'ЧМ26', label: 'Вымпел ЧМ-2026' },
 ];
@@ -481,6 +488,10 @@ export default {
       return buildInventoryOpenActions(item.count, item.actionLabel || 'Открыть');
     },
 
+    getOpenActionRows(item) {
+      return groupInventoryOpenActions(this.getOpenActions(item));
+    },
+
     resolveOpenQty(item, qty) {
       return Math.max(1, Math.min(Number(qty) || 1, Number(item?.count) || 1, 30));
     },
@@ -568,10 +579,7 @@ export default {
           this.openModalDone = true;
 
           if (data.game) {
-            this.setUserInfo({
-              ...this.$store.state.auth.userInfo,
-              game_info: data.game,
-            });
+            this.patchGameInfo(data.game);
           } else {
             await this.refreshGameInfo();
           }
@@ -690,10 +698,7 @@ export default {
           this.openModalDone = true;
 
           if (data.game) {
-            this.setUserInfo({
-              ...this.$store.state.auth.userInfo,
-              game_info: data.game,
-            });
+            this.patchGameInfo(data.game);
           } else {
             await this.refreshGameInfo();
           }
@@ -718,7 +723,7 @@ export default {
 
       if (isInventoryOpenAllAction(slot.count, openQty)) {
         const confirmed = window.confirm(
-          `Активировать все свитки «${slot.label}» (${openQty} шт.)?\n\n`
+          `Применить все свитки «${slot.label}» (${openQty} шт.)?\n\n`
           + 'Премиум — ценный ресурс. Продолжить?',
         );
         if (!confirmed) {
@@ -750,12 +755,9 @@ export default {
           this.openModalDone = true;
 
           if (data.game) {
-            this.setUserInfo({
-              ...this.$store.state.auth.userInfo,
-              game_info: {
-                ...data.game,
-                premium: data.premium || data.game.premium,
-              },
+            this.patchGameInfo({
+              ...data.game,
+              premium: data.premium || data.game.premium,
             });
           } else {
             await this.refreshGameInfo();
@@ -795,10 +797,7 @@ export default {
           this.openModalDone = true;
 
           if (data.game) {
-            this.setUserInfo({
-              ...this.$store.state.auth.userInfo,
-              game_info: data.game,
-            });
+            this.patchGameInfo(data.game);
           } else {
             await this.refreshGameInfo();
           }
@@ -839,10 +838,7 @@ export default {
           this.openModalDone = true;
 
           if (data.game) {
-            this.setUserInfo({
-              ...this.$store.state.auth.userInfo,
-              game_info: data.game,
-            });
+            this.patchGameInfo(data.game);
           } else {
             await this.refreshGameInfo();
           }
@@ -971,10 +967,7 @@ export default {
           this.openModalDone = true;
 
           if (data.game) {
-            this.setUserInfo({
-              ...this.$store.state.auth.userInfo,
-              game_info: data.game,
-            });
+            this.patchGameInfo(data.game);
           } else {
             await this.refreshGameInfo();
           }
@@ -1187,12 +1180,27 @@ export default {
 }
 
 .slot_actions_many {
-  gap: 2px;
-  padding: 3px 2px;
+  gap: 4px;
+  padding: 4px 3px;
 
   .slot_action_btn {
-    font-size: 8px;
-    padding: 1px 2px;
+    font-size: 9px;
+    padding: 4px 3px;
+  }
+}
+
+.slot_actions_row {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
+}
+
+.slot_actions_row_split {
+  gap: 3px;
+
+  .slot_action_btn {
+    flex: 1;
   }
 }
 

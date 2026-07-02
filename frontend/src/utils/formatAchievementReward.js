@@ -30,12 +30,15 @@ export function buildAchievementRewardBits(reward) {
   }
 
   if (Number(reward.chests) > 0) {
-    const chestIcon = reward.chest_type === 'profession' ? 'chest_xp' : 'chest_achievement';
+    const chestType = String(reward.chest_type || '');
+    const isProfessionChest = chestType === 'profession'
+      || chestType.startsWith('profession_tier_');
+    const chestIcon = isProfessionChest ? 'chest_xp' : 'chest_achievement';
     bits.push({
       key: 'chests',
       amount: reward.chests,
       icon: chestIcon,
-      label: reward.chest_type === 'profession' ? 'сундук проф.' : undefined,
+      label: isProfessionChest ? 'сундук проф.' : undefined,
     });
   }
 

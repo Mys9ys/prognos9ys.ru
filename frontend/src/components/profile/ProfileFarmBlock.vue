@@ -519,7 +519,7 @@
         <div class="section premium_queue_section">
           <div class="section_title">Журнал работ</div>
           <p class="hint">
-            Завершённые смены и задачи Premium. Новые записи появляются сверху.
+            Завершённые смены и задачи очереди. Новые записи появляются сверху.
           </p>
 
           <div v-if="journalEntries.length" class="queue_list queue_log">
@@ -690,7 +690,7 @@ export default {
       return !this.farm?.slots?.needs_pick;
     },
     showQueueLogTab() {
-      return Boolean(this.workQueue.premium_active || this.farm?.last_shift?.last_result?.message);
+      return true;
     },
     journalEntries() {
       const log = Array.isArray(this.workQueue.log) ? [...this.workQueue.log] : [];
@@ -1013,9 +1013,6 @@ export default {
           if (this.farm?.slots?.needs_pick) {
             this.activeFarmTab = 'professions';
           } else if (!silent && this.farm?.session) {
-            this.activeFarmTab = 'work';
-          }
-          if (this.activeFarmTab === 'log' && !this.farm?.work_queue?.premium_active) {
             this.activeFarmTab = 'work';
           }
           this.schedulePoll();

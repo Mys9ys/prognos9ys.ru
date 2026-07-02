@@ -7,7 +7,7 @@ namespace Prognos9ys\Main\Service\Game;
  */
 class RecipeAchievementConfig
 {
-    public const GROUP = 'exchange';
+    public const GROUP = AchievementConfig::GROUP_PROFESSION;
 
     public const STAT_LEARNED = 'recipe_learned';
     public const STAT_ALBUM_CRAFT = 'recipe_album_craft';
@@ -53,7 +53,7 @@ class RecipeAchievementConfig
                 'reward' => [
                     'rublius' => $reward['rublius'],
                     'chests' => $reward['chests'],
-                    'chest_type' => 'achievement',
+                    'chest_type' => self::resolveProfessionChestTypeForIndex($index),
                 ],
             ];
         }
@@ -65,6 +65,7 @@ class RecipeAchievementConfig
                 'group' => self::GROUP,
                 'icon' => 'chest_warehouse',
                 'stat' => self::STAT_LEARNED,
+                'profession_stage' => 1,
                 'levels' => $levels,
             ],
             'recipe_album_craft' => [
@@ -73,8 +74,22 @@ class RecipeAchievementConfig
                 'group' => self::GROUP,
                 'icon' => 'chest_opener',
                 'stat' => self::STAT_ALBUM_CRAFT,
+                'profession_stage' => 1,
                 'levels' => $levels,
             ],
         ];
+    }
+
+    private static function resolveProfessionChestTypeForIndex(int $index): string
+    {
+        if ($index >= 4) {
+            return TreasureService::CHEST_TYPE_PROFESSION_TIER_3;
+        }
+
+        if ($index >= 3) {
+            return TreasureService::CHEST_TYPE_PROFESSION_TIER_2;
+        }
+
+        return TreasureService::CHEST_TYPE_PROFESSION_TIER_1;
     }
 }

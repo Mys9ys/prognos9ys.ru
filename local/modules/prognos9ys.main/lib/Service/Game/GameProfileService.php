@@ -252,6 +252,27 @@ class GameProfileService
     }
 
     /**
+     * Лёгкое обновление game_info после открытия сундуков/паков/банок (без банка и автоначислений).
+     */
+    public function getInventoryOpenSummary(int $userId, bool $withProgress = false): array
+    {
+        if ($userId <= 0) {
+            return [];
+        }
+
+        self::invalidateSummaryCache($userId);
+
+        $payload = $this->buildMutationPayload($userId);
+        $payload['treasure'] = $this->treasureService->getTreasureSummary($userId);
+
+        if ($withProgress) {
+            $payload['progress'] = $this->progressService->getSummary($userId);
+        }
+
+        return $payload;
+    }
+
+    /**
      * Кошелёк + инвентарь/альбом после биржевой покупки (без банка, прогресса, сундуков).
      */
     public function getWalletMutationSummary(int $userId): array

@@ -825,7 +825,7 @@ class GameController extends BaseController
         }
 
         return array_merge(['status' => 'ok'], $result, [
-            'game' => (new GameProfileService())->getSummary($userId),
+            'game' => (new GameProfileService())->getInventoryOpenSummary($userId),
         ]);
     }
 
@@ -849,7 +849,7 @@ class GameController extends BaseController
         }
 
         return array_merge(['status' => 'ok'], $result, [
-            'game' => (new GameProfileService())->getSummary($userId),
+            'game' => (new GameProfileService())->getInventoryOpenSummary($userId, true),
         ]);
     }
 
@@ -869,7 +869,7 @@ class GameController extends BaseController
         }
 
         return array_merge(['status' => 'ok'], $result, [
-            'game' => (new GameProfileService())->getSummary($userId),
+            'game' => (new GameProfileService())->getMutationSummary($userId),
         ]);
     }
 
@@ -917,7 +917,7 @@ class GameController extends BaseController
         }
 
         return array_merge(['status' => 'ok'], $result, [
-            'game' => (new GameProfileService())->getSummary($userId),
+            'game' => (new GameProfileService())->getInventoryOpenSummary($userId),
         ]);
     }
 
@@ -983,7 +983,7 @@ class GameController extends BaseController
         }
 
         return array_merge(['status' => 'ok'], $result, [
-            'game' => (new GameProfileService())->getSummary($userId),
+            'game' => (new GameProfileService())->getInventoryOpenSummary($userId),
         ]);
     }
 

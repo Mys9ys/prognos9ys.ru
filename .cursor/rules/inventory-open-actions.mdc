@@ -15,9 +15,11 @@ alwaysApply: false
 | 6–10 | `Открыть` / `5` / `Все` |
 | 11+ | `Открыть` / `5` / `10` / `Все` |
 
+Раскладка в UI (3 ряда при 4 кнопках): строка 1 — «Открыть», строка 2 — «5» и «10» в ряд, строка 3 — «Все». При 3 кнопках — по одной на строку.
+
 Правила:
 
-- Логика в `frontend/src/utils/inventoryOpenActions.js` → `buildInventoryOpenActions()`.
+- Логика в `frontend/src/utils/inventoryOpenActions.js` → `buildInventoryOpenActions()` + `groupInventoryOpenActions()`.
 - «Все» = `min(count, 30)` за один запрос.
 - Кнопки `5` и `10` — только цифра, без слова «открыть».
 - Исключения (всегда одна кнопка): изучение рецепта, сертификат профессии, вклейка в альбом, заглушка пака.

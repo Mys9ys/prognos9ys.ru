@@ -87,7 +87,7 @@ class XpBankService
             'lines' => $lines,
         ];
 
-        $professionCode = '';
+        $resolvedProfessionCode = trim($professionCode);
 
         if ($definition['kind'] === 'player') {
             $oldProgress = $this->progressService->getSummary($userId);
@@ -107,7 +107,7 @@ class XpBankService
                 $userId,
                 (string)$definition['kind'],
                 (int)round($totalXp),
-                $professionCode
+                $resolvedProfessionCode
             );
             $professionCode = (string)($professionResult['profession']['code'] ?? '');
             $result['profession'] = $professionResult['profession'];

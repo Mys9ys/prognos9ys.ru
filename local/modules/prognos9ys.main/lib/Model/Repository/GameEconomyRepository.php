@@ -2009,10 +2009,10 @@ class GameEconomyRepository
                         : ($category === ChestLootConfig::CATEGORY_EQUIPMENT
                             ? 'Экип'
                             : (in_array($category, [ChestLootConfig::CATEGORY_PENNANT, ChestLootConfig::CATEGORY_SCARF], true)
-                            ? ChestLootConfig::getCollectibleTypeCaption($category)
-                            : ($category === ChestLootConfig::CATEGORY_XP_BANK
-                                ? 'XP'
-                                : ($category === ChestLootConfig::CATEGORY_CERT ? 'Серт' : 'Лут')))));
+                                ? ChestLootConfig::getCollectibleTypeCaption($category)
+                                : ($category === ChestLootConfig::CATEGORY_XP_BANK
+                                    ? 'XP'
+                                    : ($category === ChestLootConfig::CATEGORY_CERT ? 'Серт' : 'Лут'))))));
 
             $items[] = [
                 'code' => $code,

@@ -169,7 +169,7 @@ class ExchangeBuyAchievementConfig
      * @param array<int, array{rublius:float,chests:int}> $rewardDefs
      * @return array<int, array{threshold:int,reward:array}>
      */
-    private static function levelsFromDefs(array $thresholds, array $rewardDefs): array
+    private static function levelsFromDefs(array $thresholds, array $rewardDefs, bool $professionChests = false): array
     {
         $levels = [];
         foreach ($thresholds as $index => $threshold) {
@@ -179,12 +179,27 @@ class ExchangeBuyAchievementConfig
                 'reward' => [
                     'rublius' => $reward['rublius'],
                     'chests' => $reward['chests'],
-                    'chest_type' => 'achievement',
+                    'chest_type' => $professionChests
+                        ? self::resolveProfessionChestTypeForIndex($index)
+                        : 'achievement',
                 ],
             ];
         }
 
         return $levels;
+    }
+
+    private static function resolveProfessionChestTypeForIndex(int $index): string
+    {
+        if ($index >= 4) {
+            return TreasureService::CHEST_TYPE_PROFESSION_TIER_3;
+        }
+
+        if ($index >= 3) {
+            return TreasureService::CHEST_TYPE_PROFESSION_TIER_2;
+        }
+
+        return TreasureService::CHEST_TYPE_PROFESSION_TIER_1;
     }
 
     /**
@@ -209,18 +224,20 @@ class ExchangeBuyAchievementConfig
         $threeTier = self::buildThreeTierRewards();
         $xpLevels = self::levelsFromDefs(self::THRESHOLDS_XP_SPLIT, $fiveTierRewards);
 
+        $materialRewards = [
+            ['rublius' => 1.0, 'chests' => 1],
+            ['rublius' => 3.0, 'chests' => 1],
+            ['rublius' => 5.0, 'chests' => 1],
+            ['rublius' => 10.0, 'chests' => 3],
+            ['rublius' => 20.0, 'chests' => 5],
+        ];
+
         return [
-            'exchange_buy_material_normal' => self::entry(
+            'exchange_buy_material_normal' => self::professionEntry(
                 'Закупщик: материалы',
                 'Куплено обычных материалов на бирже',
                 self::STAT_MATERIAL_NORMAL,
-                self::levelsFromDefs(self::THRESHOLDS_MATERIAL_NORMAL, [
-                    ['rublius' => 1.0, 'chests' => 1],
-                    ['rublius' => 3.0, 'chests' => 1],
-                    ['rublius' => 5.0, 'chests' => 1],
-                    ['rublius' => 10.0, 'chests' => 3],
-                    ['rublius' => 20.0, 'chests' => 5],
-                ])
+                self::levelsFromDefs(self::THRESHOLDS_MATERIAL_NORMAL, $materialRewards, true)
             ),
             'exchange_buy_material_premium' => self::entry(
                 'Закупщик: премиум',
@@ -276,17 +293,17 @@ class ExchangeBuyAchievementConfig
                 self::STAT_XP_PLAYER_50,
                 $xpLevels
             ),
-            'exchange_buy_xp_mining' => self::entry(
+            'exchange_buy_xp_mining' => self::professionEntry(
                 'Алхимик: XP добычи',
                 'Куплено банок XP добычи на бирже',
                 self::STAT_XP_MINING,
-                $xpLevels
+                self::levelsFromDefs(self::THRESHOLDS_XP_SPLIT, $fiveTierRewards, true)
             ),
-            'exchange_buy_xp_crafting' => self::entry(
+            'exchange_buy_xp_crafting' => self::professionEntry(
                 'Алхимик: XP крафта',
                 'Куплено банок XP крафта на бирже',
                 self::STAT_XP_CRAFTING,
-                $xpLevels
+                self::levelsFromDefs(self::THRESHOLDS_XP_SPLIT, $fiveTierRewards, true)
             ),
             'exchange_buy_chest' => self::entry(
                 'Охотник за сундуками',
@@ -300,7 +317,7 @@ class ExchangeBuyAchievementConfig
                     ['rublius' => 20.0, 'chests' => 5],
                 ])
             ),
-            'exchange_buy_recipe' => self::entry(
+            'exchange_buy_recipe' => self::professionEntry(
                 'Библиотекарь',
                 'Куплено рецептов на бирже',
                 self::STAT_RECIPE,
@@ -310,9 +327,21 @@ class ExchangeBuyAchievementConfig
                     ['rublius' => 5.0, 'chests' => 1],
                     ['rublius' => 10.0, 'chests' => 3],
                     ['rublius' => 20.0, 'chests' => 5],
-                ])
+                ], true)
             ),
         ];
+    }
+
+    /**
+     * @param array<int, array{threshold:int,reward:array}> $levels
+     * @return array<string, mixed>
+     */
+    private static function professionEntry(string $title, string $description, string $stat, array $levels): array
+    {
+        return array_merge(self::entry($title, $description, $stat, $levels), [
+            'group' => AchievementConfig::GROUP_PROFESSION,
+            'profession_stage' => 1,
+        ]);
     }
 
     /**

@@ -54,3 +54,32 @@ export function isInventoryOpenAllAction(count, qty) {
 
   return Math.floor(Number(qty) || 0) >= allQty && total > 1;
 }
+
+/**
+ * Раскладка кнопок по рядам: «Открыть» | «5»/«10» | «Все».
+ *
+ * @param {Array<{qty:number,label:string,kind:string}>} actions
+ * @returns {Array<Array<{qty:number,label:string,kind:string}>>}
+ */
+export function groupInventoryOpenActions(actions) {
+  if (!Array.isArray(actions) || !actions.length) {
+    return [];
+  }
+
+  const primary = actions.filter((action) => action.kind === 'primary');
+  const batch = actions.filter((action) => action.kind === 'batch');
+  const all = actions.filter((action) => action.kind === 'all');
+  const rows = [];
+
+  if (primary.length) {
+    rows.push(primary);
+  }
+  if (batch.length) {
+    rows.push(batch);
+  }
+  if (all.length) {
+    rows.push(all);
+  }
+
+  return rows.length ? rows : [actions];
+}
