@@ -340,6 +340,95 @@
               ({{ warehouses.totals.items_with_stock }} видов с остатком)
             </p>
 
+            <div class="labor_treasury_section" v-if="canImpersonate">
+              <div class="subsection_title">Заказы на работу (казна)</div>
+              <p class="hint">
+                Сырьё списывается с госсклада, оплата — из казны. Исполнители берут заказ на бирже → «Работы».
+                Продукт возвращается на госсклад.
+              </p>
+              <p v-if="laborOrdersLoading" class="hint section_hint">Загрузка заказов…</p>
+              <p v-else-if="laborOrdersError" class="hint labor_orders_error">{{ laborOrdersError }}</p>
+              <template v-else-if="laborState">
+                <div class="labor_create_form">
+                  <select v-model="laborForm.professionCode" class="labor_select">
+                    <option value="">Профессия</option>
+                    <option
+                      v-for="prof in laborState.professions"
+                      :key="'treasury-labor-' + prof.code"
+                      :value="prof.code"
+                    >
+                      {{ prof.label }}
+                      <template v-if="prof.input_label"> ({{ prof.input_label }} → {{ prof.output_label }})</template>
+                      <template v-else> ({{ prof.output_label }})</template>
+                    </option>
+                  </select>
+                  <input
+                    v-model.number="laborForm.iterations"
+                    type="number"
+                    min="1"
+                    class="qty_input"
+                    placeholder="Циклов"
+                  />
+                  <input
+                    v-model.number="laborForm.payPerCycle"
+                    type="number"
+                    step="0.1"
+                    min="0.1"
+                    class="price_input"
+                    placeholder="🪙/цикл"
+                  />
+                  <button
+                    type="button"
+                    class="action_btn"
+                    :disabled="actionLoading"
+                    @click="createTreasuryLaborOrder"
+                  >
+                    Разместить
+                  </button>
+                </div>
+                <p class="hint labor_escrow_hint" v-if="selectedLaborProfession">
+                  <span v-if="selectedLaborProfession.input_label">
+                    Со склада: {{ laborForm.iterations || 0 }} {{ selectedLaborProfession.input_label }} ·
+                  </span>
+                  Из казны: {{ laborPayTotal }} 🪙
+                </p>
+
+                <div class="labor_orders_list" v-if="treasuryLaborOrders.length">
+                  <div
+                    v-for="order in treasuryLaborOrders"
+                    :key="'treasury-order-' + order.id"
+                    class="labor_order_row"
+                  >
+                    <div class="labor_order_main">
+                      <div class="labor_order_label">
+                        {{ order.profession_label }} → {{ order.output_label }}
+                      </div>
+                      <div class="labor_order_meta">
+                        {{ order.iterations_done }}/{{ order.iterations_total }} ·
+                        {{ order.pay_per_cycle }} 🪙/цикл
+                        <span v-if="order.has_active_worker" class="badge_active">в работе</span>
+                        <span v-else-if="order.status === 'open'"> · осталось {{ order.iterations_remaining }}</span>
+                        · {{ orderStatusLabel(order.status) }}
+                      </div>
+                    </div>
+                    <button
+                      v-if="order.can_cancel"
+                      type="button"
+                      class="action_btn danger"
+                      :disabled="actionLoading"
+                      @click="cancelTreasuryLaborOrder(order.id)"
+                    >
+                      Снять
+                    </button>
+                  </div>
+                </div>
+                <p v-else class="hint section_hint">Нет заказов казны на бирже труда.</p>
+              </template>
+              <p v-else class="hint section_hint">
+                <button type="button" class="action_btn mini" @click="loadTreasuryLaborOrders">Обновить заказы</button>
+              </p>
+            </div>
+
             <div class="warehouse_subtabs" v-if="warehouseGroups.length">
               <button
                 v-for="group in warehouseGroups"
@@ -387,88 +476,6 @@
                   На биржу
                 </button>
               </div>
-            </div>
-
-            <div class="labor_treasury_section" v-if="canImpersonate && laborState">
-              <div class="subsection_title">Заказы на работу (казна)</div>
-              <p class="hint">
-                Сырьё списывается с госсклада, оплата — из казны. Исполнители берут заказ на бирже → «Работы».
-                Продукт возвращается на госсклад.
-              </p>
-              <div class="labor_create_form">
-                <select v-model="laborForm.professionCode" class="labor_select">
-                  <option value="">Профессия</option>
-                  <option
-                    v-for="prof in laborState.professions"
-                    :key="'treasury-labor-' + prof.code"
-                    :value="prof.code"
-                  >
-                    {{ prof.label }}
-                    <template v-if="prof.input_label"> ({{ prof.input_label }} → {{ prof.output_label }})</template>
-                    <template v-else> ({{ prof.output_label }})</template>
-                  </option>
-                </select>
-                <input
-                  v-model.number="laborForm.iterations"
-                  type="number"
-                  min="1"
-                  class="qty_input"
-                  placeholder="Циклов"
-                />
-                <input
-                  v-model.number="laborForm.payPerCycle"
-                  type="number"
-                  step="0.1"
-                  min="0.1"
-                  class="price_input"
-                  placeholder="🪙/цикл"
-                />
-                <button
-                  type="button"
-                  class="action_btn"
-                  :disabled="actionLoading"
-                  @click="createTreasuryLaborOrder"
-                >
-                  Разместить
-                </button>
-              </div>
-              <p class="hint labor_escrow_hint" v-if="selectedLaborProfession">
-                <span v-if="selectedLaborProfession.input_label">
-                  Со склада: {{ laborForm.iterations || 0 }} {{ selectedLaborProfession.input_label }} ·
-                </span>
-                Из казны: {{ laborPayTotal }} 🪙
-              </p>
-
-              <div class="labor_orders_list" v-if="treasuryLaborOrders.length">
-                <div
-                  v-for="order in treasuryLaborOrders"
-                  :key="'treasury-order-' + order.id"
-                  class="labor_order_row"
-                >
-                  <div class="labor_order_main">
-                    <div class="labor_order_label">
-                      {{ order.profession_label }} → {{ order.output_label }}
-                    </div>
-                    <div class="labor_order_meta">
-                      {{ order.iterations_done }}/{{ order.iterations_total }} ·
-                      {{ order.pay_per_cycle }} 🪙/цикл
-                      <span v-if="order.has_active_worker" class="badge_active">в работе</span>
-                      <span v-else-if="order.status === 'open'"> · осталось {{ order.iterations_remaining }}</span>
-                      · {{ orderStatusLabel(order.status) }}
-                    </div>
-                  </div>
-                  <button
-                    v-if="order.can_cancel"
-                    type="button"
-                    class="action_btn danger"
-                    :disabled="actionLoading"
-                    @click="cancelTreasuryLaborOrder(order.id)"
-                  >
-                    Снять
-                  </button>
-                </div>
-              </div>
-              <p v-else class="hint section_hint">Нет заказов казны на бирже труда.</p>
             </div>
 
             <div class="treasury_exchange_section" v-if="canImpersonate">
@@ -600,6 +607,8 @@ export default {
       error: '',
       message: '',
       laborState: null,
+      laborOrdersLoading: false,
+      laborOrdersError: '',
       treasuryLaborOrders: [],
       laborForm: {
         professionCode: '',
@@ -747,6 +756,20 @@ export default {
         this.activeWarehouseGroupId = groups[0].id;
       }
     },
+    canImpersonate(isAllowed) {
+      if (isAllowed) {
+        this.loadTreasuryLaborOrders();
+      } else {
+        this.laborState = null;
+        this.treasuryLaborOrders = [];
+        this.laborOrdersError = '';
+      }
+    },
+    activeMainTab(tabId) {
+      if (tabId === 'warehouses' && this.canImpersonate) {
+        this.loadTreasuryLaborOrders();
+      }
+    },
   },
   created() {
     this.refresh();
@@ -879,20 +902,40 @@ export default {
       if (!this.canImpersonate || !this.authData?.token) {
         this.laborState = null;
         this.treasuryLaborOrders = [];
+        this.laborOrdersError = '';
         return;
       }
+
+      this.laborOrdersLoading = true;
+      this.laborOrdersError = '';
 
       try {
         const data = await apiActions.game.getTreasuryLaborOrders(this.authData.token);
         if (data?.status === 'ok') {
-          this.laborState = data.labor || null;
-          this.treasuryLaborOrders = Array.isArray(data.items) ? data.items : [];
-          if (this.laborState?.default_pay_per_cycle && !this.laborForm.payPerCycle) {
-            this.laborForm.payPerCycle = this.laborState.default_pay_per_cycle;
-          }
+          this.applyLaborOrdersPayload(data);
+        } else {
+          this.laborOrdersError = data?.message || 'Не удалось загрузить заказы казны';
         }
       } catch (e) {
+        this.laborOrdersError = e?.message || 'Не удалось загрузить заказы казны';
         console.log('treasury labor orders load error', e);
+      } finally {
+        this.laborOrdersLoading = false;
+      }
+    },
+
+    applyLaborOrdersPayload(payload) {
+      if (!payload || typeof payload !== 'object') {
+        return;
+      }
+
+      this.laborState = payload.labor || null;
+      this.treasuryLaborOrders = Array.isArray(payload.items) ? payload.items : [];
+      if (this.laborState?.default_pay_per_cycle && !this.laborForm.payPerCycle) {
+        this.laborForm.payPerCycle = this.laborState.default_pay_per_cycle;
+      }
+      if (this.laborState) {
+        this.laborOrdersError = '';
       }
     },
 
@@ -1039,6 +1082,9 @@ export default {
           this.treasury = data.treasury || null;
           this.macro = data.macro || null;
           this.warehouses = data.warehouses || null;
+          if (data.labor_orders) {
+            this.applyLaborOrdersPayload(data.labor_orders);
+          }
         } else {
           this.error = data?.message || 'Не удалось загрузить казну';
         }
@@ -1461,9 +1507,14 @@ export default {
 }
 
 .labor_treasury_section {
-  margin: 12px 0;
-  padding-top: 10px;
+  margin: 12px 0 16px;
+  padding: 10px 0 12px;
   border-top: 1px solid fade(@colorBlur, 25%);
+  border-bottom: 1px solid fade(@colorBlur, 20%);
+}
+
+.labor_orders_error {
+  color: @NoWrite;
 }
 
 .labor_create_form {

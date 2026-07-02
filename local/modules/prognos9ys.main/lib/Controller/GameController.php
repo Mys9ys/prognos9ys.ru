@@ -204,7 +204,7 @@ class GameController extends BaseController
             throw new ApiException('Пользователь не авторизован', 401);
         }
 
-        return [
+        $payload = [
             'status' => 'ok',
             'treasury' => array_merge(
                 (new TreasuryService())->getSummary(),
@@ -213,6 +213,18 @@ class GameController extends BaseController
             'macro' => (new MacroEconomyService())->getSummary(),
             'warehouses' => (new GovWarehouseService())->getState(),
         ];
+
+        if ((new ImpersonationService())->canImpersonate($userId)) {
+            $laborService = new LaborExchangeService();
+            $payload['labor_orders'] = [
+                'labor' => array_merge($laborService->getLaborMeta(), [
+                    'professions' => $laborService->getPostableProfessions(),
+                ]),
+                'items' => $laborService->getTreasuryOrders(),
+            ];
+        }
+
+        return $payload;
     }
 
     public function getTreasuryLaborOrdersAction(): array
