@@ -2010,7 +2010,9 @@ class GameEconomyRepository
                     ? 'Альбом'
                     : ($category === ChestLootConfig::CATEGORY_RECIPE
                         ? 'Рецепт'
-                        : (in_array($category, [ChestLootConfig::CATEGORY_PENNANT, ChestLootConfig::CATEGORY_SCARF], true)
+                        : ($category === ChestLootConfig::CATEGORY_EQUIPMENT
+                            ? 'Экип'
+                            : (in_array($category, [ChestLootConfig::CATEGORY_PENNANT, ChestLootConfig::CATEGORY_SCARF], true)
                             ? ChestLootConfig::getCollectibleTypeCaption($category)
                             : ($category === ChestLootConfig::CATEGORY_XP_BANK
                                 ? 'XP'

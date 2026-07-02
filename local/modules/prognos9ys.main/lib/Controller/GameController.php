@@ -5,6 +5,7 @@ namespace Prognos9ys\Main\Controller;
 use Prognos9ys\Main\Service\Auth\ImpersonationService;
 use Prognos9ys\Main\Service\Auth\TokenAuthService;
 use Prognos9ys\Main\Service\Game\AchievementService;
+use Prognos9ys\Main\Service\Game\AlbumConfig;
 use Prognos9ys\Main\Service\Game\AlbumCollectionBuyService;
 use Prognos9ys\Main\Service\Game\AlbumCraftService;
 use Prognos9ys\Main\Service\Game\AlbumRecipeService;
@@ -27,6 +28,7 @@ use Prognos9ys\Main\Service\Game\ModeratorBulkActionsService;
 use Prognos9ys\Main\Service\Game\LaborExchangeConfig;
 use Prognos9ys\Main\Service\Game\LaborExchangeService;
 use Prognos9ys\Main\Service\Game\MacroEconomyService;
+use Prognos9ys\Main\Service\Game\ProfessionCraftService;
 use Prognos9ys\Main\Service\Game\ProfessionFarmService;
 use Prognos9ys\Main\Service\Game\PackOpenService;
 use Prognos9ys\Main\Service\Game\PremiumFarmMacroPlannerService;
@@ -85,6 +87,8 @@ class GameController extends BaseController
             'activateProfessionCertificate' => $this->getDefaultConfigureForPostToken(),
             'activatePremiumScroll' => $this->getDefaultConfigureForPostToken(),
             'learnAlbumRecipe' => $this->getDefaultConfigureForPostToken(),
+            'craftProfessionRecipe' => $this->getDefaultConfigureForPostToken(),
+            'copyProfessionRecipe' => $this->getDefaultConfigureForPostToken(),
             'openLootPacks' => $this->getDefaultConfigureForPostToken(),
             'getChestOpenLogMeta' => $this->getDefaultConfigureForPostToken(),
             'getChestOpenLogs' => $this->getDefaultConfigureForPostToken(),
@@ -781,28 +785,36 @@ class GameController extends BaseController
         ];
     }
 
-    public function openWc26ChestsAction(int $openAll = 0): array
+    public function openWc26ChestsAction(int $openAll = 0, int $qty = 0): array
     {
-        return $this->openChestsAction(ChestOpenService::POOL_WC26, $openAll);
+        if ($qty <= 0) {
+            $qty = $openAll > 0 ? 30 : 1;
+        }
+
+        return $this->openChestsAction(ChestOpenService::POOL_WC26, 0, $qty);
     }
 
-    public function openChestsAction(string $pool, int $openAll = 0): array
+    public function openChestsAction(string $pool, int $openAll = 0, int $qty = 0): array
     {
         $userId = TokenAuthService::getCurrentUserId();
         if (!$userId) {
             throw new ApiException('Пользователь не авторизован', 401);
         }
 
+        if ($qty <= 0) {
+            $qty = $openAll > 0 ? 30 : 1;
+        }
+
         try {
             $service = new ChestOpenService();
             if ($pool === ChestOpenService::POOL_WC26) {
-                $result = $service->openWc26Chests($userId, $openAll > 0);
+                $result = $service->openWc26Chests($userId, $qty);
             } elseif ($pool === ChestOpenService::POOL_LEVEL) {
-                $result = $service->openLevelChests($userId, $openAll > 0);
+                $result = $service->openLevelChests($userId, $qty);
             } elseif ($pool === ChestOpenService::POOL_ACHIEVEMENT) {
-                $result = $service->openAchievementChests($userId, $openAll > 0);
+                $result = $service->openAchievementChests($userId, $qty);
             } elseif ($pool === ChestOpenService::POOL_PROFESSION) {
-                $result = $service->openProfessionChests($userId, $openAll > 0);
+                $result = $service->openProfessionChests($userId, $qty);
             } else {
                 throw new ApiException('Неизвестный пул сундуков', 400);
             }
@@ -817,15 +829,18 @@ class GameController extends BaseController
         ]);
     }
 
-    public function openXpBanksAction(string $code, int $openAll = 0, string $professionCode = ''): array
+    public function openXpBanksAction(string $code, int $openAll = 0, string $professionCode = '', int $qty = 0): array
     {
         $userId = TokenAuthService::getCurrentUserId();
         if (!$userId) {
             throw new ApiException('Пользователь не авторизован', 401);
         }
 
-        try {
+        if ($qty <= 0) {
             $qty = $openAll > 0 ? 30 : 1;
+        }
+
+        try {
             $result = (new XpBankService())->open($userId, $code, $qty, $professionCode);
         } catch (\InvalidArgumentException $e) {
             throw new ApiException($e->getMessage(), 400);
@@ -858,7 +873,7 @@ class GameController extends BaseController
         ]);
     }
 
-    public function activatePremiumScrollAction(int $days = 0, bool $activateAll = false): array
+    public function activatePremiumScrollAction(int $days = 0, int $openAll = 0, int $qty = 0): array
     {
         $userId = TokenAuthService::getCurrentUserId();
         if (!$userId) {
@@ -866,7 +881,8 @@ class GameController extends BaseController
         }
 
         try {
-            $result = (new PremiumService())->activateScrolls($userId, $days, $activateAll);
+            $activateAll = $openAll > 0 && $qty <= 0;
+            $result = (new PremiumService())->activateScrolls($userId, $days, $activateAll, $qty);
         } catch (\InvalidArgumentException $e) {
             throw new ApiException($e->getMessage(), 400);
         } catch (\RuntimeException $e) {
@@ -880,15 +896,20 @@ class GameController extends BaseController
         ]);
     }
 
-    public function learnAlbumRecipeAction(): array
+    public function learnAlbumRecipeAction(string $recipeCode = ''): array
     {
         $userId = TokenAuthService::getCurrentUserId();
         if (!$userId) {
             throw new ApiException('Пользователь не авторизован', 401);
         }
 
+        $recipeCode = trim($recipeCode);
+        if ($recipeCode === '') {
+            $recipeCode = AlbumConfig::RECIPE_ITEM_CODE;
+        }
+
         try {
-            $result = (new AlbumRecipeService())->learn($userId);
+            $result = (new AlbumRecipeService())->learn($userId, $recipeCode);
         } catch (\InvalidArgumentException $e) {
             throw new ApiException($e->getMessage(), 400);
         } catch (\RuntimeException $e) {
@@ -900,7 +921,7 @@ class GameController extends BaseController
         ]);
     }
 
-    public function openLootPacksAction(string $code, int $openAll = 0): array
+    public function craftProfessionRecipeAction(string $recipeCode = '', string $professionCode = ''): array
     {
         $userId = TokenAuthService::getCurrentUserId();
         if (!$userId) {
@@ -908,7 +929,52 @@ class GameController extends BaseController
         }
 
         try {
+            $result = (new ProfessionCraftService())->craft($userId, $recipeCode, $professionCode);
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok'], $result, [
+            'farm' => (new ProfessionFarmService())->getState($userId),
+            'game' => (new GameProfileService())->getSummary($userId),
+        ]);
+    }
+
+    public function copyProfessionRecipeAction(string $recipeCode = '', string $professionCode = ''): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        try {
+            $result = (new ProfessionCraftService())->copyRecipe($userId, $recipeCode, $professionCode);
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok'], $result, [
+            'farm' => (new ProfessionFarmService())->getState($userId),
+            'game' => (new GameProfileService())->getSummary($userId),
+        ]);
+    }
+
+    public function openLootPacksAction(string $code, int $openAll = 0, int $qty = 0): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        if ($qty <= 0) {
             $qty = $openAll > 0 ? 30 : 1;
+        }
+
+        try {
             $result = (new PackOpenService())->open($userId, $code, $qty);
         } catch (\InvalidArgumentException $e) {
             throw new ApiException($e->getMessage(), 400);

@@ -46,18 +46,18 @@
         <div
           v-if="item.openable && item.count > 0 && hoveredSlotId === item.id"
           class="slot_actions"
+          :class="{ slot_actions_many: getOpenActions(item).length > 2 }"
         >
-          <button type="button" class="slot_action_btn" :disabled="opening || item.actionDisabled" @click.stop="openInventoryItem(item, false)">
-            {{ item.actionLabel || 'Открыть' }}
-          </button>
           <button
-            v-if="item.count > 1 && item.allowOpenAll !== false"
+            v-for="(action, actionIndex) in getOpenActions(item)"
+            :key="item.id + '_action_' + actionIndex"
             type="button"
-            class="slot_action_btn slot_action_btn_all"
-            :disabled="opening"
-            @click.stop="openInventoryItem(item, true)"
+            class="slot_action_btn"
+            :class="{ slot_action_btn_all: action.kind === 'all' }"
+            :disabled="opening || item.actionDisabled || action.disabled"
+            @click.stop="openInventoryItem(item, action.qty)"
           >
-            Все ({{ Math.min(item.count, 30) }})
+            {{ action.label }}
           </button>
         </div>
       </div>
@@ -117,6 +117,7 @@ import AppIcon from '@/components/ui/AppIcon.vue';
 import BulkActionProgress from '@/components/game/BulkActionProgress.vue';
 import ChestOpenLogModal from '@/components/profile/ChestOpenLogModal.vue';
 import { apiActions } from '@/api/bitrixClient';
+import { buildInventoryOpenActions, isInventoryOpenAllAction } from '@/utils/inventoryOpenActions';
 import { INVENTORY_TABS, resolveInventoryTab } from '@/config/inventoryCatalog';
 import { getWc26PennantIconSrc } from '@/config/wc26PennantIcons';
 import { getWc26ScarfIconSrc } from '@/config/wc26ScarfIcons';
@@ -139,6 +140,7 @@ const LOOT_EMOJI = {
   pack: '📦',
   album: '📔',
   recipe: '📋',
+  equipment: '🥋',
   pennant: '🏴',
   scarf: '🧣',
   material: '📦',
@@ -150,6 +152,7 @@ const LOOT_CAPTION = {
   pack: 'Пак',
   album: 'Альбом',
   recipe: 'Рецепт',
+  equipment: 'Экип',
   pennant: 'Вымпел',
   scarf: 'Шарф',
 };
@@ -157,6 +160,9 @@ const LOOT_CAPTION = {
 const OPENABLE_PACK_CODES = new Set([
   'pack_pennant_wc26',
   'pack_scarf_wc26',
+  'pack_recipe_basic',
+  'pack_recipe_advanced',
+  'pack_equipment_work',
 ]);
 
 const STUB_PACK_CODES = new Set([
@@ -287,8 +293,9 @@ export default {
         .filter((item) => Number(item.count) > 0)
         .map((item) => {
           const isProfessionCert = item.code === 'cert_profession' && item.category === 'cert';
-          const isAlbumRecipe = item.code === 'recipe_album' && item.category === 'recipe';
-          const recipeLearned = isAlbumRecipe && learnedRecipes.includes('recipe_album');
+          const isRecipeItem = item.category === 'recipe';
+          const recipeLearned = isRecipeItem && learnedRecipes.includes(item.code);
+          const isAlbumRecipe = item.code === 'recipe_album' && isRecipeItem;
           const isOpenablePack = item.category === 'pack'
             && item.sealed
             && OPENABLE_PACK_CODES.has(item.code);
@@ -314,24 +321,26 @@ export default {
             label: item.label || item.code,
             code: item.code,
             category: item.category,
-            openable: item.category === 'xp_bank' || isProfessionCert || isOpenablePack || isStubPack || isAlbumRecipe || isWc26Glueable,
+            openable: item.category === 'xp_bank' || isProfessionCert || isOpenablePack || isStubPack
+              || (isRecipeItem && !recipeLearned) || isWc26Glueable,
             xpBankCode: item.category === 'xp_bank' ? item.code : null,
             packCode: isOpenablePack ? item.code : null,
             packStub: isStubPack,
             professionCert: isProfessionCert,
+            recipeItem: isRecipeItem,
             albumRecipe: isAlbumRecipe,
             glueableCollectible: isWc26Glueable,
             teamAlreadyGlued,
             recipeLearned,
-            actionDisabled: (isAlbumRecipe && recipeLearned) || (isWc26Glueable && teamAlreadyGlued),
+            recipeLearnable: isRecipeItem && !recipeLearned,
+            actionDisabled: (isRecipeItem && recipeLearned) || (isWc26Glueable && teamAlreadyGlued),
             actionLabel: isWc26Glueable
               ? (teamAlreadyGlued ? 'В альбоме' : 'В альбом')
               : (isStubPack
                 ? 'Скоро'
-                : (isAlbumRecipe
+                : (isRecipeItem
                   ? (recipeLearned ? 'Изучено' : 'Изучить')
                   : (isProfessionCert ? 'Активировать' : null))),
-            allowOpenAll: !isProfessionCert && !isAlbumRecipe && !isStubPack && !isWc26Glueable,
           };
         });
     },
@@ -439,16 +448,55 @@ export default {
       this.openProgressTotal = 0;
     },
 
-    openInventoryItem(item, openAll) {
+    getOpenActions(item) {
+      if (!item?.openable || item.count <= 0) {
+        return [];
+      }
+
+      if (item.recipeLearnable) {
+        return [{ qty: 1, label: 'Изучить', kind: 'primary' }];
+      }
+
+      if (item.professionCert) {
+        return [{ qty: 1, label: 'Активировать', kind: 'primary' }];
+      }
+
+      if (item.glueableCollectible) {
+        return [{
+          qty: 1,
+          label: item.teamAlreadyGlued ? 'В альбоме' : 'В альбом',
+          kind: 'primary',
+          disabled: item.teamAlreadyGlued,
+        }];
+      }
+
+      if (item.packStub) {
+        return [{ qty: 1, label: 'Скоро', kind: 'primary' }];
+      }
+
+      if (item.actionDisabled) {
+        return [];
+      }
+
+      return buildInventoryOpenActions(item.count, item.actionLabel || 'Открыть');
+    },
+
+    resolveOpenQty(item, qty) {
+      return Math.max(1, Math.min(Number(qty) || 1, Number(item?.count) || 1, 30));
+    },
+
+    openInventoryItem(item, qty = 1) {
       if (item.professionCert) {
         this.activateProfessionCertificate(item);
         return;
       }
 
-      if (item.albumRecipe) {
-        if (!item.recipeLearned) {
-          this.learnAlbumRecipe(item);
-        }
+      if (item.recipeLearnable) {
+        this.learnRecipe(item);
+        return;
+      }
+
+      if (item.albumRecipe && item.recipeLearned) {
         return;
       }
 
@@ -462,40 +510,44 @@ export default {
         return;
       }
 
+      const openQty = this.resolveOpenQty(item, qty);
+
       if (item.packCode) {
-        this.openLootPack(item.packCode, openAll, item);
+        this.openLootPack(item.packCode, openQty, item);
         return;
       }
 
       if (item.premiumScrollDays) {
-        this.activatePremiumScroll(item, openAll);
+        this.activatePremiumScroll(item, openQty);
         return;
       }
 
       if (item.xpBankCode) {
-        this.promptXpBankOpen(item.xpBankCode, openAll, item);
+        this.promptXpBankOpen(item.xpBankCode, openQty, item);
         return;
       }
 
       if (item.pool) {
-        this.openChests(item.pool, openAll);
+        this.openChests(item.pool, openQty, item);
       }
     },
 
-    async openChests(pool, openAll) {
+    async openChests(pool, qty, slot) {
       if (!this.authData?.token || this.opening || !pool) {
         return;
       }
 
-      const slot = this.chestSlots.find((item) => item.pool === pool);
-      if (!slot || slot.count <= 0) {
+      const resolvedSlot = slot || this.chestSlots.find((item) => item.pool === pool);
+      if (!resolvedSlot || resolvedSlot.count <= 0) {
         return;
       }
 
+      const openQty = this.resolveOpenQty(resolvedSlot, qty);
       const titles = {
-        wc26: openAll ? 'Открытие сундуков ЧМ-26' : 'Открытие сундука ЧМ-26',
-        level: openAll ? 'Открытие сундуков за уровень' : 'Открытие сундука за уровень',
-        achievement: openAll ? 'Открытие сундуков за ачивки' : 'Открытие сундука за ачивки',
+        wc26: openQty > 1 ? `Открытие сундуков ЧМ-26 (${openQty})` : 'Открытие сундука ЧМ-26',
+        level: openQty > 1 ? `Открытие сундуков за уровень (${openQty})` : 'Открытие сундука за уровень',
+        achievement: openQty > 1 ? `Открытие сундуков за ачивки (${openQty})` : 'Открытие сундука за ачивки',
+        profession: openQty > 1 ? `Открытие проф. сундуков (${openQty})` : 'Открытие проф. сундука',
       };
 
       this.opening = true;
@@ -505,10 +557,10 @@ export default {
       this.openModalTitle = titles[pool] || 'Открытие сундука';
       this.openLines = [{ text: 'Крутим барабан…', status: 'pending' }];
       this.openProgressCurrent = 0;
-      this.openProgressTotal = openAll ? Math.min(slot.count, 30) : 1;
+      this.openProgressTotal = openQty;
 
       try {
-        const data = await apiActions.game.openChests(this.authData.token, pool, openAll);
+        const data = await apiActions.game.openChests(this.authData.token, pool, openQty);
 
         if (data?.status === 'ok') {
           this.openLines = Array.isArray(data.lines) ? data.lines : [];
@@ -535,14 +587,15 @@ export default {
       }
     },
 
-    async promptXpBankOpen(code, openAll, slot) {
+    async promptXpBankOpen(code, qty, slot) {
       if (!this.authData?.token || this.opening || !code || !slot || slot.count <= 0) {
         return;
       }
 
+      const openQty = this.resolveOpenQty(slot, qty);
       const kind = parseXpBankKind(code);
       if (!kind || kind === 'player') {
-        await this.openXpBank(code, openAll, slot);
+        await this.openXpBank(code, openQty, slot);
         return;
       }
 
@@ -572,11 +625,11 @@ export default {
         }
 
         if (professions.length === 1) {
-          await this.openXpBank(code, openAll, slot, professions[0].code);
+          await this.openXpBank(code, openQty, slot, professions[0].code);
           return;
         }
 
-        this.xpBankPickerPending = { code, openAll, slot };
+        this.xpBankPickerPending = { code, qty: openQty, slot };
         this.xpBankPickerProfessions = professions;
         this.xpBankPickerHint = `Выберите профессию ${kindLabel} — опыт пойдёт в неё`;
         this.xpBankPickerVisible = true;
@@ -604,28 +657,30 @@ export default {
       }
 
       this.closeXpBankPicker();
-      await this.openXpBank(pending.code, pending.openAll, pending.slot, professionCode);
+      await this.openXpBank(pending.code, pending.qty, pending.slot, professionCode);
     },
 
-    async openXpBank(code, openAll, slot, professionCode = '') {
+    async openXpBank(code, qty, slot, professionCode = '') {
       if (!this.authData?.token || this.opening || !code || !slot || slot.count <= 0) {
         return;
       }
+
+      const openQty = this.resolveOpenQty(slot, qty);
 
       this.opening = true;
       this.hoveredSlotId = null;
       this.openModalVisible = true;
       this.openModalDone = false;
-      this.openModalTitle = openAll ? 'Открытие банок опыта' : 'Открытие банки опыта';
+      this.openModalTitle = openQty > 1 ? `Открытие банок опыта (${openQty})` : 'Открытие банки опыта';
       this.openLines = [{ text: 'Начисляем опыт…', status: 'pending' }];
       this.openProgressCurrent = 0;
-      this.openProgressTotal = openAll ? Math.min(slot.count, 30) : 1;
+      this.openProgressTotal = openQty;
 
       try {
         const data = await apiActions.game.openXpBanks(
           this.authData.token,
           code,
-          openAll,
+          openQty,
           professionCode,
         );
 
@@ -654,14 +709,16 @@ export default {
       }
     },
 
-    async activatePremiumScroll(slot, activateAll) {
+    async activatePremiumScroll(slot, qty) {
       if (!this.authData?.token || this.opening || !slot?.premiumScrollDays || slot.count <= 0) {
         return;
       }
 
-      if (activateAll) {
+      const openQty = this.resolveOpenQty(slot, qty);
+
+      if (isInventoryOpenAllAction(slot.count, openQty)) {
         const confirmed = window.confirm(
-          `Активировать все свитки «${slot.label}» (${Math.min(slot.count, 30)} шт.)?\n\n`
+          `Активировать все свитки «${slot.label}» (${openQty} шт.)?\n\n`
           + 'Премиум — ценный ресурс. Продолжить?',
         );
         if (!confirmed) {
@@ -673,21 +730,23 @@ export default {
       this.hoveredSlotId = null;
       this.openModalVisible = true;
       this.openModalDone = false;
-      this.openModalTitle = activateAll ? 'Активация свитков премиума' : 'Активация свитка премиума';
+      this.openModalTitle = openQty > 1
+        ? `Активация свитков премиума (${openQty})`
+        : 'Активация свитка премиума';
       this.openLines = [{ text: 'Продлеваем премиум…', status: 'pending' }];
       this.openProgressCurrent = 0;
-      this.openProgressTotal = 1;
+      this.openProgressTotal = openQty;
 
       try {
         const data = await apiActions.game.activatePremiumScroll(
           this.authData.token,
           slot.premiumScrollDays,
-          activateAll,
+          openQty,
         );
 
         if (data?.status === 'ok') {
           this.openLines = (data.lines || []).map((text) => ({ text, status: 'ok' }));
-          this.openProgressCurrent = 1;
+          this.openProgressCurrent = openQty;
           this.openModalDone = true;
 
           if (data.game) {
@@ -757,7 +816,7 @@ export default {
       }
     },
 
-    async learnAlbumRecipe(slot) {
+    async learnRecipe(slot) {
       if (!this.authData?.token || this.opening || !slot || slot.count <= 0 || slot.recipeLearned) {
         return;
       }
@@ -767,12 +826,12 @@ export default {
       this.openModalVisible = true;
       this.openModalDone = false;
       this.openModalTitle = 'Изучение рецепта';
-      this.openLines = [{ text: 'Запоминаем рецепт альбома…', status: 'pending' }];
+      this.openLines = [{ text: `Запоминаем: ${slot.label}…`, status: 'pending' }];
       this.openProgressCurrent = 0;
       this.openProgressTotal = 1;
 
       try {
-        const data = await apiActions.game.learnAlbumRecipe(this.authData.token);
+        const data = await apiActions.game.learnAlbumRecipe(this.authData.token, slot.code);
 
         if (data?.status === 'ok') {
           this.openLines = Array.isArray(data.lines) ? data.lines : [];
@@ -797,6 +856,10 @@ export default {
       } finally {
         this.opening = false;
       }
+    },
+
+    async learnAlbumRecipe(slot) {
+      await this.learnRecipe(slot);
     },
 
     async glueCollectibleToAlbum(slot) {
@@ -883,22 +946,24 @@ export default {
       this.openProgressTotal = 1;
     },
 
-    async openLootPack(code, openAll, slot) {
+    async openLootPack(code, qty, slot) {
       if (!this.authData?.token || this.opening || !code || !slot || slot.count <= 0) {
         return;
       }
+
+      const openQty = this.resolveOpenQty(slot, qty);
 
       this.opening = true;
       this.hoveredSlotId = null;
       this.openModalVisible = true;
       this.openModalDone = false;
-      this.openModalTitle = openAll ? 'Открытие паков' : 'Открытие пака';
+      this.openModalTitle = openQty > 1 ? `Открытие паков (${openQty})` : 'Открытие пака';
       this.openLines = [{ text: 'Распаковываем…', status: 'pending' }];
       this.openProgressCurrent = 0;
-      this.openProgressTotal = openAll ? Math.min(slot.count, 30) : 1;
+      this.openProgressTotal = openQty;
 
       try {
-        const data = await apiActions.game.openLootPacks(this.authData.token, code, openAll);
+        const data = await apiActions.game.openLootPacks(this.authData.token, code, openQty);
 
         if (data?.status === 'ok') {
           this.openLines = Array.isArray(data.lines) ? data.lines : [];
@@ -1119,6 +1184,16 @@ export default {
   padding: 4px 3px;
   background: fade(@darkbg, 88%);
   border-radius: 2px;
+}
+
+.slot_actions_many {
+  gap: 2px;
+  padding: 3px 2px;
+
+  .slot_action_btn {
+    font-size: 8px;
+    padding: 1px 2px;
+  }
 }
 
 .slot_action_btn {

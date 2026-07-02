@@ -417,6 +417,62 @@
           </div>
         </div>
 
+        <div class="section" v-if="professionCraftRecipes.length">
+          <div class="section_title">Крафт по рецептам</div>
+          <p class="hint">
+            Работа: {{ professionCraftWallet }} 🪙 на складе.
+            Копия рецепта: чистый свиток ×1 + 10 🪙 работы (+5 XP).
+          </p>
+
+          <div
+            v-for="recipe in professionCraftRecipes"
+            :key="recipe.code"
+            class="profession_craft_card"
+          >
+            <div class="profession_craft_title">{{ recipe.label }}</div>
+            <p class="hint">
+              {{ recipe.profession_label }} · работа {{ recipe.work_cost }} 🪙 · +{{ recipe.craft_xp }} XP
+            </p>
+            <p class="hint">
+              Сырьё:
+              <span
+                v-for="(input, index) in recipe.inputs"
+                :key="recipe.code + '_in_' + input.code"
+              >
+                {{ index > 0 ? ', ' : '' }}{{ input.label }} {{ input.have }}/{{ input.need }}
+              </span>
+            </p>
+            <p class="hint">
+              Выход:
+              <span
+                v-for="(output, index) in recipe.outputs"
+                :key="recipe.code + '_out_' + output.code"
+              >
+                {{ index > 0 ? ', ' : '' }}{{ output.label }} ×{{ output.qty }}
+              </span>
+            </p>
+            <p v-if="recipe.missing_reason" class="hint warn">{{ recipe.missing_reason }}</p>
+            <div class="work_actions_row">
+              <button
+                type="button"
+                class="btn"
+                :disabled="actionLoading || !recipe.can_craft || farm.session"
+                @click="onCraftProfessionRecipe(recipe)"
+              >
+                Скрафтить
+              </button>
+              <button
+                type="button"
+                class="btn secondary"
+                :disabled="actionLoading || !recipe.can_copy || farm.session"
+                @click="onCopyProfessionRecipe(recipe)"
+              >
+                Копия рецепта
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div class="section" v-if="workQueue.premium_active && queueMaterialSellable.length">
           <div class="section_title">Сдать добычу на биржу</div>
           <p class="hint">
@@ -769,6 +825,14 @@ export default {
     albumMacroOutputQty() {
       const perCraft = Number(this.farm?.album_craft?.output_count) || 2;
       return perCraft * (Number(this.albumMacroBatches) || 1);
+    },
+    professionCraftRecipes() {
+      return Array.isArray(this.farm?.profession_crafts?.recipes)
+        ? this.farm.profession_crafts.recipes
+        : [];
+    },
+    professionCraftWallet() {
+      return Number(this.farm?.profession_crafts?.wallet_prognobaks ?? 0);
     },
     macroOutputQty() {
       return Math.max(1, Math.min(this.sessionMaxIterations, Number(this.selectedIterations) || 1));
@@ -1655,6 +1719,72 @@ export default {
       }
     },
 
+    async onCraftProfessionRecipe(recipe) {
+      const token = this.authData?.token;
+      if (!token || !recipe?.code || !recipe?.profession || !recipe?.can_craft) {
+        return;
+      }
+
+      this.actionLoading = true;
+      this.error = '';
+      this.message = '';
+      try {
+        const data = await apiActions.game.craftProfessionRecipe(token, recipe.code, recipe.profession);
+        if (data?.status === 'ok') {
+          if (data.farm) {
+            this.farm = data.farm;
+          }
+          const lineText = (data.lines || []).map((line) => line.text).filter(Boolean).join(' · ');
+          this.message = lineText || 'Крафт выполнен';
+          if (data.game) {
+            this.setUserInfo({
+              ...this.$store.state.auth.userInfo,
+              game_info: data.game,
+            });
+          }
+        } else {
+          this.error = data?.message || 'Не удалось выполнить крафт';
+        }
+      } catch (e) {
+        this.error = e.message || 'Не удалось выполнить крафт';
+      } finally {
+        this.actionLoading = false;
+      }
+    },
+
+    async onCopyProfessionRecipe(recipe) {
+      const token = this.authData?.token;
+      if (!token || !recipe?.code || !recipe?.profession || !recipe?.can_copy) {
+        return;
+      }
+
+      this.actionLoading = true;
+      this.error = '';
+      this.message = '';
+      try {
+        const data = await apiActions.game.copyProfessionRecipe(token, recipe.code, recipe.profession);
+        if (data?.status === 'ok') {
+          if (data.farm) {
+            this.farm = data.farm;
+          }
+          const lineText = (data.lines || []).map((line) => line.text).filter(Boolean).join(' · ');
+          this.message = lineText || 'Копия рецепта готова';
+          if (data.game) {
+            this.setUserInfo({
+              ...this.$store.state.auth.userInfo,
+              game_info: data.game,
+            });
+          }
+        } else {
+          this.error = data?.message || 'Не удалось скопировать рецепт';
+        }
+      } catch (e) {
+        this.error = e.message || 'Не удалось скопировать рецепт';
+      } finally {
+        this.actionLoading = false;
+      }
+    },
+
     async onCancelWork() {
       const token = this.authData?.token;
       if (!token) {
@@ -2403,5 +2533,25 @@ export default {
     flex: 1 1 120px;
     min-height: 32px;
   }
+}
+
+.profession_craft_card {
+  padding: 8px 0;
+  border-top: 1px solid fade(@colorBlur, 25%);
+
+  &:first-of-type {
+    border-top: none;
+    padding-top: 0;
+  }
+}
+
+.profession_craft_title {
+  color: @colorText;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.hint.warn {
+  color: @yellow;
 }
 </style>

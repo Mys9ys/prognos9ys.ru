@@ -116,6 +116,10 @@ class ExchangeNominalConfig
             return ProfessionRecipeConfig::getRecipeNominal($itemCode);
         }
 
+        if ($category === ChestLootConfig::CATEGORY_EQUIPMENT) {
+            return ProfessionCraftedItemConfig::getNominal($itemCode);
+        }
+
         if ($teamCode !== null && $teamCode !== '') {
             if (self::isScarfCode($itemCode)) {
                 return self::getOpenTeamItemNominal(ExchangeConfig::OPEN_SCARF_BASE, $teamCode);

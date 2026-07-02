@@ -64,6 +64,7 @@ class ProfessionFarmService
                 'profession_level_cap' => $this->getPlayerLevel($userId),
             ],
             'album_craft' => (new AlbumCraftService($this->repository, $this->economyRepository))->getCraftState($userId),
+            'profession_crafts' => (new ProfessionCraftService($this->repository, $this->economyRepository))->getCraftCatalog($userId),
             'work_queue' => $queueService->getStateForUser($userId),
             'treasury_labor_open' => (new LaborExchangeService())->getTreasuryLaborOpenByProfession(),
             'queue_projection' => $queueProjection,

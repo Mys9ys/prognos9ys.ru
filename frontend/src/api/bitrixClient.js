@@ -391,20 +391,20 @@ export const apiActions = {
             'prognos9ys:main.GameController.claimAchievement',
             { userToken, code }
         ),
-        openWc26Chests: (userToken, openAll = false) => runBitrixAction(
+        openWc26Chests: (userToken, qty = 1) => runBitrixAction(
             'prognos9ys:main.GameController.openWc26Chests',
-            { userToken, openAll: openAll ? 1 : 0 }
+            { userToken, qty }
         ),
-        openChests: (userToken, pool, openAll = false) => runBitrixAction(
+        openChests: (userToken, pool, qty = 1) => runBitrixAction(
             'prognos9ys:main.GameController.openChests',
-            { userToken, pool, openAll: openAll ? 1 : 0 }
+            { userToken, pool, qty }
         ),
-        openXpBanks: (userToken, code, openAll = false, professionCode = '') => runBitrixAction(
+        openXpBanks: (userToken, code, qty = 1, professionCode = '') => runBitrixAction(
             'prognos9ys:main.GameController.openXpBanks',
             {
                 userToken,
                 code,
-                openAll: openAll ? 1 : 0,
+                qty,
                 professionCode: professionCode || undefined,
             }
         ),
@@ -412,17 +412,25 @@ export const apiActions = {
             'prognos9ys:main.GameController.activateProfessionCertificate',
             { userToken }
         ),
-        activatePremiumScroll: (userToken, days = 0, activateAll = false) => runBitrixAction(
+        activatePremiumScroll: (userToken, days = 0, qty = 1) => runBitrixAction(
             'prognos9ys:main.GameController.activatePremiumScroll',
-            { userToken, days, activateAll: activateAll ? 1 : 0 }
+            { userToken, days, qty }
         ),
-        learnAlbumRecipe: (userToken) => runBitrixAction(
+        learnAlbumRecipe: (userToken, recipeCode = '') => runBitrixAction(
             'prognos9ys:main.GameController.learnAlbumRecipe',
-            { userToken }
+            { userToken, recipeCode: recipeCode || undefined }
         ),
-        openLootPacks: (userToken, code, openAll = false) => runBitrixAction(
+        craftProfessionRecipe: (userToken, recipeCode, professionCode) => runBitrixAction(
+            'prognos9ys:main.GameController.craftProfessionRecipe',
+            { userToken, recipeCode, professionCode }
+        ),
+        copyProfessionRecipe: (userToken, recipeCode, professionCode) => runBitrixAction(
+            'prognos9ys:main.GameController.copyProfessionRecipe',
+            { userToken, recipeCode, professionCode }
+        ),
+        openLootPacks: (userToken, code, qty = 1) => runBitrixAction(
             'prognos9ys:main.GameController.openLootPacks',
-            { userToken, code, openAll: openAll ? 1 : 0 }
+            { userToken, code, qty }
         ),
         getChestOpenLogMeta: (userToken) => runBitrixAction(
             'prognos9ys:main.GameController.getChestOpenLogMeta',

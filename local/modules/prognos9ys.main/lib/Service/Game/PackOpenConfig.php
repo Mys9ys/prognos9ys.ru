@@ -9,11 +9,17 @@ class PackOpenConfig
 {
     public const REWARD_PENNANT = 'pennant';
     public const REWARD_SCARF = 'scarf';
+    public const REWARD_RECIPE_BASIC = 'recipe_basic';
+    public const REWARD_RECIPE_ADVANCED = 'recipe_advanced';
+    public const REWARD_EQUIPMENT_WORK = 'equipment_work';
 
     /** @var array<string, string> pack_code => reward kind */
     private const OPENABLE = [
         'pack_pennant_wc26' => self::REWARD_PENNANT,
         'pack_scarf_wc26' => self::REWARD_SCARF,
+        ProfessionRecipeConfig::PACK_RECIPE_BASIC => self::REWARD_RECIPE_BASIC,
+        ProfessionRecipeConfig::PACK_RECIPE_ADVANCED => self::REWARD_RECIPE_ADVANCED,
+        ProfessionRecipeConfig::PACK_EQUIPMENT_WORK => self::REWARD_EQUIPMENT_WORK,
     ];
 
     /** Generic-паки: пока только заглушка, без распаковки. */
@@ -69,6 +75,48 @@ class PackOpenConfig
                 'category' => ChestLootConfig::CATEGORY_PENNANT,
                 'label' => Wc26CollectibleConfig::getPennantLabel($code),
                 'team_slug' => $slug,
+            ];
+        }
+
+        if ($kind === self::REWARD_RECIPE_BASIC) {
+            $reward = ChestLootConfig::rollFromTable(ProfessionRecipeConfig::recipeBasicPackDrops());
+            if (!is_array($reward)) {
+                throw new \RuntimeException('В базовом паке рецептов не настроены награды');
+            }
+
+            return [
+                'code' => (string)$reward['code'],
+                'category' => (string)$reward['category'],
+                'label' => (string)$reward['label'],
+                'team_slug' => '',
+            ];
+        }
+
+        if ($kind === self::REWARD_RECIPE_ADVANCED) {
+            $reward = ChestLootConfig::rollFromTable(ProfessionRecipeConfig::recipeAdvancedPackDrops());
+            if (!is_array($reward)) {
+                throw new \RuntimeException('В продвинутом паке рецептов не настроены награды');
+            }
+
+            return [
+                'code' => (string)$reward['code'],
+                'category' => (string)$reward['category'],
+                'label' => (string)$reward['label'],
+                'team_slug' => '',
+            ];
+        }
+
+        if ($kind === self::REWARD_EQUIPMENT_WORK) {
+            $reward = ChestLootConfig::rollFromTable(ProfessionRecipeConfig::equipmentWorkPackDrops());
+            if (!is_array($reward)) {
+                throw new \RuntimeException('В паке рабочей экипировки не настроены награды');
+            }
+
+            return [
+                'code' => (string)$reward['code'],
+                'category' => (string)$reward['category'],
+                'label' => (string)$reward['label'],
+                'team_slug' => '',
             ];
         }
 

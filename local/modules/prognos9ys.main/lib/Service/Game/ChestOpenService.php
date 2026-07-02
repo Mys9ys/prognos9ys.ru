@@ -30,24 +30,24 @@ class ChestOpenService
         $this->professionRepository = new ProfessionRepository();
     }
 
-    public function openWc26Chests(int $userId, bool $openAll): array
+    public function openWc26Chests(int $userId, int $qty = 1): array
     {
-        return $this->openChests($userId, self::POOL_WC26, $openAll);
+        return $this->openChests($userId, self::POOL_WC26, $qty);
     }
 
-    public function openLevelChests(int $userId, bool $openAll): array
+    public function openLevelChests(int $userId, int $qty = 1): array
     {
-        return $this->openChests($userId, self::POOL_LEVEL, $openAll);
+        return $this->openChests($userId, self::POOL_LEVEL, $qty);
     }
 
-    public function openAchievementChests(int $userId, bool $openAll): array
+    public function openAchievementChests(int $userId, int $qty = 1): array
     {
-        return $this->openChests($userId, self::POOL_ACHIEVEMENT, $openAll);
+        return $this->openChests($userId, self::POOL_ACHIEVEMENT, $qty);
     }
 
-    public function openProfessionChests(int $userId, bool $openAll): array
+    public function openProfessionChests(int $userId, int $qty = 1): array
     {
-        return $this->openChests($userId, self::POOL_PROFESSION, $openAll);
+        return $this->openChests($userId, self::POOL_PROFESSION, $qty);
     }
 
     /**
@@ -57,7 +57,7 @@ class ChestOpenService
      *   lines: array<int, array{text:string,status:string}>,
      * }
      */
-    public function openChests(int $userId, string $pool, bool $openAll): array
+    public function openChests(int $userId, string $pool, int $qty = 1): array
     {
         if ($userId <= 0) {
             throw new \InvalidArgumentException('Некорректный пользователь');
@@ -74,7 +74,7 @@ class ChestOpenService
             throw new \RuntimeException($config['empty_error']);
         }
 
-        $toOpen = $openAll ? min($available, self::MAX_OPEN_ALL) : 1;
+        $toOpen = max(1, min($available, $qty, self::MAX_OPEN_ALL));
         $opens = [];
         $summary = [
             'prognobaks' => 0.0,

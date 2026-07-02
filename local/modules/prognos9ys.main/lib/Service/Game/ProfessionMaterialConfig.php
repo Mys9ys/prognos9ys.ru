@@ -349,6 +349,10 @@ class ProfessionMaterialConfig
             }
         }
 
+        foreach (ProfessionCraftedItemConfig::materialCatalogRows() as $code => $row) {
+            $catalog[$code] = $row;
+        }
+
         return $catalog;
     }
 

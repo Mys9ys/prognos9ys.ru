@@ -104,7 +104,7 @@ class PremiumService
     /**
      * @return array{activated_days:int,scrolls_used:int,premium:array<string,mixed>,lines:array<int,string>}
      */
-    public function activateScrolls(int $userId, int $days = 0, bool $activateAll = false): array
+    public function activateScrolls(int $userId, int $days = 0, bool $activateAll = false, int $qty = 0): array
     {
         if ($userId <= 0) {
             throw new \InvalidArgumentException('Некорректный пользователь');
@@ -126,7 +126,12 @@ class PremiumService
                 throw new \RuntimeException('Нет свитков на ' . $days . ' сут.');
             }
 
-            $qty = $activateAll ? $available : 1;
+            if ($qty <= 0) {
+                $qty = $activateAll ? min($available, 30) : 1;
+            } else {
+                $qty = max(1, min($qty, $available, 30));
+            }
+
             $this->repository->consumePremiumScrollUnits($userId, $days, $qty);
             $scrollsUsed = $qty;
             $activatedDays = $days * $qty;

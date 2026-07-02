@@ -18,6 +18,7 @@ class ChestLootConfig
     public const CATEGORY_ALBUM = 'album';
     public const CATEGORY_RECIPE = 'recipe';
     public const CATEGORY_MATERIAL = 'material';
+    public const CATEGORY_EQUIPMENT = 'equipment';
 
     /** Лут без привязки к событию (паки level / классические ачивки). */
     public const LOOT_EVENT_GLOBAL = 0;
@@ -146,6 +147,10 @@ class ChestLootConfig
             return ProfessionRecipeConfig::getRecipeLabel($code);
         }
 
+        if (ProfessionCraftedItemConfig::isKnownItem($code)) {
+            return ProfessionCraftedItemConfig::getLabel($code);
+        }
+
         $materialLabel = ProfessionMaterialConfig::getMaterialLabel($code);
         if ($materialLabel !== $code) {
             return $materialLabel;
@@ -184,7 +189,8 @@ class ChestLootConfig
         return $category === self::CATEGORY_XP_BANK
             || $category === self::CATEGORY_CERT
             || $category === self::CATEGORY_ALBUM
-            || $category === self::CATEGORY_RECIPE;
+            || $category === self::CATEGORY_RECIPE
+            || $category === self::CATEGORY_EQUIPMENT;
     }
 
     /**
@@ -454,18 +460,29 @@ class ChestLootConfig
             return [];
         }
 
-        $table = [
-            ['code' => ProfessionRecipeConfig::RECIPE_DOOR, 'weight' => $tier >= 3 ? 22 : 8, 'kind' => 'item', 'category' => self::CATEGORY_RECIPE, 'label' => ProfessionRecipeConfig::getRecipeLabel(ProfessionRecipeConfig::RECIPE_DOOR)],
-            ['code' => ProfessionRecipeConfig::RECIPE_WINDOW_SMALL, 'weight' => $tier >= 3 ? 38 : 20, 'kind' => 'item', 'category' => self::CATEGORY_RECIPE, 'label' => ProfessionRecipeConfig::getRecipeLabel(ProfessionRecipeConfig::RECIPE_WINDOW_SMALL)],
-            ['code' => ProfessionRecipeConfig::RECIPE_WINDOW_REGULAR, 'weight' => $tier >= 3 ? 24 : 12, 'kind' => 'item', 'category' => self::CATEGORY_RECIPE, 'label' => ProfessionRecipeConfig::getRecipeLabel(ProfessionRecipeConfig::RECIPE_WINDOW_REGULAR)],
-            ['code' => ProfessionRecipeConfig::RECIPE_NAILS, 'weight' => $tier >= 3 ? 45 : 25, 'kind' => 'item', 'category' => self::CATEGORY_RECIPE, 'label' => ProfessionRecipeConfig::getRecipeLabel(ProfessionRecipeConfig::RECIPE_NAILS)],
-            ['code' => ProfessionRecipeConfig::RECIPE_HINGE, 'weight' => $tier >= 3 ? 40 : 22, 'kind' => 'item', 'category' => self::CATEGORY_RECIPE, 'label' => ProfessionRecipeConfig::getRecipeLabel(ProfessionRecipeConfig::RECIPE_HINGE)],
-            ['code' => ProfessionRecipeConfig::RECIPE_CAFTAN_BASIC, 'weight' => $tier >= 3 ? 30 : 12, 'kind' => 'item', 'category' => self::CATEGORY_RECIPE, 'label' => ProfessionRecipeConfig::getRecipeLabel(ProfessionRecipeConfig::RECIPE_CAFTAN_BASIC)],
-            ['code' => ProfessionRecipeConfig::RECIPE_CAFTAN_EMBROIDERED, 'weight' => $tier >= 3 ? 16 : 5, 'kind' => 'item', 'category' => self::CATEGORY_RECIPE, 'label' => ProfessionRecipeConfig::getRecipeLabel(ProfessionRecipeConfig::RECIPE_CAFTAN_EMBROIDERED)],
-            ['code' => ProfessionRecipeConfig::RECIPE_CAFTAN_GRAND, 'weight' => $tier >= 3 ? 8 : 2, 'kind' => 'item', 'category' => self::CATEGORY_RECIPE, 'label' => ProfessionRecipeConfig::getRecipeLabel(ProfessionRecipeConfig::RECIPE_CAFTAN_GRAND)],
+        return [
+            [
+                'code' => ProfessionRecipeConfig::PACK_RECIPE_BASIC,
+                'weight' => $tier >= 3 ? 40 : 62,
+                'kind' => 'item',
+                'category' => self::CATEGORY_PACK,
+                'label' => 'Пак рецептов: базовый',
+            ],
+            [
+                'code' => ProfessionRecipeConfig::PACK_RECIPE_ADVANCED,
+                'weight' => $tier >= 3 ? 40 : 28,
+                'kind' => 'item',
+                'category' => self::CATEGORY_PACK,
+                'label' => 'Пак рецептов: продвинутый',
+            ],
+            [
+                'code' => ProfessionRecipeConfig::PACK_EQUIPMENT_WORK,
+                'weight' => $tier >= 3 ? 20 : 10,
+                'kind' => 'item',
+                'category' => self::CATEGORY_PACK,
+                'label' => 'Пак экипировки: рабочий',
+            ],
         ];
-
-        return $table;
     }
 
     /**
