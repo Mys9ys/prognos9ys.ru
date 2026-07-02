@@ -239,7 +239,7 @@ class ExchangeBuyAchievementConfig
                 self::STAT_MATERIAL_NORMAL,
                 self::levelsFromDefs(self::THRESHOLDS_MATERIAL_NORMAL, $materialRewards, true)
             ),
-            'exchange_buy_material_premium' => self::entry(
+            'exchange_buy_material_premium' => self::professionEntry(
                 'Закупщик: премиум',
                 'Куплено премиум-материалов на бирже',
                 self::STAT_MATERIAL_PREMIUM,
@@ -249,7 +249,7 @@ class ExchangeBuyAchievementConfig
                     ['rublius' => 5.0, 'chests' => 1],
                     ['rublius' => 10.0, 'chests' => 3],
                     ['rublius' => 20.0, 'chests' => 5],
-                ])
+                ], true)
             ),
             'exchange_buy_ccg' => self::entry(
                 'Коллекционер ККИ',

@@ -393,6 +393,18 @@ class AchievementConfig
 
     public static function grantsProfessionChest(string $code): bool
     {
-        return strpos($code, 'prof_') === 0;
+        if (strpos($code, 'prof_') === 0) {
+            return true;
+        }
+
+        return in_array($code, [
+            'recipe_learned',
+            'recipe_album_craft',
+            'exchange_buy_material_normal',
+            'exchange_buy_material_premium',
+            'exchange_buy_xp_mining',
+            'exchange_buy_xp_crafting',
+            'exchange_buy_recipe',
+        ], true);
     }
 }
