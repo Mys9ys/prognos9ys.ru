@@ -126,10 +126,16 @@ class BotProfessionPickConfig
         ];
 
         foreach (EstateRecipesConfig::all() as $recipe) {
-            $materials = (array)($recipe['materials'] ?? []);
-            foreach ($materials as $code => $qty) {
+            $bill = EstateRecipesConfig::billOfMaterials((string)($recipe['code'] ?? ''));
+            foreach ($bill as $code => $qty) {
                 $qty = (int)$qty;
                 if ($qty <= 0) {
+                    continue;
+                }
+
+                $profession = self::mapBillItemToGatherProfession((string)$code);
+                if ($profession !== null) {
+                    $totals[$profession] += $qty;
                     continue;
                 }
 
@@ -146,6 +152,31 @@ class BotProfessionPickConfig
         }
 
         return $totals;
+    }
+
+    private static function mapBillItemToGatherProfession(string $code): ?string
+    {
+        static $map = [
+            'fence_panel' => 'woodcutter',
+            'wall_section' => 'woodcutter',
+            'wall_section_corner' => 'woodcutter',
+            'wall_section_window' => 'woodcutter',
+            'wall_section_door' => 'woodcutter',
+            'roof_bundle' => 'woodcutter',
+            'roof_bundle_light' => 'woodcutter',
+            'beam' => 'woodcutter',
+            'door' => 'woodcutter',
+            'foundation_block' => 'quarryman',
+            'wall_section_fence' => 'quarryman',
+            'arch_lintel' => 'quarryman',
+            'threshold' => 'quarryman',
+            'bracket' => 'miner',
+            'window_regular' => 'sandgatherer',
+            'rope' => 'cottongatherer',
+            'burlap' => 'cottongatherer',
+        ];
+
+        return $map[$code] ?? null;
     }
 
     /**

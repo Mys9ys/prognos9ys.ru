@@ -3,6 +3,10 @@
     <div class="inventory_summary">
       <span class="summary_label">В инвентаре</span>
       <div class="summary_actions">
+        <button type="button" class="summary_album_btn" @click="openAlbums">
+          📔 Альбомы
+          <span v-if="albumGluedHint" class="summary_album_badge">{{ albumGluedHint }}</span>
+        </button>
         <button type="button" class="summary_log_btn" @click="logModalVisible = true">
           Журнал
         </button>
@@ -404,6 +408,23 @@ export default {
     hasAnyItems() {
       return this.totalItems > 0;
     },
+    albumGluedHint() {
+      const teams = this.game?.album_meta?.glued_teams || {};
+      const pennant = Array.isArray(teams.pennant_wc26) ? teams.pennant_wc26.length : 0;
+      const scarf = Array.isArray(teams.scarf_wc26) ? teams.scarf_wc26.length : 0;
+      const albums = Array.isArray(this.game?.album_meta?.albums) ? this.game.album_meta.albums.length : 0;
+
+      if (pennant <= 0 && scarf <= 0 && albums <= 0) {
+        return '';
+      }
+      if (pennant > 0 && scarf <= 0) {
+        return pennant >= 48 ? '48/48 🏆' : `${pennant}/48`;
+      }
+      if (scarf > 0 && pennant <= 0) {
+        return scarf >= 48 ? '48/48 🏆' : `шарф ${scarf}/48`;
+      }
+      return `вымп. ${pennant} · шарф ${scarf}`;
+    },
   },
   methods: {
     ...mapActions({
@@ -421,6 +442,10 @@ export default {
       }
 
       await this.refreshGameInfo();
+    },
+
+    openAlbums() {
+      this.$router.push('/collection');
     },
 
     onSlotEnter(item) {
@@ -1113,6 +1138,26 @@ export default {
     font-size: 11px;
     font-weight: 700;
     cursor: pointer;
+  }
+
+  .summary_album_btn {
+    border: 1px solid fade(#6eb5ff, 70%);
+    background: fade(#6eb5ff, 18%);
+    color: @colorText;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .summary_album_badge {
+    font-size: 10px;
+    font-weight: 800;
+    color: lighten(@orange, 8%);
   }
 
   .summary_value {

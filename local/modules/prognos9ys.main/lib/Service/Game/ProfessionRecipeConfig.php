@@ -35,6 +35,14 @@ class ProfessionRecipeConfig
     public const RECIPE_WINDOW_REGULAR = 'recipe_window_regular';
     public const RECIPE_DOOR = 'recipe_door';
     public const RECIPE_ARCH_LINTEL = 'recipe_arch_lintel';
+    public const RECIPE_FENCE_PANEL = 'recipe_fence_panel';
+    public const RECIPE_WALL_SECTION_FENCE = 'recipe_wall_section_fence';
+    public const RECIPE_WALL_SECTION = 'recipe_wall_section';
+    public const RECIPE_WALL_SECTION_CORNER = 'recipe_wall_section_corner';
+    public const RECIPE_WALL_SECTION_WINDOW = 'recipe_wall_section_window';
+    public const RECIPE_WALL_SECTION_DOOR = 'recipe_wall_section_door';
+    public const RECIPE_ROOF_BUNDLE = 'recipe_roof_bundle';
+    public const RECIPE_ROOF_BUNDLE_LIGHT = 'recipe_roof_bundle_light';
     public const RECIPE_CAFTAN_BASIC = 'recipe_caftan_basic';
     public const RECIPE_CAFTAN_EMBROIDERED = 'recipe_caftan_embroidered';
     public const RECIPE_CAFTAN_GRAND = 'recipe_caftan_grand';
@@ -63,6 +71,14 @@ class ProfessionRecipeConfig
             self::RECIPE_WINDOW_REGULAR => self::meta(self::RECIPE_WINDOW_REGULAR, 'Рецепт окна обычного', 'glassblower', 64.0, self::TIER_ADVANCED),
             self::RECIPE_DOOR => self::meta(self::RECIPE_DOOR, 'Рецепт двери', 'carpenter', 111.0, self::TIER_ADVANCED),
             self::RECIPE_ARCH_LINTEL => self::meta(self::RECIPE_ARCH_LINTEL, 'Рецепт арки/перемычки', 'stonemason', 70.0, self::TIER_ADVANCED),
+            self::RECIPE_FENCE_PANEL => self::meta(self::RECIPE_FENCE_PANEL, 'Рецепт секции плетня', 'carpenter', 40.0, self::TIER_BASIC),
+            self::RECIPE_WALL_SECTION_FENCE => self::meta(self::RECIPE_WALL_SECTION_FENCE, 'Рецепт секции забора', 'stonemason', 55.0, self::TIER_BASIC),
+            self::RECIPE_WALL_SECTION => self::meta(self::RECIPE_WALL_SECTION, 'Рецепт секции стены', 'carpenter', 71.0, self::TIER_BASIC),
+            self::RECIPE_WALL_SECTION_CORNER => self::meta(self::RECIPE_WALL_SECTION_CORNER, 'Рецепт угла стены', 'carpenter', 59.0, self::TIER_BASIC),
+            self::RECIPE_WALL_SECTION_WINDOW => self::meta(self::RECIPE_WALL_SECTION_WINDOW, 'Рецепт стены под окно', 'carpenter', 78.0, self::TIER_BASIC),
+            self::RECIPE_WALL_SECTION_DOOR => self::meta(self::RECIPE_WALL_SECTION_DOOR, 'Рецепт секции с проёмом', 'carpenter', 133.0, self::TIER_ADVANCED),
+            self::RECIPE_ROOF_BUNDLE => self::meta(self::RECIPE_ROOF_BUNDLE, 'Рецепт пакета крыши', 'carpenter', 235.0, self::TIER_ADVANCED),
+            self::RECIPE_ROOF_BUNDLE_LIGHT => self::meta(self::RECIPE_ROOF_BUNDLE_LIGHT, 'Рецепт лёгкого покрытия крыши', 'carpenter', 140.0, self::TIER_BASIC),
             self::RECIPE_ALBUM => self::meta(self::RECIPE_ALBUM, 'Рецепт альбома коллекции', 'weaver', 10.0, self::TIER_ADVANCED),
             self::RECIPE_CAFTAN_BASIC => self::meta(self::RECIPE_CAFTAN_BASIC, 'Рецепт кафтана (обычный)', 'weaver', 60.0, self::TIER_ADVANCED),
             self::RECIPE_CAFTAN_EMBROIDERED => self::meta(self::RECIPE_CAFTAN_EMBROIDERED, 'Рецепт кафтана (расшитый)', 'weaver', 170.0, self::TIER_ADVANCED),
@@ -232,6 +248,64 @@ class ProfessionRecipeConfig
             ], [
                 self::output('arch_lintel', 1, $material),
             ]),
+            self::RECIPE_FENCE_PANEL => self::craftDef(self::RECIPE_FENCE_PANEL, 'carpenter', self::TIER_BASIC, [
+                self::input('plank', 3, $material),
+                self::input('rope', 1, $material),
+            ], [
+                self::output('fence_panel', 1, $material),
+            ]),
+            self::RECIPE_WALL_SECTION_FENCE => self::craftDef(self::RECIPE_WALL_SECTION_FENCE, 'stonemason', self::TIER_BASIC, [
+                self::input('foundation_block', 1, $material),
+                self::input('beam', 1, $material),
+                self::input('rope', 1, $material),
+            ], [
+                self::output('wall_section_fence', 1, $material),
+            ]),
+            self::RECIPE_WALL_SECTION => self::craftDef(self::RECIPE_WALL_SECTION, 'carpenter', self::TIER_BASIC, [
+                self::input('plank', 4, $material),
+                self::input('nails', 6, $material),
+                self::input('beam', 1, $material),
+            ], [
+                self::output('wall_section', 1, $material),
+            ]),
+            self::RECIPE_WALL_SECTION_CORNER => self::craftDef(self::RECIPE_WALL_SECTION_CORNER, 'carpenter', self::TIER_BASIC, [
+                self::input('plank', 3, $material),
+                self::input('nails', 4, $material),
+                self::input('beam', 1, $material),
+            ], [
+                self::output('wall_section_corner', 1, $material),
+            ]),
+            self::RECIPE_WALL_SECTION_WINDOW => self::craftDef(self::RECIPE_WALL_SECTION_WINDOW, 'carpenter', self::TIER_BASIC, [
+                self::input('plank', 4, $material),
+                self::input('nails', 4, $material),
+                self::input('frame', 1, $material),
+            ], [
+                self::output('wall_section_window', 1, $material),
+            ]),
+            self::RECIPE_WALL_SECTION_DOOR => self::craftDef(self::RECIPE_WALL_SECTION_DOOR, 'carpenter', self::TIER_ADVANCED, [
+                self::input('plank', 6, $material),
+                self::input('nails', 8, $material),
+                self::input('beam', 1, $material),
+                self::input('threshold', 1, $material),
+            ], [
+                self::output('wall_section_door', 1, $material),
+            ]),
+            self::RECIPE_ROOF_BUNDLE => self::craftDef(self::RECIPE_ROOF_BUNDLE, 'carpenter', self::TIER_ADVANCED, [
+                self::input('beam', 3, $material),
+                self::input('burlap', 2, $material),
+                self::input('plank', 6, $material),
+                self::input('rope', 2, $material),
+            ], [
+                self::output('roof_bundle', 1, $material),
+            ]),
+            self::RECIPE_ROOF_BUNDLE_LIGHT => self::craftDef(self::RECIPE_ROOF_BUNDLE_LIGHT, 'carpenter', self::TIER_BASIC, [
+                self::input('beam', 2, $material),
+                self::input('burlap', 1, $material),
+                self::input('plank', 4, $material),
+                self::input('rope', 1, $material),
+            ], [
+                self::output('roof_bundle_light', 1, $material),
+            ]),
             self::RECIPE_CAFTAN_BASIC => self::craftDef(self::RECIPE_CAFTAN_BASIC, 'weaver', self::TIER_ADVANCED, [
                 self::input('cloth', 4, $material),
                 self::input('rope', 1, $material),
@@ -282,21 +356,24 @@ class ProfessionRecipeConfig
     public static function recipeBasicPackDrops(): array
     {
         return self::packRows([
-            self::RECIPE_CLEAN_SCROLL => 14,
-            self::RECIPE_NAILS => 11,
-            self::RECIPE_HINGE => 10,
-            self::RECIPE_HANDLE => 8,
-            self::RECIPE_BEAM => 8,
-            self::RECIPE_SMALL_FRAME => 9,
-            self::RECIPE_FRAME => 8,
-            self::RECIPE_TILE => 8,
-            self::RECIPE_ROPE => 8,
-            self::RECIPE_BURLAP => 7,
-            self::RECIPE_WINDOW_SMALL => 5,
+            self::RECIPE_CLEAN_SCROLL => 12,
+            self::RECIPE_NAILS => 10,
+            self::RECIPE_HINGE => 9,
+            self::RECIPE_HANDLE => 7,
+            self::RECIPE_BEAM => 7,
+            self::RECIPE_SMALL_FRAME => 8,
+            self::RECIPE_FRAME => 7,
+            self::RECIPE_TILE => 7,
+            self::RECIPE_ROPE => 7,
+            self::RECIPE_BURLAP => 6,
+            self::RECIPE_WINDOW_SMALL => 4,
             self::RECIPE_LATCH => 2,
             self::RECIPE_BRACKET => 2,
-            self::RECIPE_FOUNDATION_BLOCK => 5,
+            self::RECIPE_FOUNDATION_BLOCK => 4,
             self::RECIPE_THRESHOLD => 3,
+            self::RECIPE_FENCE_PANEL => 4,
+            self::RECIPE_WALL_SECTION_FENCE => 3,
+            self::RECIPE_ROOF_BUNDLE_LIGHT => 3,
         ]);
     }
 
@@ -306,10 +383,15 @@ class ProfessionRecipeConfig
     public static function recipeAdvancedPackDrops(): array
     {
         return self::packRows([
-            self::RECIPE_WINDOW_REGULAR => 28,
-            self::RECIPE_DOOR => 22,
-            self::RECIPE_ARCH_LINTEL => 20,
-            self::RECIPE_ALBUM => 30,
+            self::RECIPE_WINDOW_REGULAR => 22,
+            self::RECIPE_DOOR => 18,
+            self::RECIPE_ARCH_LINTEL => 16,
+            self::RECIPE_ALBUM => 24,
+            self::RECIPE_WALL_SECTION => 6,
+            self::RECIPE_WALL_SECTION_CORNER => 5,
+            self::RECIPE_WALL_SECTION_WINDOW => 5,
+            self::RECIPE_WALL_SECTION_DOOR => 4,
+            self::RECIPE_ROOF_BUNDLE => 4,
         ]);
     }
 

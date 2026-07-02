@@ -102,7 +102,7 @@ export default {
     resolveActive(route) {
       const path = route.path || '';
 
-      if (path === '/inventory') return 'inventory';
+      if (path === '/inventory' || path === '/collection') return 'inventory';
       if (path === '/bank') return 'bank';
       if (path === '/market') return 'market';
       if (path === '/work') return 'work';
