@@ -571,8 +571,19 @@
             </p>
           </div>
 
+          <div class="recipe_profession_subtabs" v-if="recipeProfessionTabs.length > 1">
+            <button
+              v-for="tab in recipeProfessionTabs"
+              :key="tab.code"
+              type="button"
+              class="recipe_profession_subtab"
+              :class="{ active: recipeProfessionTab === tab.code }"
+              @click="selectRecipeProfessionTab(tab.code)"
+            >{{ tab.label }} ({{ tab.count }})</button>
+          </div>
+
           <div
-            v-for="recipe in professionCraftRecipes"
+            v-for="recipe in filteredProfessionCraftRecipes"
             :key="recipe.code"
             class="profession_craft_card"
           >
@@ -815,6 +826,7 @@ export default {
       recipeMacroBatches: 1,
       recipeMacroSell: false,
       recipeMacroConsign: false,
+      recipeProfessionTab: '',
     };
   },
   computed: {
@@ -1017,6 +1029,29 @@ export default {
         ? this.farm.profession_crafts.recipes
         : [];
     },
+    recipeProfessionTabs() {
+      const map = new Map();
+      this.professionCraftRecipes.forEach((recipe) => {
+        const code = recipe.profession || '_unknown';
+        if (!map.has(code)) {
+          map.set(code, {
+            code,
+            label: recipe.profession_label || code,
+            count: 0,
+          });
+        }
+        map.get(code).count += 1;
+      });
+      return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label, 'ru'));
+    },
+    filteredProfessionCraftRecipes() {
+      if (!this.recipeProfessionTab) {
+        return this.professionCraftRecipes;
+      }
+      return this.professionCraftRecipes.filter(
+        recipe => (recipe.profession || '_unknown') === this.recipeProfessionTab,
+      );
+    },
     professionCraftWallet() {
       return Number(this.farm?.profession_crafts?.wallet_prognobaks ?? 0);
     },
@@ -1145,9 +1180,13 @@ export default {
         this.loadExchangeSellState();
       }
     },
+    professionCraftRecipes() {
+      this.ensureRecipeProfessionTab();
+    },
   },
   created() {
     this.restoreFarmTab();
+    this.restoreRecipeProfessionTab();
     this.visibilityHandler = () => this.onVisibilityChange();
     document.addEventListener('visibilitychange', this.visibilityHandler);
     this.farmRefreshHandler = () => this.refresh(true);
@@ -1196,6 +1235,38 @@ export default {
         }
       } catch (e) {
         // ignore
+      }
+    },
+
+    selectRecipeProfessionTab(code) {
+      this.recipeProfessionTab = code;
+      try {
+        sessionStorage.setItem('prognos9ys_recipe_profession_tab', code);
+      } catch (e) {
+        // ignore
+      }
+    },
+
+    restoreRecipeProfessionTab() {
+      try {
+        const saved = sessionStorage.getItem('prognos9ys_recipe_profession_tab');
+        if (saved) {
+          this.recipeProfessionTab = saved;
+        }
+      } catch (e) {
+        // ignore
+      }
+    },
+
+    ensureRecipeProfessionTab() {
+      const tabs = this.recipeProfessionTabs;
+      if (!tabs.length) {
+        this.recipeProfessionTab = '';
+        return;
+      }
+      const codes = tabs.map(tab => tab.code);
+      if (!codes.includes(this.recipeProfessionTab)) {
+        this.recipeProfessionTab = tabs[0].code;
       }
     },
 
@@ -2213,6 +2284,28 @@ export default {
   border-radius: 4px;
   padding: 8px 12px;
   font-size: 12px;
+  cursor: pointer;
+
+  &.active {
+    background: @orange;
+    color: #fff;
+  }
+}
+
+.recipe_profession_subtabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 10px;
+}
+
+.recipe_profession_subtab {
+  background: @darkbg;
+  color: @colorText;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-size: 11px;
   cursor: pointer;
 
   &.active {
