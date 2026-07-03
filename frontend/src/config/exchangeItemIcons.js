@@ -3,6 +3,7 @@ import { getWc26PennantIconSrc } from '@/config/wc26PennantIcons';
 import { getWc26ScarfIconSrc } from '@/config/wc26ScarfIcons';
 import { getWc26PackIconSrc } from '@/config/wc26PackIcons';
 import { getCraftProductIconSrc, getCraftRecipeIconSrc } from '@/config/craftIcons';
+import { getMaterialIconSrc } from '@/config/materialIcons';
 
 const MATERIAL_EMOJI = {
   log: '🪵',
@@ -107,6 +108,10 @@ export function getExchangeItemThumb(item) {
     }
 
     if (category === 'equipment' || category === 'material') {
+      const materialSrc = getMaterialIconSrc(code);
+      if (materialSrc) {
+        return { src: materialSrc, emoji: null };
+      }
       const src = getCraftProductIconSrc(code);
       if (src) {
         return { src, emoji: null };
@@ -132,6 +137,10 @@ export function getExchangeItemThumb(item) {
   }
 
   if (kind === 'material') {
+    const materialSrc = getMaterialIconSrc(code);
+    if (materialSrc) {
+      return { src: materialSrc, emoji: null };
+    }
     const src = getCraftProductIconSrc(code);
     if (src) {
       return { src, emoji: null };

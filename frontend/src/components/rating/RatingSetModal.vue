@@ -108,6 +108,10 @@ export default {
       type: String,
       default: 'football',
     },
+    forWealthPage: {
+      type: Boolean,
+      default: false,
+    },
     availableUsers: {
       type: Array,
       default: () => [],
@@ -136,6 +140,9 @@ export default {
     visibilityHint() {
       switch (this.form.visibility) {
         case 'open':
+          if (this.forWealthPage || this.sport === 'wealth') {
+            return 'Виден всем на странице рейтингов капитала и в общем списке сборников';
+          }
           return 'Виден всем участникам события';
         case 'closed':
           return 'Виден вам и выбранным участникам';

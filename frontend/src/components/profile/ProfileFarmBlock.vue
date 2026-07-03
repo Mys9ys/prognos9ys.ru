@@ -762,6 +762,7 @@ import { mapActions, mapMutations, mapState } from 'vuex';
 import PreLoader from '@/components/main/PreLoader';
 import { apiActions } from '@/api/bitrixClient';
 import { getCraftProductIconSrc, getCraftRecipeIconSrc } from '@/config/craftIcons';
+import { getMaterialIconSrc } from '@/config/materialIcons';
 
 const ALBUM_CRAFT_PROFESSION_CODES = new Set(['carpenter', 'weaver']);
 
@@ -2056,7 +2057,7 @@ export default {
     },
 
     getProductIcon(code) {
-      return getCraftProductIconSrc(code);
+      return getCraftProductIconSrc(code) || getMaterialIconSrc(code);
     },
 
     async onStartWork() {

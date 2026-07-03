@@ -73,13 +73,16 @@ class RatingSetController extends BaseController
     public function listMyAction(string $sport = 'football', ?int $eventId = null): array
     {
         $ownerId = $this->requireUserId();
+        $service = new RatingSetService();
 
-        return (new RatingSetService())->listMy($ownerId, $sport, $eventId);
+        return $service->listMy($ownerId, $service->resolveListSport($sport), $eventId);
     }
 
     public function listPublicAction(string $sport = 'football', ?int $eventId = null): array
     {
-        return (new RatingSetService())->listPublic($sport, $eventId);
+        $service = new RatingSetService();
+
+        return $service->listPublic($service->resolveListSport($sport), $eventId);
     }
 
     public function getAction(int $setId, ?string $userToken = null, ?string $token = null): array

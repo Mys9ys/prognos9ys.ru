@@ -14,7 +14,7 @@
         <AppIcon name="bank" :size="14" /> Госбанк: <strong>{{ formatMoney(gameBank.prognobaks) }} <AppIcon name="prognobak" :size="14" /></strong>
         <span class="bank_hint">остатки паримутуеля</span>
       </div>
-      <div class="bulk_actions" v-if="isModerator && expanded" @click.stop>
+      <div class="bulk_actions" v-if="isModerator && expanded && !activeSetId" @click.stop>
         <div class="bulk_title">Массовые действия</div>
         <div class="bulk_row">
           <button
@@ -279,6 +279,19 @@
       </div>
     </div>
 
+    <RatingSetBar
+      v-if="expanded"
+      always-visible
+      :token="authData?.token || ''"
+      :my-sets="wealthMySets"
+      :public-sets="wealthPublicSets"
+      :active-set-id="activeSetId"
+      :active-set="activeSet"
+      @select="onSelectSet"
+      @create="openCreateSet"
+      @edit="openEditSet"
+    />
+
     <PreLoader v-if="loading && expanded"></PreLoader>
 
     <div class="wealth_body" v-else-if="expanded">
@@ -423,6 +436,18 @@
         :done="bulkProgressDone"
         @close="closeBulkProgress"
     />
+
+    <RatingSetModal
+      :visible="setModalVisible"
+      :edit-set="editingSet"
+      sport="football"
+      for-wealth-page
+      :available-users="ratingUsers"
+      :user-token="authData?.token || ''"
+      @close="closeSetModal"
+      @saved="onSetSaved"
+      @deleted="onSetDeleted"
+    />
   </div>
 </template>
 
@@ -430,11 +455,15 @@
 import { mapActions, mapGetters, mapState } from 'vuex';
 import PreLoader from '@/components/main/PreLoader';
 import AppIcon from '@/components/ui/AppIcon.vue';
+import RatingSetBar from '@/components/rating/RatingSetBar.vue';
+import RatingSetModal from '@/components/rating/RatingSetModal.vue';
 import { apiActions } from '@/api/bitrixClient';
 import BulkActionProgress from '@/components/game/BulkActionProgress.vue';
 import { DEFAULT_AVATAR_URL } from '@/utils/defaultAvatar';
 
 const PAGE_SIZE = 50;
+/** Общий пул сборников (футбол, cs2 и т.д.) — те же, что в прогнозных рейтингах */
+const WEALTH_SETS_SPORT = 'all';
 const WEALTH_MODES = ['rich', 'poor', 'indebted', 'pending_xp', 'pending_achievements', 'treasure_rich', 'rublius_rich'];
 const FARM_TREASURY_BULK = [
   'farm_treasury_1',
@@ -480,7 +509,7 @@ const FARM_TREASURY_CRAFT_PROMPTS = {
 
 export default {
   name: 'WealthRatingBlock',
-  components: { PreLoader, AppIcon, BulkActionProgress },
+  components: { PreLoader, AppIcon, BulkActionProgress, RatingSetBar, RatingSetModal },
   data() {
     return {
       expanded: false,
@@ -504,6 +533,13 @@ export default {
       bulkSummary: null,
       url: 'https://prognos9ys.ru',
       defaultAvatar: DEFAULT_AVATAR_URL,
+      wealthMySets: [],
+      wealthPublicSets: [],
+      activeSetId: null,
+      activeSet: null,
+      setModalVisible: false,
+      editingSet: null,
+      ratingUsers: [],
     };
   },
   computed: {
@@ -627,6 +663,10 @@ export default {
         return 'Кнопки в строке: опыт, сундуки и премиум лавки (для ботов без входа)';
       }
 
+      if (this.activeSetId) {
+        return 'Те же сборники, что в прогнозных рейтингах · места пересчитаны внутри списка участников';
+      }
+
       return 'Σ = прогнобаксы · 💎 отдельно';
     },
     page() {
@@ -643,12 +683,16 @@ export default {
   created() {
     this.applyRouteState(false);
     this.loadGameBank();
+    this.refreshWealthSets();
   },
   watch: {
     expanded(isExpanded) {
       if (isExpanded && !this.ratingLoaded) {
         this.ratingLoaded = true;
         this.loadRating();
+      }
+      if (isExpanded) {
+        this.refreshWealthSets();
       }
     },
     '$route.query': {
@@ -660,6 +704,7 @@ export default {
     'authData.token'(token, prevToken) {
       if (token && token !== prevToken) {
         this.loadGameBank();
+        this.refreshWealthSets();
         if (this.ratingLoaded) {
           this.loadRating();
         }
@@ -672,6 +717,154 @@ export default {
       claimAllXp: 'game/claimAllXp',
       refreshGameInfo: 'auth/refreshGameInfo',
     }),
+
+    async refreshWealthSets() {
+      const token = this.authData?.token || '';
+      try {
+        const [myResponse, publicResponse] = await Promise.all([
+          token
+            ? apiActions.ratingSet.listMy(token, WEALTH_SETS_SPORT, null)
+            : Promise.resolve({ status: 'ok', sets: [] }),
+          apiActions.ratingSet.listPublic(WEALTH_SETS_SPORT, null),
+        ]);
+
+        if (myResponse.status === 'ok') {
+          this.wealthMySets = myResponse.sets || [];
+        }
+        if (publicResponse.status === 'ok') {
+          this.wealthPublicSets = publicResponse.sets || [];
+        }
+
+        this.syncActiveSetFromLists();
+      } catch (e) {
+        console.log('wealth sets load error', e);
+      }
+    },
+
+    syncActiveSetFromLists() {
+      if (!this.activeSetId) {
+        return;
+      }
+
+      const found = [...this.wealthMySets, ...this.wealthPublicSets]
+        .find((set) => Number(set.id) === Number(this.activeSetId));
+
+      if (found) {
+        this.activeSet = found;
+        return;
+      }
+
+      this.activeSetId = null;
+      this.activeSet = null;
+    },
+
+    onSelectSet(set) {
+      if (!set) {
+        this.activeSetId = null;
+        this.activeSet = null;
+        this.updateRoute({ wr_set: undefined, wr_page: undefined });
+        return;
+      }
+
+      this.activeSetId = set.id;
+      this.activeSet = set;
+      this.updateRoute({ wr_set: set.id, wr_page: undefined });
+    },
+
+    async openCreateSet() {
+      await this.ensureRatingUsers();
+      this.editingSet = null;
+      this.setModalVisible = true;
+    },
+
+    async openEditSet(set) {
+      if (set?.isOwner === false) {
+        return;
+      }
+
+      await this.ensureRatingUsers();
+      try {
+        const response = await apiActions.ratingSet.get(set.id, this.authData?.token || '');
+        this.editingSet = response.set;
+        this.mergeRatingUsers(response.set?.members || []);
+        this.setModalVisible = true;
+      } catch (e) {
+        console.log('edit wealth set error', e);
+      }
+    },
+
+    closeSetModal() {
+      this.setModalVisible = false;
+      this.editingSet = null;
+    },
+
+    async onSetSaved(set) {
+      if (set?.id) {
+        this.activeSetId = set.id;
+        this.activeSet = set;
+        await this.updateRoute({ wr_set: set.id, wr_page: undefined });
+      }
+      await this.refreshWealthSets();
+    },
+
+    async onSetDeleted() {
+      this.activeSetId = null;
+      this.activeSet = null;
+      await this.updateRoute({ wr_set: undefined, wr_page: undefined });
+      await this.refreshWealthSets();
+    },
+
+    async ensureRatingUsers() {
+      if (this.ratingUsers.length) {
+        return;
+      }
+
+      try {
+        const data = await apiActions.game.getWealthRating(
+          100,
+          'rich',
+          0,
+          null,
+          this.authData?.token || '',
+        );
+        if (data?.status === 'ok') {
+          this.ratingUsers = this.extractUsersFromRatings(data.ratings || []);
+        }
+      } catch (e) {
+        console.log('load wealth rating users error', e);
+      }
+    },
+
+    extractUsersFromRatings(rows) {
+      const map = new Map();
+      (rows || []).forEach((row) => {
+        const user = row?.user;
+        if (user?.id) {
+          map.set(user.id, user);
+        }
+      });
+      return Array.from(map.values());
+    },
+
+    mergeRatingUsers(members) {
+      const map = new Map(this.ratingUsers.map((user) => [Number(user.id), user]));
+      (members || []).forEach((member) => {
+        if (member?.id) {
+          map.set(Number(member.id), {
+            id: member.id,
+            name: member.name || member.login || `#${member.id}`,
+            img: member.img || '',
+          });
+        }
+      });
+      this.ratingUsers = Array.from(map.values());
+    },
+
+    captureRatingUsers() {
+      if (!this.activeSetId) {
+        this.ratingUsers = this.extractUsersFromRatings(this.ratings);
+      }
+    },
 
     setMode(mode) {
       if (this.mode === mode) {
@@ -687,7 +880,15 @@ export default {
         this.mode = routeMode;
       }
 
-      if (this.$route?.query?.wr_mode || this.$route?.query?.wr_page) {
+      const routeSet = Number(this.$route?.query?.wr_set || 0);
+      if (routeSet > 0) {
+        this.activeSetId = routeSet;
+        this.syncActiveSetFromLists();
+      } else if (this.$route?.query?.wr_set === undefined && this.activeSetId) {
+        // keep component state unless explicitly cleared
+      }
+
+      if (this.$route?.query?.wr_mode || this.$route?.query?.wr_page || this.$route?.query?.wr_set) {
         this.expanded = true;
         if (!this.ratingLoaded) {
           this.ratingLoaded = true;
@@ -879,10 +1080,17 @@ export default {
     async loadRating() {
       this.loading = true;
       try {
-        const data = await apiActions.game.getWealthRating(PAGE_SIZE, this.mode, this.offset);
+        const data = await apiActions.game.getWealthRating(
+          PAGE_SIZE,
+          this.mode,
+          this.offset,
+          this.activeSetId,
+          this.authData?.token || '',
+        );
         if (data?.status === 'ok') {
           this.ratings = data.ratings || [];
           this.total = Number(data.total ?? this.ratings.length);
+          this.captureRatingUsers();
           const maxPage = Math.max(1, Math.ceil(this.total / PAGE_SIZE));
           if (this.page > maxPage) {
             await this.updateRoute({ wr_mode: this.mode, wr_page: undefined });
@@ -890,6 +1098,11 @@ export default {
         }
       } catch (e) {
         console.log('wealth rating error', e);
+        if (this.activeSetId) {
+          this.activeSetId = null;
+          this.activeSet = null;
+          await this.updateRoute({ wr_set: undefined });
+        }
       } finally {
         this.loading = false;
       }
@@ -1103,6 +1316,10 @@ export default {
   border-radius: 5px;
   margin: 8px 0;
   padding: 4px;
+
+  :deep(.rating_set_bar) {
+    margin: 6px 4px 0;
+  }
 }
 
 .wealth_header {

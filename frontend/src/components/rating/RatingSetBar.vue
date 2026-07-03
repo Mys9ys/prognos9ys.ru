@@ -1,5 +1,5 @@
 <template>
-  <div class="rating_set_bar" v-if="eventId" ref="root">
+  <div class="rating_set_bar" v-if="eventId || alwaysVisible" ref="root">
     <div class="set_selector_row">
       <div class="set_selector_wrapper">
         <button type="button" class="set_selector_inner" @click.stop="toggleOpen">
@@ -50,6 +50,10 @@ export default {
   name: 'RatingSetBar',
   props: {
     eventId: [String, Number],
+    alwaysVisible: {
+      type: Boolean,
+      default: false,
+    },
     token: String,
     mySets: {
       type: Array,

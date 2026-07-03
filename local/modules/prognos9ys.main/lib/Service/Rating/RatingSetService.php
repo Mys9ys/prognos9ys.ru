@@ -87,6 +87,20 @@ class RatingSetService
     /**
      * @return array{status: string, sets: array<int, array>}
      */
+    /**
+     * Для listMy/listPublic: sport=all — без фильтра по виду спорта (общий пул сборников).
+     */
+    public function resolveListSport(string $sport): ?string
+    {
+        $sport = strtolower(trim($sport));
+
+        if ($sport === '' || $sport === 'all' || $sport === '*') {
+            return null;
+        }
+
+        return $sport;
+    }
+
     public function listMy(int $ownerId, ?string $sport = null, ?int $eventId = null): array
     {
         $owned = $this->repository->getSetsByOwner($ownerId, $sport);
@@ -302,7 +316,7 @@ class RatingSetService
     {
         $sport = strtolower(trim($sport));
 
-        if (!in_array($sport, ['football', 'race', 'cs2'], true)) {
+        if (!in_array($sport, ['football', 'race', 'cs2', 'wealth'], true)) {
             throw new ApiException('Некорректный вид спорта', 422);
         }
 

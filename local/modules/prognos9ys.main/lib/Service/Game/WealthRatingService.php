@@ -4,6 +4,7 @@ namespace Prognos9ys\Main\Service\Game;
 
 use Bitrix\Main\UserTable;
 use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
+use Prognos9ys\Main\Service\Rating\RatingSetService;
 
 class WealthRatingService
 {
@@ -12,6 +13,11 @@ class WealthRatingService
     private TreasuryShopService $shopService;
     private GameEventScopeService $scopeService;
     private AchievementService $achievementService;
+
+    /** @var array<int, int>|null */
+    private ?array $allowedUserIds = null;
+
+    private ?int $activeSetId = null;
 
     public function __construct(
         ?GameEconomyRepository $repository = null,
@@ -27,41 +33,88 @@ class WealthRatingService
         $this->achievementService = $achievementService ?? new AchievementService();
     }
 
-    public function getRating(int $limit = 30, string $wealthSort = 'rich', int $offset = 0): array
+    public function getRating(
+        int $limit = 30,
+        string $wealthSort = 'rich',
+        int $offset = 0,
+        ?int $setId = null,
+        ?int $viewerUserId = null
+    ): array {
+        $this->allowedUserIds = null;
+        $this->activeSetId = null;
+
+        if ($setId > 0) {
+            $memberIds = (new RatingSetService())->getMemberIdsForRating($setId, $viewerUserId, null);
+            $this->allowedUserIds = array_flip($memberIds);
+            $this->activeSetId = $setId;
+        }
+
+        try {
+            $limit = max(1, min(100, $limit));
+            $offset = max(0, $offset);
+            $wealthSort = in_array($wealthSort, [
+                'rich',
+                'poor',
+                'indebted',
+                'pending_xp',
+                'pending_achievements',
+                'treasure_rich',
+                'rublius_rich',
+            ], true) ? $wealthSort : 'rich';
+
+            if ($wealthSort === 'pending_xp') {
+                return $this->withSetMeta($this->getPendingXpRating($limit, $offset));
+            }
+
+            if ($wealthSort === 'pending_achievements') {
+                return $this->withSetMeta($this->getPendingAchievementsRating($limit, $offset));
+            }
+
+            if ($wealthSort === 'treasure_rich') {
+                return $this->withSetMeta($this->getTreasureRating($limit, $offset));
+            }
+
+            if ($wealthSort === 'rublius_rich') {
+                return $this->withSetMeta($this->getRubliusRating($limit, $offset));
+            }
+
+            if ($wealthSort === 'indebted') {
+                return $this->withSetMeta($this->getIndebtedRating($limit, $offset));
+            }
+
+            return $this->withSetMeta($this->getWealthRating($limit, $offset, $wealthSort === 'poor'));
+        } finally {
+            $this->allowedUserIds = null;
+            $this->activeSetId = null;
+        }
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $prepared
+     * @return array<int, array<string, mixed>>
+     */
+    private function filterPrepared(array $prepared): array
     {
-        $limit = max(1, min(100, $limit));
-        $offset = max(0, $offset);
-        $wealthSort = in_array($wealthSort, [
-            'rich',
-            'poor',
-            'indebted',
-            'pending_xp',
-            'pending_achievements',
-            'treasure_rich',
-            'rublius_rich',
-        ], true) ? $wealthSort : 'rich';
-
-        if ($wealthSort === 'pending_xp') {
-            return $this->getPendingXpRating($limit, $offset);
+        if (!$this->allowedUserIds) {
+            return $prepared;
         }
 
-        if ($wealthSort === 'pending_achievements') {
-            return $this->getPendingAchievementsRating($limit, $offset);
+        return array_values(array_filter($prepared, function (array $row): bool {
+            return isset($this->allowedUserIds[(int)($row['user_id'] ?? 0)]);
+        }));
+    }
+
+    /**
+     * @param array<string, mixed> $result
+     * @return array<string, mixed>
+     */
+    private function withSetMeta(array $result): array
+    {
+        if ($this->activeSetId) {
+            $result['set_id'] = $this->activeSetId;
         }
 
-        if ($wealthSort === 'treasure_rich') {
-            return $this->getTreasureRating($limit, $offset);
-        }
-
-        if ($wealthSort === 'rublius_rich') {
-            return $this->getRubliusRating($limit, $offset);
-        }
-
-        if ($wealthSort === 'indebted') {
-            return $this->getIndebtedRating($limit, $offset);
-        }
-
-        return $this->getWealthRating($limit, $offset, $wealthSort === 'poor');
+        return $result;
     }
 
     private function getIndebtedRating(int $limit, int $offset): array
@@ -88,6 +141,8 @@ class WealthRatingService
                 'loan_count' => (int)($loans['count'] ?? 0),
             ];
         }
+
+        $prepared = $this->filterPrepared($prepared);
 
         usort($prepared, static function (array $a, array $b): int {
             if ($a['total_due'] === $b['total_due']) {
@@ -169,6 +224,8 @@ class WealthRatingService
                 'total' => $total,
             ];
         }
+
+        $prepared = $this->filterPrepared($prepared);
 
         usort($prepared, static function (array $a, array $b) use ($poorestFirst): int {
             if ($a['total'] === $b['total']) {
@@ -263,6 +320,8 @@ class WealthRatingService
             ];
         }
 
+        $prepared = $this->filterPrepared($prepared);
+
         usort($prepared, static function (array $a, array $b): int {
             if ($a['pending_points'] === $b['pending_points']) {
                 return $b['pending_count'] <=> $a['pending_count'];
@@ -356,6 +415,8 @@ class WealthRatingService
                 'pending_achievements' => $pendingAchievements,
             ];
         }
+
+        $prepared = $this->filterPrepared($prepared);
 
         usort($prepared, static function (array $a, array $b): int {
             if ($a['pending_achievements'] === $b['pending_achievements']) {
@@ -456,6 +517,8 @@ class WealthRatingService
             ];
         }
 
+        $prepared = $this->filterPrepared($prepared);
+
         usort($prepared, static function (array $a, array $b): int {
             if ($a['treasure_total'] === $b['treasure_total']) {
                 // стабильная сортировка
@@ -551,6 +614,8 @@ class WealthRatingService
                 'total' => $this->calcTotalWealth($wallet['prognobaks'], $rublius),
             ];
         }
+
+        $prepared = $this->filterPrepared($prepared);
 
         usort($prepared, static function (array $a, array $b): int {
             if ($a['rublius'] === $b['rublius']) {

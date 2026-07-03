@@ -134,6 +134,7 @@ import { getWc26PennantIconSrc } from '@/config/wc26PennantIcons';
 import { getWc26ScarfIconSrc } from '@/config/wc26ScarfIcons';
 import { getWc26PackIconSrc } from '@/config/wc26PackIcons';
 import { getCraftProductIconSrc, getCraftRecipeIconSrc } from '@/config/craftIcons';
+import { getMaterialIconSrc } from '@/config/materialIcons';
 
 const OTHER_INVENTORY_SLOTS = [
   { id: 'achievement', field: 'achievement_chests', icon: 'chest_achievement', caption: 'Ачивка', label: 'Сундуки за ачивки', openable: true, pool: 'achievement' },
@@ -214,7 +215,7 @@ function getWc26CollectibleIconSrc(item) {
     return getCraftRecipeIconSrc(item.code);
   }
   if (item?.category === 'equipment' || item?.category === 'material') {
-    return getCraftProductIconSrc(item.code);
+    return getCraftProductIconSrc(item.code) || getMaterialIconSrc(item.code);
   }
   return null;
 }

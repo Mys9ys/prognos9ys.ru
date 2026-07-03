@@ -175,9 +175,25 @@ class GameController extends BaseController
         ];
     }
 
-    public function getWealthRatingAction(int $limit = 30, string $wealthSort = 'rich', int $offset = 0): array
-    {
-        return (new WealthRatingService())->getRating($limit, $wealthSort, $offset);
+    public function getWealthRatingAction(
+        int $limit = 30,
+        string $wealthSort = 'rich',
+        int $offset = 0,
+        int $setId = 0,
+        string $userToken = ''
+    ): array {
+        $viewerUserId = null;
+        if ($userToken !== '') {
+            $viewerUserId = (new TokenAuthService())->getUserIdByToken($userToken);
+        }
+
+        return (new WealthRatingService())->getRating(
+            $limit,
+            $wealthSort,
+            $offset,
+            $setId > 0 ? $setId : null,
+            $viewerUserId
+        );
     }
 
     public function getGameBankAction(): array
