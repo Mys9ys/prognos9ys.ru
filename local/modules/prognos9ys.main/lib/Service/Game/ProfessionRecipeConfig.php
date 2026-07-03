@@ -356,7 +356,6 @@ class ProfessionRecipeConfig
     public static function recipeBasicPackDrops(): array
     {
         return self::packRows([
-            self::RECIPE_CLEAN_SCROLL => 12,
             self::RECIPE_NAILS => 10,
             self::RECIPE_HINGE => 9,
             self::RECIPE_HANDLE => 7,
@@ -386,7 +385,6 @@ class ProfessionRecipeConfig
             self::RECIPE_WINDOW_REGULAR => 22,
             self::RECIPE_DOOR => 18,
             self::RECIPE_ARCH_LINTEL => 16,
-            self::RECIPE_ALBUM => 24,
             self::RECIPE_WALL_SECTION => 6,
             self::RECIPE_WALL_SECTION_CORNER => 5,
             self::RECIPE_WALL_SECTION_WINDOW => 5,

@@ -489,7 +489,7 @@ class ChestLootConfig
             ],
             [
                 'code' => ProfessionRecipeConfig::RECIPE_CLEAN_SCROLL,
-                'weight' => $tier >= 3 ? 4 : ($tier === 2 ? 6 : 8),
+                'weight' => $tier === 1 ? 14 : ($tier >= 3 ? 4 : 6),
                 'kind' => 'item',
                 'category' => self::CATEGORY_RECIPE,
                 'label' => ProfessionRecipeConfig::getRecipeLabel(ProfessionRecipeConfig::RECIPE_CLEAN_SCROLL),
