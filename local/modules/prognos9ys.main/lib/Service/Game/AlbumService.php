@@ -255,6 +255,9 @@ class AlbumService
         if ($this->isTeamGluedInCollection($userId, $collection, $teamSlug)) {
             throw new \RuntimeException('Эта сборная уже вклеена в альбом коллекции');
         }
+        if ($this->isItemCodeGluedInCollection($userId, $collection, $itemCode)) {
+            throw new \RuntimeException('Этот предмет уже вклеен в альбом коллекции');
+        }
 
         $requiredCollection = $this->resolveRequiredCollectionForAlbum($userId, $album);
         if ($requiredCollection !== null && $collection !== $requiredCollection) {
@@ -605,6 +608,31 @@ class AlbumService
 
             if ($this->albumRepository->getSlotByAlbumAndTeam((int)$album['ID'], $teamSlug)) {
                 return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function isItemCodeGluedInCollection(int $userId, string $collection, string $itemCode): bool
+    {
+        $itemCode = trim($itemCode);
+        if ($itemCode === '') {
+            return false;
+        }
+
+        foreach ($this->albumRepository->getAlbumsByUserId($userId) as $album) {
+            $albumCollection = (string)($album['UF_COLLECTION'] ?? '');
+            if ($albumCollection !== ''
+                && $albumCollection !== AlbumConfig::COLLECTION_UNIVERSAL
+                && $albumCollection !== $collection) {
+                continue;
+            }
+
+            foreach ($this->albumRepository->getSlotsByAlbumId((int)$album['ID']) as $slot) {
+                if ((string)($slot['UF_ITEM_CODE'] ?? '') === $itemCode) {
+                    return true;
+                }
             }
         }
 

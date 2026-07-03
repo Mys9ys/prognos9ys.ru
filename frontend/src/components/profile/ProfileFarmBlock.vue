@@ -374,6 +374,32 @@
               {{ professionMacroLabel }}
             </button>
           </div>
+          <div v-if="workQueue.premium_active" class="farm_duration_row">
+            <button
+              type="button"
+              class="btn secondary mini"
+              :disabled="actionLoading || !selectedProfession || maxIterationsForWork <= 0"
+              @click="onEnqueueFarmDuration(1)"
+            >+1ч</button>
+            <button
+              type="button"
+              class="btn secondary mini"
+              :disabled="actionLoading || !selectedProfession || maxIterationsForWork <= 0"
+              @click="onEnqueueFarmDuration(6)"
+            >+6ч</button>
+            <button
+              type="button"
+              class="btn secondary mini"
+              :disabled="actionLoading || !selectedProfession || maxIterationsForWork <= 0"
+              @click="onEnqueueFarmDuration(12)"
+            >+12ч</button>
+            <button
+              type="button"
+              class="btn secondary mini"
+              :disabled="actionLoading || !selectedProfession || maxIterationsForWork <= 0"
+              @click="onEnqueueFarmDuration(24)"
+            >+24ч</button>
+          </div>
         </div>
 
         <div class="section" v-if="workQueue.premium_active && queueMaterialSellable.length">
@@ -550,7 +576,15 @@
             :key="recipe.code"
             class="profession_craft_card"
           >
-            <div class="profession_craft_title">{{ recipe.label }}</div>
+            <div class="profession_craft_title">
+              <img
+                v-if="getRecipeIcon(recipe.code)"
+                :src="getRecipeIcon(recipe.code)"
+                class="profession_craft_icon"
+                alt=""
+              >
+              <span>{{ recipe.label }}</span>
+            </div>
             <p class="hint">
               {{ recipe.profession_label }} · работа {{ recipe.work_cost }} 🪙 · +{{ recipe.craft_xp }} XP
             </p>
@@ -560,7 +594,14 @@
                 v-for="(input, index) in recipe.inputs"
                 :key="recipe.code + '_in_' + input.code"
               >
-                {{ index > 0 ? ', ' : '' }}{{ input.label }} {{ input.have }}/{{ input.need }}
+                {{ index > 0 ? ', ' : '' }}
+                <img
+                  v-if="getProductIcon(input.code)"
+                  :src="getProductIcon(input.code)"
+                  class="recipe_inline_icon"
+                  alt=""
+                >
+                {{ input.label }} {{ input.have }}/{{ input.need }}
               </span>
             </p>
             <p class="hint">
@@ -569,7 +610,14 @@
                 v-for="(output, index) in recipe.outputs"
                 :key="recipe.code + '_out_' + output.code"
               >
-                {{ index > 0 ? ', ' : '' }}{{ output.label }} ×{{ output.qty }}
+                {{ index > 0 ? ', ' : '' }}
+                <img
+                  v-if="getProductIcon(output.code)"
+                  :src="getProductIcon(output.code)"
+                  class="recipe_inline_icon"
+                  alt=""
+                >
+                {{ output.label }} ×{{ output.qty }}
               </span>
             </p>
             <p v-if="recipe.missing_reason" class="hint warn">{{ recipe.missing_reason }}</p>
@@ -702,6 +750,7 @@
 import { mapActions, mapMutations, mapState } from 'vuex';
 import PreLoader from '@/components/main/PreLoader';
 import { apiActions } from '@/api/bitrixClient';
+import { getCraftProductIconSrc, getCraftRecipeIconSrc } from '@/config/craftIcons';
 
 const ALBUM_CRAFT_PROFESSION_CODES = new Set(['carpenter', 'weaver']);
 
@@ -1530,6 +1579,53 @@ export default {
       }
     },
 
+    async onEnqueueFarmDuration(hours) {
+      const token = this.authData?.token;
+      const h = Number(hours) || 0;
+      if (!token || !this.selectedProfession || h <= 0 || this.maxIterationsForWork <= 0) {
+        return;
+      }
+
+      const minutesPerCycle = Math.max(1, Number(this.farm?.economy?.iteration_minutes) || 5);
+      const targetCycles = Math.max(1, Math.ceil((h * 60) / minutesPerCycle));
+      const iterationsPerTask = Math.max(1, Math.min(this.maxIterationsForWork, this.sessionMaxIterations));
+      const tasks = Math.max(1, Math.ceil(targetCycles / iterationsPerTask));
+
+      this.actionLoading = true;
+      this.error = '';
+      this.message = '';
+
+      let queued = 0;
+      let lastOkData = null;
+      try {
+        for (let i = 0; i < tasks; i++) {
+          const data = await apiActions.game.enqueuePremiumWork(token, 'farm', {
+            profession_code: this.selectedProfession,
+            work_mode: this.resolveWorkMode(),
+            iterations: iterationsPerTask,
+          });
+          if (data?.status !== 'ok') {
+            throw new Error(data?.message || 'Не удалось добавить в очередь');
+          }
+          queued += 1;
+          lastOkData = data;
+        }
+
+        if (lastOkData) {
+          this.applyPremiumWorkResponse(
+            lastOkData,
+            `Добавлено в очередь: ${queued} ${queued === 1 ? 'смена' : 'смен'} (~${h}ч)`,
+          );
+        }
+      } catch (e) {
+        this.error = queued > 0
+          ? `Добавлено ${queued} шт., затем ошибка: ${e.message || 'не удалось продолжить'}`
+          : (e.message || 'Не удалось добавить в очередь');
+      } finally {
+        this.actionLoading = false;
+      }
+    },
+
     async onEnqueueAlbumCraft() {
       const token = this.authData?.token;
       const professionCode = this.albumCraftProfessionCode;
@@ -1882,6 +1978,14 @@ export default {
         return fromProf.premium_label;
       }
       return '';
+    },
+
+    getRecipeIcon(code) {
+      return getCraftRecipeIconSrc(code);
+    },
+
+    getProductIcon(code) {
+      return getCraftProductIconSrc(code);
     },
 
     async onStartWork() {
@@ -2629,6 +2733,13 @@ export default {
   flex: 1 1 auto;
 }
 
+.farm_duration_row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 6px;
+}
+
 .queue_row {
   display: flex;
   flex-wrap: wrap;
@@ -2843,9 +2954,27 @@ export default {
 }
 
 .profession_craft_title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   color: @colorText;
   font-weight: 700;
   margin-bottom: 4px;
+}
+
+.profession_craft_icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.recipe_inline_icon {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+  vertical-align: text-bottom;
+  margin: 0 2px 0 1px;
 }
 
 .hint.warn {
