@@ -28,6 +28,9 @@ class ExchangeConfig
     public const KIND_LOOT = 'loot';
     public const KIND_PENNANT = 'pennant';
     public const KIND_MATERIAL = 'material';
+    public const KIND_RUBLIUS = 'rublius';
+
+    public const RUBLIUS_EXCHANGE_CODE = 'rublius';
 
     public const MATERIAL_CATEGORY_NORMAL = 'normal';
     public const MATERIAL_CATEGORY_PREMIUM = 'premium';
@@ -47,6 +50,7 @@ class ExchangeConfig
         self::KIND_PREMIUM_SCROLL => 10,
         self::KIND_LOOT => 20,
         self::KIND_MATERIAL => 50,
+        self::KIND_RUBLIUS => 50,
     ];
 
     public const PALLET_LIMIT_XP_BANK = 10;
@@ -98,5 +102,23 @@ class ExchangeConfig
     {
         return $code === self::CHEST_CODE_WC26
             || in_array($code, self::wc26LegacyChestTypes(), true);
+    }
+
+    public static function resolveSettlementCurrency(string $kind): string
+    {
+        if ($kind === self::KIND_PREMIUM_SCROLL) {
+            return GameEconomyConfig::CURRENCY_RUBLIUS;
+        }
+
+        if ($kind === self::KIND_RUBLIUS) {
+            return GameEconomyConfig::CURRENCY_PROGNOBAKS;
+        }
+
+        return GameEconomyConfig::CURRENCY_PROGNOBAKS;
+    }
+
+    public static function isConsignmentOnlyKind(string $kind): bool
+    {
+        return in_array($kind, [self::KIND_RUBLIUS, self::KIND_PREMIUM_SCROLL], true);
     }
 }

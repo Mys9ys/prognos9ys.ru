@@ -188,7 +188,7 @@
           <div class="section" v-if="contractEvents.length">
             <div class="section_title">Гос. вклад поддержки</div>
             <p class="hint">
-              Из казны в ликвидность выбранного банка: 500 или 2500
+              Из казны в ликвидность выбранного банка: 500 или 2500 🪙, либо 100 или 500 💎
               <AppIcon name="prognobak" :size="14" />.
               После 5 туров 5% поступают в казну. Тело вклада — кнопкой «Забрать вклад».
             </p>
@@ -209,23 +209,37 @@
                 <div class="gov_amount_btns">
                   <button
                     class="btn small"
-                    :disabled="actionLoading || !selectedGovBankId || !canOpenGovDeposit(500)"
-                    @click="onCreateGovDeposit(500)"
+                    :disabled="actionLoading || !selectedGovBankId || !canOpenGovDeposit(500, 'prognobaks')"
+                    @click="onCreateGovDeposit(500, 'prognobaks')"
                   >
                     500 <AppIcon name="prognobak" :size="14" />
                   </button>
                   <button
                     class="btn small"
-                    :disabled="actionLoading || !selectedGovBankId || !canOpenGovDeposit(2500)"
-                    @click="onCreateGovDeposit(2500)"
+                    :disabled="actionLoading || !selectedGovBankId || !canOpenGovDeposit(2500, 'prognobaks')"
+                    @click="onCreateGovDeposit(2500, 'prognobaks')"
                   >
                     2500 <AppIcon name="prognobak" :size="14" />
+                  </button>
+                  <button
+                    class="btn small"
+                    :disabled="actionLoading || !selectedGovBankId || !canOpenGovDeposit(100, 'rublius')"
+                    @click="onCreateGovDeposit(100, 'rublius')"
+                  >
+                    100 💎
+                  </button>
+                  <button
+                    class="btn small"
+                    :disabled="actionLoading || !selectedGovBankId || !canOpenGovDeposit(500, 'rublius')"
+                    @click="onCreateGovDeposit(500, 'rublius')"
+                  >
+                    500 💎
                   </button>
                 </div>
               </div>
               <div v-else class="hint">Сначала откройте банк во вкладке «Финансы» или дождитесь появления банков в каталоге</div>
-              <p class="hint gov_treasury_hint" v-if="banks.length && !canOpenGovDeposit(500) && !canOpenGovDeposit(2500)">
-                В казне недостаточно средств для нового гос. вклада (нужно минимум 500 🪙).
+              <p class="hint gov_treasury_hint" v-if="banks.length && !hasAnyGovDepositFunds">
+                В казне недостаточно средств для нового гос. вклада.
               </p>
             </div>
 
@@ -688,6 +702,12 @@ export default {
     treasuryGovQtyByCode() {
       return this.warehouses?.treasury_exchange?.by_code || {};
     },
+    hasAnyGovDepositFunds() {
+      return this.canOpenGovDeposit(500, 'prognobaks')
+        || this.canOpenGovDeposit(2500, 'prognobaks')
+        || this.canOpenGovDeposit(100, 'rublius')
+        || this.canOpenGovDeposit(500, 'rublius');
+    },
     prognobakRows() {
       return [
         { key: 'total', label: 'Всего' },
@@ -809,8 +829,12 @@ export default {
       return labels[key] || key;
     },
 
-    canOpenGovDeposit(amount) {
-      return Number(this.treasury?.prognobaks ?? 0) >= Number(amount || 0);
+    canOpenGovDeposit(amount, currency = 'prognobaks') {
+      const balance = currency === 'rublius'
+        ? Number(this.treasury?.rublius ?? 0)
+        : Number(this.treasury?.prognobaks ?? 0);
+
+      return balance >= Number(amount || 0);
     },
 
     orderStatusLabel(status) {
@@ -1114,7 +1138,7 @@ export default {
       }
     },
 
-    async onCreateGovDeposit(amount) {
+    async onCreateGovDeposit(amount, currency = 'prognobaks') {
       if (!this.selectedGovBankId || !amount) {
         return;
       }
@@ -1127,8 +1151,10 @@ export default {
           bankId: this.selectedGovBankId,
           eventId: this.selectedEventId,
           amount,
+          currency,
         });
-        this.message = `Гос. вклад ${amount} 🪙 открыт`;
+        const symbol = currency === 'rublius' ? '💎' : '🪙';
+        this.message = `Гос. вклад ${amount} ${symbol} открыт`;
         await this.refreshGameInfo();
         await this.refresh();
       } catch (e) {

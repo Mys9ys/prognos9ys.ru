@@ -4,6 +4,7 @@ namespace Prognos9ys\Main\Model\Repository;
 
 use Bitrix\Highloadblock\HighloadBlockTable;
 use Bitrix\Main\Loader;
+use Prognos9ys\Main\Service\Game\AchievementPennantConfig;
 use Prognos9ys\Main\Service\Game\BankConsignmentConfig;
 use Prognos9ys\Main\Service\Game\ChestLootConfig;
 use Prognos9ys\Main\Service\Game\ExchangeCatalogConfig;
@@ -2601,11 +2602,15 @@ class GameEconomyRepository
      */
     public function getPennantInventoryCountsForUser(int $userId): array
     {
-        $counts = [
-            'site' => 0,
-            'chm2026' => 0,
-        ];
+        return $this->getAchievementPennantInventoryCountsForUser($userId);
+    }
 
+    /**
+     * @return array<string, int>
+     */
+    public function getAchievementPennantInventoryCountsForUser(int $userId): array
+    {
+        $counts = [];
         if ($userId <= 0) {
             return $counts;
         }
@@ -2614,14 +2619,14 @@ class GameEconomyRepository
         $response = $dataClass::getList([
             'filter' => [
                 '=UF_USER_ID' => $userId,
-                '=UF_TYPE' => 'pennant',
-                '=UF_STATUS' => 'inventory',
+                '=UF_TYPE' => TreasureService::CHEST_TYPE_PENNANT,
+                '=UF_STATUS' => TreasureService::CHEST_STATUS_INVENTORY,
             ],
             'select' => ['UF_COUNT', 'UF_MATCH_ID'],
         ]);
 
         while ($row = $response->fetch()) {
-            $code = $this->resolvePennantCodeFromSyntheticMatchId((int)($row['UF_MATCH_ID'] ?? 0));
+            $code = AchievementPennantConfig::resolveCodeFromSyntheticMatchId((int)($row['UF_MATCH_ID'] ?? 0));
             if ($code === null) {
                 continue;
             }
@@ -2634,12 +2639,7 @@ class GameEconomyRepository
 
     private function resolvePennantCodeFromSyntheticMatchId(int $matchId): ?string
     {
-        $map = [
-            -3000001 => 'site',
-            -3000002 => 'chm2026',
-        ];
-
-        return $map[$matchId] ?? null;
+        return AchievementPennantConfig::resolveCodeFromSyntheticMatchId($matchId);
     }
 
     private function resolvePremiumScrollDays(int $matchId): int
@@ -4054,12 +4054,7 @@ class GameEconomyRepository
 
     public function resolvePennantSyntheticMatchIdPublic(string $pennantCode): int
     {
-        $map = [
-            'site' => -3000001,
-            'chm2026' => -3000002,
-        ];
-
-        return $map[$pennantCode] ?? -3000099;
+        return AchievementPennantConfig::resolveSyntheticMatchId($pennantCode);
     }
 
     public function getLootItemCount(
@@ -4820,9 +4815,13 @@ class GameEconomyRepository
         string $kind,
         float $requiredLiquid,
         string $category = '',
-        string $code = ''
+        string $code = '',
+        string $settlementCurrency = ''
     ): array {
         $requiredLiquid = round($requiredLiquid, 1);
+        if ($settlementCurrency === '') {
+            $settlementCurrency = ExchangeConfig::resolveSettlementCurrency($kind);
+        }
         $eligible = [];
 
         foreach ($this->getActiveUserBanks(500) as $bank) {
@@ -4830,9 +4829,22 @@ class GameEconomyRepository
                 continue;
             }
 
-            $liquid = round((float)($bank['UF_LIQUID'] ?? 0), 1);
-            if ($liquid < $requiredLiquid) {
-                continue;
+            if ($settlementCurrency === GameEconomyConfig::CURRENCY_RUBLIUS) {
+                $ownerId = (int)($bank['UF_OWNER_ID'] ?? 0);
+                if ($ownerId <= 0) {
+                    continue;
+                }
+
+                $wallet = $this->getWalletByUserId($ownerId);
+                $rublius = round((float)($wallet['UF_RUBLIUS'] ?? 0), 1);
+                if ($rublius < $requiredLiquid) {
+                    continue;
+                }
+            } else {
+                $liquid = round((float)($bank['UF_LIQUID'] ?? 0), 1);
+                if ($liquid < $requiredLiquid) {
+                    continue;
+                }
             }
 
             $eligible[] = $bank;

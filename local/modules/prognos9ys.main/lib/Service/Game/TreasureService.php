@@ -878,11 +878,7 @@ class TreasureService
 
     private function resolvePennantSyntheticMatchId(string $pennantCode): int
     {
-        if (isset(self::PENNANT_SYNTHETIC_MATCH_IDS[$pennantCode])) {
-            return self::PENNANT_SYNTHETIC_MATCH_IDS[$pennantCode];
-        }
-
-        return -3000000 - abs((int)crc32($pennantCode));
+        return AchievementPennantConfig::resolveSyntheticMatchId($pennantCode);
     }
 }
 

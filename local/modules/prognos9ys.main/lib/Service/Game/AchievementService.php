@@ -602,6 +602,7 @@ class AchievementService
 
         $chests = (int)($reward['chests'] ?? 0);
         if ($chests > 0) {
+            $isProfessionGroup = ($definition['group'] ?? '') === ProfessionAchievementConfig::GROUP;
             if (AchievementConfig::grantsWc26Chest($code)
                 || (($reward['chest_type'] ?? '') === 'wc26')) {
                 $granted = $this->treasureService->grantWc26AchievementChests(
@@ -610,7 +611,8 @@ class AchievementService
                     $targetThreshold,
                     $chests
                 );
-            } elseif (AchievementConfig::grantsProfessionChest($code)
+            } elseif ($isProfessionGroup
+                || AchievementConfig::grantsProfessionChest($code)
                 || in_array((string)($reward['chest_type'] ?? ''), [
                     'profession',
                     TreasureService::CHEST_TYPE_PROFESSION_TIER_1,
@@ -700,6 +702,10 @@ class AchievementService
             'album_scarf_glued' => $this->albumRepository->countGluedByUserAndCollection(
                 $userId,
                 AlbumConfig::COLLECTION_SCARF_WC26
+            ),
+            'album_achievement_pennant_glued' => $this->albumRepository->countGluedByUserAndCollection(
+                $userId,
+                AlbumConfig::COLLECTION_PENNANT_ACHIEVEMENT
             ),
         ], $metrics, $this->professionRepository->getYieldStatsByUserId($userId), $this->repository->getXpBankDrinkStatsForUser($userId), $this->repository->getExchangeBuyStatsForUser($userId), $this->repository->getRecipeAchievementStatsForUser($userId));
     }

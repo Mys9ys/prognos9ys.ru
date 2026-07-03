@@ -465,8 +465,12 @@ class GameController extends BaseController
         return $response;
     }
 
-    public function createGovSupportDepositAction(int $bankId, int $eventId = 0, float $amount = 0): array
-    {
+    public function createGovSupportDepositAction(
+        int $bankId,
+        int $eventId = 0,
+        float $amount = 0,
+        string $currency = ''
+    ): array {
         $userId = TokenAuthService::getCurrentUserId();
         if (!$userId) {
             throw new ApiException('Пользователь не авторизован', 401);
@@ -478,7 +482,8 @@ class GameController extends BaseController
                 $userId,
                 $bankId,
                 $eventId > 0 ? $eventId : null,
-                $amount
+                $amount,
+                $currency
             ),
             'game' => (new GameProfileService())->getSummary($userId),
         ];

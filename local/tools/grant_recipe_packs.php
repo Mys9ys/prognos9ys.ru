@@ -5,6 +5,7 @@ declare(strict_types=1);
  * Выдача запечатанных паков рецептов (компенсация / тест).
  *
  *   php local/tools/grant_recipe_packs.php <login|userId>
+ *   php local/tools/grant_recipe_packs.php 1
  *   php local/tools/grant_recipe_packs.php Mys9ysilii
  *
  * По умолчанию: ×1 базовый, ×1 продвинутый, ×1 рабочий экипировки.
@@ -38,10 +39,13 @@ if ($arg === '') {
 
 $userId = ctype_digit($arg) ? (int)$arg : 0;
 if ($userId <= 0) {
-    $rs = \CUser::GetList('id', 'asc', ['LOGIN_EQUAL' => $arg], ['FIELDS' => ['ID', 'LOGIN']]);
-    $row = $rs->Fetch();
+    $row = \CUser::GetByLogin($arg)->Fetch();
+    if (!$row) {
+        $row = \CUser::GetList('id', 'asc', ['LOGIN' => $arg], ['FIELDS' => ['ID', 'LOGIN']])->Fetch();
+    }
     if (!$row) {
         echo "User not found: {$arg}\n";
+        echo "Tip: pass numeric user id, e.g. php local/tools/grant_recipe_packs.php 1\n";
         exit(1);
     }
     $userId = (int)$row['ID'];

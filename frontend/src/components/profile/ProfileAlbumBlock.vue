@@ -41,7 +41,7 @@
         <div v-for="(row, key) in state.mega" :key="key" class="mega_card">
           <div class="mega_head">
             <span class="mega_label">{{ megaLabels[key] || key }}</span>
-            <span class="mega_value">{{ row.glued }} / 48</span>
+            <span class="mega_value">{{ row.glued }} / {{ megaMax(row) }}</span>
           </div>
           <div class="mega_track">
             <div class="mega_fill" :style="{ width: megaPercent(row) + '%' }" />
@@ -68,9 +68,9 @@
               <span v-else-if="tierRow.claimed" class="mega_claimed">✓</span>
             </div>
           </div>
-          <div v-if="buyTiersForRow(row).length" class="mega_buy_row">
+          <div v-if="key !== 'pennant_achievement' && buyTiersForRow(row, key).length" class="mega_buy_row">
             <button
-              v-for="tier in buyTiersForRow(row)"
+              v-for="tier in buyTiersForRow(row, key)"
               :key="key + '-buy-' + tier"
               type="button"
               class="mega_buy_btn"
@@ -80,7 +80,7 @@
               Докупить до {{ tier }}
             </button>
           </div>
-          <p v-if="buyTiersForRow(row).length" class="hint mega_buy_hint">
+          <p v-if="key !== 'pennant_achievement' && buyTiersForRow(row, key).length" class="hint mega_buy_hint">
             Сначала вклейка из инвентаря, затем покупка на бирже (пока хватает 🪙).
           </p>
         </div>
@@ -88,7 +88,7 @@
 
       <div v-if="!state.albums?.length" class="empty_hint">
         Активируйте альбом из инвентаря или скрафтите новый.
-        Можно иметь один альбом на вымпелы и один на шарфы ЧМ-26; первая вклейка определяет тип.
+        Можно иметь до трёх альбомов: вымпелы и шарфы ЧМ-26 и альбом достижений; первая вклейка определяет тип.
       </div>
 
       <template v-else>
@@ -136,13 +136,19 @@
               :title="slot.glued ? slot.item_label : slot.team_label"
               @click="onSlotClick(slot)"
             >
-              <span class="slot_flag">{{ slot.team_label }}</span>
               <img
-                v-if="slotCollectibleSrc(slot)"
-                :src="slotCollectibleSrc(slot)"
+                v-if="slotPennantSrc(slot)"
+                :src="slotPennantSrc(slot)"
                 class="slot_collectible_img"
+                :class="{ slot_collectible_img_dim: !slot.glued }"
+                :title="slot.team_label"
                 alt=""
               >
+              <span
+                v-if="slotPennantSrc(slot) && isAchievementAlbum"
+                class="slot_caption"
+              >{{ slotCaption(slot) }}</span>
+              <span v-else-if="!slotPennantSrc(slot)" class="slot_flag">{{ slot.team_label }}</span>
               <span v-else-if="slot.glued" class="slot_item">{{ slotEmoji(slot) }}</span>
             </button>
           </div>
@@ -179,10 +185,12 @@ import { apiActions } from '@/api/bitrixClient';
 import { WC26_TEAMS } from '@/config/wc26Teams';
 import { getWc26PennantIconSrc } from '@/config/wc26PennantIcons';
 import { getWc26ScarfIconSrc } from '@/config/wc26ScarfIcons';
+import { getAchievementPennantIconSrc, isAchievementPennantCode } from '@/config/achievementPennantIcons';
 
 const MEGA_LABELS = {
   pennant_wc26: 'Мега: вымпелы',
   scarf_wc26: 'Мега: шарфы',
+  pennant_achievement: 'Мега: альбом достижений',
 };
 
 export default {
@@ -217,6 +225,10 @@ export default {
         return [];
       }
 
+      if (Array.isArray(this.selectedAlbum.slot_grid) && this.selectedAlbum.slot_grid.length) {
+        return this.selectedAlbum.slot_grid;
+      }
+
       const gluedMap = {};
       const gluedList = this.selectedAlbum.glued_slots || this.selectedAlbum.slots || [];
       gluedList.forEach((slot) => {
@@ -245,12 +257,26 @@ export default {
       }
       return (this.selectedAlbum.slots || []).find((s) => s.team_slug === this.selectedSlotSlug) || null;
     },
+    isAchievementAlbum() {
+      return this.selectedAlbum?.collection === 'pennant_achievement';
+    },
     matchingCollectibles() {
-      if (!this.selectedSlot || !this.state?.collectibles) {
+      if (!this.selectedSlot || !this.state) {
         return [];
       }
       const collection = this.selectedAlbum?.collection || '';
       const slug = this.selectedSlot.team_slug;
+
+      if (collection === 'pennant_achievement') {
+        const glued = this.state?.glued_teams?.pennant_achievement || [];
+        return (this.state.achievement_pennants || []).filter((item) => {
+          return item.team_slug === slug && !glued.includes(slug);
+        });
+      }
+
+      if (!this.state.collectibles) {
+        return [];
+      }
 
       return this.state.collectibles.filter((item) => {
         if (item.team_slug !== slug) {
@@ -312,9 +338,20 @@ export default {
       }
     },
 
+    megaMax(row) {
+      const thresholds = Array.isArray(row?.thresholds) ? row.thresholds : [];
+      if (thresholds.length) {
+        return thresholds[thresholds.length - 1];
+      }
+
+      return 48;
+    },
+
     megaPercent(row) {
       const glued = Number(row?.glued) || 0;
-      return Math.min(100, Math.round((glued / 48) * 100));
+      const max = this.megaMax(row) || 48;
+
+      return Math.min(100, Math.round((glued / max) * 100));
     },
 
     formatMegaReward(reward) {
@@ -398,6 +435,31 @@ export default {
       this.message = '';
     },
 
+    slotCaption(slot) {
+      const code = slot?.team_slug || slot?.item_code || '';
+      if (code === 'site') {
+        return 'Сайт';
+      }
+      if (code === 'chm2026') {
+        return 'ЧМ26';
+      }
+
+      const label = String(slot?.team_label || '');
+      if (!label) {
+        return '';
+      }
+      const parts = label.split(' · ');
+      if (parts.length >= 2) {
+        const profession = parts[0];
+        const tier = parts[1].includes('премиум') ? 'пре' : 'маст';
+        return `${profession} ${tier}`;
+      }
+      if (label.length > 14) {
+        return `${label.slice(0, 12)}…`;
+      }
+      return label;
+    },
+
     slotEmoji(slot) {
       const code = slot.item_code || '';
       if (code.indexOf('scarf_') === 0) {
@@ -417,7 +479,32 @@ export default {
       if (code.startsWith('scarf_wc26_')) {
         return getWc26ScarfIconSrc(code);
       }
+      if (isAchievementPennantCode(code)) {
+        return getAchievementPennantIconSrc(code);
+      }
       return null;
+    },
+
+    slotPennantSrc(slot) {
+      if (!slot) {
+        return null;
+      }
+
+      const wc26 = this.slotCollectibleSrc(slot);
+      if (wc26) {
+        return wc26;
+      }
+
+      if (!this.isAchievementAlbum) {
+        return null;
+      }
+
+      const code = slot.team_slug || slot.item_code || '';
+      if (!isAchievementPennantCode(code)) {
+        return null;
+      }
+
+      return getAchievementPennantIconSrc(code);
     },
 
     setGameFromResponse(data) {
@@ -485,7 +572,10 @@ export default {
       }
     },
 
-    buyTiersForRow(row) {
+    buyTiersForRow(row, collectionKey = '') {
+      if (collectionKey === 'pennant_achievement') {
+        return [];
+      }
       const glued = Number(row?.glued) || 0;
       const thresholds = Array.isArray(row?.thresholds) ? row.thresholds : [16, 32, 48];
       return thresholds.filter((tier) => glued < tier);
@@ -866,6 +956,17 @@ export default {
   white-space: nowrap;
 }
 
+.slot_caption {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 9px;
+  line-height: 1.1;
+  color: fade(@colorText, 72%);
+}
+
 .slot_item {
   display: block;
   font-size: 16px;
@@ -879,6 +980,11 @@ export default {
   margin-top: 2px;
   object-fit: contain;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+}
+
+.slot_collectible_img_dim {
+  opacity: 0.38;
+  filter: grayscale(0.35) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
 }
 
 .glue_panel {

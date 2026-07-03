@@ -18,6 +18,7 @@ class ExchangeCatalogConfig
     /** @deprecated вкладка объединена с TAB_SOUVENIR */
     public const TAB_PENNANT = 'pennant';
     public const TAB_MATERIAL = 'material';
+    public const TAB_RUBLIUS = 'rublius';
     public const TAB_RECIPE = 'recipe';
 
     /**
@@ -35,6 +36,7 @@ class ExchangeCatalogConfig
             ['id' => self::TAB_XP_BANK, 'label' => 'Банки XP'],
             ['id' => self::TAB_CERT, 'label' => 'Лицензии'],
             ['id' => self::TAB_MATERIAL, 'label' => 'Материалы'],
+            ['id' => self::TAB_RUBLIUS, 'label' => 'Рублиусы'],
         ];
     }
 
@@ -54,6 +56,7 @@ class ExchangeCatalogConfig
             self::TAB_XP_BANK,
             self::TAB_CERT,
             self::TAB_MATERIAL,
+            self::TAB_RUBLIUS,
         ];
     }
 
@@ -94,6 +97,14 @@ class ExchangeCatalogConfig
             }
 
             return self::TAB_LOOT;
+        }
+
+        if ($kind === ExchangeConfig::KIND_MATERIAL) {
+            return self::TAB_MATERIAL;
+        }
+
+        if ($kind === ExchangeConfig::KIND_RUBLIUS) {
+            return self::TAB_RUBLIUS;
         }
 
         if ($kind === ExchangeConfig::KIND_PENNANT) {

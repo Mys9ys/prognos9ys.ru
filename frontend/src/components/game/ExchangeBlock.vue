@@ -210,8 +210,18 @@
           </div>
           <div class="row_actions sell_actions">
             <input v-model.number="sellForm[itemKey(item)].qty" type="number" min="1" :max="item.available" class="qty_input" />
-            <input v-model.number="sellForm[itemKey(item)].price" type="number" step="0.1" :min="item.nominal" :max="item.max_price" class="price_input" />
-            <button type="button" class="action_btn" :disabled="busy" @click="createListing(item)">
+            <div class="price_row">
+              <button type="button" class="price_edge_btn" :disabled="busy" @click="setSellPrice(item, 'min')">мин</button>
+              <input v-model.number="sellForm[itemKey(item)].price" type="number" step="0.1" :min="item.nominal" :max="item.max_price" class="price_input" />
+              <button type="button" class="price_edge_btn" :disabled="busy" @click="setSellPrice(item, 'max')">макс</button>
+            </div>
+            <button
+              v-if="!item.consign_only"
+              type="button"
+              class="action_btn"
+              :disabled="busy"
+              @click="createListing(item)"
+            >
               Выставить
             </button>
             <button type="button" class="action_btn consign_btn" :disabled="busy" @click="consignToBank(item)">
@@ -740,6 +750,15 @@ export default {
     },
     currencySymbol(currency) {
       return currency === 'rublius' ? '💎' : '🪙';
+    },
+
+    setSellPrice(item, edge) {
+      const key = this.itemKey(item);
+      const form = this.sellForm[key];
+      if (!form) {
+        return;
+      }
+      form.price = edge === 'max' ? Number(item.max_price) : Number(item.nominal);
     },
 
     sortByQty(items, getQty, direction) {
@@ -1343,7 +1362,8 @@ export default {
 
         if (data?.status === 'ok') {
           const chunks = Array.isArray(data.chunks) ? data.chunks.length : 1;
-          this.message = `Сдано в комиссионку: +${data.total_paid} 🪙`
+          const paidCurrency = data.currency || item.currency || 'prognobaks';
+          this.message = `Сдано в комиссионку: +${data.total_paid} ${this.currencySymbol(paidCurrency)}`
             + (chunks > 1 ? ` (${chunks} лота)` : '');
           await this.syncGameAfterWalletMutation(data.game);
           await this.refreshState();
@@ -1789,6 +1809,28 @@ export default {
 
 .price_input {
   width: 72px;
+}
+
+.price_row {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.price_edge_btn {
+  border: 1px solid fade(@colorBlur, 35%);
+  background: fade(@darkbg, 90%);
+  color: @colorBlur;
+  font-size: 10px;
+  line-height: 1;
+  padding: 5px 4px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.price_edge_btn:hover:not(:disabled) {
+  color: @colorText;
+  border-color: fade(@orange, 50%);
 }
 
 .action_btn {

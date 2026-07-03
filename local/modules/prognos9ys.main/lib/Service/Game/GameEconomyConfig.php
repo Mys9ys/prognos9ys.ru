@@ -38,8 +38,11 @@ class GameEconomyConfig
 
     public const CONTRACT_TYPE_REGULAR = 'regular';
     public const CONTRACT_TYPE_GOV_SUPPORT = 'gov_support';
+    public const CONTRACT_TYPE_GOV_SUPPORT_RUBLIUS = 'gov_support_rublius';
     public const GOV_SUPPORT_DEPOSIT_AMOUNT_PROGNOBAKS = 500.0;
     public const GOV_SUPPORT_DEPOSIT_LARGE_AMOUNT_PROGNOBAKS = 2500.0;
+    public const GOV_SUPPORT_DEPOSIT_AMOUNT_RUBLIUS = 100.0;
+    public const GOV_SUPPORT_DEPOSIT_LARGE_AMOUNT_RUBLIUS = 500.0;
     public const GOV_SUPPORT_DEPOSIT_INTEREST_PERCENT = 5.0;
     public const CONTRACT_STATUS_INTEREST_PAID = 'interest_paid';
 
@@ -246,16 +249,33 @@ class GameEconomyConfig
         ];
     }
 
-    public static function resolveGovSupportDepositAmount(float $amount): float
+    /**
+     * @return float[]
+     */
+    public static function govSupportRubliusDepositAmounts(): array
     {
+        return [
+            self::GOV_SUPPORT_DEPOSIT_AMOUNT_RUBLIUS,
+            self::GOV_SUPPORT_DEPOSIT_LARGE_AMOUNT_RUBLIUS,
+        ];
+    }
+
+    public static function resolveGovSupportDepositAmount(
+        float $amount,
+        string $currency = self::CURRENCY_PROGNOBAKS
+    ): float {
         $amount = round($amount, 1);
+        $allowed = $currency === self::CURRENCY_RUBLIUS
+            ? self::govSupportRubliusDepositAmounts()
+            : self::govSupportDepositAmounts();
+
         if ($amount <= 0) {
-            return self::GOV_SUPPORT_DEPOSIT_AMOUNT_PROGNOBAKS;
+            return $allowed[0];
         }
 
-        foreach (self::govSupportDepositAmounts() as $allowed) {
-            if (abs($amount - $allowed) < 0.01) {
-                return $allowed;
+        foreach ($allowed as $candidate) {
+            if (abs($amount - $candidate) < 0.01) {
+                return $candidate;
             }
         }
 

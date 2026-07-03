@@ -79,6 +79,7 @@ class AlbumService
             'glued_teams' => $this->getGluedTeamsByCollection($userId),
             'albums' => $this->formatAlbums($userId),
             'collectibles' => $collectibles,
+            'achievement_pennants' => $this->formatAchievementPennantInventory($userId),
             'mega' => $this->formatMegaProgress($userId),
         ];
     }
@@ -95,6 +96,7 @@ class AlbumService
                 'glued_teams' => [
                     AlbumConfig::COLLECTION_PENNANT_WC26 => [],
                     AlbumConfig::COLLECTION_SCARF_WC26 => [],
+                    AlbumConfig::COLLECTION_PENNANT_ACHIEVEMENT => [],
                 ],
                 'activate' => [
                     'allowed' => true,
@@ -222,6 +224,10 @@ class AlbumService
         }
 
         $itemCode = trim($itemCode);
+        if (AchievementPennantConfig::isAchievementPennantCode($itemCode)) {
+            return $this->glueAchievementPennant($userId, $albumId, $itemCode);
+        }
+
         $collection = AlbumConfig::collectionForItemCode($itemCode);
         if ($collection === null) {
             throw new \InvalidArgumentException('В альбом можно вклеить только вымпел или шарф ЧМ-26');
@@ -310,7 +316,10 @@ class AlbumService
 
         while ($guard-- > 0) {
             $this->resetContext();
-            $collectibles = $this->formatCollectibleInventory($userId);
+            $collectibles = array_merge(
+                $this->formatCollectibleInventory($userId),
+                $this->formatAchievementPennantInventory($userId)
+            );
             if (!$collectibles) {
                 break;
             }
@@ -473,6 +482,7 @@ class AlbumService
     {
         $hasPennant = false;
         $hasScarf = false;
+        $hasAchievement = false;
         $hasPending = false;
 
         foreach ($albumRows as $album) {
@@ -481,17 +491,22 @@ class AlbumService
                 $hasPennant = true;
             } elseif ($collection === AlbumConfig::COLLECTION_SCARF_WC26) {
                 $hasScarf = true;
+            } elseif ($collection === AlbumConfig::COLLECTION_PENNANT_ACHIEVEMENT) {
+                $hasAchievement = true;
+            } elseif ($collection === '' || $collection === AlbumConfig::COLLECTION_UNIVERSAL) {
+                $hasPending = true;
             } else {
                 $hasPending = true;
             }
         }
 
-        if (count($albumRows) >= 2) {
+        if (count($albumRows) >= 3) {
             return [
                 'allowed' => false,
-                'reason' => 'Можно иметь не больше двух альбомов: вымпелы и шарфы ЧМ-26',
+                'reason' => 'Можно иметь не больше трёх альбомов: вымпелы и шарфы ЧМ-26 и альбом достижений',
                 'has_pennant' => $hasPennant,
                 'has_scarf' => $hasScarf,
+                'has_achievement' => $hasAchievement,
                 'has_pending' => $hasPending,
             ];
         }
@@ -502,16 +517,18 @@ class AlbumService
                 'reason' => 'Сначала сделайте первую вклейку в уже активированном альбоме',
                 'has_pennant' => $hasPennant,
                 'has_scarf' => $hasScarf,
+                'has_achievement' => $hasAchievement,
                 'has_pending' => $hasPending,
             ];
         }
 
-        if ($hasPennant && $hasScarf) {
+        if ($hasPennant && $hasScarf && $hasAchievement) {
             return [
                 'allowed' => false,
-                'reason' => 'Уже есть альбомы для вымпелов и шарфов ЧМ-26',
+                'reason' => 'Уже есть все три альбома коллекций',
                 'has_pennant' => $hasPennant,
                 'has_scarf' => $hasScarf,
+                'has_achievement' => $hasAchievement,
                 'has_pending' => $hasPending,
             ];
         }
@@ -521,6 +538,7 @@ class AlbumService
             'reason' => '',
             'has_pennant' => $hasPennant,
             'has_scarf' => $hasScarf,
+            'has_achievement' => $hasAchievement,
             'has_pending' => $hasPending,
         ];
     }
@@ -531,6 +549,7 @@ class AlbumService
             return [
                 AlbumConfig::COLLECTION_PENNANT_WC26 => [],
                 AlbumConfig::COLLECTION_SCARF_WC26 => [],
+                AlbumConfig::COLLECTION_PENNANT_ACHIEVEMENT => [],
             ];
         }
 
@@ -548,12 +567,12 @@ class AlbumService
         $result = [
             AlbumConfig::COLLECTION_PENNANT_WC26 => [],
             AlbumConfig::COLLECTION_SCARF_WC26 => [],
+            AlbumConfig::COLLECTION_PENNANT_ACHIEVEMENT => [],
         ];
 
         foreach ($albumRows as $album) {
             $collection = (string)($album['UF_COLLECTION'] ?? '');
-            if ($collection !== AlbumConfig::COLLECTION_PENNANT_WC26
-                && $collection !== AlbumConfig::COLLECTION_SCARF_WC26) {
+            if (!isset($result[$collection])) {
                 continue;
             }
 
@@ -604,9 +623,13 @@ class AlbumService
         if ($albumCollection === AlbumConfig::COLLECTION_SCARF_WC26) {
             return AlbumConfig::COLLECTION_SCARF_WC26;
         }
+        if ($albumCollection === AlbumConfig::COLLECTION_PENNANT_ACHIEVEMENT) {
+            return AlbumConfig::COLLECTION_PENNANT_ACHIEVEMENT;
+        }
 
         $hasPennant = false;
         $hasScarf = false;
+        $hasAchievement = false;
         foreach ($this->albumRepository->getAlbumsByUserId($userId) as $row) {
             $id = (int)($row['ID'] ?? 0);
             if ($id === (int)($album['ID'] ?? 0)) {
@@ -617,26 +640,88 @@ class AlbumService
                 $hasPennant = true;
             } elseif ($collection === AlbumConfig::COLLECTION_SCARF_WC26) {
                 $hasScarf = true;
+            } elseif ($collection === AlbumConfig::COLLECTION_PENNANT_ACHIEVEMENT) {
+                $hasAchievement = true;
             }
         }
 
-        if ($hasPennant && !$hasScarf) {
-            return AlbumConfig::COLLECTION_SCARF_WC26;
+        $missing = [];
+        if (!$hasPennant) {
+            $missing[] = AlbumConfig::COLLECTION_PENNANT_WC26;
         }
-        if ($hasScarf && !$hasPennant) {
-            return AlbumConfig::COLLECTION_PENNANT_WC26;
+        if (!$hasScarf) {
+            $missing[] = AlbumConfig::COLLECTION_SCARF_WC26;
+        }
+        if (!$hasAchievement) {
+            $missing[] = AlbumConfig::COLLECTION_PENNANT_ACHIEVEMENT;
         }
 
-        return null;
+        return count($missing) === 1 ? $missing[0] : null;
     }
 
     private function requiredCollectionErrorMessage(string $collection): string
     {
         if ($collection === AlbumConfig::COLLECTION_SCARF_WC26) {
-            return 'Второй альбом — только для шарфов ЧМ-26';
+            return 'Этот альбом — только для шарфов ЧМ-26';
+        }
+        if ($collection === AlbumConfig::COLLECTION_PENNANT_ACHIEVEMENT) {
+            return 'Этот альбом — только для вымпелов достижений';
         }
 
-        return 'Второй альбом — только для вымпелов ЧМ-26';
+        return 'Этот альбом — только для вымпелов ЧМ-26';
+    }
+
+    /**
+     * @return array{lines:array<int, array{text:string,status:string}>}
+     */
+    private function glueAchievementPennant(int $userId, int $albumId, string $pennantCode): array
+    {
+        $collection = AlbumConfig::COLLECTION_PENNANT_ACHIEVEMENT;
+        $album = $this->albumRepository->getAlbumById($albumId, $userId);
+        if (!$album) {
+            throw new \RuntimeException('Альбом не найден');
+        }
+
+        $albumCollection = (string)($album['UF_COLLECTION'] ?? '');
+        if ($albumCollection !== ''
+            && $albumCollection !== AlbumConfig::COLLECTION_UNIVERSAL
+            && $albumCollection !== $collection) {
+            throw new \RuntimeException('Этот альбом предназначен для другой коллекции');
+        }
+
+        if ($this->albumRepository->getSlotByAlbumAndTeam($albumId, $pennantCode)) {
+            throw new \RuntimeException('Вымпел уже вклеен в этот альбом');
+        }
+
+        if ($this->isTeamGluedInCollection($userId, $collection, $pennantCode)) {
+            throw new \RuntimeException('Этот вымпел уже вклеен в альбом достижений');
+        }
+
+        $requiredCollection = $this->resolveRequiredCollectionForAlbum($userId, $album);
+        if ($requiredCollection !== null && $collection !== $requiredCollection) {
+            throw new \RuntimeException($this->requiredCollectionErrorMessage($requiredCollection));
+        }
+
+        $counts = $this->economyRepository->getAchievementPennantInventoryCountsForUser($userId);
+        if ((int)($counts[$pennantCode] ?? 0) <= 0) {
+            throw new \RuntimeException('Вымпел не найден в инвентаре');
+        }
+
+        $this->economyRepository->consumePennantUnits($userId, $pennantCode, 1);
+
+        if ($albumCollection === '' || $albumCollection === AlbumConfig::COLLECTION_UNIVERSAL) {
+            $this->albumRepository->updateAlbum($albumId, [
+                'UF_COLLECTION' => $collection,
+            ]);
+        }
+
+        $this->albumRepository->addSlot($albumId, $pennantCode, $pennantCode);
+
+        return [
+            'lines' => [
+                ['text' => 'Вклеено: ' . AchievementPennantConfig::getLabel($pennantCode), 'status' => 'ok'],
+            ],
+        ];
     }
 
     private function countUniversalAlbumItems(int $userId): int
@@ -674,29 +759,120 @@ class AlbumService
         foreach ($this->getAlbumSlots($albumId) as $slot) {
             $slug = (string)($slot['UF_TEAM_SLUG'] ?? '');
             $code = (string)($slot['UF_ITEM_CODE'] ?? '');
+            $isAchievement = $collection === AlbumConfig::COLLECTION_PENNANT_ACHIEVEMENT;
             $gluedBySlug[$slug] = [
                 'team_slug' => $slug,
-                'team_label' => Wc26CollectibleConfig::teamLabel($slug),
+                'team_label' => $isAchievement
+                    ? AchievementPennantConfig::getLabel($slug)
+                    : Wc26CollectibleConfig::teamLabel($slug),
                 'item_code' => $code,
-                'item_label' => $collection === AlbumConfig::COLLECTION_SCARF_WC26
-                    ? Wc26CollectibleConfig::getScarfLabel($code)
-                    : Wc26CollectibleConfig::getPennantLabel($code),
+                'item_label' => $isAchievement
+                    ? AchievementPennantConfig::getLabel($code !== '' ? $code : $slug)
+                    : ($collection === AlbumConfig::COLLECTION_SCARF_WC26
+                        ? Wc26CollectibleConfig::getScarfLabel($code)
+                        : Wc26CollectibleConfig::getPennantLabel($code)),
                 'glued' => true,
             ];
         }
 
         $gluedSlots = array_values($gluedBySlug);
+        $resolvedCollection = $collection !== '' && $collection !== AlbumConfig::COLLECTION_UNIVERSAL
+            ? $collection
+            : AlbumConfig::COLLECTION_PENNANT_WC26;
 
         return [
             'id' => $albumId,
             'collection' => $collection,
-            'collection_label' => AlbumConfig::collectionLabel($collection),
+            'collection_label' => AlbumConfig::collectionLabel(
+                $collection !== '' && $collection !== AlbumConfig::COLLECTION_UNIVERSAL
+                    ? $collection
+                    : AlbumConfig::COLLECTION_UNIVERSAL
+            ),
             'glued_count' => count($gluedBySlug),
-            'slot_count' => AlbumConfig::SLOT_COUNT,
+            'slot_count' => AlbumConfig::slotCountForCollection($resolvedCollection),
+            'slot_grid' => $this->buildSlotGrid($resolvedCollection, $gluedBySlug),
             'glued_slugs' => array_keys($gluedBySlug),
             'glued_slots' => $gluedSlots,
             'slots' => $gluedSlots,
         ];
+    }
+
+    /**
+     * @param array<string, array<string, mixed>> $gluedBySlug
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildSlotGrid(string $collection, array $gluedBySlug): array
+    {
+        if ($collection === AlbumConfig::COLLECTION_PENNANT_ACHIEVEMENT) {
+            $grid = [];
+            foreach (AchievementPennantConfig::slotDefinitions() as $slot) {
+                $code = (string)($slot['code'] ?? '');
+                if ($code === '') {
+                    continue;
+                }
+                if (isset($gluedBySlug[$code])) {
+                    $grid[] = $gluedBySlug[$code];
+                    continue;
+                }
+
+                $grid[] = [
+                    'team_slug' => $code,
+                    'team_label' => (string)($slot['label'] ?? $code),
+                    'item_code' => '',
+                    'item_label' => '',
+                    'glued' => false,
+                ];
+            }
+
+            return $grid;
+        }
+
+        $grid = [];
+        foreach (Wc26CollectibleConfig::teamSlugs() as $slug => $label) {
+            if (isset($gluedBySlug[$slug])) {
+                $grid[] = $gluedBySlug[$slug];
+                continue;
+            }
+
+            $grid[] = [
+                'team_slug' => $slug,
+                'team_label' => (string)$label,
+                'item_code' => '',
+                'item_label' => '',
+                'glued' => false,
+            ];
+        }
+
+        return $grid;
+    }
+
+    /**
+     * @return array<int, array{code:string,category:string,label:string,count:int,team_slug:string,collection:string}>
+     */
+    private function formatAchievementPennantInventory(int $userId): array
+    {
+        $counts = $this->economyRepository->getAchievementPennantInventoryCountsForUser($userId);
+        $glued = $this->buildGluedTeamsFromRows($this->getUserAlbumRows($userId));
+        $gluedCodes = $glued[AlbumConfig::COLLECTION_PENNANT_ACHIEVEMENT] ?? [];
+        $items = [];
+
+        foreach ($counts as $code => $count) {
+            $count = (int)$count;
+            if ($count <= 0 || in_array($code, $gluedCodes, true)) {
+                continue;
+            }
+
+            $items[] = [
+                'code' => $code,
+                'category' => 'pennant',
+                'label' => AchievementPennantConfig::getLabel($code),
+                'count' => $count,
+                'team_slug' => $code,
+                'collection' => AlbumConfig::COLLECTION_PENNANT_ACHIEVEMENT,
+            ];
+        }
+
+        return $items;
     }
 
     /**
@@ -743,10 +919,15 @@ class AlbumService
         $gluedByCollection = $this->buildGluedTeamsFromRows($this->getUserAlbumRows($userId));
         $result = [];
 
-        foreach ([AlbumConfig::COLLECTION_PENNANT_WC26, AlbumConfig::COLLECTION_SCARF_WC26] as $collection) {
+        foreach ([
+            AlbumConfig::COLLECTION_PENNANT_WC26,
+            AlbumConfig::COLLECTION_SCARF_WC26,
+            AlbumConfig::COLLECTION_PENNANT_ACHIEVEMENT,
+        ] as $collection) {
             $glued = count($gluedByCollection[$collection] ?? []);
+            $thresholds = AlbumConfig::megaThresholdsForCollection($collection);
             $next = null;
-            foreach (AlbumConfig::MEGA_THRESHOLDS as $threshold) {
+            foreach ($thresholds as $threshold) {
                 if ($glued < $threshold) {
                     $next = $threshold;
                     break;
@@ -776,7 +957,7 @@ class AlbumService
 
             $result[$collection] = [
                 'glued' => $glued,
-                'thresholds' => AlbumConfig::MEGA_THRESHOLDS,
+                'thresholds' => $thresholds,
                 'next_threshold' => $next,
                 'achievement_code' => $achievementCode,
                 'tiers' => $tiers,

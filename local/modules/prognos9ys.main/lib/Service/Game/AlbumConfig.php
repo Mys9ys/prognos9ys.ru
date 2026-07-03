@@ -18,6 +18,7 @@ class AlbumConfig
     public const COLLECTION_UNIVERSAL = '';
     public const COLLECTION_PENNANT_WC26 = 'pennant_wc26';
     public const COLLECTION_SCARF_WC26 = 'scarf_wc26';
+    public const COLLECTION_PENNANT_ACHIEVEMENT = 'pennant_achievement';
 
     public const RECIPE_PLANK = 2;
     public const RECIPE_CLOTH = 7;
@@ -30,6 +31,9 @@ class AlbumConfig
 
     /** @var int[] */
     public const MEGA_THRESHOLDS = [16, 32, 48];
+
+    /** @var int[] */
+    public const ACHIEVEMENT_MEGA_THRESHOLDS = [10, 20, 30, 40, 50];
 
     public static function itemLabel(): string
     {
@@ -49,8 +53,41 @@ class AlbumConfig
         if ($collection === self::COLLECTION_SCARF_WC26) {
             return 'Шарфы ЧМ-26';
         }
+        if ($collection === self::COLLECTION_PENNANT_ACHIEVEMENT) {
+            return 'Альбом достижений';
+        }
 
         return 'Универсальный (выберите первую вклейку)';
+    }
+
+    public static function slotCountForCollection(string $collection): int
+    {
+        if ($collection === self::COLLECTION_PENNANT_ACHIEVEMENT) {
+            return AchievementPennantConfig::slotCount();
+        }
+
+        return self::SLOT_COUNT;
+    }
+
+    /**
+     * @return int[]
+     */
+    public static function megaThresholdsForCollection(string $collection): array
+    {
+        if ($collection === self::COLLECTION_PENNANT_ACHIEVEMENT) {
+            return self::ACHIEVEMENT_MEGA_THRESHOLDS;
+        }
+
+        return self::MEGA_THRESHOLDS;
+    }
+
+    public static function collectionForPennantCode(string $pennantCode): ?string
+    {
+        if (AchievementPennantConfig::isAchievementPennantCode($pennantCode)) {
+            return self::COLLECTION_PENNANT_ACHIEVEMENT;
+        }
+
+        return null;
     }
 
     public static function collectionForItemCode(string $itemCode): ?string

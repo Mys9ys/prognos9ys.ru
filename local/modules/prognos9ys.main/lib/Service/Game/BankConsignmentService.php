@@ -85,7 +85,13 @@ class BankConsignmentService
         foreach ($chunks as $chunkQty) {
             $chunkInstant = round($instantPerUnit * $chunkQty, 1);
             $totalInstant = round($totalInstant + $chunkInstant, 1);
-            if ($this->repository->getEligibleConsignmentBanks($kind, $chunkInstant, $category, $code) === []) {
+            if ($this->repository->getEligibleConsignmentBanks(
+                $kind,
+                $chunkInstant,
+                $category,
+                $code,
+                ExchangeConfig::resolveSettlementCurrency($kind)
+            ) === []) {
                 throw new \RuntimeException('Нет банка');
             }
         }
@@ -258,8 +264,15 @@ class BankConsignmentService
     ): array {
         $pricePerUnit = $this->resolveConsignmentPrice($kind, $code, $category, $eventId, $teamCode);
         $instantPaid = round($pricePerUnit * $chunkQty * BankConsignmentConfig::INSTANT_PAYOUT_PERCENT / 100, 1);
+        $settlementCurrency = ExchangeConfig::resolveSettlementCurrency($kind);
 
-        $eligibleBanks = $this->repository->getEligibleConsignmentBanks($kind, $instantPaid, $category, $code);
+        $eligibleBanks = $this->repository->getEligibleConsignmentBanks(
+            $kind,
+            $instantPaid,
+            $category,
+            $code,
+            $settlementCurrency
+        );
         if ($eligibleBanks === []) {
             throw new \RuntimeException('Нет банка');
         }
@@ -273,65 +286,71 @@ class BankConsignmentService
 
         $this->inventoryService->takeFromSeller($userId, $kind, $code, $category, $eventId, $chunkQty);
 
+        $listingId = 0;
+        $consignmentId = 0;
+
         try {
-            $this->repository->adjustUserBankLiquid($bankId, -$instantPaid);
+            $this->debitBankForConsignmentPayout($bankId, $bankOwnerId, $settlementCurrency, $instantPaid);
+
+            $now = new DateTime();
+            $listingDays = ExchangeConfig::LISTING_DAYS_DEFAULT;
+            $expiresAt = DateTime::createFromTimestamp($now->getTimestamp() + $listingDays * 86400);
+            $nominal = $this->inventoryService->resolveNominal($kind, $code, $category, $teamCode ?: null);
+
+            $listingId = $this->repository->addExchangeListing([
+                'UF_SELLER_ID' => $bankOwnerId,
+                'UF_SELLER_BANK_ID' => $bankId,
+                'UF_ORIGINAL_USER_ID' => $userId,
+                'UF_CONSIGNMENT_ID' => 0,
+                'UF_ITEM_KIND' => $kind,
+                'UF_ITEM_CODE' => $code,
+                'UF_ITEM_CATEGORY' => $category,
+                'UF_EVENT_ID' => $eventId,
+                'UF_TEAM_CODE' => $teamCode,
+                'UF_QTY_TOTAL' => $chunkQty,
+                'UF_QTY_REMAINING' => $chunkQty,
+                'UF_PRICE_PER_UNIT' => $pricePerUnit,
+                'UF_NOMINAL_SNAPSHOT' => $nominal,
+                'UF_STATUS' => ExchangeConfig::STATUS_ACTIVE,
+                'UF_ESCROW_REF_TYPE' => ExchangeConfig::ESCROW_REF_TYPE,
+                'UF_ESCROW_REF_ID' => 0,
+                'UF_EXPIRES_AT' => $expiresAt,
+                'UF_CREATED_AT' => $now,
+                'UF_UPDATED_AT' => $now,
+            ]);
+
+            $consignmentId = $this->repository->addBankConsignment([
+                'UF_USER_ID' => $userId,
+                'UF_BANK_ID' => $bankId,
+                'UF_LISTING_ID' => $listingId,
+                'UF_ITEM_KIND' => $kind,
+                'UF_ITEM_CODE' => $code,
+                'UF_ITEM_CATEGORY' => $category,
+                'UF_EVENT_ID' => $eventId,
+                'UF_TEAM_CODE' => $teamCode,
+                'UF_QTY' => $chunkQty,
+                'UF_PRICE_PER_UNIT' => $pricePerUnit,
+                'UF_INSTANT_PAID' => $instantPaid,
+                'UF_STATUS' => BankConsignmentConfig::STATUS_ACTIVE,
+                'UF_RELIST_COUNT' => 0,
+                'UF_CREATED_AT' => $now,
+                'UF_UPDATED_AT' => $now,
+            ]);
+
+            $this->repository->updateExchangeListing($listingId, [
+                'UF_CONSIGNMENT_ID' => $consignmentId,
+            ]);
         } catch (\Throwable $exception) {
+            if ($instantPaid > 0) {
+                $this->creditBankForConsignmentPayout($bankId, $bankOwnerId, $settlementCurrency, $instantPaid);
+            }
             $this->inventoryService->giveToBuyer($userId, $kind, $code, $category, $eventId, $teamCode, $chunkQty);
             throw $exception;
         }
 
-        $now = new DateTime();
-        $listingDays = ExchangeConfig::LISTING_DAYS_DEFAULT;
-        $expiresAt = DateTime::createFromTimestamp($now->getTimestamp() + $listingDays * 86400);
-        $nominal = $this->inventoryService->resolveNominal($kind, $code, $category, $teamCode ?: null);
-
-        $listingId = $this->repository->addExchangeListing([
-            'UF_SELLER_ID' => $bankOwnerId,
-            'UF_SELLER_BANK_ID' => $bankId,
-            'UF_ORIGINAL_USER_ID' => $userId,
-            'UF_CONSIGNMENT_ID' => 0,
-            'UF_ITEM_KIND' => $kind,
-            'UF_ITEM_CODE' => $code,
-            'UF_ITEM_CATEGORY' => $category,
-            'UF_EVENT_ID' => $eventId,
-            'UF_TEAM_CODE' => $teamCode,
-            'UF_QTY_TOTAL' => $chunkQty,
-            'UF_QTY_REMAINING' => $chunkQty,
-            'UF_PRICE_PER_UNIT' => $pricePerUnit,
-            'UF_NOMINAL_SNAPSHOT' => $nominal,
-            'UF_STATUS' => ExchangeConfig::STATUS_ACTIVE,
-            'UF_ESCROW_REF_TYPE' => ExchangeConfig::ESCROW_REF_TYPE,
-            'UF_ESCROW_REF_ID' => 0,
-            'UF_EXPIRES_AT' => $expiresAt,
-            'UF_CREATED_AT' => $now,
-            'UF_UPDATED_AT' => $now,
-        ]);
-
-        $consignmentId = $this->repository->addBankConsignment([
-            'UF_USER_ID' => $userId,
-            'UF_BANK_ID' => $bankId,
-            'UF_LISTING_ID' => $listingId,
-            'UF_ITEM_KIND' => $kind,
-            'UF_ITEM_CODE' => $code,
-            'UF_ITEM_CATEGORY' => $category,
-            'UF_EVENT_ID' => $eventId,
-            'UF_TEAM_CODE' => $teamCode,
-            'UF_QTY' => $chunkQty,
-            'UF_PRICE_PER_UNIT' => $pricePerUnit,
-            'UF_INSTANT_PAID' => $instantPaid,
-            'UF_STATUS' => BankConsignmentConfig::STATUS_ACTIVE,
-            'UF_RELIST_COUNT' => 0,
-            'UF_CREATED_AT' => $now,
-            'UF_UPDATED_AT' => $now,
-        ]);
-
-        $this->repository->updateExchangeListing($listingId, [
-            'UF_CONSIGNMENT_ID' => $consignmentId,
-        ]);
-
         $this->walletService->credit(
             $userId,
-            GameEconomyConfig::CURRENCY_PROGNOBAKS,
+            $settlementCurrency,
             $instantPaid,
             'bank_consignment_payout',
             'bank_consignment',
@@ -346,7 +365,68 @@ class BankConsignmentService
             'qty' => $chunkQty,
             'price_per_unit' => $pricePerUnit,
             'instant_paid' => $instantPaid,
+            'currency' => $settlementCurrency,
         ];
+    }
+
+    private function debitBankForConsignmentPayout(
+        int $bankId,
+        int $bankOwnerId,
+        string $settlementCurrency,
+        float $amount
+    ): void {
+        if ($amount <= 0) {
+            return;
+        }
+
+        if ($settlementCurrency === GameEconomyConfig::CURRENCY_RUBLIUS) {
+            if ($bankOwnerId <= 0) {
+                throw new \RuntimeException('У банка не указан владелец');
+            }
+
+            $this->walletService->debit(
+                $bankOwnerId,
+                GameEconomyConfig::CURRENCY_RUBLIUS,
+                $amount,
+                'bank_consignment_reserve',
+                'bank',
+                $bankId
+            );
+
+            return;
+        }
+
+        $this->repository->adjustUserBankLiquid($bankId, -$amount);
+    }
+
+    private function creditBankForConsignmentPayout(
+        int $bankId,
+        int $bankOwnerId,
+        string $settlementCurrency,
+        float $amount
+    ): void {
+        if ($amount <= 0) {
+            return;
+        }
+
+        if ($settlementCurrency === GameEconomyConfig::CURRENCY_RUBLIUS) {
+            if ($bankOwnerId <= 0) {
+                return;
+            }
+
+            $this->walletService->credit(
+                $bankOwnerId,
+                GameEconomyConfig::CURRENCY_RUBLIUS,
+                $amount,
+                'bank_consignment_reserve_rollback',
+                'bank',
+                $bankId
+            );
+
+            return;
+        }
+
+        $this->repository->adjustUserBankLiquid($bankId, $amount);
     }
 
     private function validateConsignParams(

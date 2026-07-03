@@ -238,12 +238,12 @@ export const gameModule = {
             await ctx.dispatch('auth/refreshGameInfo', null, { root: true });
             return res;
         },
-        async createGovSupportDeposit(ctx, { bankId, eventId = 0, amount = 0 }) {
+        async createGovSupportDeposit(ctx, { bankId, eventId = 0, amount = 0, currency = '' }) {
             const userToken = ctx.rootState.auth?.authData?.token;
             if (!userToken) {
                 throw new Error('Требуется авторизация');
             }
-            const res = await apiActions.game.createGovSupportDeposit(userToken, bankId, eventId, amount);
+            const res = await apiActions.game.createGovSupportDeposit(userToken, bankId, eventId, amount, currency);
             return applyGamePayload(ctx, res);
         },
         async closeGovSupportDeposit(ctx, depositId) {

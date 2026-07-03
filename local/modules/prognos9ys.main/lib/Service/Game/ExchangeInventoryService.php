@@ -84,6 +84,12 @@ class ExchangeInventoryService
             );
         }
 
+        if ($kind === ExchangeConfig::KIND_RUBLIUS) {
+            $wallet = (new WalletService($this->repository))->getWalletSummary($userId);
+
+            return (int)floor((float)($wallet['rublius'] ?? 0));
+        }
+
         return 0;
     }
 
@@ -175,6 +181,19 @@ class ExchangeInventoryService
             return;
         }
 
+        if ($kind === ExchangeConfig::KIND_RUBLIUS) {
+            (new WalletService($this->repository))->debit(
+                $userId,
+                GameEconomyConfig::CURRENCY_RUBLIUS,
+                (float)$qty,
+                'exchange_consign',
+                'exchange_listing',
+                0
+            );
+
+            return;
+        }
+
         throw new \InvalidArgumentException('Неизвестный тип предмета');
     }
 
@@ -229,6 +248,19 @@ class ExchangeInventoryService
 
             return;
         }
+
+        if ($kind === ExchangeConfig::KIND_RUBLIUS) {
+            (new WalletService($this->repository))->credit(
+                $userId,
+                GameEconomyConfig::CURRENCY_RUBLIUS,
+                (float)$qty,
+                'exchange_buy',
+                'exchange_listing',
+                0
+            );
+
+            return;
+        }
     }
 
     public function resolveNominal(
@@ -255,6 +287,10 @@ class ExchangeInventoryService
 
         if ($kind === ExchangeConfig::KIND_MATERIAL) {
             return ExchangeNominalConfig::getMaterialNominal($code);
+        }
+
+        if ($kind === ExchangeConfig::KIND_RUBLIUS) {
+            return (float)GameEconomyConfig::RUBLIUS_TO_PROGNOBAKS;
         }
 
         return 0.0;
@@ -285,7 +321,15 @@ class ExchangeInventoryService
         }
 
         if ($kind === ExchangeConfig::KIND_PENNANT) {
+            if (AchievementPennantConfig::isAchievementPennantCode($code)) {
+                return AchievementPennantConfig::getLabel($code);
+            }
+
             return $code === 'chm2026' ? 'Вымпел ЧМ-26' : 'Вымпел сайта';
+        }
+
+        if ($kind === ExchangeConfig::KIND_RUBLIUS) {
+            return 'Рублиус 💎';
         }
 
         if ($kind === ExchangeConfig::KIND_LOOT) {

@@ -12,43 +12,70 @@ class GovSupportDepositService
     private GameEconomyRepository $repository;
     private TreasuryService $treasuryService;
     private GameEventScopeService $scopeService;
+    private WalletService $walletService;
 
     public function __construct(
         ?GameEconomyRepository $repository = null,
         ?TreasuryService $treasuryService = null,
-        ?GameEventScopeService $scopeService = null
+        ?GameEventScopeService $scopeService = null,
+        ?WalletService $walletService = null
     ) {
         $this->repository = $repository ?? new GameEconomyRepository();
         $this->treasuryService = $treasuryService ?? new TreasuryService($this->repository);
         $this->scopeService = $scopeService ?? new GameEventScopeService();
+        $this->walletService = $walletService ?? new WalletService($this->repository);
     }
 
-    public function createDeposit(int $userId, int $bankId, ?int $eventId = null, float $amount = 0): array
-    {
+    public function createDeposit(
+        int $userId,
+        int $bankId,
+        ?int $eventId = null,
+        float $amount = 0,
+        string $currency = ''
+    ): array {
         if ($userId <= 0 || $bankId <= 0) {
             throw new \InvalidArgumentException('Некорректные параметры вклада');
         }
 
-        $amount = GameEconomyConfig::resolveGovSupportDepositAmount($amount);
+        $currency = trim($currency) !== ''
+            ? trim($currency)
+            : GameEconomyConfig::CURRENCY_PROGNOBAKS;
+        $amount = GameEconomyConfig::resolveGovSupportDepositAmount($amount, $currency);
+        $isRublius = $currency === GameEconomyConfig::CURRENCY_RUBLIUS;
 
         $bank = $this->repository->getUserBankById($bankId);
         if (!$bank || ($bank['UF_ACTIVE'] ?? '') !== GameEconomyConfig::USER_BANK_STATUS_ACTIVE) {
             throw new \RuntimeException('Банк не найден или закрыт');
         }
 
-        if (!$this->treasuryService->hasFunds(
-            GameEconomyConfig::CURRENCY_PROGNOBAKS,
-            $amount
-        )) {
+        $bankOwnerId = (int)($bank['UF_OWNER_ID'] ?? 0);
+        if ($bankOwnerId <= 0) {
+            throw new \RuntimeException('У банка не указан владелец');
+        }
+
+        if (!$this->treasuryService->hasFunds($currency, $amount)) {
             throw new \RuntimeException('Недостаточно средств в казне');
         }
 
         $this->treasuryService->debit(
-            GameEconomyConfig::CURRENCY_PROGNOBAKS,
+            $currency,
             $amount,
             'gov_support_deposit',
             $bankId
         );
+
+        if ($isRublius) {
+            $this->walletService->credit(
+                $bankOwnerId,
+                GameEconomyConfig::CURRENCY_RUBLIUS,
+                $amount,
+                'gov_support_deposit',
+                'bank',
+                $bankId
+            );
+        } else {
+            $this->repository->adjustUserBankLiquid($bankId, $amount);
+        }
 
         $eventId = $this->scopeService->resolveContractEventId($eventId);
         $lastSettledMatch = $this->scopeService->getLastSettledMatchForEvent($eventId);
@@ -66,14 +93,14 @@ class GovSupportDepositService
             'UF_OPENING_MATCH_ID' => $lastSettledMatch['id'],
             'UF_OPENING_MATCH_NUMBER' => $lastSettledMatch['number'],
             'UF_LAST_TICK_MATCH_ID' => 0,
-            'UF_CONTRACT_TYPE' => GameEconomyConfig::CONTRACT_TYPE_GOV_SUPPORT,
+            'UF_CONTRACT_TYPE' => $isRublius
+                ? GameEconomyConfig::CONTRACT_TYPE_GOV_SUPPORT_RUBLIUS
+                : GameEconomyConfig::CONTRACT_TYPE_GOV_SUPPORT,
             'UF_CREATED_AT' => $now,
             'UF_UPDATED_AT' => $now,
         ]);
 
-        $this->repository->adjustUserBankLiquid($bankId, $amount);
-
-        return self::formatContract($this->repository->getBankDepositById($depositId));
+        return self::formatContract($this->repository->getBankDepositById($depositId), $this->repository);
     }
 
     public function processMaturity(array $deposit): void
@@ -97,25 +124,53 @@ class GovSupportDepositService
         $principal = round((float)($deposit['UF_PRINCIPAL'] ?? 0), 1);
         $interest = GameEconomyConfig::calculateGovSupportInterest($principal);
         $now = new DateTime();
+        $currency = self::depositCurrency($deposit);
+        $bankOwnerId = (int)($this->repository->getUserBankById($bankId)['UF_OWNER_ID'] ?? 0);
 
         if ($interest > 0) {
-            $bank = $this->repository->getUserBankById($bankId);
-            if (!$bank) {
-                return;
-            }
+            if ($currency === GameEconomyConfig::CURRENCY_RUBLIUS) {
+                if ($bankOwnerId <= 0) {
+                    return;
+                }
 
-            $liquid = round((float)($bank['UF_LIQUID'] ?? 0), 1);
-            if ($liquid < $interest) {
-                return;
-            }
+                $wallet = $this->walletService->getWalletSummary($bankOwnerId);
+                if (round((float)($wallet['rublius'] ?? 0), 1) < $interest) {
+                    return;
+                }
 
-            $this->repository->adjustUserBankLiquid($bankId, -$interest);
-            $this->treasuryService->credit(
-                GameEconomyConfig::CURRENCY_PROGNOBAKS,
-                $interest,
-                'gov_support_interest',
-                $depositId
-            );
+                $this->walletService->debit(
+                    $bankOwnerId,
+                    GameEconomyConfig::CURRENCY_RUBLIUS,
+                    $interest,
+                    'gov_support_interest',
+                    'bank_deposit',
+                    $depositId
+                );
+                $this->treasuryService->credit(
+                    GameEconomyConfig::CURRENCY_RUBLIUS,
+                    $interest,
+                    'gov_support_interest',
+                    $depositId
+                );
+            } else {
+                $bank = $this->repository->getUserBankById($bankId);
+                if (!$bank) {
+                    return;
+                }
+
+                $liquid = round((float)($bank['UF_LIQUID'] ?? 0), 1);
+                if ($liquid < $interest) {
+                    return;
+                }
+
+                $this->repository->adjustUserBankLiquid($bankId, -$interest);
+                $this->treasuryService->credit(
+                    GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                    $interest,
+                    'gov_support_interest',
+                    $depositId
+                );
+            }
         }
 
         $this->repository->updateBankDeposit($depositId, [
@@ -150,24 +205,53 @@ class GovSupportDepositService
 
         $bankId = (int)($deposit['UF_BANK_ID'] ?? 0);
         $principal = round((float)($deposit['UF_PRINCIPAL'] ?? 0), 1);
+        $currency = self::depositCurrency($deposit);
         $bank = $this->repository->getUserBankById($bankId);
         if (!$bank) {
             throw new \RuntimeException('Банк вклада не найден');
         }
 
-        $liquid = round((float)($bank['UF_LIQUID'] ?? 0), 1);
-        if ($liquid < $principal) {
-            throw new \RuntimeException('В банке недостаточно ликвидности для возврата вклада');
-        }
+        $bankOwnerId = (int)($bank['UF_OWNER_ID'] ?? 0);
+        if ($currency === GameEconomyConfig::CURRENCY_RUBLIUS) {
+            if ($bankOwnerId <= 0) {
+                throw new \RuntimeException('У банка не указан владелец');
+            }
 
-        $now = new DateTime();
-        $this->repository->adjustUserBankLiquid($bankId, -$principal);
-        $this->treasuryService->credit(
-            GameEconomyConfig::CURRENCY_PROGNOBAKS,
-            $principal,
-            'gov_support_return',
-            $depositId
-        );
+            $wallet = $this->walletService->getWalletSummary($bankOwnerId);
+            if (round((float)($wallet['rublius'] ?? 0), 1) < $principal) {
+                throw new \RuntimeException('У владельца банка недостаточно рублиусов для возврата вклада');
+            }
+
+            $now = new DateTime();
+            $this->walletService->debit(
+                $bankOwnerId,
+                GameEconomyConfig::CURRENCY_RUBLIUS,
+                $principal,
+                'gov_support_return',
+                'bank_deposit',
+                $depositId
+            );
+            $this->treasuryService->credit(
+                GameEconomyConfig::CURRENCY_RUBLIUS,
+                $principal,
+                'gov_support_return',
+                $depositId
+            );
+        } else {
+            $liquid = round((float)($bank['UF_LIQUID'] ?? 0), 1);
+            if ($liquid < $principal) {
+                throw new \RuntimeException('В банке недостаточно ликвидности для возврата вклада');
+            }
+
+            $now = new DateTime();
+            $this->repository->adjustUserBankLiquid($bankId, -$principal);
+            $this->treasuryService->credit(
+                GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                $principal,
+                'gov_support_return',
+                $depositId
+            );
+        }
 
         $this->repository->updateBankDeposit($depositId, [
             'UF_STATUS' => GameEconomyConfig::CONTRACT_STATUS_CLOSED,
@@ -203,15 +287,48 @@ class GovSupportDepositService
 
         $bankId = (int)($deposit['UF_BANK_ID'] ?? 0);
         $principal = round((float)($deposit['UF_PRINCIPAL'] ?? 0), 1);
+        $currency = self::depositCurrency($deposit);
+        $bank = $this->repository->getUserBankById($bankId);
+        if (!$bank) {
+            throw new \RuntimeException('Банк вклада не найден');
+        }
+
+        $bankOwnerId = (int)($bank['UF_OWNER_ID'] ?? 0);
         $now = new DateTime();
 
-        $this->repository->adjustUserBankLiquid($bankId, -$principal);
-        $this->treasuryService->credit(
-            GameEconomyConfig::CURRENCY_PROGNOBAKS,
-            $principal,
-            'gov_support_early_close',
-            $depositId
-        );
+        if ($currency === GameEconomyConfig::CURRENCY_RUBLIUS) {
+            if ($bankOwnerId <= 0) {
+                throw new \RuntimeException('У банка не указан владелец');
+            }
+
+            $wallet = $this->walletService->getWalletSummary($bankOwnerId);
+            if (round((float)($wallet['rublius'] ?? 0), 1) < $principal) {
+                throw new \RuntimeException('У владельца банка недостаточно рублиусов для досрочного возврата');
+            }
+
+            $this->walletService->debit(
+                $bankOwnerId,
+                GameEconomyConfig::CURRENCY_RUBLIUS,
+                $principal,
+                'gov_support_early_close',
+                'bank_deposit',
+                $depositId
+            );
+            $this->treasuryService->credit(
+                GameEconomyConfig::CURRENCY_RUBLIUS,
+                $principal,
+                'gov_support_early_close',
+                $depositId
+            );
+        } else {
+            $this->repository->adjustUserBankLiquid($bankId, -$principal);
+            $this->treasuryService->credit(
+                GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                $principal,
+                'gov_support_early_close',
+                $depositId
+            );
+        }
 
         $this->repository->updateBankDeposit($depositId, [
             'UF_STATUS' => GameEconomyConfig::CONTRACT_STATUS_CLOSED,
@@ -262,8 +379,19 @@ class GovSupportDepositService
 
     public static function isGovSupportDeposit(array $row): bool
     {
-        return (string)($row['UF_CONTRACT_TYPE'] ?? GameEconomyConfig::CONTRACT_TYPE_REGULAR)
-            === GameEconomyConfig::CONTRACT_TYPE_GOV_SUPPORT;
+        $type = (string)($row['UF_CONTRACT_TYPE'] ?? GameEconomyConfig::CONTRACT_TYPE_REGULAR);
+
+        return in_array($type, [
+            GameEconomyConfig::CONTRACT_TYPE_GOV_SUPPORT,
+            GameEconomyConfig::CONTRACT_TYPE_GOV_SUPPORT_RUBLIUS,
+        ], true);
+    }
+
+    public static function depositCurrency(array $row): string
+    {
+        return (string)($row['UF_CONTRACT_TYPE'] ?? '') === GameEconomyConfig::CONTRACT_TYPE_GOV_SUPPORT_RUBLIUS
+            ? GameEconomyConfig::CURRENCY_RUBLIUS
+            : GameEconomyConfig::CURRENCY_PROGNOBAKS;
     }
 
     /**
@@ -302,6 +430,20 @@ class GovSupportDepositService
             return ['can_force_close' => false, 'reason' => 'bank_not_found'];
         }
 
+        if (self::depositCurrency($row) === GameEconomyConfig::CURRENCY_RUBLIUS) {
+            $ownerId = (int)($bank['UF_OWNER_ID'] ?? 0);
+            if ($ownerId <= 0) {
+                return ['can_force_close' => false, 'reason' => 'bank_not_found'];
+            }
+
+            $wallet = (new WalletService($repository))->getWalletSummary($ownerId);
+            if (round((float)($wallet['rublius'] ?? 0), 1) < $principal) {
+                return ['can_force_close' => false, 'reason' => 'bank_liquid_moved'];
+            }
+
+            return ['can_force_close' => true];
+        }
+
         $liquid = round((float)($bank['UF_LIQUID'] ?? 0), 1);
         if ($liquid < $principal) {
             return ['can_force_close' => false, 'reason' => 'bank_liquid_moved'];
@@ -319,7 +461,7 @@ class GovSupportDepositService
     {
         switch ($reason) {
             case 'bank_liquid_moved':
-                return 'Досрочное изъятие недоступно: в банке нет свободной ликвидности';
+                return 'Досрочное изъятие недоступно: нет свободных средств для возврата';
             case 'interest_paid_use_close':
                 return 'Проценты уже ушли в казну — заберите вклад обычной кнопкой';
             case 'already_settled':
@@ -333,7 +475,7 @@ class GovSupportDepositService
     public static function getOwnerReturnBlockMessage(string $reason): string
     {
         if ($reason === 'bank_liquid_moved') {
-            return 'В банке нет свободной ликвидности для возврата вклада';
+            return 'Недостаточно средств для возврата вклада (ликвидность банка или рублиусы владельца)';
         }
 
         return self::getForceCloseBlockMessage($reason);
@@ -360,9 +502,21 @@ class GovSupportDepositService
             return ['can_return' => false, 'early' => false, 'reason' => 'bank_not_found'];
         }
 
-        $liquid = round((float)($bank['UF_LIQUID'] ?? 0), 1);
-        if ($liquid < $principal) {
-            return ['can_return' => false, 'early' => false, 'reason' => 'bank_liquid_moved'];
+        if (self::depositCurrency($row) === GameEconomyConfig::CURRENCY_RUBLIUS) {
+            $ownerId = (int)($bank['UF_OWNER_ID'] ?? 0);
+            if ($ownerId <= 0) {
+                return ['can_return' => false, 'early' => false, 'reason' => 'bank_not_found'];
+            }
+
+            $wallet = (new WalletService($repository))->getWalletSummary($ownerId);
+            if (round((float)($wallet['rublius'] ?? 0), 1) < $principal) {
+                return ['can_return' => false, 'early' => false, 'reason' => 'bank_liquid_moved'];
+            }
+        } else {
+            $liquid = round((float)($bank['UF_LIQUID'] ?? 0), 1);
+            if ($liquid < $principal) {
+                return ['can_return' => false, 'early' => false, 'reason' => 'bank_liquid_moved'];
+            }
         }
 
         if ($status === GameEconomyConfig::CONTRACT_STATUS_INTEREST_PAID) {
@@ -384,7 +538,10 @@ class GovSupportDepositService
     public static function formatContract(array $row, ?GameEconomyRepository $repository = null): array
     {
         $formatted = BankDepositService::formatContract($row);
-        $formatted['contract_type'] = GameEconomyConfig::CONTRACT_TYPE_GOV_SUPPORT;
+        $currency = self::depositCurrency($row);
+        $symbol = $currency === GameEconomyConfig::CURRENCY_RUBLIUS ? '💎' : '🪙';
+        $formatted['contract_type'] = (string)($row['UF_CONTRACT_TYPE'] ?? GameEconomyConfig::CONTRACT_TYPE_GOV_SUPPORT);
+        $formatted['currency'] = $currency;
         $formatted['interest_amount'] = GameEconomyConfig::calculateGovSupportInterest(
             round((float)($row['UF_PRINCIPAL'] ?? 0), 1)
         );
@@ -398,7 +555,7 @@ class GovSupportDepositService
         }
         $formatted['label'] = 'Гос. вклад поддержки · '
             . (int)round((float)($row['UF_PRINCIPAL'] ?? 0), 0)
-            . ' 🪙';
+            . ' ' . $symbol;
         $formatted['is_gov_support'] = true;
         $status = (string)($row['UF_STATUS'] ?? '');
         $interestAmount = (float)($formatted['interest_amount'] ?? 0);
@@ -407,9 +564,9 @@ class GovSupportDepositService
             GameEconomyConfig::CONTRACT_STATUS_CLOSED,
         ], true);
         if ($formatted['interest_paid'] && $interestAmount > 0) {
-            $formatted['interest_status_label'] = 'Проценты выплачены в казну: ' . $interestAmount . ' 🪙';
+            $formatted['interest_status_label'] = 'Проценты выплачены в казну: ' . $interestAmount . ' ' . $symbol;
         } elseif ($interestAmount > 0) {
-            $formatted['interest_status_label'] = 'Проценты после 5 туров: ' . $interestAmount . ' 🪙';
+            $formatted['interest_status_label'] = 'Проценты после 5 туров: ' . $interestAmount . ' ' . $symbol;
         } else {
             $formatted['interest_status_label'] = '';
         }

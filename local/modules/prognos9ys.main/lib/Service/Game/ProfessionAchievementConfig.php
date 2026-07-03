@@ -118,7 +118,7 @@ class ProfessionAchievementConfig
             ];
 
             if ($stage === 1 && $index === 4) {
-                $reward['pennant'] = 'prof_' . $code;
+                $reward['pennant'] = AchievementPennantConfig::professionPennantCode($code);
             }
 
             $levels[] = [
@@ -158,18 +158,24 @@ class ProfessionAchievementConfig
 
         $levels = [];
         foreach ($thresholds as $index => $threshold) {
+            $reward = [
+                'rublius' => $rublius[$index],
+                'chests' => $chests[$index],
+                'chest_type' => self::resolveProfessionChestTypeForStage($stage, $index),
+                'materials' => [[
+                    'code' => (string)$profession['premium'],
+                    'qty' => $resourceRewards[$index],
+                    'is_premium' => true,
+                ]],
+            ];
+
+            if ($stage === 1 && $index === 4) {
+                $reward['pennant'] = AchievementPennantConfig::professionPremiumPennantCode($code);
+            }
+
             $levels[] = [
                 'threshold' => $threshold,
-                'reward' => [
-                    'rublius' => $rublius[$index],
-                    'chests' => $chests[$index],
-                    'chest_type' => self::resolveProfessionChestTypeForStage($stage, $index),
-                    'materials' => [[
-                        'code' => (string)$profession['premium'],
-                        'qty' => $resourceRewards[$index],
-                        'is_premium' => true,
-                    ]],
-                ],
+                'reward' => $reward,
             ];
         }
 

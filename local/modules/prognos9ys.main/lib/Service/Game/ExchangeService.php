@@ -205,6 +205,18 @@ class ExchangeService
             throw new \InvalidArgumentException('Некорректные параметры лота');
         }
 
+        if ($kind === ExchangeConfig::KIND_RUBLIUS) {
+            throw new \RuntimeException('Рублиусы можно продать только через комиссионку банка');
+        }
+
+        if ($kind === ExchangeConfig::KIND_PREMIUM_SCROLL) {
+            throw new \RuntimeException('Свитки премиума можно продать только через комиссионку банка');
+        }
+
+        if ($kind === ExchangeConfig::KIND_PENNANT && AchievementPennantConfig::isAchievementPennantCode($code)) {
+            throw new \RuntimeException('Вымпелы достижений нельзя продавать — только вклейка в альбом');
+        }
+
         $pallet = ExchangeNominalConfig::getPalletLimit($kind, $code, $category);
         if ($qty > $pallet) {
             throw new \RuntimeException('Максимум ' . $pallet . ' шт. в одном лоте');
@@ -454,7 +466,12 @@ class ExchangeService
                     $listingId
                 );
             } elseif ($isBankListing && $sellerBankId > 0) {
-                $this->repository->adjustUserBankLiquid($sellerBankId, (float)$chunk['seller_net']);
+                $this->creditBankConsignmentSale(
+                    $sellerBankId,
+                    $settlementCurrency,
+                    (float)$chunk['seller_net'],
+                    $listingId
+                );
             } else {
                 $this->walletService->credit(
                     $sellerId,
@@ -553,7 +570,7 @@ class ExchangeService
         int $eventId = 0,
         string $teamCode = ''
     ): array {
-        return $this->consignmentService->consign(
+        $result = $this->consignmentService->consign(
             $userId,
             $kind,
             $code,
@@ -562,6 +579,10 @@ class ExchangeService
             $eventId,
             $teamCode
         );
+
+        return array_merge($result, [
+            'currency' => ExchangeConfig::resolveSettlementCurrency($kind),
+        ]);
     }
 
     /**
@@ -753,36 +774,38 @@ class ExchangeService
             }
 
             $nominal = ExchangeNominalConfig::getPremiumScrollNominal($days);
-            $items[] = $this->sellableRow(
-                ExchangeConfig::KIND_PREMIUM_SCROLL,
-                (string)$days,
-                '',
-                0,
-                '',
-                $count,
-                $nominal
+            $items[] = array_merge(
+                $this->sellableRow(
+                    ExchangeConfig::KIND_PREMIUM_SCROLL,
+                    (string)$days,
+                    '',
+                    0,
+                    '',
+                    $count,
+                    $nominal
+                ),
+                ['consign_only' => true]
             );
         }
 
-        foreach (['site', 'chm2026'] as $pennantCode) {
-            $count = $this->inventoryService->getAvailableQty(
-                $userId,
-                ExchangeConfig::KIND_PENNANT,
-                $pennantCode
-            );
-            if ($count <= 0) {
-                continue;
-            }
-
-            $nominal = ExchangeNominalConfig::getPennantNominal($pennantCode);
-            $items[] = $this->sellableRow(
-                ExchangeConfig::KIND_PENNANT,
-                $pennantCode,
-                '',
-                0,
-                '',
-                $count,
-                $nominal
+        $rubliusCount = $this->inventoryService->getAvailableQty(
+            $userId,
+            ExchangeConfig::KIND_RUBLIUS,
+            ExchangeConfig::RUBLIUS_EXCHANGE_CODE
+        );
+        if ($rubliusCount > 0) {
+            $nominal = (float)GameEconomyConfig::RUBLIUS_TO_PROGNOBAKS;
+            $items[] = array_merge(
+                $this->sellableRow(
+                    ExchangeConfig::KIND_RUBLIUS,
+                    ExchangeConfig::RUBLIUS_EXCHANGE_CODE,
+                    '',
+                    0,
+                    '',
+                    $rubliusCount,
+                    $nominal
+                ),
+                ['consign_only' => true]
             );
         }
 
@@ -1529,9 +1552,39 @@ class ExchangeService
 
     private function resolveSettlementCurrencyByKind(string $kind): string
     {
-        return $kind === ExchangeConfig::KIND_PREMIUM_SCROLL
-            ? GameEconomyConfig::CURRENCY_RUBLIUS
-            : GameEconomyConfig::CURRENCY_PROGNOBAKS;
+        return ExchangeConfig::resolveSettlementCurrency($kind);
+    }
+
+    private function creditBankConsignmentSale(
+        int $bankId,
+        string $settlementCurrency,
+        float $amount,
+        int $listingId
+    ): void {
+        if ($amount <= 0 || $bankId <= 0) {
+            return;
+        }
+
+        if ($settlementCurrency === GameEconomyConfig::CURRENCY_RUBLIUS) {
+            $bank = $this->repository->getUserBankById($bankId);
+            $bankOwnerId = (int)($bank['UF_OWNER_ID'] ?? 0);
+            if ($bankOwnerId <= 0) {
+                throw new \RuntimeException('У банка не указан владелец');
+            }
+
+            $this->walletService->credit(
+                $bankOwnerId,
+                GameEconomyConfig::CURRENCY_RUBLIUS,
+                $amount,
+                'exchange_sell_bank',
+                'exchange_listing',
+                $listingId
+            );
+
+            return;
+        }
+
+        $this->repository->adjustUserBankLiquid($bankId, $amount);
     }
 
     private function currencySymbol(string $currency): string

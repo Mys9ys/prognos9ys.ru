@@ -192,6 +192,10 @@ class ExchangeNominalConfig
             return ExchangeConfig::PALLET_LIMITS[$kind];
         }
 
+        if ($kind === ExchangeConfig::KIND_RUBLIUS) {
+            return ExchangeConfig::PALLET_LIMITS[$kind];
+        }
+
         return 5;
     }
 

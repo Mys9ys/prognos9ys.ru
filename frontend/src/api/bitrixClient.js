@@ -252,9 +252,9 @@ export const apiActions = {
                 milestone: milestone || undefined,
             }
         ),
-        createGovSupportDeposit: (userToken, bankId, eventId = 0, amount = 0) => runBitrixAction(
+        createGovSupportDeposit: (userToken, bankId, eventId = 0, amount = 0, currency = '') => runBitrixAction(
             'prognos9ys:main.GameController.createGovSupportDeposit',
-            { userToken, bankId, eventId: eventId || undefined, amount: amount || undefined }
+            { userToken, bankId, eventId: eventId || undefined, amount: amount || undefined, currency: currency || undefined }
         ),
         closeGovSupportDeposit: (userToken, depositId) => runBitrixAction(
             'prognos9ys:main.GameController.closeGovSupportDeposit',

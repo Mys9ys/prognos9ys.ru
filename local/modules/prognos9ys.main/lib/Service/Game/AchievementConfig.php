@@ -388,6 +388,7 @@ class AchievementConfig
             'chm2026',
             CollectionMegaAchievementConfig::CODE_PENNANT,
             CollectionMegaAchievementConfig::CODE_SCARF,
+            CollectionMegaAchievementConfig::CODE_ACHIEVEMENT_PENNANT,
         ], true);
     }
 
@@ -398,6 +399,7 @@ class AchievementConfig
         }
 
         return in_array($code, [
+            CollectionMegaAchievementConfig::CODE_ACHIEVEMENT_PENNANT,
             'recipe_learned',
             'recipe_album_craft',
             'exchange_buy_material_normal',

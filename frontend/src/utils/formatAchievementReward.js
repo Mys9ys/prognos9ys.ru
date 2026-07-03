@@ -1,4 +1,5 @@
 import { formatAmount } from '@/utils/formatLevelRewards';
+import { getAchievementPennantIconSrc } from '@/config/achievementPennantIcons';
 
 const PENNANT_LABELS = {
   site: 'Вымпел Прогносяус',
@@ -60,10 +61,12 @@ export function buildAchievementRewardBits(reward) {
 
   const pennant = String(reward.pennant || '').trim();
   if (pennant) {
+    const iconSrc = getAchievementPennantIconSrc(pennant);
     bits.push({
       key: `pennant_${pennant}`,
       label: PENNANT_LABELS[pennant] || `Вымпел ${pennant}`,
-      icon: PENNANT_ICONS[pennant] || 'pennant_site',
+      icon: PENNANT_ICONS[pennant] || (iconSrc ? `pennant:${pennant}` : 'pennant_site'),
+      imageSrc: iconSrc || undefined,
     });
   }
 
