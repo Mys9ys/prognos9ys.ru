@@ -69,6 +69,10 @@ class ExchangeInventoryService
                 return $this->getSellableAlbumQty($userId);
             }
 
+            if ($category === ChestLootConfig::CATEGORY_PACK) {
+                return $this->repository->getSealedPackCount($userId, $code);
+            }
+
             if (ChestLootConfig::isEventAgnosticLootCategory($category)) {
                 return $this->repository->getEventAgnosticLootItemCount($userId, $code, $category);
             }
@@ -155,6 +159,12 @@ class ExchangeInventoryService
         if ($kind === ExchangeConfig::KIND_LOOT) {
             if ($this->isSellableAlbum($code, $category)) {
                 $this->takeSellableAlbums($userId, $qty);
+
+                return;
+            }
+
+            if ($category === ChestLootConfig::CATEGORY_PACK) {
+                $this->repository->decrementSealedPack($userId, $code, $qty);
 
                 return;
             }

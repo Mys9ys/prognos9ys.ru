@@ -1571,6 +1571,10 @@ class ExchangeService
         $pallet = ExchangeNominalConfig::getPalletLimit(ExchangeConfig::KIND_LOOT, $code, $category);
         $qty = $inventory->getAvailableQty($userId, ExchangeConfig::KIND_LOOT, $code, $category);
 
+        $listingEventId = $category === ChestLootConfig::CATEGORY_PACK
+            ? $this->repository->findSealedPackEventId($userId, $code)
+            : 0;
+
         while ($qty > 0 && $slotsLeft > 0) {
             $chunk = min($qty, $pallet);
             try {
@@ -1580,7 +1584,8 @@ class ExchangeService
                     $code,
                     $chunk,
                     $nominal,
-                    $category
+                    $category,
+                    $listingEventId
                 );
                 $listing = $result['listing'] ?? null;
                 if (is_array($listing)) {

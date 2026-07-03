@@ -4185,6 +4185,21 @@ class GameEconomyRepository
         return $total;
     }
 
+    public function findSealedPackEventId(int $userId, string $packCode): int
+    {
+        if ($userId <= 0 || $packCode === '') {
+            return ChestLootConfig::LOOT_EVENT_GLOBAL;
+        }
+
+        foreach ($this->resolveLootLookupEventIds() as $eventId) {
+            if ($this->getSealedPackCountForEvent($userId, $eventId, $packCode) > 0) {
+                return $eventId;
+            }
+        }
+
+        return ChestLootConfig::LOOT_EVENT_GLOBAL;
+    }
+
     public function decrementSealedPack(int $userId, string $packCode, int $qty): void
     {
         if ($userId <= 0 || $packCode === '' || $qty <= 0) {

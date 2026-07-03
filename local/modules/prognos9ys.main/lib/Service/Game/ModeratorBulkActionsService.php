@@ -444,7 +444,7 @@ class ModeratorBulkActionsService
 
         $sellLoot = self::parseSellLootBulkAction($bulkAction);
         if ($sellLoot) {
-            $qty = $this->repository->getEventAgnosticLootItemCount(
+            $qty = $this->resolveSellLootAvailableQty(
                 $userId,
                 (string)$sellLoot['code'],
                 (string)$sellLoot['category']
@@ -863,6 +863,16 @@ class ModeratorBulkActionsService
     private static function parseSellLootBulkAction(string $bulkAction): ?array
     {
         return self::SELL_LOOT_BULK[$bulkAction] ?? null;
+    }
+
+    private function resolveSellLootAvailableQty(int $userId, string $code, string $category): int
+    {
+        return (new ExchangeInventoryService($this->repository))->getAvailableQty(
+            $userId,
+            ExchangeConfig::KIND_LOOT,
+            $code,
+            $category
+        );
     }
 
     /**
