@@ -211,9 +211,11 @@
           <div class="row_actions sell_actions">
             <input v-model.number="sellForm[itemKey(item)].qty" type="number" min="1" :max="item.available" class="qty_input" />
             <div class="price_row">
-              <button type="button" class="price_edge_btn" :disabled="busy" @click="setSellPrice(item, 'min')">мин</button>
               <input v-model.number="sellForm[itemKey(item)].price" type="number" step="0.1" :min="item.nominal" :max="item.max_price" class="price_input" />
-              <button type="button" class="price_edge_btn" :disabled="busy" @click="setSellPrice(item, 'max')">макс</button>
+              <div class="price_edge_col">
+                <button type="button" class="price_edge_btn" :disabled="busy" @click="setSellPrice(item, 'min')">min</button>
+                <button type="button" class="price_edge_btn" :disabled="busy" @click="setSellPrice(item, 'max')">max</button>
+              </div>
             </div>
             <button
               v-if="!item.consign_only"
@@ -1868,23 +1870,33 @@ export default {
 
 .price_input {
   width: 72px;
+  box-sizing: border-box;
 }
 
 .price_row {
   display: inline-flex;
-  align-items: center;
+  align-items: stretch;
   gap: 2px;
 }
 
+.price_edge_col {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex-shrink: 0;
+}
+
 .price_edge_btn {
+  flex: 1;
   border: 1px solid fade(@colorBlur, 35%);
   background: fade(@darkbg, 90%);
   color: @colorBlur;
-  font-size: 10px;
+  font-size: 9px;
   line-height: 1;
-  padding: 5px 4px;
-  border-radius: 3px;
+  padding: 0 5px;
+  border-radius: 2px;
   cursor: pointer;
+  min-height: 0;
 }
 
 .price_edge_btn:hover:not(:disabled) {
