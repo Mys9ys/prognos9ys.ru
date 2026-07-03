@@ -353,6 +353,124 @@ class PremiumFarmQueueProjectionService
     }
 
     /**
+     * @param array{
+     *   materials_self: array<string, int>,
+     *   materials_gov: array<string, int>,
+     *   albums: int,
+     *   reserved_prognobaks: float
+     * } $state
+     * @param array<string, mixed> $payload
+     */
+    public function simulateExchangeBuy(array &$state, array $payload): void
+    {
+        $kind = (string)($payload['kind'] ?? '');
+        $code = (string)($payload['code'] ?? '');
+        $category = (string)($payload['category'] ?? '');
+        $qty = max(0, (int)($payload['qty'] ?? 0));
+        if ($qty <= 0 || $code === '') {
+            return;
+        }
+
+        if ($kind === ExchangeConfig::KIND_MATERIAL) {
+            $state['materials_self'][$code] = (int)($state['materials_self'][$code] ?? 0) + $qty;
+        }
+
+        $cost = $this->estimateBuyCost($kind, $code, $category, $qty);
+        $state['reserved_prognobaks'] = round((float)$state['reserved_prognobaks'] + $cost, 1);
+    }
+
+    /**
+     * @param array{
+     *   materials_self: array<string, int>,
+     *   materials_gov: array<string, int>,
+     *   albums: int,
+     *   reserved_prognobaks: float
+     * } $state
+     */
+    public function simulateProfessionCraft(array &$state, string $recipeCode): void
+    {
+        $definition = ProfessionRecipeConfig::getCraftDefinition($recipeCode);
+        if (!$definition) {
+            return;
+        }
+
+        foreach ($definition['inputs'] ?? [] as $input) {
+            $code = (string)($input['code'] ?? '');
+            $qty = max(1, (int)($input['qty'] ?? 1));
+            if ($code === '' || (string)($input['source'] ?? 'material') !== 'material') {
+                continue;
+            }
+
+            $state['materials_self'][$code] = max(0, (int)($state['materials_self'][$code] ?? 0) - $qty);
+        }
+
+        foreach ($definition['outputs'] ?? [] as $output) {
+            $code = (string)($output['code'] ?? '');
+            $qty = max(1, (int)($output['qty'] ?? 1));
+            if ($code === '' || (string)($output['source'] ?? 'material') !== 'material') {
+                continue;
+            }
+
+            $state['materials_self'][$code] = (int)($state['materials_self'][$code] ?? 0) + $qty;
+        }
+
+        $state['reserved_prognobaks'] = round(
+            (float)$state['reserved_prognobaks'] + (int)($definition['work_cost'] ?? ProfessionRecipeConfig::WORK_COST),
+            1
+        );
+    }
+
+    private function estimateBuyCost(string $kind, string $code, string $category, int $qty): float
+    {
+        if ($qty <= 0) {
+            return 0.0;
+        }
+
+        $listings = $this->economyRepository->findActiveExchangeListingsForSku(
+            $kind,
+            $code,
+            $category,
+            0,
+            ''
+        );
+
+        usort($listings, static function (array $a, array $b): int {
+            $priceCmp = ((float)($a['UF_PRICE_PER_UNIT'] ?? 0)) <=> ((float)($b['UF_PRICE_PER_UNIT'] ?? 0));
+            if ($priceCmp !== 0) {
+                return $priceCmp;
+            }
+
+            return ((int)($a['ID'] ?? 0)) <=> ((int)($b['ID'] ?? 0));
+        });
+
+        $remaining = $qty;
+        $cost = 0.0;
+        foreach ($listings as $listing) {
+            if ($remaining <= 0) {
+                break;
+            }
+
+            $available = (int)($listing['UF_QTY_REMAINING'] ?? 0);
+            if ($available <= 0) {
+                continue;
+            }
+
+            $take = min($available, $remaining);
+            $cost = round($cost + $take * (float)($listing['UF_PRICE_PER_UNIT'] ?? 0), 1);
+            $remaining -= $take;
+        }
+
+        if ($remaining > 0) {
+            $nominal = $kind === ExchangeConfig::KIND_MATERIAL
+                ? ExchangeNominalConfig::getMaterialNominal($code)
+                : ExchangeNominalConfig::getLootNominal($code, $category);
+            $cost = round($cost + $remaining * $nominal, 1);
+        }
+
+        return $cost;
+    }
+
+    /**
      * @param array<string, mixed> $row
      * @param array<string, mixed>|null $activeSession
      * @param array<string, mixed> $payload
@@ -403,6 +521,18 @@ class PremiumFarmQueueProjectionService
 
         if ($taskType === PremiumWorkQueueConfig::TASK_ALBUM_CRAFT) {
             $this->simulateAlbumCraft($state);
+
+            return;
+        }
+
+        if ($taskType === PremiumWorkQueueConfig::TASK_PROFESSION_CRAFT) {
+            $this->simulateProfessionCraft($state, (string)($payload['recipe_code'] ?? ''));
+
+            return;
+        }
+
+        if ($taskType === PremiumWorkQueueConfig::TASK_EXCHANGE_BUY) {
+            $this->simulateExchangeBuy($state, $payload);
 
             return;
         }

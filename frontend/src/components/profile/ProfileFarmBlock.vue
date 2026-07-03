@@ -6,13 +6,23 @@
     <PreLoader v-if="loading && !farm" />
 
     <template v-else-if="farm">
-      <div class="farm_tabs" v-if="showFarmTabs" :class="{ farm_tabs_three: showQueueLogTab }">
+      <div
+        class="farm_tabs"
+        v-if="showFarmTabs"
+        :class="{ farm_tabs_four: showFarmTabs }"
+      >
         <button
           type="button"
           class="farm_tab"
           :class="{ active: activeFarmTab === 'work' }"
           @click="activeFarmTab = 'work'"
         >Запуски</button>
+        <button
+          type="button"
+          class="farm_tab"
+          :class="{ active: activeFarmTab === 'recipes' }"
+          @click="activeFarmTab = 'recipes'"
+        >Рецепты</button>
         <button
           type="button"
           class="farm_tab"
@@ -366,6 +376,49 @@
           </div>
         </div>
 
+        <div class="section" v-if="workQueue.premium_active && queueMaterialSellable.length">
+          <div class="section_title">Сдать добычу на биржу</div>
+          <p class="hint">
+            Только материалы с фарма — в очередь Premium, чтобы не кончились 🪙 на смены «для себя».
+            Сундуки и сувениры — вручную на бирже.
+          </p>
+
+          <div class="exchange_sell_list">
+            <div
+              v-for="(item, index) in queueMaterialSellable"
+              :key="exchangeSellKey(item, index)"
+              class="exchange_sell_row"
+            >
+              <div class="exchange_sell_main">
+                <div class="exchange_sell_label">{{ item.label }}</div>
+                <div class="exchange_sell_meta">
+                  В инвентаре: {{ item.available }} · номинал {{ item.nominal }}–{{ item.max_price }} 🪙
+                  · макс. {{ item.pallet_limit }}/лот
+                </div>
+              </div>
+              <button
+                type="button"
+                class="btn secondary mini"
+                :disabled="actionLoading"
+                @click="openExchangeSellModal(item)"
+              >★ В очередь</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="section" v-if="farm.materials?.length">
+          <div class="section_title">Инвентарь материалов</div>
+          <div class="mat_row" v-for="m in farm.materials" :key="m.code + (m.is_premium ? 'p' : '')">
+            <span class="mat_label">
+              <span class="mat_emoji">{{ m.emoji || '📦' }}</span>
+              {{ m.label }}<span v-if="m.is_premium" class="premium_badge"> ★</span>
+            </span>
+            <span>{{ m.qty }}</span>
+          </div>
+        </div>
+      </template>
+
+      <template v-if="!farm.slots?.needs_pick && activeFarmTab === 'recipes'">
         <div class="section" v-if="showAlbumCraftSection">
           <div class="section_title">Крафт альбомов</div>
           <p class="hint">
@@ -387,18 +440,31 @@
               </select>
             </label>
             <p class="hint">
-              Макрос: добыча/крафт материалов (для себя) → {{ albumMacroBatches }}
+              Макрос: материалы (добыча или покупка) → {{ albumMacroBatches }}
               {{ albumMacroBatches === 1 ? 'крафт' : 'крафта' }}
-              → {{ albumMacroOutputQty }} альбома на биржу
+              → {{ albumMacroOutputQty }} {{ albumMacroBatches === 1 ? 'альбом' : 'альбома' }}{{ albumMacroSellSuffix }}
             </p>
-            <label class="macro_consign">
-              <input
-                v-model="albumMacroConsign"
-                type="checkbox"
-                :disabled="actionLoading"
-              />
-              Сдать в комиссию банка (иначе — листинг на бирже)
-            </label>
+            <div class="macro_sell_options">
+              <label class="macro_consign">
+                <input
+                  v-model="albumMacroSell"
+                  type="checkbox"
+                  :disabled="actionLoading"
+                />
+                Продать
+              </label>
+              <label class="macro_consign" :class="{ disabled: !albumMacroSell }">
+                <input
+                  v-model="albumMacroConsign"
+                  type="checkbox"
+                  :disabled="actionLoading || !albumMacroSell"
+                />
+                Сдать в комиссию банка
+              </label>
+            </div>
+            <p v-if="albumMacroSell" class="hint">
+              Без комиссии — листинг на бирже по номиналу.
+            </p>
           </div>
           <div class="work_actions_row">
             <button
@@ -419,14 +485,23 @@
             >
               ★ В очередь
             </button>
+          </div>
+          <div v-if="workQueue.premium_active" class="recipe_macro_row">
             <button
-              v-if="workQueue.premium_active"
               type="button"
-              class="btn macro"
+              class="btn macro wide"
               :disabled="actionLoading || !albumCraftProfessionCode"
-              @click="onEnqueueAlbumMacro"
+              @click="onEnqueueAlbumMacro('gather')"
             >
               Собрать ресурсы и изготовить
+            </button>
+            <button
+              type="button"
+              class="btn macro_buy wide"
+              :disabled="actionLoading || !albumCraftProfessionCode"
+              @click="onEnqueueAlbumMacro('buy')"
+            >
+              Купить ресурсы и изготовить
             </button>
           </div>
         </div>
@@ -437,6 +512,38 @@
             Работа: {{ professionCraftWallet }} 🪙 на складе.
             Копия рецепта: чистый свиток ×1 + 10 🪙 работы (+5 XP).
           </p>
+          <div v-if="workQueue.premium_active" class="album_macro_controls">
+            <label class="macro_batches">
+              Партий за клик:
+              <select v-model.number="recipeMacroBatches" :disabled="actionLoading">
+                <option v-for="n in 5" :key="'rb' + n" :value="n">{{ n }}</option>
+              </select>
+            </label>
+            <p class="hint">
+              Макрос Premium: сначала материалы (добыча или покупка на бирже), затем крафт в очередь.
+            </p>
+            <div class="macro_sell_options">
+              <label class="macro_consign">
+                <input
+                  v-model="recipeMacroSell"
+                  type="checkbox"
+                  :disabled="actionLoading"
+                />
+                Продать
+              </label>
+              <label class="macro_consign" :class="{ disabled: !recipeMacroSell }">
+                <input
+                  v-model="recipeMacroConsign"
+                  type="checkbox"
+                  :disabled="actionLoading || !recipeMacroSell"
+                />
+                Сдать в комиссию банка
+              </label>
+            </div>
+            <p v-if="recipeMacroSell" class="hint">
+              Без комиссии — листинг на бирже по номиналу.
+            </p>
+          </div>
 
           <div
             v-for="recipe in professionCraftRecipes"
@@ -484,48 +591,40 @@
                 Копия рецепта
               </button>
             </div>
-          </div>
-        </div>
-
-        <div class="section" v-if="workQueue.premium_active && queueMaterialSellable.length">
-          <div class="section_title">Сдать добычу на биржу</div>
-          <p class="hint">
-            Только материалы с фарма — в очередь Premium, чтобы не кончились 🪙 на смены «для себя».
-            Сундуки и сувениры — вручную на бирже.
-          </p>
-
-          <div class="exchange_sell_list">
-            <div
-              v-for="(item, index) in queueMaterialSellable"
-              :key="exchangeSellKey(item, index)"
-              class="exchange_sell_row"
-            >
-              <div class="exchange_sell_main">
-                <div class="exchange_sell_label">{{ item.label }}</div>
-                <div class="exchange_sell_meta">
-                  В инвентаре: {{ item.available }} · номинал {{ item.nominal }}–{{ item.max_price }} 🪙
-                  · макс. {{ item.pallet_limit }}/лот
-                </div>
-              </div>
+            <div v-if="workQueue.premium_active" class="recipe_macro_row">
               <button
                 type="button"
-                class="btn secondary mini"
-                :disabled="actionLoading"
-                @click="openExchangeSellModal(item)"
-              >★ В очередь</button>
+                class="btn macro wide"
+                :disabled="actionLoading || farm.session"
+                @click="onEnqueueRecipeMacro(recipe, 'gather')"
+              >
+                Собрать ресурсы и изготовить
+              </button>
+              <button
+                type="button"
+                class="btn macro_buy wide"
+                :disabled="actionLoading || farm.session"
+                @click="onEnqueueRecipeMacro(recipe, 'buy')"
+              >
+                Купить ресурсы и изготовить
+              </button>
             </div>
           </div>
         </div>
 
-        <div class="section" v-if="farm.materials?.length">
-          <div class="section_title">Инвентарь материалов</div>
-          <div class="mat_row" v-for="m in farm.materials" :key="m.code + (m.is_premium ? 'p' : '')">
-            <span class="mat_label">
-              <span class="mat_emoji">{{ m.emoji || '📦' }}</span>
-              {{ m.label }}<span v-if="m.is_premium" class="premium_badge"> ★</span>
-            </span>
-            <span>{{ m.qty }}</span>
-          </div>
+        <div
+          v-if="!showAlbumCraftSection && !professionCraftRecipes.length"
+          class="section"
+        >
+          <div class="section_title">Рецепты</div>
+          <p class="hint">
+            Пока нет изученных рецептов. Откройте пак рецептов в инвентаре
+            или получите свиток с рецептом из сундука профессии.
+          </p>
+          <p class="hint">
+            После изучения здесь появятся крафт строительных деталей для госстройки
+            и макросы «собрать/купить ресурсы и изготовить» (Premium ★).
+          </p>
         </div>
       </template>
 
@@ -661,7 +760,11 @@ export default {
       exchangeSellModalItem: null,
       exchangeSellModalForm: { qty: 1, price: 0 },
       albumMacroBatches: 1,
+      albumMacroSell: false,
       albumMacroConsign: false,
+      recipeMacroBatches: 1,
+      recipeMacroSell: false,
+      recipeMacroConsign: false,
     };
   },
   computed: {
@@ -702,6 +805,9 @@ export default {
     },
     showFarmTabs() {
       return !this.farm?.slots?.needs_pick;
+    },
+    showRecipesTab() {
+      return true;
     },
     showQueueLogTab() {
       return true;
@@ -824,18 +930,7 @@ export default {
     showAlbumCraftSection() {
       const craft = this.farm?.album_craft;
       const eligible = craft?.profession_codes || [];
-      if (!craft?.recipe_learned || !eligible.length) {
-        return false;
-      }
-      if (this.workQueue.premium_active) {
-        return true;
-      }
-      const code = this.selectedProfession;
-      return Boolean(
-        !this.farm?.session
-        && ALBUM_CRAFT_PROFESSION_CODES.has(code)
-        && eligible.includes(code),
-      );
+      return Boolean(craft?.recipe_learned && eligible.length);
     },
     albumCraftProfessionCode() {
       const eligible = this.farm?.album_craft?.profession_codes || [];
@@ -843,10 +938,7 @@ export default {
       if (ALBUM_CRAFT_PROFESSION_CODES.has(code) && eligible.includes(code)) {
         return code;
       }
-      if (this.workQueue.premium_active && eligible.length) {
-        return eligible[0];
-      }
-      return '';
+      return eligible.length ? eligible[0] : '';
     },
     albumCraftProfessionLabel() {
       const code = this.albumCraftProfessionCode;
@@ -859,6 +951,16 @@ export default {
     albumMacroOutputQty() {
       const perCraft = Number(this.farm?.album_craft?.output_count) || 2;
       return perCraft * (Number(this.albumMacroBatches) || 1);
+    },
+    albumMacroSellSuffix() {
+      if (!this.albumMacroSell) {
+        return ' в инвентарь';
+      }
+      if (this.albumMacroConsign) {
+        return ' в комиссию банка';
+      }
+
+      return ' на биржу';
     },
     professionCraftRecipes() {
       return Array.isArray(this.farm?.profession_crafts?.recipes)
@@ -1426,7 +1528,7 @@ export default {
       }
     },
 
-    async onEnqueueAlbumMacro() {
+    async onEnqueueAlbumMacro(source = 'gather') {
       const token = this.authData?.token;
       if (!token || !this.albumCraftProfessionCode) {
         return;
@@ -1438,16 +1540,54 @@ export default {
       try {
         const data = await apiActions.game.enqueuePremiumMacro(token, 'album', {
           batches: Number(this.albumMacroBatches) || 1,
-          sell: true,
+          sell: Boolean(this.albumMacroSell),
           sell_mode: this.albumMacroConsign ? 'consign' : 'listing',
+          source,
         });
         if (data?.status === 'ok') {
           const count = Number(data.queued) || 0;
+          const modeLabel = source === 'buy' ? 'покупка' : 'добыча';
           this.applyPremiumWorkResponse(
             data,
-            `Макрос добавлен: ${count} ${count === 1 ? 'задача' : 'задач'} в очередь`,
+            `Макрос (${modeLabel}) добавлен: ${count} ${count === 1 ? 'задача' : 'задач'} в очередь`,
           );
+          this.activeFarmTab = 'recipes';
           window.dispatchEvent(new CustomEvent('prognos9ys:album-refresh'));
+        } else {
+          this.error = data?.message || 'Не удалось запустить макрос';
+        }
+      } catch (e) {
+        this.error = e.message || 'Не удалось запустить макрос';
+      } finally {
+        this.actionLoading = false;
+      }
+    },
+
+    async onEnqueueRecipeMacro(recipe, source = 'gather') {
+      const token = this.authData?.token;
+      if (!token || !recipe?.code) {
+        return;
+      }
+
+      this.actionLoading = true;
+      this.error = '';
+      this.message = '';
+      try {
+        const data = await apiActions.game.enqueuePremiumMacro(token, 'recipe', {
+          recipe_code: recipe.code,
+          batches: Number(this.recipeMacroBatches) || 1,
+          source,
+          sell: Boolean(this.recipeMacroSell),
+          sell_mode: this.recipeMacroConsign ? 'consign' : 'listing',
+        });
+        if (data?.status === 'ok') {
+          const count = Number(data.queued) || 0;
+          const modeLabel = source === 'buy' ? 'покупка' : 'добыча';
+          this.applyPremiumWorkResponse(
+            data,
+            `Макрос «${recipe.label}» (${modeLabel}): ${count} ${count === 1 ? 'задача' : 'задач'}`,
+          );
+          this.activeFarmTab = 'recipes';
         } else {
           this.error = data?.message || 'Не удалось запустить макрос';
         }
@@ -1893,6 +2033,11 @@ export default {
   &.farm_tabs_three .farm_tab {
     padding: 8px 6px;
     font-size: 11px;
+  }
+
+  &.farm_tabs_four .farm_tab {
+    padding: 8px 4px;
+    font-size: 10px;
   }
 }
 
@@ -2415,11 +2560,40 @@ export default {
   gap: 6px;
   font-size: 13px;
   cursor: pointer;
+
+  &.disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+}
+
+.macro_sell_options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  margin-top: 6px;
 }
 
 .btn.macro {
   background: linear-gradient(135deg, #5c4d9e, #3d6e8f);
   border: none;
+}
+
+.btn.macro_buy {
+  background: linear-gradient(135deg, #2f6b4f, #3d6e8f);
+  border: none;
+  color: #fff;
+}
+
+.btn.wide {
+  width: 100%;
+}
+
+.recipe_macro_row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 .work_actions_row .btn.macro {

@@ -355,6 +355,24 @@ class EstateRecipesConfig
         return round($total * self::COMPONENT_NOMINAL_SURCHARGE, 1);
     }
 
+    /** Выплата за сдачу крафтового компонента в госстройку (номинал × надбавка за монтаж). */
+    public static function calcComponentDonationPayout(string $componentCode, int $qty): float
+    {
+        if ($qty <= 0) {
+            return 0.0;
+        }
+
+        $nominal = ProfessionCraftedItemConfig::getNominal($componentCode);
+
+        return round($qty * $nominal * self::COMPONENT_NOMINAL_SURCHARGE, 1);
+    }
+
+    /** Номинал одной единицы компонента при сдаче в госстройку. */
+    public static function calcComponentDonationUnitPayout(string $componentCode): float
+    {
+        return self::calcComponentDonationPayout($componentCode, 1);
+    }
+
     /**
      * @param array<string, int> $materials
      */

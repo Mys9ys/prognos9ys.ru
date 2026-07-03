@@ -338,6 +338,25 @@ class ProfessionRecipeConfig
         return self::craftDefinitions()[$recipeCode] ?? null;
     }
 
+    public static function findRecipeCodeByOutputCode(string $outputCode): ?string
+    {
+        $outputCode = trim($outputCode);
+        if ($outputCode === '') {
+            return null;
+        }
+
+        foreach (self::craftDefinitions() as $recipeCode => $definition) {
+            foreach ($definition['outputs'] ?? [] as $output) {
+                if ((string)($output['code'] ?? '') === $outputCode
+                    && (string)($output['source'] ?? 'material') === 'material') {
+                    return (string)$recipeCode;
+                }
+            }
+        }
+
+        return null;
+    }
+
     /**
      * @return array<int, array{code:string,weight:int,kind:string,category:string,label:string}>
      */

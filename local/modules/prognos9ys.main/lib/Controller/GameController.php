@@ -1049,7 +1049,7 @@ class GameController extends BaseController
 
         return array_merge(['status' => 'ok'], $result, [
             'farm' => (new ProfessionFarmService())->getState($userId),
-            'game' => (new GameProfileService())->getSummary($userId),
+            'game' => (new GameProfileService())->getWalletMutationSummary($userId),
         ]);
     }
 
@@ -1070,7 +1070,7 @@ class GameController extends BaseController
 
         return array_merge(['status' => 'ok'], $result, [
             'farm' => (new ProfessionFarmService())->getState($userId),
-            'game' => (new GameProfileService())->getSummary($userId),
+            'game' => (new GameProfileService())->getWalletMutationSummary($userId),
         ]);
     }
 
@@ -1312,7 +1312,7 @@ class GameController extends BaseController
         return array_merge(['status' => 'ok'], $result, [
             'album' => (new AlbumService())->getState($userId),
             'farm' => (new ProfessionFarmService())->getState($userId),
-            'game' => (new GameProfileService())->getSummary($userId),
+            'game' => (new GameProfileService())->getWalletMutationSummary($userId),
         ]);
     }
 

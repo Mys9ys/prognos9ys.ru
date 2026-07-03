@@ -470,7 +470,8 @@
     <!-- Госстройка -->
     <div v-if="activeTab === 'citybuild'" class="panel">
       <div class="labor_hint">
-        Сдача крафтовых компонентов в стройку городов ЧМ-26. Комиссия 0% — материалы списываются из инвентаря.
+        Сдача крафтовых компонентов в стройку городов ЧМ-26. Оплата по номиналу (+13% за монтаж), комиссия 0%.
+        Материалы списываются из инвентаря.
       </div>
 
       <div class="citybuild_list" v-if="cityBuildOrders.length">
@@ -494,20 +495,35 @@
           >
             <div class="row_body">
               <div class="row_label">{{ item.label }}</div>
-              <div class="row_line">нужно ещё {{ item.qty }}</div>
+              <div class="row_line">
+                нужно ещё {{ item.qty }}
+                <span v-if="item.nominal_per_unit" class="citybuild_unit_payout">
+                  · получите {{ item.nominal_per_unit }} 🪙/шт
+                </span>
+                <span v-if="item.user_have > 0"> · у вас {{ item.user_have }}</span>
+              </div>
             </div>
             <div class="row_actions">
               <input
                 v-model.number="cityBuildQty[buildDonateKey(order, item.code)]"
                 type="number"
                 min="1"
-                :max="item.qty"
+                :max="cityBuildDonateMax(order, item)"
                 class="qty_input"
+                :disabled="!canSubmitCityBuild(order, item)"
               />
+              <span
+                v-if="item.nominal_per_unit"
+                class="citybuild_payout"
+                :class="{ citybuild_payout_muted: !canSubmitCityBuild(order, item) }"
+              >
+                +{{ cityBuildDonatePayout(order, item) }} 🪙
+              </span>
               <button
                 type="button"
                 class="action_btn"
-                :disabled="busy"
+                :class="{ disabled: !canSubmitCityBuild(order, item) }"
+                :disabled="busy || !canSubmitCityBuild(order, item)"
                 @click="submitCityBuild(order, item.code)"
               >
                 Сдать
@@ -1040,6 +1056,42 @@ export default {
       return `${order.city_slug}:${order.recipe_code}:${componentCode}`;
     },
 
+    cityBuildDonateMax(order, item) {
+      const need = Number(item?.qty) || 1;
+      const have = Number(item?.user_have) || 0;
+      if (have <= 0) {
+        return need;
+      }
+
+      return Math.min(need, have);
+    },
+
+    cityBuildDonatePayout(order, item) {
+      const perUnit = Number(item?.nominal_per_unit) || 0;
+      if (perUnit <= 0) {
+        return 0;
+      }
+
+      const key = this.buildDonateKey(order, item.code);
+      const maxQty = this.cityBuildDonateMax(order, item);
+      const qty = Math.max(1, Math.min(maxQty, Number(this.cityBuildQty[key]) || 1));
+
+      return Math.round(qty * perUnit * 10) / 10;
+    },
+
+    canSubmitCityBuild(order, item) {
+      const have = Number(item?.user_have) || 0;
+      if (have < 1) {
+        return false;
+      }
+
+      const key = this.buildDonateKey(order, item.code);
+      const need = Number(item?.qty) || 1;
+      const qty = Math.max(1, Number(this.cityBuildQty[key]) || 1);
+
+      return qty <= have && qty <= need;
+    },
+
     ensureCityBuildQty(orders) {
       const qty = { ...this.cityBuildQty };
       orders.forEach((order) => {
@@ -1077,7 +1129,11 @@ export default {
     async submitCityBuild(order, componentCode) {
       const key = this.buildDonateKey(order, componentCode);
       const remainingItem = (order.remaining_items || []).find((item) => item.code === componentCode);
-      const maxQty = Number(remainingItem?.qty) || 1;
+      if (!remainingItem || !this.canSubmitCityBuild(order, remainingItem)) {
+        return;
+      }
+
+      const maxQty = this.cityBuildDonateMax(order, remainingItem);
       const qty = Math.max(1, Math.min(maxQty, Number(this.cityBuildQty[key]) || 1));
 
       this.busy = true;
@@ -1103,6 +1159,9 @@ export default {
           }
           const label = data.component_label || componentCode;
           let msg = `Сдано: ${label} ×${data.donated_qty || qty}`;
+          if (data.paid_total > 0) {
+            msg += ` · +${data.paid_total} 🪙`;
+          }
           if (data.building_complete) {
             msg += ` · ${order.label} готово`;
           }
@@ -2027,5 +2086,22 @@ export default {
 
 .citybuild_component_row {
   margin-top: 6px;
+}
+
+.citybuild_unit_payout {
+  color: #e8c547;
+}
+
+.citybuild_payout {
+  font-size: 12px;
+  font-weight: 600;
+  color: #7dcea0;
+  white-space: nowrap;
+  min-width: 52px;
+  text-align: right;
+}
+
+.citybuild_payout_muted {
+  color: rgba(125, 206, 160, 0.45);
 }
 </style>

@@ -8,6 +8,13 @@ use Prognos9ys\Main\Model\Repository\ProfessionRepository;
 
 class TreasuryCityService
 {
+    /** Порядок блоков на бирже: управа → банк → биржа. */
+    private const EXCHANGE_BUILDING_ORDER = [
+        'civic_city_hall' => 0,
+        'civic_bank_branch' => 1,
+        'civic_exchange_branch' => 2,
+    ];
+
     private CityRepository $cityRepository;
     private ProfessionRepository $professionRepository;
 
@@ -106,7 +113,7 @@ class TreasuryCityService
     /**
      * @return array<int, array<string, mixed>>
      */
-    public function getBuildOrdersForExchange(): array
+    public function getBuildOrdersForExchange(int $userId = 0): array
     {
         $orders = [];
         $dbCities = $this->cityRepository->getAllCitiesIndexedBySlug();
@@ -149,7 +156,7 @@ class TreasuryCityService
                 'stash' => $stash,
                 'needed' => $bom,
                 'remaining' => $remaining,
-                'remaining_items' => $this->formatRemainingItems($remaining),
+                'remaining_items' => $this->formatRemainingItems($remaining, $userId),
                 'progress_pct' => $this->calcProgressPct($bom, $stash),
                 'nominal_total' => (float)($recipe['nominal_total'] ?? 0),
             ];
@@ -159,6 +166,12 @@ class TreasuryCityService
             $cityCmp = strcmp((string)$a['city_name'], (string)$b['city_name']);
             if ($cityCmp !== 0) {
                 return $cityCmp;
+            }
+
+            $orderA = self::EXCHANGE_BUILDING_ORDER[(string)($a['recipe_code'] ?? '')] ?? 99;
+            $orderB = self::EXCHANGE_BUILDING_ORDER[(string)($b['recipe_code'] ?? '')] ?? 99;
+            if ($orderA !== $orderB) {
+                return $orderA <=> $orderB;
             }
 
             return strcmp((string)$a['recipe_code'], (string)$b['recipe_code']);
@@ -235,6 +248,18 @@ class TreasuryCityService
         $this->professionRepository->consumeUserMaterialQty($userId, $componentCode, $donateQty);
         $stash[$componentCode] = (int)($stash[$componentCode] ?? 0) + $donateQty;
 
+        $paidTotal = EstateRecipesConfig::calcComponentDonationPayout($componentCode, $donateQty);
+        if ($paidTotal > 0) {
+            (new WalletService())->credit(
+                $userId,
+                GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                $paidTotal,
+                'city_build_donate',
+                'city_build_project',
+                (int)$project['ID']
+            );
+        }
+
         $now = new DateTime();
         $isComplete = $this->calcRemaining($bom, $stash) === [];
         $this->professionRepository->updateConstructionProject((int)$project['ID'], [
@@ -255,6 +280,8 @@ class TreasuryCityService
             'donated_qty' => $donateQty,
             'component_code' => $componentCode,
             'component_label' => ProfessionCraftedItemConfig::getLabel($componentCode),
+            'paid_total' => $paidTotal,
+            'paid_per_unit' => EstateRecipesConfig::calcComponentDonationUnitPayout($componentCode),
             'building_complete' => $isComplete,
             'city_opened' => $isComplete && $recipeCode === 'civic_city_hall',
             'order' => $this->formatBuildOrderRow(
@@ -401,9 +428,9 @@ class TreasuryCityService
 
     /**
      * @param array<string, int> $remaining
-     * @return array<int, array{code:string,label:string,qty:int}>
+     * @return array<int, array{code:string,label:string,qty:int,nominal_per_unit:float,user_have:int}>
      */
-    private function formatRemainingItems(array $remaining): array
+    private function formatRemainingItems(array $remaining, int $userId = 0): array
     {
         $items = [];
         foreach ($remaining as $code => $qty) {
@@ -411,10 +438,15 @@ class TreasuryCityService
             if ($qty <= 0) {
                 continue;
             }
+            $code = (string)$code;
             $items[] = [
-                'code' => (string)$code,
-                'label' => ProfessionCraftedItemConfig::getLabel((string)$code),
+                'code' => $code,
+                'label' => ProfessionCraftedItemConfig::getLabel($code),
                 'qty' => $qty,
+                'nominal_per_unit' => EstateRecipesConfig::calcComponentDonationUnitPayout($code),
+                'user_have' => $userId > 0
+                    ? $this->professionRepository->getUserMaterialQty($userId, $code)
+                    : 0,
             ];
         }
 

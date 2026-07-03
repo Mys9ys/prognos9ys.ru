@@ -416,7 +416,7 @@ class ExchangeController extends BaseController
 
         return [
             'status' => 'ok',
-            'orders' => (new TreasuryCityService())->getBuildOrdersForExchange(),
+            'orders' => (new TreasuryCityService())->getBuildOrdersForExchange($userId),
         ];
     }
 
@@ -446,7 +446,7 @@ class ExchangeController extends BaseController
         }
 
         return array_merge(['status' => 'ok'], $result, [
-            'orders' => (new TreasuryCityService())->getBuildOrdersForExchange(),
+            'orders' => (new TreasuryCityService())->getBuildOrdersForExchange($userId),
             'game' => (new GameProfileService())->getSummary($userId),
         ]);
     }

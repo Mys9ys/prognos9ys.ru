@@ -9,12 +9,16 @@ class PremiumWorkQueueConfig
 {
     public const TASK_FARM = 'farm';
     public const TASK_ALBUM_CRAFT = 'album_craft';
+    public const TASK_PROFESSION_CRAFT = 'profession_craft';
+    public const TASK_EXCHANGE_BUY = 'exchange_buy';
     public const TASK_EXCHANGE_LIST = 'exchange_list';
 
     /** @var string[] */
     public const TASK_TYPES = [
         self::TASK_FARM,
         self::TASK_ALBUM_CRAFT,
+        self::TASK_PROFESSION_CRAFT,
+        self::TASK_EXCHANGE_BUY,
         self::TASK_EXCHANGE_LIST,
     ];
 

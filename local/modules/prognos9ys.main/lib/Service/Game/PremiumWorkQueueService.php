@@ -345,6 +345,32 @@ class PremiumWorkQueueService
                 }
                 $this->completeInstantTask($userId, $taskId, $result);
                 $this->dispatchNext($userId);
+            } elseif ($taskType === PremiumWorkQueueConfig::TASK_EXCHANGE_BUY) {
+                $exchange = new ExchangeService($this->repository);
+                $result = $exchange->buy(
+                    $userId,
+                    (string)($payload['kind'] ?? ''),
+                    (string)($payload['code'] ?? ''),
+                    (int)($payload['qty'] ?? 0),
+                    (string)($payload['category'] ?? ''),
+                    (int)($payload['event_id'] ?? 0),
+                    (string)($payload['team_code'] ?? ''),
+                    0,
+                    (string)($payload['listing_sort'] ?? 'price')
+                );
+                $this->completeInstantTask($userId, $taskId, $result);
+                $this->dispatchNext($userId);
+            } elseif ($taskType === PremiumWorkQueueConfig::TASK_PROFESSION_CRAFT) {
+                $this->completeInstantTask(
+                    $userId,
+                    $taskId,
+                    (new ProfessionCraftService($this->professionRepository, $this->repository))->craft(
+                        $userId,
+                        (string)($payload['recipe_code'] ?? ''),
+                        (string)($payload['profession_code'] ?? '')
+                    )
+                );
+                $this->dispatchNext($userId);
             }
         } catch (\Throwable $exception) {
             $this->failTask($taskId, $exception->getMessage());
@@ -486,6 +512,27 @@ class PremiumWorkQueueService
             ];
         }
 
+        if ($taskType === PremiumWorkQueueConfig::TASK_PROFESSION_CRAFT) {
+            return [
+                'recipe_code' => trim((string)($payload['recipe_code'] ?? '')),
+                'profession_code' => trim((string)($payload['profession_code'] ?? '')),
+            ];
+        }
+
+        if ($taskType === PremiumWorkQueueConfig::TASK_EXCHANGE_BUY) {
+            return [
+                'kind' => trim((string)($payload['kind'] ?? '')),
+                'code' => trim((string)($payload['code'] ?? '')),
+                'qty' => max(0, (int)($payload['qty'] ?? 0)),
+                'category' => trim((string)($payload['category'] ?? '')),
+                'event_id' => (int)($payload['event_id'] ?? 0),
+                'team_code' => trim((string)($payload['team_code'] ?? '')),
+                'listing_sort' => in_array((string)($payload['listing_sort'] ?? 'price'), ['price', 'fat_lots'], true)
+                    ? (string)($payload['listing_sort'] ?? 'price')
+                    : 'price',
+            ];
+        }
+
         return [
             'kind' => trim((string)($payload['kind'] ?? '')),
             'code' => trim((string)($payload['code'] ?? '')),
@@ -520,6 +567,34 @@ class PremiumWorkQueueService
             $code = (string)($payload['profession_code'] ?? '');
             if (!in_array($code, AlbumConfig::CRAFT_PROFESSION_CODES, true)) {
                 throw new \InvalidArgumentException('Некорректная профессия для крафта альбомов');
+            }
+
+            return;
+        }
+
+        if ($taskType === PremiumWorkQueueConfig::TASK_PROFESSION_CRAFT) {
+            $recipeCode = (string)($payload['recipe_code'] ?? '');
+            $professionCode = (string)($payload['profession_code'] ?? '');
+            if (!ProfessionRecipeConfig::isCraftableViaService($recipeCode)) {
+                throw new \InvalidArgumentException('Некорректный рецепт');
+            }
+            $definition = ProfessionRecipeConfig::getCraftDefinition($recipeCode);
+            if (!$definition || $professionCode !== (string)($definition['profession'] ?? '')) {
+                throw new \InvalidArgumentException('Некорректная профессия для рецепта');
+            }
+            if (!$this->repository->hasLearnedRecipe($userId, $recipeCode)) {
+                throw new \InvalidArgumentException('Сначала изучите рецепт');
+            }
+            if (!$this->professionRepository->getProfessionByUserAndCode($userId, $professionCode)) {
+                throw new \InvalidArgumentException('Профессия не изучена');
+            }
+
+            return;
+        }
+
+        if ($taskType === PremiumWorkQueueConfig::TASK_EXCHANGE_BUY) {
+            if ($payload['kind'] === '' || $payload['code'] === '' || $payload['qty'] <= 0) {
+                throw new \InvalidArgumentException('Некорректные параметры покупки');
             }
 
             return;
@@ -613,6 +688,24 @@ class PremiumWorkQueueService
             $definition = ProfessionMaterialConfig::getProfession((string)($payload['profession_code'] ?? ''));
 
             return 'Крафт альбомов · ' . ($definition['label'] ?? 'профессия');
+        }
+
+        if ($taskType === PremiumWorkQueueConfig::TASK_PROFESSION_CRAFT) {
+            $recipeCode = (string)($payload['recipe_code'] ?? '');
+
+            return 'Крафт · ' . ProfessionRecipeConfig::getRecipeLabel($recipeCode);
+        }
+
+        if ($taskType === PremiumWorkQueueConfig::TASK_EXCHANGE_BUY) {
+            $inventory = new ExchangeInventoryService($this->repository);
+            $label = $inventory->buildItemLabel(
+                (string)($payload['kind'] ?? ''),
+                (string)($payload['code'] ?? ''),
+                (string)($payload['category'] ?? ''),
+                ((string)($payload['team_code'] ?? '')) ?: null
+            );
+
+            return 'Покупка · ' . $label . ' ×' . (int)($payload['qty'] ?? 0);
         }
 
         $inventory = new ExchangeInventoryService($this->repository);
