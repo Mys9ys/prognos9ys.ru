@@ -60,10 +60,22 @@ class ExchangeCatalogConfig
         ];
     }
 
+    public static function isSouvenirPackCode(string $code): bool
+    {
+        static $packs = [
+            'pack_pennant',
+            'pack_pennant_wc26',
+            'pack_scarf',
+            'pack_scarf_wc26',
+        ];
+
+        return in_array(strtolower(trim($code)), $packs, true);
+    }
+
     public static function isSouvenirLootCode(string $code): bool
     {
         $code = strtolower(trim($code));
-        if ($code === '' || strpos($code, 'pack_') === 0) {
+        if ($code === '' || self::isSouvenirPackCode($code)) {
             return false;
         }
 
@@ -90,7 +102,7 @@ class ExchangeCatalogConfig
                 return self::TAB_RECIPE;
             }
             if ($category === ChestLootConfig::CATEGORY_PACK) {
-                return self::TAB_LOOT;
+                return self::isSouvenirPackCode($code) ? self::TAB_SOUVENIR : self::TAB_LOOT;
             }
             if (self::isSouvenirLootCode($code)) {
                 return self::TAB_SOUVENIR;

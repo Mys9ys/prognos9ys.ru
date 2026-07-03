@@ -1541,6 +1541,87 @@ class ExchangeService
     }
 
     /**
+     * @return array{
+     *   listed_qty: int,
+     *   listings: array<int, array<string, mixed>>,
+     *   lines: array<int, array{text:string,status:string}>,
+     *   slots_left: int
+     * }
+     */
+    public function sellLootItemAtNominal(int $userId, string $code, string $category): array
+    {
+        if ($userId <= 0) {
+            throw new \InvalidArgumentException('Некорректный пользователь');
+        }
+
+        $code = trim($code);
+        $category = trim($category);
+        if ($code === '' || $category === '') {
+            throw new \InvalidArgumentException('Некорректный предмет');
+        }
+
+        $inventory = new ExchangeInventoryService($this->repository);
+        $maxListings = $this->resolveMaxListings($userId);
+        $slotsLeft = max(0, $maxListings - $this->repository->countActiveExchangeListingsForUser($userId));
+        $listedQty = 0;
+        $listings = [];
+        $lines = [];
+        $label = ChestLootConfig::getLabel($code);
+        $nominal = ExchangeNominalConfig::getLootNominal($code, $category);
+        $pallet = ExchangeNominalConfig::getPalletLimit(ExchangeConfig::KIND_LOOT, $code, $category);
+        $qty = $inventory->getAvailableQty($userId, ExchangeConfig::KIND_LOOT, $code, $category);
+
+        while ($qty > 0 && $slotsLeft > 0) {
+            $chunk = min($qty, $pallet);
+            try {
+                $result = $this->createListing(
+                    $userId,
+                    ExchangeConfig::KIND_LOOT,
+                    $code,
+                    $chunk,
+                    $nominal,
+                    $category
+                );
+                $listing = $result['listing'] ?? null;
+                if (is_array($listing)) {
+                    $listings[] = $listing;
+                }
+                $listedQty += $chunk;
+                $qty -= $chunk;
+                $slotsLeft--;
+                $lines[] = [
+                    'text' => $label . ' ×' . $chunk . ' · ' . $nominal . ' 🪙',
+                    'status' => 'ok',
+                ];
+            } catch (\Throwable $exception) {
+                $lines[] = [
+                    'text' => $label . ': ' . $exception->getMessage(),
+                    'status' => 'fail',
+                ];
+                break;
+            }
+        }
+
+        if ($qty > 0 && $slotsLeft <= 0) {
+            $lines[] = [
+                'text' => $label . ': осталось ' . $qty . ' (лимит лотов)',
+                'status' => 'skip',
+            ];
+        }
+
+        if (!$lines) {
+            $lines[] = ['text' => 'Нет предметов для продажи', 'status' => 'skip'];
+        }
+
+        return [
+            'listed_qty' => $listedQty,
+            'listings' => $listings,
+            'lines' => $lines,
+            'slots_left' => $slotsLeft,
+        ];
+    }
+
+    /**
      * @param array<string, mixed> $row
      */
     private function isTreasuryGovListing(array $row): bool

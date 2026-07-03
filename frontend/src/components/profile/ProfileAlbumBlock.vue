@@ -123,10 +123,9 @@
           </div>
 
           <div class="slots_grid">
-            <button
+            <div
               v-for="slot in albumSlotsGrid"
               :key="slot.team_slug"
-              type="button"
               class="slot_cell"
               :class="{
                 glued: slot.glued,
@@ -136,6 +135,13 @@
               :title="slot.glued ? slot.item_label : slot.team_label"
               @click="onSlotClick(slot)"
             >
+              <button
+                v-if="slotPreviewSrc(slot)"
+                type="button"
+                class="slot_zoom_btn"
+                title="Увеличить"
+                @click.stop="openSlotPreview(slot)"
+              >⌕</button>
               <img
                 v-if="slotPennantSrc(slot)"
                 :src="slotPennantSrc(slot)"
@@ -145,12 +151,11 @@
                 alt=""
               >
               <span
-                v-if="slotPennantSrc(slot) && isAchievementAlbum"
+                v-if="slotPennantSrc(slot) || isAchievementAlbum"
                 class="slot_caption"
-              >{{ slotCaption(slot) }}</span>
-              <span v-else-if="!slotPennantSrc(slot)" class="slot_flag">{{ slot.team_label }}</span>
-              <span v-else-if="slot.glued" class="slot_item">{{ slotEmoji(slot) }}</span>
-            </button>
+              >{{ slotTeamCaption(slot) }}</span>
+              <span v-else class="slot_flag">{{ slot.team_label }}</span>
+            </div>
           </div>
 
           <div class="glue_panel" v-if="selectedSlot && !selectedSlot.glued">
@@ -176,6 +181,14 @@
 
       <p v-if="message" class="message" :class="{ fail: messageFail }">{{ message }}</p>
     </template>
+
+    <div v-if="previewSlot" class="slot_preview_overlay" @click.self="closeSlotPreview">
+      <div class="slot_preview_modal">
+        <div class="slot_preview_title">{{ previewSlot.label }}</div>
+        <img :src="previewSlot.src" class="slot_preview_img" alt="">
+        <button type="button" class="action_btn" @click="closeSlotPreview">Закрыть</button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -205,6 +218,7 @@ export default {
       state: null,
       selectedAlbumId: 0,
       selectedSlotSlug: '',
+      previewSlot: null,
       megaLabels: MEGA_LABELS,
     };
   },
@@ -460,12 +474,57 @@ export default {
       return label;
     },
 
-    slotEmoji(slot) {
-      const code = slot.item_code || '';
-      if (code.indexOf('scarf_') === 0) {
-        return '🧣';
+    slotTeamCaption(slot) {
+      if (this.isAchievementAlbum) {
+        return this.slotCaption(slot);
       }
-      return '🏴';
+
+      const label = String(slot?.team_label || '');
+      if (label.length > 12) {
+        return `${label.slice(0, 11)}…`;
+      }
+
+      return label;
+    },
+
+    slotPreviewSrc(slot) {
+      if (!slot?.team_slug || !this.selectedAlbum) {
+        return null;
+      }
+
+      const collection = this.selectedAlbum.collection || '';
+      const slug = slot.team_slug;
+
+      if (collection === 'pennant_wc26') {
+        return getWc26PennantIconSrc(`pennant_wc26_${slug}`);
+      }
+      if (collection === 'scarf_wc26') {
+        return getWc26ScarfIconSrc(`scarf_wc26_${slug}`);
+      }
+      if (collection === 'pennant_achievement') {
+        const code = slot.item_code || slug;
+        if (isAchievementPennantCode(code)) {
+          return getAchievementPennantIconSrc(code);
+        }
+      }
+
+      return this.slotPennantSrc(slot);
+    },
+
+    openSlotPreview(slot) {
+      const src = this.slotPreviewSrc(slot);
+      if (!src) {
+        return;
+      }
+
+      this.previewSlot = {
+        src,
+        label: slot.team_label || slot.item_label || '',
+      };
+    },
+
+    closeSlotPreview() {
+      this.previewSlot = null;
     },
 
     slotCollectibleSrc(slot) {
@@ -924,6 +983,7 @@ export default {
 }
 
 .slot_cell {
+  position: relative;
   min-height: 52px;
   padding: 4px;
   border: 1px solid fade(@colorText, 15%);
@@ -965,6 +1025,64 @@ export default {
   font-size: 9px;
   line-height: 1.1;
   color: fade(@colorText, 72%);
+}
+
+.slot_zoom_btn {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  z-index: 2;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid fade(@colorBlur, 35%);
+  border-radius: 3px;
+  background: fade(@darkbg, 92%);
+  color: @colorText;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+
+  &:hover {
+    border-color: fade(@orange, 55%);
+    color: @orange;
+  }
+}
+
+.slot_preview_overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.slot_preview_modal {
+  max-width: min(92vw, 420px);
+  width: 100%;
+  padding: 14px;
+  border-radius: 8px;
+  background: @darkbg;
+  border: 1px solid fade(@orange, 35%);
+  text-align: center;
+}
+
+.slot_preview_title {
+  margin-bottom: 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.slot_preview_img {
+  display: block;
+  width: 100%;
+  max-height: 60vh;
+  margin: 0 auto 12px;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.45));
 }
 
 .slot_item {

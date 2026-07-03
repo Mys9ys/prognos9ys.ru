@@ -15,26 +15,26 @@
           type="button"
           class="farm_tab"
           :class="{ active: activeFarmTab === 'work' }"
-          @click="activeFarmTab = 'work'"
+          @click="selectFarmTab('work')"
         >Запуски</button>
         <button
           type="button"
           class="farm_tab"
           :class="{ active: activeFarmTab === 'recipes' }"
-          @click="activeFarmTab = 'recipes'"
+          @click="selectFarmTab('recipes')"
         >Рецепты</button>
         <button
           type="button"
           class="farm_tab"
           :class="{ active: activeFarmTab === 'professions' }"
-          @click="activeFarmTab = 'professions'"
+          @click="selectFarmTab('professions')"
         >Профессии</button>
         <button
           v-if="showQueueLogTab"
           type="button"
           class="farm_tab"
           :class="{ active: activeFarmTab === 'log' }"
-          @click="activeFarmTab = 'log'"
+          @click="selectFarmTab('log')"
         >Журнал</button>
       </div>
 
@@ -745,6 +745,7 @@ export default {
       workMode: 'self',
       selectedIterations: 1,
       activeFarmTab: 'work',
+      farmTabUserSelected: false,
       error: '',
       message: '',
       pollTimer: null,
@@ -1097,6 +1098,7 @@ export default {
     },
   },
   created() {
+    this.restoreFarmTab();
     this.visibilityHandler = () => this.onVisibilityChange();
     document.addEventListener('visibilitychange', this.visibilityHandler);
     this.farmRefreshHandler = () => this.refresh(true);
@@ -1119,6 +1121,33 @@ export default {
 
     formatMoney(value) {
       return Number(value ?? 0).toFixed(1).replace(/\.0$/, '');
+    },
+
+    selectFarmTab(tab) {
+      const allowed = ['work', 'recipes', 'professions', 'log'];
+      if (!allowed.includes(tab)) {
+        return;
+      }
+      this.activeFarmTab = tab;
+      this.farmTabUserSelected = true;
+      try {
+        sessionStorage.setItem('prognos9ys_farm_tab', tab);
+      } catch (e) {
+        // ignore
+      }
+    },
+
+    restoreFarmTab() {
+      try {
+        const saved = sessionStorage.getItem('prognos9ys_farm_tab');
+        const allowed = ['work', 'recipes', 'professions', 'log'];
+        if (saved && allowed.includes(saved)) {
+          this.activeFarmTab = saved;
+          this.farmTabUserSelected = true;
+        }
+      } catch (e) {
+        // ignore
+      }
     },
 
     async refresh(silent = false) {
@@ -1148,7 +1177,7 @@ export default {
           this.ensureWorkModeValid();
           if (this.farm?.slots?.needs_pick) {
             this.activeFarmTab = 'professions';
-          } else if (!silent && this.farm?.session) {
+          } else if (!silent && !this.farmTabUserSelected && this.farm?.session) {
             this.activeFarmTab = 'work';
           }
           this.schedulePoll();

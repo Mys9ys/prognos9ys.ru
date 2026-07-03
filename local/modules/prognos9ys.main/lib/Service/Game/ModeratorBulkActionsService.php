@@ -12,6 +12,26 @@ use Prognos9ys\Main\Model\Repository\ProfessionRepository;
  */
 class ModeratorBulkActionsService
 {
+    /** @var array<string, array{code:string,category:string}> */
+    private const SELL_LOOT_BULK = [
+        'sell_pack_pennant_wc26' => [
+            'code' => 'pack_pennant_wc26',
+            'category' => ChestLootConfig::CATEGORY_PACK,
+        ],
+        'sell_pack_scarf_wc26' => [
+            'code' => 'pack_scarf_wc26',
+            'category' => ChestLootConfig::CATEGORY_PACK,
+        ],
+        'sell_xp_bank_crafting_25' => [
+            'code' => 'xp_bank_crafting_25',
+            'category' => ChestLootConfig::CATEGORY_XP_BANK,
+        ],
+        'sell_xp_bank_mining_25' => [
+            'code' => 'xp_bank_mining_25',
+            'category' => ChestLootConfig::CATEGORY_XP_BANK,
+        ],
+    ];
+
     private GameEconomyRepository $repository;
     private TreasuryShopService $shopService;
     private ExperienceService $experienceService;
@@ -155,6 +175,8 @@ class ModeratorBulkActionsService
             || $bulkAction === 'farm_pick_processing_professions'
             || $bulkAction === 'farm_sell_crafted'
             || $bulkAction === 'farm_self_process'
+            || $bulkAction === 'open_wc26_chests'
+            || self::isSellLootBulkAction($bulkAction)
             || FarmBulkActionConfig::isTreasuryAction($bulkAction)
             || FarmBulkActionConfig::isTreasuryCraftAction($bulkAction)) {
             try {
@@ -304,6 +326,21 @@ class ModeratorBulkActionsService
                     $result
                 );
 
+            case 'open_wc26_chests':
+                $result = (new ChestOpenService($this->repository))->openWc26Chests($userId, 999);
+                $opened = (int)($result['summary']['opened_count'] ?? 0);
+                if ($opened <= 0) {
+                    return $this->oneResult($bulkAction, $userId, 'skipped', 'Нет сундуков', $result);
+                }
+
+                return $this->oneResult(
+                    $bulkAction,
+                    $userId,
+                    'success',
+                    'Открыто ' . $opened,
+                    $result
+                );
+
             case 'farm_self_process':
                 $result = $this->botFarmService->runInstantSelfProcess($userId);
 
@@ -316,6 +353,35 @@ class ModeratorBulkActionsService
                 );
 
             default:
+                $sellLoot = self::parseSellLootBulkAction($bulkAction);
+                if ($sellLoot) {
+                    $result = (new ExchangeService($this->repository))->sellLootItemAtNominal(
+                        $userId,
+                        (string)$sellLoot['code'],
+                        (string)$sellLoot['category']
+                    );
+                    $listedQty = (int)($result['listed_qty'] ?? 0);
+                    if ($listedQty <= 0) {
+                        $message = 'Нечего выставить';
+                        foreach ($result['lines'] ?? [] as $line) {
+                            if (($line['status'] ?? '') === 'fail') {
+                                $message = (string)($line['text'] ?? $message);
+                                break;
+                            }
+                        }
+
+                        return $this->oneResult($bulkAction, $userId, 'skipped', $message, $result);
+                    }
+
+                    return $this->oneResult(
+                        $bulkAction,
+                        $userId,
+                        'success',
+                        'Выставлено ' . $listedQty . ' шт.',
+                        $result
+                    );
+                }
+
                 $craftParsed = FarmBulkActionConfig::parseTreasuryCraftAction($bulkAction);
                 if ($craftParsed) {
                     $result = $this->botFarmService->runInstantTreasuryCraft(
@@ -374,6 +440,22 @@ class ModeratorBulkActionsService
         $craftParsed = FarmBulkActionConfig::parseTreasuryCraftAction($bulkAction);
         if ($craftParsed) {
             return $this->evaluateFarmTreasuryCraftEligibility($userId, $wallet, $craftParsed, $loanMap);
+        }
+
+        $sellLoot = self::parseSellLootBulkAction($bulkAction);
+        if ($sellLoot) {
+            $qty = $this->repository->getEventAgnosticLootItemCount(
+                $userId,
+                (string)$sellLoot['code'],
+                (string)$sellLoot['category']
+            );
+            if ($qty <= 0) {
+                return ['eligible' => false, 'skip_reason' => 'Нет в наличии'];
+            }
+
+            $label = ChestLootConfig::getLabel((string)$sellLoot['code']);
+
+            return ['eligible' => true, 'hint' => $label . ' ×' . $qty];
         }
 
         switch ($bulkAction) {
@@ -499,6 +581,22 @@ class ModeratorBulkActionsService
                     'eligible' => true,
                     'hint' => (string)($preview['message'] ?? ''),
                 ];
+
+            case 'open_wc26_chests':
+                $eventId = $this->scopeService->getAnchorEventId();
+                if ($eventId <= 0) {
+                    return ['eligible' => false, 'skip_reason' => 'Нет события ЧМ'];
+                }
+                $count = $this->repository->countOpenableWc26ChestUnits(
+                    $userId,
+                    $eventId,
+                    ChestLootConfig::WC26_OPENABLE_CHEST_TYPES
+                );
+                if ($count <= 0) {
+                    return ['eligible' => false, 'skip_reason' => 'Нет сундуков'];
+                }
+
+                return ['eligible' => true, 'hint' => $count . ' сунд.'];
 
             default:
                 return ['eligible' => false, 'skip_reason' => 'Неизвестное действие'];
@@ -738,6 +836,11 @@ class ModeratorBulkActionsService
             'farm_pick_processing_professions',
             'farm_sell_crafted',
             'farm_self_process',
+            'sell_pack_pennant_wc26',
+            'sell_pack_scarf_wc26',
+            'sell_xp_bank_crafting_25',
+            'sell_xp_bank_mining_25',
+            'open_wc26_chests',
         ], true) && !FarmBulkActionConfig::isTreasuryAction($bulkAction)
             && !FarmBulkActionConfig::isTreasuryCraftAction($bulkAction)) {
             throw new \InvalidArgumentException('Неизвестное массовое действие');
@@ -747,6 +850,19 @@ class ModeratorBulkActionsService
     private function professionRepositoryHasActiveSession(int $userId): bool
     {
         return (new ProfessionRepository())->getActiveSessionByUserId($userId) !== null;
+    }
+
+    private static function isSellLootBulkAction(string $bulkAction): bool
+    {
+        return isset(self::SELL_LOOT_BULK[$bulkAction]);
+    }
+
+    /**
+     * @return array{code:string,category:string}|null
+     */
+    private static function parseSellLootBulkAction(string $bulkAction): ?array
+    {
+        return self::SELL_LOOT_BULK[$bulkAction] ?? null;
     }
 
     /**

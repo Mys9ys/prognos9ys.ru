@@ -176,6 +176,59 @@
             <span>×6 всем</span>
           </button>
         </div>
+        <div class="bulk_subtitle">Биржа и сундуки</div>
+        <div class="bulk_row">
+          <button
+              type="button"
+              class="bulk_btn"
+              :disabled="bulkLoading"
+              title="Выставить на биржу пак вымпелов ЧМ-26 по номиналу — у кого есть в инвентаре"
+              @click="runBulk('sell_pack_pennant_wc26')"
+          >
+            <span class="bulk_emoji">🏷️</span>
+            <span>Пак вымпел 26</span>
+          </button>
+          <button
+              type="button"
+              class="bulk_btn"
+              :disabled="bulkLoading"
+              title="Выставить на биржу пак шарфов ЧМ-26 по номиналу — у кого есть в инвентаре"
+              @click="runBulk('sell_pack_scarf_wc26')"
+          >
+            <span class="bulk_emoji">🏷️</span>
+            <span>Пак шарф 26</span>
+          </button>
+          <button
+              type="button"
+              class="bulk_btn"
+              :disabled="bulkLoading"
+              title="Выставить на биржу банку XP крафта (25) по номиналу — у кого есть"
+              @click="runBulk('sell_xp_bank_crafting_25')"
+          >
+            <span class="bulk_emoji">🏷️</span>
+            <span>Банка крафт</span>
+          </button>
+          <button
+              type="button"
+              class="bulk_btn"
+              :disabled="bulkLoading"
+              title="Выставить на биржу банку XP добычи (25) по номиналу — у кого есть"
+              @click="runBulk('sell_xp_bank_mining_25')"
+          >
+            <span class="bulk_emoji">🏷️</span>
+            <span>Банка добыча</span>
+          </button>
+          <button
+              type="button"
+              class="bulk_btn"
+              :disabled="bulkLoading"
+              title="Открыть все закрытые сундуки ЧМ-26 (до 30 за раз) — у кого есть"
+              @click="runBulk('open_wc26_chests')"
+          >
+            <AppIcon name="chest_wc2026" :size="12" />
+            <span>Сундуки ЧМ26</span>
+          </button>
+        </div>
         <div class="bulk_msg ok" v-if="bulkMessage">{{ bulkMessage }}</div>
         <div class="bulk_msg error" v-if="bulkError">{{ bulkError }}</div>
         <div class="bulk_msg error" v-if="impersonateError">{{ impersonateError }}</div>
@@ -409,6 +462,11 @@ const BULK_TITLES = {
   farm_treasury_gather: 'Добыча ×6 (всем)',
   farm_treasury_craft_1: 'Крафт ×1 (всем)',
   farm_treasury_craft_5: 'Крафт ×6 (всем)',
+  sell_pack_pennant_wc26: 'Пак вымпел ЧМ-26 на биржу',
+  sell_pack_scarf_wc26: 'Пак шарф ЧМ-26 на биржу',
+  sell_xp_bank_crafting_25: 'Банка XP крафта на биржу',
+  sell_xp_bank_mining_25: 'Банка XP добычи на биржу',
+  open_wc26_chests: 'Открыть сундуки ЧМ-26',
 };
 const FARM_TREASURY_PROMPTS = {
   farm_treasury_1: 'Мгновенная смена на казну (×1 цикл, +2 🪙 каждому) для всех игроков с кошельком? Пропуск — если уже идёт смена или в казне не хватает монет.',
@@ -691,6 +749,11 @@ export default {
         farm_pick_processing_professions: 'Добавить вторую профессию (обработка, по 20%) всем, у кого ровно одна добывающая?',
         farm_sell_crafted: 'Выставить на биржу базовые материалы (доска, блок, слиток, стекло, ткань) по номиналу? Лимит лотов соблюдается — остаток пропускается.',
         farm_self_process: 'Мгновенная обработка «для себя» (до 5 циклов): сырьё из инвентаря, недостающее — покупка на бирже по лучшей цене, затем списание 0,5 🪙/цикл. Пропуск — нет обработки, сырья или монет.',
+        sell_pack_pennant_wc26: 'Выставить на биржу пак вымпелов ЧМ-26 по номиналу у всех, у кого он есть? Лимит лотов соблюдается.',
+        sell_pack_scarf_wc26: 'Выставить на биржу пак шарфов ЧМ-26 по номиналу у всех, у кого он есть? Лимит лотов соблюдается.',
+        sell_xp_bank_crafting_25: 'Выставить на биржу банки XP крафта (25) по номиналу у всех, у кого они есть?',
+        sell_xp_bank_mining_25: 'Выставить на биржу банки XP добычи (25) по номиналу у всех, у кого они есть?',
+        open_wc26_chests: 'Открыть все закрытые сундуки ЧМ-26 (до 30 за игрока) у всех, у кого они есть?',
         ...FARM_TREASURY_PROMPTS,
         ...FARM_TREASURY_CRAFT_PROMPTS,
       };
