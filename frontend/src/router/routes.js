@@ -138,6 +138,12 @@ const routes = [
     },
 
     {
+        path: '/estate',
+        component: () => import('@/pages/game/EstatePage.vue'),
+        ...authRoute,
+    },
+
+    {
         path: '/profile/:id',
         component: ProfilePage,
         meta: { public: true },

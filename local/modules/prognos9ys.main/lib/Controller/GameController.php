@@ -36,6 +36,7 @@ use Prognos9ys\Main\Service\Game\PremiumService;
 use Prognos9ys\Main\Service\Game\PremiumWorkQueueService;
 use Prognos9ys\Main\Service\Game\ProfessionCertificateService;
 use Prognos9ys\Main\Service\Game\TreasuryService;
+use Prognos9ys\Main\Service\Game\EstateMapService;
 use Prognos9ys\Main\Service\Game\TreasuryCityService;
 use Prognos9ys\Main\Service\Game\TreasuryShopService;
 use Prognos9ys\Main\Service\Game\UserBankService;
@@ -61,6 +62,8 @@ class GameController extends BaseController
             'listTreasuryGovMaterial' => $this->getDefaultConfigureForPostToken(),
             'cancelTreasuryGovListing' => $this->getDefaultConfigureForPostToken(),
             'getTreasuryCities' => $this->getDefaultConfigureForPostToken(),
+            'getEstateMapState' => $this->getDefaultConfigureForPostToken(),
+            'getEstateCityMap' => $this->getDefaultConfigureForPostToken(),
             'startTreasuryCity' => $this->getDefaultConfigureForPostToken(),
             'getTreasuryShop' => $this->getDefaultConfigureForPostToken(),
             'buyTreasuryChest' => $this->getDefaultConfigureForPostToken(),
@@ -376,6 +379,38 @@ class GameController extends BaseController
             'founded_count' => $catalog['founded_count'],
             'open_count' => $catalog['open_count'],
             'can_manage' => (new ImpersonationService())->canImpersonate($userId),
+        ];
+    }
+
+    public function getEstateMapStateAction(): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        return [
+            'status' => 'ok',
+            'map' => (new EstateMapService())->getWorldMapState($userId),
+        ];
+    }
+
+    public function getEstateCityMapAction(string $citySlug): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        try {
+            $city = (new EstateMapService())->getCityStreetMap($citySlug, $userId);
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return [
+            'status' => 'ok',
+            'city' => $city,
         ];
     }
 

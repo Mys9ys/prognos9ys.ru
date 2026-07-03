@@ -55,6 +55,7 @@ export default {
         { id: 'bank', title: 'Банк', icon: 'bank', route: '/bank' },
         { id: 'market', title: 'Биржа', icon: 'rublius', route: '/market' },
         { id: 'work', title: 'Работа', icon: 'xp', route: '/work' },
+        { id: 'estate', title: 'Усадьба', emoji: '🏡', route: '/estate' },
         { id: 'treasury', title: 'Казна', icon: 'chest_wc2026', route: '/treasury' },
         { id: 'settings', title: 'Настройки', icon: 'settings', route: '/settings' },
       ];

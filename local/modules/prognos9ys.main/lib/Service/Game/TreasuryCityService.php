@@ -439,7 +439,8 @@ class TreasuryCityService
                 continue;
             }
             $code = (string)$code;
-            $items[] = [
+            $craft = EstateBuildingRecipeBridge::resolveComponentCraft($code);
+            $items[] = array_merge([
                 'code' => $code,
                 'label' => ProfessionCraftedItemConfig::getLabel($code),
                 'qty' => $qty,
@@ -447,7 +448,7 @@ class TreasuryCityService
                 'user_have' => $userId > 0
                     ? $this->professionRepository->getUserMaterialQty($userId, $code)
                     : 0,
-            ];
+            ], $craft);
         }
 
         return $items;

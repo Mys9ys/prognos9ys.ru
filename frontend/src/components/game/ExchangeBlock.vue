@@ -504,6 +504,13 @@
                 </span>
                 <span v-if="item.user_have > 0"> · у вас {{ item.user_have }}</span>
               </div>
+              <div class="row_line recipe_line" v-if="item.recipe_label">
+                крафт: {{ item.recipe_label }}
+                <span v-if="item.profession_label"> ({{ item.profession_label }})</span>
+              </div>
+              <div class="row_line recipe_line warn" v-else-if="item.code">
+                рецепт крафта не найден для «{{ item.label }}»
+              </div>
             </div>
             <div class="row_actions">
               <input
@@ -2115,5 +2122,15 @@ export default {
 
 .citybuild_payout_muted {
   color: rgba(125, 206, 160, 0.45);
+}
+
+.recipe_line {
+  font-size: 11px;
+  color: rgba(232, 197, 71, 0.85);
+  margin-top: 2px;
+
+  &.warn {
+    color: rgba(255, 143, 143, 0.9);
+  }
 }
 </style>

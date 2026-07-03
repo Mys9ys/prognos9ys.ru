@@ -231,6 +231,14 @@ export const apiActions = {
             'prognos9ys:main.GameController.getTreasuryCities',
             { userToken }
         ),
+        getEstateMapState: (userToken) => runBitrixAction(
+            'prognos9ys:main.GameController.getEstateMapState',
+            { userToken }
+        ),
+        getEstateCityMap: (userToken, citySlug) => runBitrixAction(
+            'prognos9ys:main.GameController.getEstateCityMap',
+            { userToken, citySlug }
+        ),
         startTreasuryCity: (userToken, citySlug) => runBitrixAction(
             'prognos9ys:main.GameController.startTreasuryCity',
             { userToken, citySlug }
