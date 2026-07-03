@@ -6,8 +6,10 @@ declare(strict_types=1);
  * вернуть универсальный альбом в рюкзак.
  *
  * Dry-run (по умолчанию):
- *   php local/tools/fix_rollback_album.php --user 42 --album 55
- *   php local/tools/fix_rollback_album.php --login Asenka --album 55
+ *   php local/tools/fix_rollback_album.php --album=55
+ *   php local/tools/fix_rollback_album.php --user=42 --album=55
+ *   php local/tools/fix_rollback_album.php --login=asenka --album=55
+ *   php local/tools/fix_rollback_album.php --name=Асенька --album=55
  *
  * Применить:
  *   php local/tools/fix_rollback_album.php --user 42 --album 55 --confirm
@@ -41,6 +43,7 @@ array_shift($argv);
 
 $userId = 0;
 $login = '';
+$nameHint = '';
 $albumId = 0;
 $confirm = false;
 
@@ -57,36 +60,51 @@ foreach ($argv as $arg) {
         $login = trim((string)substr($arg, 8));
         continue;
     }
+    if (strpos($arg, '--name=') === 0) {
+        $nameHint = trim((string)substr($arg, 7));
+        continue;
+    }
     if (strpos($arg, '--album=') === 0) {
         $albumId = (int)substr($arg, 8);
     }
 }
 
-if ($userId <= 0 && $login !== '') {
-    $userRow = \Bitrix\Main\UserTable::getList([
-        'filter' => ['=LOGIN' => $login],
-        'select' => ['ID', 'LOGIN', 'NAME', 'LAST_NAME'],
-        'limit' => 1,
-    ])->fetch();
-    if (!$userRow) {
-        $userRow = \Bitrix\Main\UserTable::getList([
-            'filter' => ['%LOGIN' => $login],
-            'select' => ['ID', 'LOGIN', 'NAME', 'LAST_NAME'],
-            'limit' => 1,
-        ])->fetch();
+$searchHint = $nameHint !== '' ? $nameHint : $login;
+
+if ($userId <= 0 && $albumId > 0) {
+    $ownerId = resolveAlbumOwnerUserId($albumId);
+    if ($ownerId > 0) {
+        $userId = $ownerId;
+        echo "Album #{$albumId} owner: user #{$userId}\n";
+        printUserLine($userId);
     }
-    if (!$userRow) {
-        echo "User not found: {$login}\n";
+}
+
+if ($userId <= 0 && $searchHint !== '') {
+    $matches = findUsersByHint($searchHint);
+    if (!$matches) {
+        echo "User not found by hint: {$searchHint}\n";
+        echo "Tip: use --album=ID alone (owner is resolved from album), or --user=ID\n";
         exit(1);
     }
+    if (count($matches) > 1) {
+        echo "Multiple users match \"{$searchHint}\":\n";
+        foreach ($matches as $row) {
+            echo formatUserLine($row) . "\n";
+        }
+        echo "Pass --user=ID explicitly.\n";
+        exit(1);
+    }
+    $userRow = $matches[0];
     $userId = (int)$userRow['ID'];
-    echo 'User ' . ($userRow['LOGIN'] ?? '') . ' #' . $userId
-        . ' ' . trim((string)(($userRow['NAME'] ?? '') . ' ' . ($userRow['LAST_NAME'] ?? ''))) . "\n";
+    echo formatUserLine($userRow) . "\n";
 }
 
 if ($userId <= 0 || $albumId <= 0) {
-    echo "Usage: php fix_rollback_album.php --user=ID --album=ID [--confirm]\n";
+    echo "Usage: php fix_rollback_album.php --album=ID [--confirm]\n";
+    echo "   or: php fix_rollback_album.php --user=ID --album=ID [--confirm]\n";
     echo "   or: php fix_rollback_album.php --login=LOGIN --album=ID [--confirm]\n";
+    echo "   or: php fix_rollback_album.php --name=DISPLAY_NAME --album=ID [--confirm]\n";
     exit(1);
 }
 
@@ -185,3 +203,85 @@ $albumsInInventoryAfter = $economy->getEventAgnosticLootItemCount(
 );
 echo "album_universal in inventory: {$albumsInInventoryAfter}\n";
 echo "Done.\n";
+
+/**
+ * @return array<int, array<string, mixed>>
+ */
+function findUsersByHint(string $hint): array
+{
+    $hint = trim($hint);
+    if ($hint === '') {
+        return [];
+    }
+
+    $response = \Bitrix\Main\UserTable::getList([
+        'filter' => [
+            'LOGIC' => 'OR',
+            ['=LOGIN' => $hint],
+            ['%LOGIN' => $hint],
+            ['%NAME' => $hint],
+            ['%LAST_NAME' => $hint],
+        ],
+        'select' => ['ID', 'LOGIN', 'NAME', 'LAST_NAME'],
+        'order' => ['ID' => 'ASC'],
+        'limit' => 10,
+    ]);
+
+    $rows = [];
+    while ($row = $response->fetch()) {
+        $rows[] = $row;
+    }
+
+    return $rows;
+}
+
+function resolveAlbumOwnerUserId(int $albumId): int
+{
+    if ($albumId <= 0) {
+        return 0;
+    }
+
+    $repo = new AlbumRepository();
+    $repo->ensureSchema();
+
+    if (!\Bitrix\Main\Loader::includeModule('highloadblock')) {
+        return 0;
+    }
+
+    $hlblock = \Bitrix\Highloadblock\HighloadBlockTable::getList([
+        'filter' => ['=TABLE_NAME' => \Prognos9ys\Main\Service\Game\GameEconomyHlInstaller::TABLE_USER_ALBUM],
+    ])->fetch();
+    if (!$hlblock) {
+        return 0;
+    }
+
+    $dataClass = \Bitrix\Highloadblock\HighloadBlockTable::compileEntity($hlblock)->getDataClass();
+    $row = $dataClass::getList([
+        'filter' => ['=ID' => $albumId],
+        'select' => ['ID', 'UF_USER_ID'],
+        'limit' => 1,
+    ])->fetch();
+
+    return (int)($row['UF_USER_ID'] ?? 0);
+}
+
+/**
+ * @param array<string, mixed> $row
+ */
+function formatUserLine(array $row): string
+{
+    return 'User ' . ($row['LOGIN'] ?? '') . ' #' . (int)($row['ID'] ?? 0)
+        . ' ' . trim((string)(($row['NAME'] ?? '') . ' ' . ($row['LAST_NAME'] ?? '')));
+}
+
+function printUserLine(int $userId): void
+{
+    $row = \Bitrix\Main\UserTable::getList([
+        'filter' => ['=ID' => $userId],
+        'select' => ['ID', 'LOGIN', 'NAME', 'LAST_NAME'],
+        'limit' => 1,
+    ])->fetch();
+    if ($row) {
+        echo formatUserLine($row) . "\n";
+    }
+}
