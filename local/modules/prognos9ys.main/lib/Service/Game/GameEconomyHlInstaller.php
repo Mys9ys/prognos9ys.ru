@@ -711,6 +711,7 @@ class GameEconomyHlInstaller
             'UF_RECIPE_CRAFT_RUNS' => ['USER_TYPE_ID' => 'integer'],
             'UF_RECIPE_COPY_RUNS' => ['USER_TYPE_ID' => 'integer'],
             'UF_RECIPE_CRAFT_BY_PROF' => ['USER_TYPE_ID' => 'string'],
+            'UF_RECIPE_CRAFT_BY_CODE' => ['USER_TYPE_ID' => 'string'],
         ]);
 
         if (class_exists(\Bitrix\Main\Application::class)) {

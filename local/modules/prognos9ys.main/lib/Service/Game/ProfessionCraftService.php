@@ -121,7 +121,7 @@ class ProfessionCraftService
 
         $lines = $this->buildCraftLines($definition, $craftedQty, $xpGain, $professionCode, $xpResult['level_rewards']);
 
-        $this->economyRepository->incrementRecipeCraftRunCount($userId, $professionCode);
+        $this->economyRepository->incrementRecipeCraftRunCount($userId, $professionCode, $recipeCode);
 
         return [
             'recipe_code' => $recipeCode,

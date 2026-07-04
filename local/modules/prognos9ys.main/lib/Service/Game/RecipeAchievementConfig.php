@@ -39,22 +39,14 @@ class RecipeAchievementConfig
     public static function getCatalogEntries(): array
     {
         $levels = [];
-        $rewardDefs = [
-            ['rublius' => 1.0, 'chests' => 1],
-            ['rublius' => 2.0, 'chests' => 1],
-            ['rublius' => 4.0, 'chests' => 2],
-            ['rublius' => 8.0, 'chests' => 3],
-            ['rublius' => 15.0, 'chests' => 5],
-        ];
+        $rubliusDefs = [1.0, 2.0, 4.0, 8.0, 15.0];
         foreach (self::THRESHOLDS as $index => $threshold) {
-            $reward = $rewardDefs[$index] ?? ['rublius' => 1.0, 'chests' => 1];
             $levels[] = [
                 'threshold' => $threshold,
-                'reward' => [
-                    'rublius' => $reward['rublius'],
-                    'chests' => $reward['chests'],
-                    'chest_type' => self::resolveProfessionChestTypeForIndex($index),
-                ],
+                'reward' => array_merge(
+                    ['rublius' => $rubliusDefs[$index] ?? 1.0],
+                    ProductionAchievementConfig::chestPacksForLevelIndex($index)
+                ),
             ];
         }
 
@@ -78,14 +70,5 @@ class RecipeAchievementConfig
                 'levels' => $levels,
             ],
         ];
-    }
-
-    private static function resolveProfessionChestTypeForIndex(int $index): string
-    {
-        if ($index >= 3) {
-            return TreasureService::CHEST_TYPE_PROFESSION_TIER_3;
-        }
-
-        return TreasureService::CHEST_TYPE_PROFESSION_TIER_2;
     }
 }

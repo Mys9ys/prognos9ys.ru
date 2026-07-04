@@ -786,7 +786,7 @@ class GameEconomyRepository
         $dataClass = $this->getUserProgressDataClass();
         $row = $dataClass::getList([
             'filter' => ['=UF_USER_ID' => $userId],
-            'select' => ['ID', 'UF_USER_ID', 'UF_XP', 'UF_PROFESSION_CERT_SLOTS', 'UF_LEARNED_RECIPES', 'UF_ALBUM_CRAFT_RUNS', 'UF_RECIPE_CRAFT_RUNS', 'UF_RECIPE_COPY_RUNS', 'UF_RECIPE_CRAFT_BY_PROF'],
+            'select' => ['ID', 'UF_USER_ID', 'UF_XP', 'UF_PROFESSION_CERT_SLOTS', 'UF_LEARNED_RECIPES', 'UF_ALBUM_CRAFT_RUNS', 'UF_RECIPE_CRAFT_RUNS', 'UF_RECIPE_COPY_RUNS', 'UF_RECIPE_CRAFT_BY_PROF', 'UF_RECIPE_CRAFT_BY_CODE'],
             'limit' => 1,
         ])->fetch();
 
@@ -1201,7 +1201,7 @@ class GameEconomyRepository
         ])->getCount();
     }
 
-    public function incrementRecipeCraftRunCount(int $userId, string $professionCode): void
+    public function incrementRecipeCraftRunCount(int $userId, string $professionCode, string $recipeCode = ''): void
     {
         if ($userId <= 0) {
             return;
@@ -1220,15 +1220,22 @@ class GameEconomyRepository
         }
 
         $professionCode = trim($professionCode);
+        $recipeCode = trim($recipeCode);
         $total = max(0, (int)($row['UF_RECIPE_CRAFT_RUNS'] ?? 0)) + 1;
         $byProf = $this->decodeRecipeCraftByProfession((string)($row['UF_RECIPE_CRAFT_BY_PROF'] ?? ''));
         if ($professionCode !== '') {
             $byProf[$professionCode] = (int)($byProf[$professionCode] ?? 0) + 1;
         }
 
+        $byCode = $this->decodeRecipeCraftByCode((string)($row['UF_RECIPE_CRAFT_BY_CODE'] ?? ''));
+        if ($recipeCode !== '' && ProfessionRecipeConfig::isCraftableViaService($recipeCode)) {
+            $byCode[$recipeCode] = (int)($byCode[$recipeCode] ?? 0) + 1;
+        }
+
         $this->updateProgress((int)$row['ID'], [
             'UF_RECIPE_CRAFT_RUNS' => $total,
             'UF_RECIPE_CRAFT_BY_PROF' => $this->encodeRecipeCraftByProfession($byProf),
+            'UF_RECIPE_CRAFT_BY_CODE' => $this->encodeRecipeCraftByCode($byCode),
         ]);
         $this->userProgressDataClass = null;
     }
@@ -1302,6 +1309,14 @@ class GameEconomyRepository
         $learnedCraftable = count(array_intersect($craftableCodes, $learned));
         $stats[ProductionAchievementConfig::STAT_CRAFTABLE_LEARNED] = $learnedCraftable;
 
+        $byCode = $this->decodeRecipeCraftByCode((string)($row['UF_RECIPE_CRAFT_BY_CODE'] ?? ''));
+        foreach ($craftableCodes as $recipeCode) {
+            $stats[ProductionAchievementConfig::statKeyRecipeCraft($recipeCode)] = max(
+                0,
+                (int)($byCode[$recipeCode] ?? 0)
+            );
+        }
+
         return $stats;
     }
 
@@ -1367,6 +1382,42 @@ class GameEconomyRepository
      * @param array<string, int> $map
      */
     private function encodeRecipeCraftByProfession(array $map): string
+    {
+        ksort($map);
+
+        return json_encode($map, JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function decodeRecipeCraftByCode(string $json): array
+    {
+        if ($json === '') {
+            return [];
+        }
+
+        $decoded = json_decode($json, true);
+        if (!is_array($decoded)) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($decoded as $code => $qty) {
+            $code = trim((string)$code);
+            if ($code === '') {
+                continue;
+            }
+            $result[$code] = max(0, (int)$qty);
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param array<string, int> $map
+     */
+    private function encodeRecipeCraftByCode(array $map): string
     {
         ksort($map);
 

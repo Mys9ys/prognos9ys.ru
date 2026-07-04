@@ -600,42 +600,59 @@ class AchievementService
             $given['rublius'] = $rublius;
         }
 
-        $chests = (int)($reward['chests'] ?? 0);
-        if ($chests > 0) {
-            $isProfessionGroup = ($definition['group'] ?? '') === ProfessionAchievementConfig::GROUP;
-            if (AchievementConfig::grantsWc26Chest($code)
-                || (($reward['chest_type'] ?? '') === 'wc26')) {
-                $granted = $this->treasureService->grantWc26AchievementChests(
+        $chestPacks = $reward['chest_packs'] ?? [];
+        if (is_array($chestPacks) && $chestPacks !== []) {
+            $grantedPacks = [];
+            $totalChests = 0;
+            foreach ($chestPacks as $packIndex => $pack) {
+                if (!is_array($pack)) {
+                    continue;
+                }
+                $packCount = (int)($pack['count'] ?? 0);
+                $packType = (string)($pack['type'] ?? '');
+                if ($packCount <= 0 || $packType === '') {
+                    continue;
+                }
+
+                $granted = $this->grantAchievementChestPack(
                     $userId,
                     $code,
                     $targetThreshold,
-                    $chests
+                    $definition,
+                    $reward,
+                    $packCount,
+                    $packType,
+                    (int)$packIndex
                 );
-            } elseif ($isProfessionGroup
-                || AchievementConfig::grantsProfessionChest($code)
-                || in_array((string)($reward['chest_type'] ?? ''), [
-                    'profession',
-                    TreasureService::CHEST_TYPE_PROFESSION_TIER_1,
-                    TreasureService::CHEST_TYPE_PROFESSION_TIER_2,
-                    TreasureService::CHEST_TYPE_PROFESSION_TIER_3,
-                ], true)) {
-                $granted = $this->treasureService->grantProfessionAchievementChests(
-                    $userId,
-                    $code,
-                    $targetThreshold,
-                    $chests,
-                    (string)($reward['chest_type'] ?? '')
-                );
-            } else {
-                $granted = $this->treasureService->grantAchievementChests(
-                    $userId,
-                    $code,
-                    $targetThreshold,
-                    $chests
-                );
+                if ($granted) {
+                    $grantedPacks[] = [
+                        'type' => $packType,
+                        'count' => $packCount,
+                    ];
+                    $totalChests += $packCount;
+                }
             }
-            $given['chests'] = $granted ? $chests : 0;
-            $given['chest_type'] = (string)($reward['chest_type'] ?? 'achievement');
+
+            if ($grantedPacks) {
+                $given['chest_packs'] = $grantedPacks;
+                $given['chests'] = $totalChests;
+            }
+        } else {
+            $chests = (int)($reward['chests'] ?? 0);
+            if ($chests > 0) {
+                $granted = $this->grantAchievementChestPack(
+                    $userId,
+                    $code,
+                    $targetThreshold,
+                    $definition,
+                    $reward,
+                    $chests,
+                    (string)($reward['chest_type'] ?? ''),
+                    0
+                );
+                $given['chests'] = $granted ? $chests : 0;
+                $given['chest_type'] = (string)($reward['chest_type'] ?? 'achievement');
+            }
         }
 
         $materials = $reward['materials'] ?? [];
@@ -676,6 +693,65 @@ class AchievementService
         $this->logClaimEvent($userId, 'granted', $result);
 
         return $result;
+    }
+
+    private function grantAchievementChestPack(
+        int $userId,
+        string $code,
+        int $targetThreshold,
+        array $definition,
+        array $reward,
+        int $chests,
+        string $chestType,
+        int $packIndex
+    ): bool {
+        if ($chests <= 0) {
+            return false;
+        }
+
+        $isProfessionGroup = ($definition['group'] ?? '') === ProfessionAchievementConfig::GROUP
+            || ($definition['group'] ?? '') === AchievementConfig::GROUP_PRODUCTION;
+
+        if (AchievementConfig::grantsWc26Chest($code)
+            || $chestType === 'wc26'
+            || (($reward['chest_type'] ?? '') === 'wc26' && $packIndex === 0)) {
+            return $this->treasureService->grantWc26AchievementChests(
+                $userId,
+                $code,
+                $targetThreshold,
+                $chests
+            );
+        }
+
+        if ($isProfessionGroup
+            || AchievementConfig::grantsProfessionChest($code)
+            || in_array($chestType, [
+                'profession',
+                TreasureService::CHEST_TYPE_PROFESSION_TIER_1,
+                TreasureService::CHEST_TYPE_PROFESSION_TIER_2,
+                TreasureService::CHEST_TYPE_PROFESSION_TIER_3,
+            ], true)
+            || in_array((string)($reward['chest_type'] ?? ''), [
+                'profession',
+                TreasureService::CHEST_TYPE_PROFESSION_TIER_1,
+                TreasureService::CHEST_TYPE_PROFESSION_TIER_2,
+                TreasureService::CHEST_TYPE_PROFESSION_TIER_3,
+            ], true)) {
+            return $this->treasureService->grantProfessionAchievementChests(
+                $userId,
+                $code,
+                $targetThreshold,
+                $chests,
+                $chestType
+            );
+        }
+
+        return $this->treasureService->grantAchievementChests(
+            $userId,
+            $code,
+            $targetThreshold,
+            $chests
+        );
     }
 
     private function collectStats(int $userId): array

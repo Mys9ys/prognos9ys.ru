@@ -11,8 +11,26 @@ const PENNANT_ICONS = {
   chm2026: 'pennant_chm2026',
 };
 
+function professionChestTierLabel(chestType) {
+  const match = String(chestType || '').match(/tier_(\d+)/);
+  return match ? ` (${match[1]} ур.)` : '';
+}
+
+function chestLabel(count) {
+  const n = Number(count) || 0;
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) {
+    return 'сундук';
+  }
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
+    return 'сундука';
+  }
+  return 'сундуков';
+}
+
 /**
- * @param {{ rublius?: number, chests?: number, pennant?: string|null }} reward
+ * @param {{ rublius?: number, chests?: number, chest_packs?: Array<{type?: string, count?: number}>, pennant?: string|null }} reward
  * @returns {Array<{ key: string, amount?: number|string, label?: string, icon: string }>}
  */
 export function buildAchievementRewardBits(reward) {
@@ -30,7 +48,23 @@ export function buildAchievementRewardBits(reward) {
     });
   }
 
-  if (Number(reward.chests) > 0) {
+  const packs = reward.chest_packs;
+  if (Array.isArray(packs) && packs.length) {
+    packs.forEach((pack, index) => {
+      const count = Number(pack?.count) || 0;
+      const chestType = String(pack?.type || '');
+      if (count <= 0) {
+        return;
+      }
+      const tierLabel = professionChestTierLabel(chestType);
+      bits.push({
+        key: `chest_pack_${index}`,
+        amount: count,
+        icon: 'chest_xp',
+        label: `сундук проф.${tierLabel}`,
+      });
+    });
+  } else if (Number(reward.chests) > 0) {
     const chestType = String(reward.chest_type || '');
     const isProfessionChest = chestType === 'profession'
       || chestType.startsWith('profession_tier_');
@@ -39,7 +73,7 @@ export function buildAchievementRewardBits(reward) {
       key: 'chests',
       amount: reward.chests,
       icon: chestIcon,
-      label: isProfessionChest ? 'сундук проф.' : undefined,
+      label: isProfessionChest ? `сундук проф.${professionChestTierLabel(chestType)}` : undefined,
     });
   }
 
@@ -77,19 +111,6 @@ export function hasAchievementReward(reward) {
   return buildAchievementRewardBits(reward).length > 0;
 }
 
-function chestLabel(count) {
-  const n = Number(count) || 0;
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) {
-    return 'сундук';
-  }
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
-    return 'сундука';
-  }
-  return 'сундуков';
-}
-
 /** Краткая подпись награды для тултипа уровня ачивки. */
 export function formatAchievementRewardText(reward) {
   const bits = buildAchievementRewardBits(reward);
@@ -101,8 +122,9 @@ export function formatAchievementRewardText(reward) {
     if (bit.key === 'rublius') {
       return `+${bit.amount} руб.`;
     }
-    if (bit.key === 'chests') {
-      return `+${bit.amount} ${chestLabel(bit.amount)}`;
+    if (bit.key === 'chests' || String(bit.key).startsWith('chest_pack_')) {
+      const suffix = bit.label ? ` ${bit.label}` : ` ${chestLabel(bit.amount)}`;
+      return `+${bit.amount}${suffix}`;
     }
     if (bit.label) {
       return bit.label;
