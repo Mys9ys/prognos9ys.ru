@@ -683,6 +683,9 @@ class GameEconomyHlInstaller
         $this->ensureHlBlock('Prognos9ysUserProgress', self::TABLE_USER_PROGRESS, [
             'UF_LEARNED_RECIPES' => ['USER_TYPE_ID' => 'string'],
             'UF_ALBUM_CRAFT_RUNS' => ['USER_TYPE_ID' => 'integer'],
+            'UF_RECIPE_CRAFT_RUNS' => ['USER_TYPE_ID' => 'integer'],
+            'UF_RECIPE_COPY_RUNS' => ['USER_TYPE_ID' => 'integer'],
+            'UF_RECIPE_CRAFT_BY_PROF' => ['USER_TYPE_ID' => 'string'],
         ]);
 
         if (class_exists(\Bitrix\Main\Application::class)) {

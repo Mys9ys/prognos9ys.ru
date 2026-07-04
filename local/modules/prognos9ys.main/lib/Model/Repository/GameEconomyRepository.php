@@ -780,6 +780,9 @@ class GameEconomyRepository
 
     public function getProgressByUserId(int $userId): ?array
     {
+        $this->ensureLearnedRecipesSchema();
+        $this->ensureProductionCraftSchema();
+
         $dataClass = $this->getUserProgressDataClass();
         $row = $dataClass::getList([
             'filter' => ['=UF_USER_ID' => $userId],
