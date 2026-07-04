@@ -266,21 +266,19 @@ class ProductionAchievementConfig
 
     private static function resolveProfessionChestTypeForIndex(int $index): string
     {
-        if ($index >= 4) {
+        if ($index >= 3) {
             return TreasureService::CHEST_TYPE_PROFESSION_TIER_3;
         }
 
-        if ($index >= 3) {
-            return TreasureService::CHEST_TYPE_PROFESSION_TIER_2;
-        }
-
-        return TreasureService::CHEST_TYPE_PROFESSION_TIER_1;
+        return TreasureService::CHEST_TYPE_PROFESSION_TIER_2;
     }
 
     private static function resolveProfessionChestTypeForStage(int $stage, int $index): string
     {
         if ($stage <= 1) {
-            return TreasureService::CHEST_TYPE_PROFESSION_TIER_1;
+            return $index >= 3
+                ? TreasureService::CHEST_TYPE_PROFESSION_TIER_3
+                : TreasureService::CHEST_TYPE_PROFESSION_TIER_2;
         }
 
         return $index >= 3
