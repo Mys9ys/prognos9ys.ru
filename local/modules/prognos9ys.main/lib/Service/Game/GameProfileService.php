@@ -102,6 +102,7 @@ class GameProfileService
             'has_bank' => $hasBank,
             'deposit_amount' => GameEconomyConfig::DEPOSIT_MIN_AMOUNT_PROGNOBAKS,
             'loan_amount' => GameEconomyConfig::LOAN_MIN_AMOUNT_PROGNOBAKS,
+            'starter_loan' => (new StarterLoanService($this->repository))->buildEligibility($userId),
             'contract_events' => (new GameEventScopeService())->listEligibleEventsForBank(),
         ];
 

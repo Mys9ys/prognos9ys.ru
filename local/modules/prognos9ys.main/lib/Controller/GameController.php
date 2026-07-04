@@ -35,6 +35,7 @@ use Prognos9ys\Main\Service\Game\PremiumFarmMacroPlannerService;
 use Prognos9ys\Main\Service\Game\PremiumService;
 use Prognos9ys\Main\Service\Game\PremiumWorkQueueService;
 use Prognos9ys\Main\Service\Game\ProfessionCertificateService;
+use Prognos9ys\Main\Service\Game\StarterLoanService;
 use Prognos9ys\Main\Service\Game\TreasuryService;
 use Prognos9ys\Main\Service\Game\EstateMapService;
 use Prognos9ys\Main\Service\Game\TreasuryCityService;
@@ -78,6 +79,7 @@ class GameController extends BaseController
             'openBank' => $this->getDefaultConfigureForPostToken(),
             'createDeposit' => $this->getDefaultConfigureForPostToken(),
             'takeLoan' => $this->getDefaultConfigureForPostToken(),
+            'takeStarterLoan' => $this->getDefaultConfigureForPostToken(),
             'cancelLoan' => $this->getDefaultConfigureForPostToken(),
             'repayLoan' => $this->getDefaultConfigureForPostToken(),
             'repayAllLoans' => $this->getDefaultConfigureForPostToken(),
@@ -682,6 +684,25 @@ class GameController extends BaseController
                 $eventId > 0 ? $eventId : null
             ),
             'game' => (new GameProfileService())->getSummary($userId),
+        ];
+    }
+
+    public function takeStarterLoanAction(int $eventId = 0): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        GameProfileService::invalidateSummaryCache($userId);
+
+        return [
+            'status' => 'ok',
+            'loan' => (new StarterLoanService())->takeStarterLoan(
+                $userId,
+                $eventId > 0 ? $eventId : null
+            ),
+            'game' => (new GameProfileService())->getSummary($userId, true, false, true),
         ];
     }
 

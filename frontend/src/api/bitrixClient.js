@@ -377,6 +377,10 @@ export const apiActions = {
             'prognos9ys:main.GameController.takeLoan',
             { userToken, bankId, amount, eventId: eventId || undefined }
         ),
+        takeStarterLoan: (userToken, eventId = 0) => runBitrixAction(
+            'prognos9ys:main.GameController.takeStarterLoan',
+            { userToken, eventId: eventId || undefined }
+        ),
         cancelLoan: (userToken, loanId) => runBitrixAction(
             'prognos9ys:main.GameController.cancelLoan',
             { userToken, loanId }

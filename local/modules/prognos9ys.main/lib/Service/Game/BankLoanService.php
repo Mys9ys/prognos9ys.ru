@@ -28,10 +28,8 @@ class BankLoanService
         }
 
         $amount = round($amount, 1);
-        if ($amount !== GameEconomyConfig::LOAN_MIN_AMOUNT_PROGNOBAKS) {
-            throw new \RuntimeException(
-                'Сумма займа фиксирована: ' . GameEconomyConfig::LOAN_MIN_AMOUNT_PROGNOBAKS
-            );
+        if (!GameEconomyConfig::isAllowedLoanAmount($amount)) {
+            throw new \RuntimeException('Недопустимая сумма займа');
         }
 
         $bank = $this->repository->getUserBankById($bankId);

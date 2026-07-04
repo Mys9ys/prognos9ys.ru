@@ -25,6 +25,20 @@
         <span>{{ wallet.rublius }}</span>
       </div>
     </div>
+    <div class="starter_loan" v-if="starterLoan.can_take">
+      <button
+        type="button"
+        class="starter_loan_btn"
+        :disabled="loanLoading"
+        @click="onTakeStarterLoan"
+      >
+        Займ {{ starterLoan.amount }}
+        <AppIcon name="prognobak" :size="16" />
+      </button>
+      <div class="starter_loan_hint" v-if="starterLoan.hint">{{ starterLoan.hint }}</div>
+    </div>
+    <div class="msg error" v-if="loanError">{{ loanError }}</div>
+    <div class="msg ok" v-if="loanMessage">{{ loanMessage }}</div>
     <div class="bank_hint" v-if="bank.has_bank || bank.active_deposits || bank.active_loans">
       <span v-if="bank.has_bank" class="bank_hint_line">
         <AppIcon name="bank" :size="16" /> Мой банк
@@ -39,6 +53,7 @@
 </template>
 
 <script>
+import { mapActions } from 'vuex';
 import AppIcon from '@/components/ui/AppIcon.vue';
 
 export default {
@@ -49,6 +64,13 @@ export default {
       type: Object,
       default: null,
     },
+  },
+  data() {
+    return {
+      loanLoading: false,
+      loanError: '',
+      loanMessage: '',
+    };
   },
   computed: {
     wallet() {
@@ -71,6 +93,34 @@ export default {
         active_deposits: 0,
         active_loans: 0,
       };
+    },
+    starterLoan() {
+      return this.bank?.starter_loan || {
+        can_take: false,
+        amount: 500,
+        wallet_max: 150,
+      };
+    },
+  },
+  methods: {
+    ...mapActions('game', ['takeStarterLoan']),
+    async onTakeStarterLoan() {
+      if (!this.starterLoan.can_take || this.loanLoading) {
+        return;
+      }
+
+      this.loanLoading = true;
+      this.loanError = '';
+      this.loanMessage = '';
+
+      try {
+        await this.takeStarterLoan();
+        this.loanMessage = `Займ ${this.starterLoan.amount} 🪙 выдан`;
+      } catch (error) {
+        this.loanError = error?.message || 'Не удалось взять займ';
+      } finally {
+        this.loanLoading = false;
+      }
     },
   },
 };
@@ -136,6 +186,53 @@ export default {
     align-items: center;
     justify-content: center;
     gap: 6px;
+  }
+}
+
+.starter_loan {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: stretch;
+}
+
+.starter_loan_btn {
+  .shadow_inset;
+  border: none;
+  background: @orange;
+  color: @colorText;
+  padding: 8px 10px;
+  border-radius: 4px;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+}
+
+.starter_loan_hint {
+  font-size: 11px;
+  color: @colorBlur;
+  text-align: center;
+}
+
+.msg {
+  font-size: 12px;
+  text-align: center;
+  padding: 4px;
+
+  &.error {
+    color: #f88;
+  }
+
+  &.ok {
+    color: #8f8;
   }
 }
 

@@ -53,6 +53,10 @@ class GameEconomyConfig
     public const BANK_MIN_CAPITAL_PROGNOBAKS = 200.0;
     public const DEPOSIT_MIN_AMOUNT_PROGNOBAKS = 100.0;
     public const LOAN_MIN_AMOUNT_PROGNOBAKS = 50.0;
+    /** Стартовый займ для игроков с низкой ликвидностью (кнопка в профиле). */
+    public const STARTER_LOAN_AMOUNT_PROGNOBAKS = 500.0;
+    /** Кнопка стартового займа, если на кошельке не больше этой суммы. */
+    public const STARTER_LOAN_WALLET_MAX = 150.0;
     /** Массовый займ модератора: кошелёк ниже порога — выдаём 50 🪙 на ставки. */
     public const MODERATOR_BULK_LOAN_BET_WALLET_MAX = 20.0;
     /** Массовый займ модератора: кошелёк ниже цены сундука в лавке. */
@@ -296,6 +300,14 @@ class GameEconomyConfig
         }
 
         return $milestones;
+    }
+
+    public static function isAllowedLoanAmount(float $amount): bool
+    {
+        $amount = round($amount, 1);
+
+        return $amount === self::LOAN_MIN_AMOUNT_PROGNOBAKS
+            || $amount === self::STARTER_LOAN_AMOUNT_PROGNOBAKS;
     }
 
     public static function calculateLoanInterest(float $principal): float
