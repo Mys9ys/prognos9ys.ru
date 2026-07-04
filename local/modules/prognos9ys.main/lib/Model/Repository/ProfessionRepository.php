@@ -241,6 +241,35 @@ class ProfessionRepository
         return $stats;
     }
 
+    /**
+     * @return array<int, array<string, int>>
+     */
+    public function getYieldStatsMapForAllUsers(): array
+    {
+        $map = [];
+        $dataClass = $this->getUserProfessionDataClass();
+        $response = $dataClass::getList([
+            'select' => ['UF_USER_ID', 'UF_PROFESSION_CODE', 'UF_NORMAL_YIELD', 'UF_PREMIUM_YIELD'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $userId = (int)($row['UF_USER_ID'] ?? 0);
+            $code = (string)($row['UF_PROFESSION_CODE'] ?? '');
+            if ($userId <= 0 || $code === '') {
+                continue;
+            }
+
+            if (!isset($map[$userId])) {
+                $map[$userId] = [];
+            }
+
+            $map[$userId][ProfessionAchievementConfig::statKeyNormal($code)] = (int)($row['UF_NORMAL_YIELD'] ?? 0);
+            $map[$userId][ProfessionAchievementConfig::statKeyPremium($code)] = (int)($row['UF_PREMIUM_YIELD'] ?? 0);
+        }
+
+        return $map;
+    }
+
     public function getActiveSessionByUserId(int $userId): ?array
     {
         if ($userId <= 0) {

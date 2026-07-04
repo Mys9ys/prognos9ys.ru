@@ -50,6 +50,7 @@ export default {
       return [
         { id: 'prognosis', title: 'Прогнозы', icon: 'prognosis', route: '/prognosis' },
         { id: 'inventory', title: 'Инвентарь', emoji: '🎒', route: '/inventory' },
+        { id: 'equipment', title: 'Экипировка', emoji: '🥋', route: '/equipment' },
         { id: 'collection', title: 'Коллекция', emoji: '📔', route: '/collection' },
         { id: 'achievements', title: 'Награды', icon: 'achievement', route: '/achievements' },
         { id: 'bank', title: 'Банк', icon: 'bank', route: '/bank' },

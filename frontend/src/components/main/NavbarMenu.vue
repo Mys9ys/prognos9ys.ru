@@ -103,6 +103,7 @@ export default {
       const path = route.path || '';
 
       if (path === '/inventory' || path === '/collection') return 'inventory';
+      if (path === '/equipment') return 'profile';
       if (path === '/bank') return 'bank';
       if (path === '/market') return 'market';
       if (path === '/work') return 'work';

@@ -29,6 +29,10 @@
       </button>
     </div>
 
+    <router-link v-if="categoryTab === 'equipment'" to="/equipment" class="equipment_link">
+      🥋 Открыть экран экипировки
+    </router-link>
+
     <div class="inventory_grid" v-if="filteredDisplayItems.length">
       <div
         v-for="item in filteredDisplayItems"
@@ -1101,6 +1105,18 @@ export default {
   flex-wrap: wrap;
   gap: 4px;
   margin-bottom: 8px;
+}
+
+.equipment_link {
+  display: block;
+  margin: -4px 0 8px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: fade(@orange, 18%);
+  color: @orange;
+  font-size: 12px;
+  text-align: center;
+  text-decoration: none;
 }
 
 .inventory_tab {

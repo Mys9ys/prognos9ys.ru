@@ -119,13 +119,13 @@ class EquipmentConfig
     {
         $code = trim((string)$equippedCaftanCode);
         if ($code === '' || !self::isCaftanCode($code)) {
-            return [
+            return array_merge([
                 'equipped_caftan' => null,
                 'equipped_label' => null,
                 'combo_x2_bonus_pp' => 0.0,
                 'combo_x3_bonus_pp' => 0.0,
                 'premium_bonus_pp' => 0.0,
-            ];
+            ], self::buildSlotPanel(null));
         }
 
         $bonus = self::getCaftanBonus($code) ?? [
@@ -134,12 +134,62 @@ class EquipmentConfig
             'premium_bonus' => 0.0,
         ];
 
-        return [
+        return array_merge([
             'equipped_caftan' => $code,
             'equipped_label' => self::getCaftanLabel($code),
             'combo_x2_bonus_pp' => round($bonus['combo_x2_bonus'] * 100, 1),
             'combo_x3_bonus_pp' => round($bonus['combo_x3_bonus'] * 100, 1),
             'premium_bonus_pp' => round($bonus['premium_bonus'] * 100, 2),
+        ], self::buildSlotPanel($code));
+    }
+
+    /**
+     * Слоты экипировки персонажа (RPG). enabled=false — зарезервировано под крафт позже.
+     *
+     * @return array<string, array{id:string,label:string,enabled:bool,slot_group:string}>
+     */
+    public static function slotDefinitions(): array
+    {
+        return [
+            'head' => ['id' => 'head', 'label' => 'Голова', 'enabled' => false, 'slot_group' => 'armor'],
+            'amulet' => ['id' => 'amulet', 'label' => 'Амулет', 'enabled' => false, 'slot_group' => 'accessory'],
+            'cloak' => ['id' => 'cloak', 'label' => 'Плащ', 'enabled' => false, 'slot_group' => 'armor'],
+            'body' => ['id' => 'body', 'label' => 'Тело', 'enabled' => true, 'slot_group' => 'armor'],
+            'gloves' => ['id' => 'gloves', 'label' => 'Перчатки', 'enabled' => false, 'slot_group' => 'armor'],
+            'belt' => ['id' => 'belt', 'label' => 'Пояс', 'enabled' => false, 'slot_group' => 'armor'],
+            'boots' => ['id' => 'boots', 'label' => 'Обувь', 'enabled' => false, 'slot_group' => 'armor'],
+            'ring_left' => ['id' => 'ring_left', 'label' => 'Кольцо', 'enabled' => false, 'slot_group' => 'ring'],
+            'ring_right' => ['id' => 'ring_right', 'label' => 'Кольцо', 'enabled' => false, 'slot_group' => 'ring'],
         ];
+    }
+
+    /**
+     * @return array{slots: array<int, array<string, mixed>>}
+     */
+    public static function buildSlotPanel(?string $equippedCaftanCode): array
+    {
+        $equippedCaftanCode = trim((string)$equippedCaftanCode);
+        $slots = [];
+
+        foreach (self::slotDefinitions() as $slotId => $definition) {
+            $equippedCode = null;
+            $equippedLabel = null;
+
+            if ($slotId === 'body' && $equippedCaftanCode !== '' && self::isCaftanCode($equippedCaftanCode)) {
+                $equippedCode = $equippedCaftanCode;
+                $equippedLabel = self::getCaftanLabel($equippedCaftanCode);
+            }
+
+            $slots[] = [
+                'id' => $slotId,
+                'label' => (string)$definition['label'],
+                'enabled' => (bool)$definition['enabled'],
+                'slot_group' => (string)$definition['slot_group'],
+                'equipped_code' => $equippedCode,
+                'equipped_label' => $equippedLabel,
+            ];
+        }
+
+        return ['slots' => $slots];
     }
 }

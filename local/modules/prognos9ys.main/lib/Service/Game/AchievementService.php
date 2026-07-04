@@ -247,6 +247,14 @@ class AchievementService
             $maps[$userId] = array_merge($maps[$userId] ?? $this->emptyStatsTemplate(), $row);
         }
 
+        foreach ($this->repository->getProductionAchievementStatsMapForAllUsers() as $userId => $row) {
+            $maps[$userId] = array_merge($maps[$userId] ?? $this->emptyStatsTemplate(), $row);
+        }
+
+        foreach ($this->professionRepository->getYieldStatsMapForAllUsers() as $userId => $row) {
+            $maps[$userId] = array_merge($maps[$userId] ?? $this->emptyStatsTemplate(), $row);
+        }
+
         self::$batchStatsCache = $maps;
 
         return $maps;
@@ -349,7 +357,7 @@ class AchievementService
             'wow_pen' => 0,
             'metric_extra_time' => 0,
             'metric_shootout' => 0,
-        ], XpBankAchievementConfig::emptyStatsTemplate(), ExchangeBuyAchievementConfig::emptyStatsTemplate());
+        ], XpBankAchievementConfig::emptyStatsTemplate(), ExchangeBuyAchievementConfig::emptyStatsTemplate(), RecipeAchievementConfig::emptyStatsTemplate(), ProductionAchievementConfig::emptyStatsTemplate());
     }
 
     /**

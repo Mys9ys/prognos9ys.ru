@@ -96,6 +96,12 @@ const routes = [
     },
 
     {
+        path: '/equipment',
+        component: () => import('@/pages/game/EquipmentPage.vue'),
+        ...authRoute,
+    },
+
+    {
         path: '/collection',
         component: () => import('@/pages/game/CollectionPage.vue'),
         ...authRoute,

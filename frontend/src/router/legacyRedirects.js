@@ -18,6 +18,7 @@ export function resolveLegacyProfileRedirect(to) {
 
   const tabMap = {
     inventory: '/inventory',
+    equipment: '/equipment',
     collection: '/collection',
     achievement: '/achievements',
     achievements: '/achievements',

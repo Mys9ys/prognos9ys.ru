@@ -36,6 +36,7 @@ class GameEconomyRepository
 
     /** @var bool */
     private static $premiumWalletSchemaReady = false;
+    private static $walletEquipmentSchemaReady = false;
 
     /** @var bool */
     private static $premiumWorkQueueSchemaReady = false;
@@ -365,6 +366,7 @@ class GameEconomyRepository
             return '';
         }
 
+        $this->ensureWalletEquipmentSchema();
         $wallet = $this->getWalletByUserId($userId);
         if (!$wallet) {
             return '';
@@ -379,6 +381,7 @@ class GameEconomyRepository
             throw new \InvalidArgumentException('Некорректный пользователь');
         }
 
+        $this->ensureWalletEquipmentSchema();
         $wallet = $this->getWalletByUserId($userId);
         if (!$wallet) {
             throw new \RuntimeException('Кошелёк не найден');
@@ -387,6 +390,17 @@ class GameEconomyRepository
         $this->updateWallet((int)$wallet['ID'], [
             'UF_EQUIPPED_CAFTAN' => trim($code),
         ]);
+    }
+
+    public function ensureWalletEquipmentSchema(): void
+    {
+        if (self::$walletEquipmentSchemaReady) {
+            return;
+        }
+
+        (new GameEconomyHlInstaller())->upgradeWalletEquipmentHl();
+        self::resetWalletDataClassCache();
+        self::$walletEquipmentSchemaReady = true;
     }
 
     /**
@@ -1318,6 +1332,146 @@ class GameEconomyRepository
         }
 
         return $stats;
+    }
+
+    /**
+     * Пакетные счётчики ачивок производства/рецептов для рейтинга и массового сбора.
+     *
+     * @return array<int, array<string, int>>
+     */
+    public function getProductionAchievementStatsMapForAllUsers(): array
+    {
+        $this->ensureLearnedRecipesSchema();
+        $this->ensureProductionCraftSchema();
+
+        $template = array_merge(
+            RecipeAchievementConfig::emptyStatsTemplate(),
+            ProductionAchievementConfig::emptyStatsTemplate()
+        );
+        $craftableCodes = array_keys(ProfessionRecipeConfig::craftDefinitions());
+        $map = [];
+
+        $dataClass = $this->getUserProgressDataClass();
+        $response = $dataClass::getList([
+            'select' => [
+                'UF_USER_ID',
+                'UF_LEARNED_RECIPES',
+                'UF_ALBUM_CRAFT_RUNS',
+                'UF_RECIPE_CRAFT_RUNS',
+                'UF_RECIPE_COPY_RUNS',
+                'UF_RECIPE_CRAFT_BY_PROF',
+                'UF_RECIPE_CRAFT_BY_CODE',
+            ],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $userId = (int)($row['UF_USER_ID'] ?? 0);
+            if ($userId <= 0) {
+                continue;
+            }
+
+            $stats = $template;
+            $learned = $this->parseLearnedRecipesRaw((string)($row['UF_LEARNED_RECIPES'] ?? ''));
+            $stats[RecipeAchievementConfig::STAT_LEARNED] = count($learned);
+            $stats[RecipeAchievementConfig::STAT_ALBUM_CRAFT] = max(
+                0,
+                (int)($row['UF_ALBUM_CRAFT_RUNS'] ?? 0)
+            );
+            $stats[ProductionAchievementConfig::STAT_CRAFT_TOTAL] = max(
+                0,
+                (int)($row['UF_RECIPE_CRAFT_RUNS'] ?? 0)
+            );
+            $stats[ProductionAchievementConfig::STAT_COPY_TOTAL] = max(
+                0,
+                (int)($row['UF_RECIPE_COPY_RUNS'] ?? 0)
+            );
+
+            $byProf = $this->decodeRecipeCraftByProfession((string)($row['UF_RECIPE_CRAFT_BY_PROF'] ?? ''));
+            foreach (ProfessionMaterialConfig::processingProfessions() as $code => $profession) {
+                $qty = max(0, (int)($byProf[$code] ?? 0));
+                $stats[ProductionAchievementConfig::statKeyProfessionCraft($code, 1)] = $qty;
+                $stats[ProductionAchievementConfig::statKeyProfessionCraft($code, 2)] = $qty;
+            }
+
+            $learnedCraftable = count(array_intersect($craftableCodes, $learned));
+            $stats[ProductionAchievementConfig::STAT_CRAFTABLE_LEARNED] = $learnedCraftable;
+
+            $byCode = $this->decodeRecipeCraftByCode((string)($row['UF_RECIPE_CRAFT_BY_CODE'] ?? ''));
+            foreach ($craftableCodes as $recipeCode) {
+                $stats[ProductionAchievementConfig::statKeyRecipeCraft($recipeCode)] = max(
+                    0,
+                    (int)($byCode[$recipeCode] ?? 0)
+                );
+            }
+
+            $map[$userId] = $stats;
+        }
+
+        foreach ($this->getWalletTxCountMapByReasons(['profession_craft']) as $userId => $count) {
+            if (!isset($map[$userId])) {
+                $map[$userId] = $template;
+            }
+            $map[$userId][ProductionAchievementConfig::STAT_CRAFT_TOTAL] = max(
+                (int)$map[$userId][ProductionAchievementConfig::STAT_CRAFT_TOTAL],
+                $count
+            );
+        }
+
+        foreach ($this->getWalletTxCountMapByReasons(['profession_recipe_copy']) as $userId => $count) {
+            if (!isset($map[$userId])) {
+                $map[$userId] = $template;
+            }
+            $map[$userId][ProductionAchievementConfig::STAT_COPY_TOTAL] = max(
+                (int)$map[$userId][ProductionAchievementConfig::STAT_COPY_TOTAL],
+                $count
+            );
+        }
+
+        return $map;
+    }
+
+    /**
+     * @param string[] $reasons
+     * @return array<int, int>
+     */
+    public function getWalletTxCountMapByReasons(array $reasons): array
+    {
+        if (!$reasons) {
+            return [];
+        }
+
+        $map = [];
+        $dataClass = $this->getWalletTxDataClass();
+        $response = $dataClass::getList([
+            'filter' => ['@UF_REASON' => $reasons],
+            'select' => ['UF_USER_ID'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $userId = (int)($row['UF_USER_ID'] ?? 0);
+            if ($userId <= 0) {
+                continue;
+            }
+
+            $map[$userId] = (int)($map[$userId] ?? 0) + 1;
+        }
+
+        return $map;
+    }
+
+    /**
+     * @return string[]
+     */
+    private function parseLearnedRecipesRaw(string $raw): array
+    {
+        $raw = trim($raw);
+        if ($raw === '') {
+            return [];
+        }
+
+        $parts = array_filter(array_map('trim', explode(',', $raw)));
+
+        return array_values(array_unique($parts));
     }
 
     private function syncProductionCraftCountersFromWallet(int $userId): void

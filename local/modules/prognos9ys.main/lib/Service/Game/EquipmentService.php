@@ -20,6 +20,7 @@ class EquipmentService
      *   combo_x2_bonus_pp:float,
      *   combo_x3_bonus_pp:float,
      *   premium_bonus_pp:float,
+     *   slots:array<int, array<string, mixed>>,
      *   lines:array<int, array{text:string,status:string}>
      * }
      */
@@ -30,13 +31,8 @@ class EquipmentService
             throw new \InvalidArgumentException('Неизвестный кафтан');
         }
 
-        $eventId = ChestLootConfig::LOOT_EVENT_GLOBAL;
-        $available = $this->repository->getLootItemCount(
-            $userId,
-            $eventId,
-            $equipmentCode,
-            ChestLootConfig::CATEGORY_EQUIPMENT
-        );
+        $category = ChestLootConfig::CATEGORY_EQUIPMENT;
+        $available = $this->repository->getEventAgnosticLootItemCount($userId, $equipmentCode, $category);
         if ($available <= 0) {
             throw new \RuntimeException('Кафтан не найден в инвентаре');
         }
@@ -46,14 +42,14 @@ class EquipmentService
             throw new \RuntimeException('Этот кафтан уже надет');
         }
 
-        $this->repository->decrementLootItem($userId, $eventId, $equipmentCode, 1);
+        $this->repository->decrementEventAgnosticLootItem($userId, $equipmentCode, $category, 1);
 
         if ($current !== '' && EquipmentConfig::isCaftanCode($current)) {
             $this->repository->incrementLootItem(
                 $userId,
-                $eventId,
+                ChestLootConfig::LOOT_EVENT_GLOBAL,
                 $current,
-                ChestLootConfig::CATEGORY_EQUIPMENT,
+                $category,
                 1,
                 'N'
             );
@@ -83,6 +79,7 @@ class EquipmentService
      *   combo_x2_bonus_pp:float,
      *   combo_x3_bonus_pp:float,
      *   premium_bonus_pp:float,
+     *   slots:array<int, array<string, mixed>>,
      *   lines:array<int, array{text:string,status:string}>
      * }
      */
@@ -121,7 +118,8 @@ class EquipmentService
      *   equipped_label:?string,
      *   combo_x2_bonus_pp:float,
      *   combo_x3_bonus_pp:float,
-     *   premium_bonus_pp:float
+     *   premium_bonus_pp:float,
+     *   slots:array<int, array<string, mixed>>
      * }
      */
     public function getSummary(int $userId): array

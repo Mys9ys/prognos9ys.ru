@@ -9,6 +9,7 @@ export const INVENTORY_TABS = [
   { id: 'xp_bank', label: 'Банки XP' },
   { id: 'cert', label: 'Лицензии' },
   { id: 'material', label: 'Материалы' },
+  { id: 'equipment', label: 'Экип' },
 ];
 
 export function resolveInventoryTab(item, tabId = 'all') {
@@ -44,6 +45,9 @@ export function resolveInventoryTab(item, tabId = 'all') {
   }
   if (tabId === 'material') {
     return category === 'material';
+  }
+  if (tabId === 'equipment') {
+    return category === 'equipment';
   }
 
   return true;
