@@ -3,14 +3,35 @@
 namespace Prognos9ys\Main\Service\Game;
 
 /**
- * Экипировка: кафтаны ткача — бонусы к комбо и премиум-дропу на ферме.
+ * Экипировка: кафтаны по профессиям — бонусы к комбо и премиум-дропу на ферме.
  */
 class EquipmentConfig
 {
+    /** @var array<string, array{combo_x2_bonus:float,combo_x3_bonus:float,premium_bonus:float}> */
+    private const TIER_BONUSES = [
+        CaftanRecipeConfig::TIER_BASIC => [
+            'combo_x2_bonus' => 0.03,
+            'combo_x3_bonus' => 0.01,
+            'premium_bonus' => 0.002,
+        ],
+        CaftanRecipeConfig::TIER_EMBROIDERED => [
+            'combo_x2_bonus' => 0.06,
+            'combo_x3_bonus' => 0.02,
+            'premium_bonus' => 0.004,
+        ],
+        CaftanRecipeConfig::TIER_GRAND => [
+            'combo_x2_bonus' => 0.10,
+            'combo_x3_bonus' => 0.04,
+            'premium_bonus' => 0.008,
+        ],
+    ];
+
     /**
      * @return array<string, array{
      *   code:string,
      *   label:string,
+     *   profession_code:?string,
+     *   tier:string,
      *   combo_x2_bonus:float,
      *   combo_x3_bonus:float,
      *   premium_bonus:float
@@ -18,36 +39,47 @@ class EquipmentConfig
      */
     public static function caftans(): array
     {
-        return [
-            'caftan_basic' => [
-                'code' => 'caftan_basic',
-                'label' => 'Кафтан (обычный)',
-                'combo_x2_bonus' => 0.03,
-                'combo_x3_bonus' => 0.01,
-                'premium_bonus' => 0.002,
-            ],
-            'caftan_embroidered' => [
-                'code' => 'caftan_embroidered',
-                'label' => 'Кафтан (расшитый)',
-                'combo_x2_bonus' => 0.06,
-                'combo_x3_bonus' => 0.02,
-                'premium_bonus' => 0.004,
-            ],
-            'caftan_grand' => [
-                'code' => 'caftan_grand',
-                'label' => 'Кафтан (великолепный)',
-                'combo_x2_bonus' => 0.10,
-                'combo_x3_bonus' => 0.04,
-                'premium_bonus' => 0.008,
-            ],
-        ];
+        static $cache = null;
+        if ($cache !== null) {
+            return $cache;
+        }
+
+        $cache = [];
+
+        foreach (['caftan_basic', 'caftan_embroidered', 'caftan_grand'] as $legacyCode) {
+            $tier = CaftanRecipeConfig::caftanTierFromProduct($legacyCode);
+            if ($tier === null) {
+                continue;
+            }
+            $bonuses = self::TIER_BONUSES[$tier];
+            $cache[$legacyCode] = array_merge([
+                'code' => $legacyCode,
+                'label' => ProfessionCraftedItemConfig::getLabel($legacyCode),
+                'profession_code' => 'weaver',
+                'tier' => $tier,
+            ], $bonuses);
+        }
+
+        foreach (CaftanRecipeConfig::craftedItemEntries() as $code => $item) {
+            $tier = CaftanRecipeConfig::caftanTierFromProduct($code);
+            if ($tier === null) {
+                continue;
+            }
+            $bonuses = self::TIER_BONUSES[$tier];
+            $cache[$code] = array_merge([
+                'code' => $code,
+                'label' => (string)$item['label'],
+                'profession_code' => CaftanRecipeConfig::professionFromProduct($code),
+                'tier' => $tier,
+            ], $bonuses);
+        }
+
+        return $cache;
     }
 
     public static function isCaftanCode(string $code): bool
     {
-        $code = trim($code);
-
-        return $code !== '' && isset(self::caftans()[$code]);
+        return CaftanRecipeConfig::isCaftanProduct($code);
     }
 
     /**
@@ -62,7 +94,12 @@ class EquipmentConfig
 
         $def = self::caftans()[$code] ?? null;
         if (!$def) {
-            return null;
+            $tier = CaftanRecipeConfig::caftanTierFromProduct($code);
+            if ($tier === null || !isset(self::TIER_BONUSES[$tier])) {
+                return null;
+            }
+
+            return self::TIER_BONUSES[$tier];
         }
 
         return [
@@ -110,6 +147,7 @@ class EquipmentConfig
      * @return array{
      *   equipped_caftan:?string,
      *   equipped_label:?string,
+     *   equipped_profession:?string,
      *   combo_x2_bonus_pp:float,
      *   combo_x3_bonus_pp:float,
      *   premium_bonus_pp:float
@@ -122,6 +160,7 @@ class EquipmentConfig
             return array_merge([
                 'equipped_caftan' => null,
                 'equipped_label' => null,
+                'equipped_profession' => null,
                 'combo_x2_bonus_pp' => 0.0,
                 'combo_x3_bonus_pp' => 0.0,
                 'premium_bonus_pp' => 0.0,
@@ -137,6 +176,7 @@ class EquipmentConfig
         return array_merge([
             'equipped_caftan' => $code,
             'equipped_label' => self::getCaftanLabel($code),
+            'equipped_profession' => CaftanRecipeConfig::professionFromProduct($code),
             'combo_x2_bonus_pp' => round($bonus['combo_x2_bonus'] * 100, 1),
             'combo_x3_bonus_pp' => round($bonus['combo_x3_bonus'] * 100, 1),
             'premium_bonus_pp' => round($bonus['premium_bonus'] * 100, 2),

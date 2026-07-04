@@ -26,6 +26,11 @@ const MATERIAL_EMOJI = {
   fine_ingot: '✨',
   fine_glass: '🥂',
   fine_cloth: '👑',
+  craft_resin: '🟤',
+  craft_sealstone: '⚪',
+  craft_gilded_ore: '🟡',
+  craft_prism_sand: '🔮',
+  craft_golden_thread: '🧵',
 };
 
 const LOOT_CATEGORY_EMOJI = {

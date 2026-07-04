@@ -19,10 +19,39 @@ function normalizeProductCode(code) {
 
 export function getCraftProductIconSrc(code) {
   const normalized = normalizeProductCode(code);
-  return productIcons[normalized] || null;
+  if (productIcons[normalized]) {
+    return productIcons[normalized];
+  }
+
+  const caftanMatch = normalized.match(/^caftan_(basic|embroidered|grand)_/);
+  if (caftanMatch) {
+    return productIcons[`caftan_${caftanMatch[1]}`] || null;
+  }
+
+  return null;
 }
 
 export function getCraftRecipeIconSrc(recipeCode) {
   const normalized = String(recipeCode || '');
-  return recipeIcons[normalized] || null;
+  if (recipeIcons[normalized]) {
+    return recipeIcons[normalized];
+  }
+
+  const caftanRecipeMatch = normalized.match(/^recipe_caftan_(basic|embroidered|grand)_/);
+  if (caftanRecipeMatch) {
+    return recipeIcons[`recipe_caftan_${caftanRecipeMatch[1]}`] || null;
+  }
+
+  const craftStageMatch = normalized.match(/^recipe_craft_(craft_[a-z_]+)$/);
+  if (craftStageMatch) {
+    return productIcons[craftStageMatch[1]] || null;
+  }
+
+  const refineMatch = normalized.match(/^recipe_refine_fine_/);
+  if (refineMatch) {
+    const fineCode = normalized.replace(/^recipe_refine_/, '');
+    return productIcons[fineCode] || null;
+  }
+
+  return null;
 }

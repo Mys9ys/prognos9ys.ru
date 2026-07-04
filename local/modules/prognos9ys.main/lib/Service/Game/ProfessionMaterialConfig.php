@@ -261,6 +261,11 @@ class ProfessionMaterialConfig
             'fine_ingot' => '✨',
             'fine_glass' => '🥂',
             'fine_cloth' => '👑',
+            'craft_resin' => '🟤',
+            'craft_sealstone' => '⚪',
+            'craft_gilded_ore' => '🟡',
+            'craft_prism_sand' => '🔮',
+            'craft_golden_thread' => '🧵',
             'fence_panel' => '🪵',
             'wall_section_fence' => '🪨',
             'wall_section' => '🧱',
@@ -376,6 +381,18 @@ class ProfessionMaterialConfig
 
         foreach (ProfessionCraftedItemConfig::materialCatalogRows() as $code => $row) {
             $catalog[$code] = $row;
+        }
+
+        foreach (CaftanRecipeConfig::intermediateMaterialCatalog() as $code => $row) {
+            if (!isset($catalog[$code])) {
+                $catalog[$code] = [
+                    'code' => $code,
+                    'label' => (string)$row['label'],
+                    'nominal' => (float)$row['nominal'],
+                    'is_premium' => false,
+                    'emoji' => (string)$row['emoji'],
+                ];
+            }
         }
 
         return $catalog;

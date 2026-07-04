@@ -15,6 +15,7 @@ class AchievementConfig
     public const GROUP_POTION = 'potion';
     public const GROUP_EXCHANGE = 'exchange';
     public const GROUP_PRODUCTION = 'production';
+    public const GROUP_EQUIPMENT = 'equipment';
 
     /**
      * @return array<string, array{
@@ -377,6 +378,7 @@ class AchievementConfig
             ExchangeBuyAchievementConfig::getCatalogEntries(),
             RecipeAchievementConfig::getCatalogEntries(),
             ProductionAchievementConfig::getCatalogEntries(),
+            EquipmentAchievementConfig::getCatalogEntries(),
             CollectionMegaAchievementConfig::getCatalogEntries()
         );
     }
@@ -401,6 +403,10 @@ class AchievementConfig
         }
 
         if (strpos($code, 'production_') === 0) {
+            return true;
+        }
+
+        if (strpos($code, 'equipment_') === 0) {
             return true;
         }
 

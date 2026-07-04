@@ -174,6 +174,9 @@ class ProductionAchievementConfig
         }
 
         foreach (ProfessionRecipeConfig::craftDefinitions() as $recipeCode => $definition) {
+            if (CaftanRecipeConfig::isEquipmentAchievementRecipe($recipeCode)) {
+                continue;
+            }
             $entries = array_merge($entries, self::buildRecipeCraftAchievement($recipeCode, $definition));
         }
 

@@ -41,7 +41,7 @@ export default {
   computed: {
     shortLabel() {
       const label = String(this.equipSlot.equipped_label || '');
-      return label.replace(/^Кафтан\s*/i, '').trim() || label;
+      return label.replace(/^Кафтан\s+[^:]+:\s*/i, '').replace(/^Кафтан\s*/i, '').trim() || label;
     },
     slotTitle() {
       if (!this.equipSlot.enabled) {

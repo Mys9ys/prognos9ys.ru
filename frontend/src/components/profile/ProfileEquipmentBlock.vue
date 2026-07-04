@@ -172,7 +172,7 @@ export default {
         .map((item) => ({
           code: item.code,
           label: item.label || item.code,
-          shortLabel: String(item.label || item.code).replace(/^Кафтан\s*/i, ''),
+          shortLabel: String(item.label || item.code).replace(/^Кафтан\s+[^:]+:\s*/i, '').replace(/^Кафтан\s*/i, ''),
           count: Number(item.count) || 0,
           equipped: equipped === item.code,
           iconSrc: getCraftProductIconSrc(item.code),

@@ -418,10 +418,11 @@ class ProfessionCraftService
             $code = (string)($output['code'] ?? '');
             $qty = max(1, (int)($output['qty'] ?? 1));
             $source = (string)($output['source'] ?? 'material');
+            $isPremium = !empty($output['premium']);
             $totalQty += $qty;
 
             if ($source === 'material') {
-                $this->professionRepository->addUserMaterialQty($userId, $code, $qty, false);
+                $this->professionRepository->addUserMaterialQty($userId, $code, $qty, $isPremium);
 
                 continue;
             }

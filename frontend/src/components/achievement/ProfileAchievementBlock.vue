@@ -31,6 +31,15 @@
       <button
         type="button"
         class="ach_tab"
+        :class="{ active: activeTab === 'equipment' }"
+        @click="activeTab = 'equipment'"
+      >
+        Экипировка
+        <span v-if="equipmentCount" class="ach_tab_count">({{ equipmentCount }})</span>
+      </button>
+      <button
+        type="button"
+        class="ach_tab"
         :class="{ active: activeTab === 'potion' }"
         @click="activeTab = 'potion'"
       >
@@ -173,6 +182,7 @@ export default {
         return group !== 'welcome'
           && group !== 'profession'
           && group !== 'production'
+          && group !== 'equipment'
           && group !== 'potion'
           && group !== 'exchange'
           && group !== 'collection';
@@ -183,6 +193,9 @@ export default {
     },
     productionItems() {
       return this.items.filter((item) => item.group === 'production');
+    },
+    equipmentItems() {
+      return this.items.filter((item) => item.group === 'equipment');
     },
     potionItems() {
       return this.items.filter((item) => item.group === 'potion');
@@ -202,6 +215,9 @@ export default {
     productionCount() {
       return this.productionItems.length;
     },
+    equipmentCount() {
+      return this.equipmentItems.length;
+    },
     potionCount() {
       return this.potionItems.length;
     },
@@ -216,6 +232,8 @@ export default {
           return 'Пока нет ачивок профессий';
         case 'production':
           return 'Пока нет ачивок производства';
+        case 'equipment':
+          return 'Пока нет ачивок экипировки';
         case 'potion':
           return 'Пока нет ачивок за зелья';
         case 'exchange':
@@ -232,6 +250,8 @@ export default {
         list = this.professionItems.filter((item) => Number(item.profession_stage || 1) === this.professionStageTab);
       } else if (this.activeTab === 'production') {
         list = this.productionItems.filter((item) => Number(item.profession_stage || 1) === this.productionStageTab);
+      } else if (this.activeTab === 'equipment') {
+        list = this.equipmentItems;
       } else if (this.activeTab === 'potion') {
         list = this.potionItems;
       } else if (this.activeTab === 'exchange') {

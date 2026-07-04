@@ -15,7 +15,7 @@ class ProfessionCraftedItemConfig
      */
     public static function all(): array
     {
-        return [
+        return array_merge([
             'clean_scroll' => self::row('clean_scroll', 'Чистый свиток', 5.0, self::STORAGE_MATERIAL),
             'nails' => self::row('nails', 'Гвозди', 1.0, self::STORAGE_MATERIAL),
             'hinge' => self::row('hinge', 'Петли', 2.5, self::STORAGE_MATERIAL),
@@ -45,7 +45,7 @@ class ProfessionCraftedItemConfig
             'caftan_basic' => self::row('caftan_basic', 'Кафтан (обычный)', 60.0, self::STORAGE_EQUIPMENT),
             'caftan_embroidered' => self::row('caftan_embroidered', 'Кафтан (расшитый)', 170.0, self::STORAGE_EQUIPMENT),
             'caftan_grand' => self::row('caftan_grand', 'Кафтан (великолепный)', 420.0, self::STORAGE_EQUIPMENT),
-        ];
+        ], CaftanRecipeConfig::craftedItemEntries());
     }
 
     public static function isKnownItem(string $code): bool

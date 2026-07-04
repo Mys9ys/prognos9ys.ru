@@ -52,6 +52,14 @@ class ProfessionRecipeConfig
      */
     public static function all(): array
     {
+        return array_merge(self::baseRecipeMeta(), CaftanRecipeConfig::recipeMetaEntries());
+    }
+
+    /**
+     * @return array<string, array{code:string,label:string,profession:string,nominal:float,tier:string}>
+     */
+    private static function baseRecipeMeta(): array
+    {
         return [
             self::RECIPE_CLEAN_SCROLL => self::meta(self::RECIPE_CLEAN_SCROLL, 'Рецепт чистого свитка', 'weaver', 5.0, self::TIER_BASIC),
             self::RECIPE_NAILS => self::meta(self::RECIPE_NAILS, 'Рецепт гвоздей', 'smelter', 15.0, self::TIER_BASIC),
@@ -80,9 +88,6 @@ class ProfessionRecipeConfig
             self::RECIPE_ROOF_BUNDLE => self::meta(self::RECIPE_ROOF_BUNDLE, 'Рецепт пакета крыши', 'carpenter', 235.0, self::TIER_ADVANCED),
             self::RECIPE_ROOF_BUNDLE_LIGHT => self::meta(self::RECIPE_ROOF_BUNDLE_LIGHT, 'Рецепт лёгкого покрытия крыши', 'carpenter', 140.0, self::TIER_BASIC),
             self::RECIPE_ALBUM => self::meta(self::RECIPE_ALBUM, 'Рецепт альбома коллекции', 'weaver', 10.0, self::TIER_ADVANCED),
-            self::RECIPE_CAFTAN_BASIC => self::meta(self::RECIPE_CAFTAN_BASIC, 'Рецепт кафтана (обычный)', 'weaver', 60.0, self::TIER_ADVANCED),
-            self::RECIPE_CAFTAN_EMBROIDERED => self::meta(self::RECIPE_CAFTAN_EMBROIDERED, 'Рецепт кафтана (расшитый)', 'weaver', 170.0, self::TIER_ADVANCED),
-            self::RECIPE_CAFTAN_GRAND => self::meta(self::RECIPE_CAFTAN_GRAND, 'Рецепт кафтана (великолепный)', 'weaver', 420.0, self::TIER_ADVANCED),
         ];
     }
 
@@ -144,7 +149,6 @@ class ProfessionRecipeConfig
         }
 
         $material = 'material';
-        $equipment = 'equipment';
 
         $definitions = [
             self::RECIPE_CLEAN_SCROLL => self::craftDef(self::RECIPE_CLEAN_SCROLL, 'weaver', self::TIER_BASIC, [
@@ -306,27 +310,9 @@ class ProfessionRecipeConfig
             ], [
                 self::output('roof_bundle_light', 1, $material),
             ]),
-            self::RECIPE_CAFTAN_BASIC => self::craftDef(self::RECIPE_CAFTAN_BASIC, 'weaver', self::TIER_ADVANCED, [
-                self::input('cloth', 4, $material),
-                self::input('rope', 1, $material),
-            ], [
-                self::output('caftan_basic', 1, $equipment),
-            ]),
-            self::RECIPE_CAFTAN_EMBROIDERED => self::craftDef(self::RECIPE_CAFTAN_EMBROIDERED, 'weaver', self::TIER_ADVANCED, [
-                self::input('cloth', 6, $material),
-                self::input('rope', 2, $material),
-                self::input('fine_cloth', 1, $material, true),
-            ], [
-                self::output('caftan_embroidered', 1, $equipment),
-            ]),
-            self::RECIPE_CAFTAN_GRAND => self::craftDef(self::RECIPE_CAFTAN_GRAND, 'weaver', self::TIER_ADVANCED, [
-                self::input('cloth', 8, $material),
-                self::input('fine_cloth', 2, $material, true),
-                self::input('caftan_embroidered', 1, $equipment),
-            ], [
-                self::output('caftan_grand', 1, $equipment),
-            ]),
         ];
+
+        $definitions = array_merge($definitions, CaftanRecipeConfig::craftDefinitionEntries());
 
         return $definitions;
     }
@@ -400,7 +386,7 @@ class ProfessionRecipeConfig
      */
     public static function recipeAdvancedPackDrops(): array
     {
-        return self::packRows([
+        return self::packRows(array_merge([
             self::RECIPE_WINDOW_REGULAR => 22,
             self::RECIPE_DOOR => 18,
             self::RECIPE_ARCH_LINTEL => 16,
@@ -409,7 +395,7 @@ class ProfessionRecipeConfig
             self::RECIPE_WALL_SECTION_WINDOW => 5,
             self::RECIPE_WALL_SECTION_DOOR => 4,
             self::RECIPE_ROOF_BUNDLE => 4,
-        ]);
+        ], CaftanRecipeConfig::refineRecipePackWeights()));
     }
 
     /**
@@ -417,11 +403,7 @@ class ProfessionRecipeConfig
      */
     public static function equipmentWorkPackDrops(): array
     {
-        return self::packRows([
-            self::RECIPE_CAFTAN_BASIC => 70,
-            self::RECIPE_CAFTAN_EMBROIDERED => 22,
-            self::RECIPE_CAFTAN_GRAND => 8,
-        ]);
+        return self::packRows(CaftanRecipeConfig::equipmentWorkPackWeights());
     }
 
     /**

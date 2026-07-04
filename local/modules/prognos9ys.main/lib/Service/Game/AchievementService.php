@@ -357,7 +357,7 @@ class AchievementService
             'wow_pen' => 0,
             'metric_extra_time' => 0,
             'metric_shootout' => 0,
-        ], XpBankAchievementConfig::emptyStatsTemplate(), ExchangeBuyAchievementConfig::emptyStatsTemplate(), RecipeAchievementConfig::emptyStatsTemplate(), ProductionAchievementConfig::emptyStatsTemplate());
+        ], XpBankAchievementConfig::emptyStatsTemplate(), ExchangeBuyAchievementConfig::emptyStatsTemplate(), RecipeAchievementConfig::emptyStatsTemplate(), ProductionAchievementConfig::emptyStatsTemplate(), EquipmentAchievementConfig::emptyStatsTemplate());
     }
 
     /**
