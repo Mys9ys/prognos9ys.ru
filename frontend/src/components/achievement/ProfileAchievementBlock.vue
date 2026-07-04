@@ -22,6 +22,15 @@
       <button
         type="button"
         class="ach_tab"
+        :class="{ active: activeTab === 'production' }"
+        @click="activeTab = 'production'"
+      >
+        Производство
+        <span v-if="productionCount" class="ach_tab_count">({{ productionCount }})</span>
+      </button>
+      <button
+        type="button"
+        class="ach_tab"
         :class="{ active: activeTab === 'potion' }"
         @click="activeTab = 'potion'"
       >
@@ -71,18 +80,27 @@
         </button>
       </div>
 
+      <div class="ach_subtabs" v-if="activeTab === 'production'">
+        <button
+          type="button"
+          class="ach_subtab"
+          :class="{ active: productionStageTab === 1 }"
+          @click="productionStageTab = 1"
+        >
+          Этап 1
+        </button>
+        <button
+          type="button"
+          class="ach_subtab"
+          :class="{ active: productionStageTab === 2 }"
+          @click="productionStageTab = 2"
+        >
+          Этап 2
+        </button>
+      </div>
+
       <div class="empty_text" v-if="!filteredItems.length">
-        {{
-          activeTab === 'general'
-            ? 'Пока нет общих ачивок'
-            : (activeTab === 'profession'
-              ? 'Пока нет ачивок профессий'
-              : (activeTab === 'potion'
-                ? 'Пока нет ачивок за зелья'
-                : (activeTab === 'exchange'
-                  ? 'Пока нет биржевых ачивок'
-                  : 'Пока нет футбольных ачивок')))
-        }}
+        {{ emptyTabText }}
       </div>
       <div class="grid" v-else>
         <AchievementCard
@@ -135,6 +153,7 @@ export default {
       claimingCode: '',
       activeTab: 'general',
       professionStageTab: 1,
+      productionStageTab: 1,
       rewardToast: {
         visible: false,
         title: '',
@@ -153,6 +172,7 @@ export default {
         const group = item.group || '';
         return group !== 'welcome'
           && group !== 'profession'
+          && group !== 'production'
           && group !== 'potion'
           && group !== 'exchange'
           && group !== 'collection';
@@ -160,6 +180,9 @@ export default {
     },
     professionItems() {
       return this.items.filter((item) => item.group === 'profession');
+    },
+    productionItems() {
+      return this.items.filter((item) => item.group === 'production');
     },
     potionItems() {
       return this.items.filter((item) => item.group === 'potion');
@@ -176,11 +199,30 @@ export default {
     professionCount() {
       return this.professionItems.length;
     },
+    productionCount() {
+      return this.productionItems.length;
+    },
     potionCount() {
       return this.potionItems.length;
     },
     exchangeCount() {
       return this.exchangeItems.length;
+    },
+    emptyTabText() {
+      switch (this.activeTab) {
+        case 'general':
+          return 'Пока нет общих ачивок';
+        case 'profession':
+          return 'Пока нет ачивок профессий';
+        case 'production':
+          return 'Пока нет ачивок производства';
+        case 'potion':
+          return 'Пока нет ачивок за зелья';
+        case 'exchange':
+          return 'Пока нет биржевых ачивок';
+        default:
+          return 'Пока нет футбольных ачивок';
+      }
     },
     filteredItems() {
       let list = this.generalItems;
@@ -188,6 +230,8 @@ export default {
         list = this.footballItems;
       } else if (this.activeTab === 'profession') {
         list = this.professionItems.filter((item) => Number(item.profession_stage || 1) === this.professionStageTab);
+      } else if (this.activeTab === 'production') {
+        list = this.productionItems.filter((item) => Number(item.profession_stage || 1) === this.productionStageTab);
       } else if (this.activeTab === 'potion') {
         list = this.potionItems;
       } else if (this.activeTab === 'exchange') {

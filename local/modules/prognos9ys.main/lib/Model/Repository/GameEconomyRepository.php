@@ -19,6 +19,9 @@ use Prognos9ys\Main\Service\Game\ExchangeBuyAchievementConfig;
 use Prognos9ys\Main\Service\Game\PremiumService;
 use Prognos9ys\Main\Service\Game\PremiumWorkQueueConfig;
 use Prognos9ys\Main\Service\Game\RecipeAchievementConfig;
+use Prognos9ys\Main\Service\Game\ProductionAchievementConfig;
+use Prognos9ys\Main\Service\Game\ProfessionMaterialConfig;
+use Prognos9ys\Main\Service\Game\ProfessionRecipeConfig;
 
 class GameEconomyRepository
 {
@@ -27,6 +30,9 @@ class GameEconomyRepository
 
     /** @var bool */
     private static $learnedRecipesSchemaReady = false;
+
+    /** @var bool */
+    private static $productionCraftSchemaReady = false;
 
     /** @var bool */
     private static $premiumWalletSchemaReady = false;
@@ -777,7 +783,7 @@ class GameEconomyRepository
         $dataClass = $this->getUserProgressDataClass();
         $row = $dataClass::getList([
             'filter' => ['=UF_USER_ID' => $userId],
-            'select' => ['ID', 'UF_USER_ID', 'UF_XP', 'UF_PROFESSION_CERT_SLOTS', 'UF_LEARNED_RECIPES', 'UF_ALBUM_CRAFT_RUNS'],
+            'select' => ['ID', 'UF_USER_ID', 'UF_XP', 'UF_PROFESSION_CERT_SLOTS', 'UF_LEARNED_RECIPES', 'UF_ALBUM_CRAFT_RUNS', 'UF_RECIPE_CRAFT_RUNS', 'UF_RECIPE_COPY_RUNS', 'UF_RECIPE_CRAFT_BY_PROF'],
             'limit' => 1,
         ])->fetch();
 
@@ -886,6 +892,17 @@ class GameEconomyRepository
         (new GameEconomyHlInstaller())->upgradeLearnedRecipesHl();
         $this->userProgressDataClass = null;
         self::$learnedRecipesSchemaReady = true;
+    }
+
+    public function ensureProductionCraftSchema(): void
+    {
+        if (self::$productionCraftSchemaReady) {
+            return;
+        }
+
+        (new GameEconomyHlInstaller())->upgradeProductionCraftHl();
+        $this->userProgressDataClass = null;
+        self::$productionCraftSchemaReady = true;
     }
 
     public function ensurePremiumWalletSchema(): void
@@ -1162,6 +1179,195 @@ class GameEconomyRepository
             'UF_ALBUM_CRAFT_RUNS' => $count,
         ]);
         $this->userProgressDataClass = null;
+    }
+
+    public function countWalletTxByUserAndReasons(int $userId, array $reasons): int
+    {
+        if ($userId <= 0 || !$reasons) {
+            return 0;
+        }
+
+        $dataClass = $this->getWalletTxDataClass();
+
+        return (int)$dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '@UF_REASON' => $reasons,
+            ],
+            'count_total' => true,
+        ])->getCount();
+    }
+
+    public function incrementRecipeCraftRunCount(int $userId, string $professionCode): void
+    {
+        if ($userId <= 0) {
+            return;
+        }
+
+        $this->ensureProductionCraftSchema();
+        $row = $this->getProgressByUserId($userId);
+        if (!$row) {
+            (new UserProgressService($this))->ensureProgress($userId);
+            $this->userProgressDataClass = null;
+            $row = $this->getProgressByUserId($userId);
+        }
+
+        if (!$row) {
+            return;
+        }
+
+        $professionCode = trim($professionCode);
+        $total = max(0, (int)($row['UF_RECIPE_CRAFT_RUNS'] ?? 0)) + 1;
+        $byProf = $this->decodeRecipeCraftByProfession((string)($row['UF_RECIPE_CRAFT_BY_PROF'] ?? ''));
+        if ($professionCode !== '') {
+            $byProf[$professionCode] = (int)($byProf[$professionCode] ?? 0) + 1;
+        }
+
+        $this->updateProgress((int)$row['ID'], [
+            'UF_RECIPE_CRAFT_RUNS' => $total,
+            'UF_RECIPE_CRAFT_BY_PROF' => $this->encodeRecipeCraftByProfession($byProf),
+        ]);
+        $this->userProgressDataClass = null;
+    }
+
+    public function incrementRecipeCopyRunCount(int $userId): void
+    {
+        if ($userId <= 0) {
+            return;
+        }
+
+        $this->ensureProductionCraftSchema();
+        $row = $this->getProgressByUserId($userId);
+        if (!$row) {
+            (new UserProgressService($this))->ensureProgress($userId);
+            $this->userProgressDataClass = null;
+            $row = $this->getProgressByUserId($userId);
+        }
+
+        if (!$row) {
+            return;
+        }
+
+        $count = max(0, (int)($row['UF_RECIPE_COPY_RUNS'] ?? 0)) + 1;
+        $this->updateProgress((int)$row['ID'], [
+            'UF_RECIPE_COPY_RUNS' => $count,
+        ]);
+        $this->userProgressDataClass = null;
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    public function getProductionAchievementStatsForUser(int $userId): array
+    {
+        $stats = array_merge(
+            RecipeAchievementConfig::emptyStatsTemplate(),
+            ProductionAchievementConfig::emptyStatsTemplate()
+        );
+
+        if ($userId <= 0) {
+            return $stats;
+        }
+
+        $this->ensureLearnedRecipesSchema();
+        $this->ensureProductionCraftSchema();
+        $this->syncProductionCraftCountersFromWallet($userId);
+
+        $recipeStats = $this->getRecipeAchievementStatsForUser($userId);
+        $stats[RecipeAchievementConfig::STAT_LEARNED] = $recipeStats[RecipeAchievementConfig::STAT_LEARNED];
+        $stats[RecipeAchievementConfig::STAT_ALBUM_CRAFT] = $recipeStats[RecipeAchievementConfig::STAT_ALBUM_CRAFT];
+
+        $row = $this->getProgressByUserId($userId);
+        $stats[ProductionAchievementConfig::STAT_CRAFT_TOTAL] = max(
+            0,
+            (int)($row['UF_RECIPE_CRAFT_RUNS'] ?? 0)
+        );
+        $stats[ProductionAchievementConfig::STAT_COPY_TOTAL] = max(
+            0,
+            (int)($row['UF_RECIPE_COPY_RUNS'] ?? 0)
+        );
+
+        $byProf = $this->decodeRecipeCraftByProfession((string)($row['UF_RECIPE_CRAFT_BY_PROF'] ?? ''));
+        foreach (ProfessionMaterialConfig::processingProfessions() as $code => $profession) {
+            $qty = max(0, (int)($byProf[$code] ?? 0));
+            $stats[ProductionAchievementConfig::statKeyProfessionCraft($code, 1)] = $qty;
+            $stats[ProductionAchievementConfig::statKeyProfessionCraft($code, 2)] = $qty;
+        }
+
+        $craftableCodes = array_keys(ProfessionRecipeConfig::craftDefinitions());
+        $learned = $this->getLearnedRecipes($userId);
+        $learnedCraftable = count(array_intersect($craftableCodes, $learned));
+        $stats[ProductionAchievementConfig::STAT_CRAFTABLE_LEARNED] = $learnedCraftable;
+
+        return $stats;
+    }
+
+    private function syncProductionCraftCountersFromWallet(int $userId): void
+    {
+        if ($userId <= 0) {
+            return;
+        }
+
+        $row = $this->getProgressByUserId($userId);
+        if (!$row) {
+            return;
+        }
+
+        $walletCraft = $this->countWalletTxByUserAndReasons($userId, ['profession_craft']);
+        $walletCopy = $this->countWalletTxByUserAndReasons($userId, ['profession_recipe_copy']);
+        $storedCraft = max(0, (int)($row['UF_RECIPE_CRAFT_RUNS'] ?? 0));
+        $storedCopy = max(0, (int)($row['UF_RECIPE_COPY_RUNS'] ?? 0));
+        $updates = [];
+
+        if ($walletCraft > $storedCraft) {
+            $updates['UF_RECIPE_CRAFT_RUNS'] = $walletCraft;
+        }
+        if ($walletCopy > $storedCopy) {
+            $updates['UF_RECIPE_COPY_RUNS'] = $walletCopy;
+        }
+
+        if (!$updates) {
+            return;
+        }
+
+        $this->updateProgress((int)$row['ID'], $updates);
+        $this->userProgressDataClass = null;
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function decodeRecipeCraftByProfession(string $json): array
+    {
+        if ($json === '') {
+            return [];
+        }
+
+        $decoded = json_decode($json, true);
+        if (!is_array($decoded)) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($decoded as $code => $qty) {
+            $code = trim((string)$code);
+            if ($code === '') {
+                continue;
+            }
+            $result[$code] = max(0, (int)$qty);
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param array<string, int> $map
+     */
+    private function encodeRecipeCraftByProfession(array $map): string
+    {
+        ksort($map);
+
+        return json_encode($map, JSON_UNESCAPED_UNICODE);
     }
 
     public function resetAllUserProgressXp(): int

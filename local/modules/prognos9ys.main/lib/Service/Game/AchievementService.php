@@ -707,7 +707,7 @@ class AchievementService
                 $userId,
                 AlbumConfig::COLLECTION_PENNANT_ACHIEVEMENT
             ),
-        ], $metrics, $this->professionRepository->getYieldStatsByUserId($userId), $this->repository->getXpBankDrinkStatsForUser($userId), $this->repository->getExchangeBuyStatsForUser($userId), $this->repository->getRecipeAchievementStatsForUser($userId));
+        ], $metrics, $this->professionRepository->getYieldStatsByUserId($userId), $this->repository->getXpBankDrinkStatsForUser($userId), $this->repository->getExchangeBuyStatsForUser($userId), $this->repository->getProductionAchievementStatsForUser($userId));
     }
 
     private function resolveProgress(array $definition, array $stats): int

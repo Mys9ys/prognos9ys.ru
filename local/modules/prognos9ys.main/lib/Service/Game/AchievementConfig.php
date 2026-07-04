@@ -14,6 +14,7 @@ class AchievementConfig
     public const GROUP_PROFESSION = 'profession';
     public const GROUP_POTION = 'potion';
     public const GROUP_EXCHANGE = 'exchange';
+    public const GROUP_PRODUCTION = 'production';
 
     /**
      * @return array<string, array{
@@ -375,6 +376,7 @@ class AchievementConfig
             XpBankAchievementConfig::getCatalogEntries(),
             ExchangeBuyAchievementConfig::getCatalogEntries(),
             RecipeAchievementConfig::getCatalogEntries(),
+            ProductionAchievementConfig::getCatalogEntries(),
             CollectionMegaAchievementConfig::getCatalogEntries()
         );
     }
@@ -395,6 +397,10 @@ class AchievementConfig
     public static function grantsProfessionChest(string $code): bool
     {
         if (strpos($code, 'prof_') === 0) {
+            return true;
+        }
+
+        if (strpos($code, 'production_') === 0) {
             return true;
         }
 

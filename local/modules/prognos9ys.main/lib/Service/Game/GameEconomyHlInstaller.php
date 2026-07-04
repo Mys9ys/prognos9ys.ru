@@ -696,6 +696,31 @@ class GameEconomyHlInstaller
     }
 
     /**
+     * HL счётчиков крафта по рецептам на user_progress.
+     */
+    public function upgradeProductionCraftHl(): array
+    {
+        if (!Loader::includeModule('highloadblock')) {
+            throw new \RuntimeException('Модуль highloadblock не установлен');
+        }
+
+        $this->ensureHlBlock('Prognos9ysUserProgress', self::TABLE_USER_PROGRESS, [
+            'UF_RECIPE_CRAFT_RUNS' => ['USER_TYPE_ID' => 'integer'],
+            'UF_RECIPE_COPY_RUNS' => ['USER_TYPE_ID' => 'integer'],
+            'UF_RECIPE_CRAFT_BY_PROF' => ['USER_TYPE_ID' => 'string'],
+        ]);
+
+        if (class_exists(\Bitrix\Main\Application::class)) {
+            $app = \Bitrix\Main\Application::getInstance();
+            if ($app) {
+                $app->getManagedCache()->cleanDir('orm');
+            }
+        }
+
+        return [];
+    }
+
+    /**
      * HL кошелька: срок действия активного премиума.
      */
     public function upgradeWalletPremiumHl(): array

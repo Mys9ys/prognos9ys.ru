@@ -7,7 +7,7 @@ namespace Prognos9ys\Main\Service\Game;
  */
 class RecipeAchievementConfig
 {
-    public const GROUP = AchievementConfig::GROUP_PROFESSION;
+    public const GROUP = AchievementConfig::GROUP_PRODUCTION;
 
     public const STAT_LEARNED = 'recipe_learned';
     public const STAT_ALBUM_CRAFT = 'recipe_album_craft';
