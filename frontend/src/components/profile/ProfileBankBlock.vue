@@ -27,6 +27,21 @@
       </div>
 
       <template v-if="activeMainTab === 'banks'">
+        <div class="starter_loan_panel" v-if="starterLoan.can_take">
+          <div class="section_title">Стартовый займ</div>
+          <p class="hint">Для игроков с низким балансом — банк подбирается автоматически.</p>
+          <button
+            type="button"
+            class="btn starter_loan_btn"
+            :disabled="loading"
+            @click="onTakeStarterLoan"
+          >
+            Займ {{ starterLoan.amount }}
+            <AppIcon name="prognobak" :size="14" />
+          </button>
+          <div class="starter_loan_hint" v-if="starterLoan.hint">{{ starterLoan.hint }}</div>
+        </div>
+
         <div class="section" v-if="canOpen && !myBank">
           <div class="section_title">Открыть банк</div>
           <p class="hint">Нужно ≥250 <AppIcon name="prognobak" :size="14" /> на кошельке, 200 замораживаются в резерве.</p>
@@ -380,6 +395,13 @@ export default {
     loanAmount() {
       return this.bankInfo.loan_amount || DEFAULT_LOAN_AMOUNT;
     },
+    starterLoan() {
+      return this.bankInfo.starter_loan || {
+        can_take: false,
+        amount: 500,
+        wallet_max: 150,
+      };
+    },
     contractEvents() {
       return this.bankInfo.contract_events || [];
     },
@@ -458,6 +480,7 @@ export default {
       'openBank',
       'createDeposit',
       'takeLoan',
+      'takeStarterLoan',
       'closeBank',
       'cancelLoan',
       'repayLoan',
@@ -579,6 +602,26 @@ export default {
         await this.refresh();
       } catch (e) {
         this.error = e.message || 'Ошибка займа';
+      } finally {
+        this.loading = false;
+      }
+    },
+    async onTakeStarterLoan() {
+      if (!this.starterLoan.can_take || this.loading) {
+        return;
+      }
+
+      this.loading = true;
+      this.error = '';
+      this.message = '';
+
+      try {
+        await this.takeStarterLoan({ eventId: this.selectedEventId });
+        this.message = `Стартовый займ ${this.starterLoan.amount} 🪙 выдан`;
+        await this.refreshGameInfo();
+        await this.refresh();
+      } catch (e) {
+        this.error = e.message || 'Не удалось взять стартовый займ';
       } finally {
         this.loading = false;
       }
@@ -820,6 +863,24 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.starter_loan_panel {
+  .shadow_inset;
+  padding: 8px;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.starter_loan_btn {
+  align-self: flex-start;
+}
+
+.starter_loan_hint {
+  font-size: 11px;
+  color: @colorBlur;
 }
 
 .section {
