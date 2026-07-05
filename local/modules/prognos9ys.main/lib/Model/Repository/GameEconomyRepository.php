@@ -62,6 +62,7 @@ class GameEconomyRepository
     private ?string $lootItemDataClass = null;
     private ?string $chestOpenLogDataClass = null;
     private ?string $xpBankDrinkLogDataClass = null;
+    private ?string $encyclopediaGrantLogDataClass = null;
     private ?string $exchangeListingDataClass = null;
     private ?string $exchangeTradeDataClass = null;
     private ?string $exchangeNominalDataClass = null;
@@ -151,6 +152,13 @@ class GameEconomyRepository
     public function getXpBankDrinkLogDataClass(): string
     {
         return $this->xpBankDrinkLogDataClass ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_XP_BANK_DRINK_LOG);
+    }
+
+    public function getEncyclopediaGrantLogDataClass(): string
+    {
+        return $this->encyclopediaGrantLogDataClass ??= $this->compileDataClass(
+            GameEconomyHlInstaller::TABLE_ENCYCLOPEDIA_GRANT_LOG
+        );
     }
 
     public function getExchangeListingDataClass(): string
@@ -2460,6 +2468,34 @@ class GameEconomyRepository
             'UF_SEALED' => $sealed,
             'UF_CREATED_AT' => $now,
             'UF_UPDATED_AT' => $now,
+        ]);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+    }
+
+    public function logEncyclopediaGrant(
+        int $userId,
+        int $actorUserId,
+        string $section,
+        string $itemCode,
+        int $qty,
+        bool $isPremium = false
+    ): void {
+        if ($userId <= 0 || $actorUserId <= 0 || $section === '' || $itemCode === '' || $qty <= 0) {
+            return;
+        }
+
+        $dataClass = $this->getEncyclopediaGrantLogDataClass();
+        $result = $dataClass::add([
+            'UF_USER_ID' => $userId,
+            'UF_ACTOR_USER_ID' => $actorUserId,
+            'UF_SECTION' => $section,
+            'UF_ITEM_CODE' => $itemCode,
+            'UF_QTY' => $qty,
+            'UF_IS_PREMIUM' => $isPremium ? 'Y' : 'N',
+            'UF_CREATED_AT' => new \Bitrix\Main\Type\DateTime(),
         ]);
 
         if (!$result->isSuccess()) {

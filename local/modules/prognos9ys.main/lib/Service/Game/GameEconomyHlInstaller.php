@@ -41,6 +41,7 @@ class GameEconomyHlInstaller
     public const TABLE_USER_ALBUM = 'prognos9ys_user_album';
     public const TABLE_ALBUM_SLOT = 'prognos9ys_album_slot';
     public const TABLE_PREMIUM_WORK_QUEUE = 'prognos9ys_premium_work_queue';
+    public const TABLE_ENCYCLOPEDIA_GRANT_LOG = 'prognos9ys_encyclopedia_grant_log';
 
     public function install(): array
     {
@@ -808,6 +809,35 @@ class GameEconomyHlInstaller
         }
 
         return ['premium_work_queue_hl_id' => $hlId];
+    }
+
+    /**
+     * Журнал выдачи предметов из энциклопедии (только админы).
+     */
+    public function upgradeEncyclopediaGrantLogHl(): array
+    {
+        if (!Loader::includeModule('highloadblock')) {
+            throw new \RuntimeException('Модуль highloadblock не установлен');
+        }
+
+        $hlId = $this->ensureHlBlock('Prognos9ysEncyclopediaGrantLog', self::TABLE_ENCYCLOPEDIA_GRANT_LOG, [
+            'UF_USER_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_ACTOR_USER_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_SECTION' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_ITEM_CODE' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_QTY' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_IS_PREMIUM' => ['USER_TYPE_ID' => 'string'],
+            'UF_CREATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+        ]);
+
+        if (class_exists(\Bitrix\Main\Application::class)) {
+            $app = \Bitrix\Main\Application::getInstance();
+            if ($app) {
+                $app->getManagedCache()->cleanDir('orm');
+            }
+        }
+
+        return ['encyclopedia_grant_log_hl_id' => $hlId];
     }
 
     /**

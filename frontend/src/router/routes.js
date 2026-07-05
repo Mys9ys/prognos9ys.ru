@@ -18,6 +18,8 @@ import Cs2Event from "@/pages/cs2/Cs2Event";
 import ChampionshipPage from "@/pages/ChampionshipPage";
 import FaqPage from "@/pages/FaqPage";
 import FaqArticlePage from "@/pages/FaqArticlePage";
+import EncyclopediaPage from "@/pages/EncyclopediaPage";
+import EncyclopediaEntryPage from "@/pages/EncyclopediaEntryPage";
 
 const authRoute = { meta: { auth: true } };
 
@@ -208,6 +210,17 @@ const routes = [
     {
         path: '/faq/:slug',
         component: FaqArticlePage,
+        meta: { public: true },
+    },
+    {
+        path: '/encyclopedia',
+        component: EncyclopediaPage,
+        meta: { public: true },
+    },
+    {
+        path: '/encyclopedia/:section/:code',
+        component: EncyclopediaEntryPage,
+        props: true,
         meta: { public: true },
     },
     // квновские роуты -->

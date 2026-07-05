@@ -119,7 +119,7 @@ export default {
       if (path.startsWith('/ratings')) {
         return 'ratings';
       }
-      if (path.startsWith('/faq')) {
+      if (path.startsWith('/faq') || path.startsWith('/encyclopedia')) {
         return 'faq';
       }
       if (path.startsWith('/main')) {

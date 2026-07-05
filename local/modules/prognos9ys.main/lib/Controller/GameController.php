@@ -20,7 +20,9 @@ use Prognos9ys\Main\Service\Game\ChestOpenService;
 use Prognos9ys\Main\Service\Game\ExperienceService;
 use Prognos9ys\Main\Service\Game\ExchangeService;
 use Prognos9ys\Main\Service\Game\GameBankService;
+use Prognos9ys\Main\Service\Game\EncyclopediaAdminGrantService;
 use Prognos9ys\Main\Service\Game\GameEconomyConfig;
+use Prognos9ys\Main\Service\Game\GameEncyclopediaService;
 use Prognos9ys\Main\Service\Game\GameProfileService;
 use Prognos9ys\Main\Service\Game\GovSupportDepositService;
 use Prognos9ys\Main\Service\Game\GovWarehouseService;
@@ -56,6 +58,8 @@ class GameController extends BaseController
             'claimAllXp' => $this->getDefaultConfigureForPostToken(),
             'getLevelTiers' => $this->getDefaultConfigureForPostPublic(),
             'getWealthRating' => $this->getDefaultConfigureForPostPublic(),
+            'getEncyclopedia' => $this->getDefaultConfigureForPostPublic(),
+            'grantEncyclopediaItem' => $this->getDefaultConfigureForPostToken(),
             'getGameBank' => $this->getDefaultConfigureForPostToken(),
             'getTreasury' => $this->getDefaultConfigureForPostToken(),
             'getTreasuryLaborOrders' => $this->getDefaultConfigureForPostToken(),
@@ -176,6 +180,47 @@ class GameController extends BaseController
             'status' => 'ok',
             'tiers' => array_values((new LevelService())->getTiers()),
         ];
+    }
+
+    public function getEncyclopediaAction(string $userToken = ''): array
+    {
+        $viewerUserId = null;
+        if ($userToken !== '') {
+            $viewerUserId = (new TokenAuthService())->getUserIdByToken($userToken);
+        }
+
+        $grantService = new EncyclopediaAdminGrantService();
+
+        return [
+            'status' => 'ok',
+            'encyclopedia' => GameEncyclopediaService::build(),
+            'viewer' => [
+                'can_grant' => $viewerUserId ? $grantService->canGrant($viewerUserId) : false,
+                'grant_sections' => EncyclopediaAdminGrantService::SUPPORTED_SECTIONS,
+            ],
+        ];
+    }
+
+    public function grantEncyclopediaItemAction(
+        string $section,
+        string $code,
+        int $qty = 1,
+        bool $isPremium = false
+    ): array {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        try {
+            $result = (new EncyclopediaAdminGrantService())->grant($userId, $section, $code, $qty, $isPremium);
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 403);
+        }
+
+        return array_merge(['status' => 'ok'], $result);
     }
 
     public function getWealthRatingAction(

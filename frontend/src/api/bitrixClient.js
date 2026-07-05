@@ -190,6 +190,20 @@ export const apiActions = {
             'prognos9ys:main.GameController.getLevelTiers',
             {}
         ),
+        getEncyclopedia: (userToken = '') => runBitrixAction(
+            'prognos9ys:main.GameController.getEncyclopedia',
+            { userToken: userToken || undefined }
+        ),
+        grantEncyclopediaItem: (userToken, section, code, qty = 1, isPremium = false) => runBitrixAction(
+            'prognos9ys:main.GameController.grantEncyclopediaItem',
+            {
+                userToken,
+                section,
+                code,
+                qty,
+                isPremium,
+            }
+        ),
         getWealthRating: (limit = 30, wealthSort = 'rich', offset = 0, setId = null, userToken = '') => runBitrixAction(
             'prognos9ys:main.GameController.getWealthRating',
             {

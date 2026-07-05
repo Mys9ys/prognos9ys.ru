@@ -53,6 +53,7 @@ export default {
         { id: 'equipment', title: 'Экипировка', emoji: '🥋', route: '/equipment' },
         { id: 'collection', title: 'Коллекция', emoji: '📔', route: '/collection' },
         { id: 'achievements', title: 'Награды', icon: 'achievement', route: '/achievements' },
+        { id: 'encyclopedia', title: 'Энциклопедия', emoji: '📖', route: '/encyclopedia' },
         { id: 'bank', title: 'Банк', icon: 'bank', route: '/bank' },
         { id: 'market', title: 'Биржа', icon: 'rublius', route: '/market' },
         { id: 'work', title: 'Работа', icon: 'xp', route: '/work' },

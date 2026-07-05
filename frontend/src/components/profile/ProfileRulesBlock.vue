@@ -6,6 +6,7 @@
       Читать можно без регистрации.
     </p>
     <router-link class="rules_link_main" to="/faq">Открыть все статьи →</router-link>
+    <router-link class="rules_link_main rules_link_secondary" to="/encyclopedia">Энциклопедия предметов →</router-link>
 
     <div class="rules_quick">
       <router-link
@@ -71,6 +72,11 @@ export default {
   &:hover {
     color: @orange;
   }
+}
+
+.rules_link_secondary {
+  margin-left: 0;
+  display: block;
 }
 
 .rules_quick {

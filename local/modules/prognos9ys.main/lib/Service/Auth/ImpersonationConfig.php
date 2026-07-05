@@ -23,8 +23,19 @@ class ImpersonationConfig
     public static function allowedGroupIds(): array
     {
         return array_unique([
-            1,
+            self::ADMIN_GROUP_ID,
             self::SUPER_MODERATOR_GROUP_ID,
         ]);
+    }
+
+    public static function isAdminUser(int $userId): bool
+    {
+        if ($userId <= 0) {
+            return false;
+        }
+
+        $groups = array_map('intval', (array)\CUser::GetUserGroup($userId));
+
+        return in_array(self::ADMIN_GROUP_ID, $groups, true);
     }
 }
