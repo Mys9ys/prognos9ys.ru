@@ -1,7 +1,11 @@
 <template>
   <div class="equipment_block" v-if="game">
     <div class="equipment_bonuses" v-if="hasBodyBonus">
-      <div class="bonus_title">Бонусы кафтана на ферме</div>
+      <div class="bonus_title">
+        Бонус на ферме
+        <span v-if="equipment.equipped_profession_label">: {{ equipment.equipped_profession_label }}</span>
+      </div>
+      <div class="bonus_hint">Действует только при работе этой профессии</div>
       <div class="bonus_row">
         <span>Комбо ×2</span>
         <span>+{{ equipment.combo_x2_bonus_pp || 0 }} п.п.</span>
@@ -87,15 +91,16 @@
           :key="item.code"
           type="button"
           class="bag_item"
-          :class="{ equipped: item.equipped, busy: loading }"
-          :disabled="loading || item.equipped"
+          :class="{ equipped: item.equipped, busy: loading, disabled: !item.canEquip && !item.equipped }"
+          :disabled="loading || item.equipped || !item.canEquip"
+          :title="item.canEquip ? '' : 'Сначала изучите профессию этого кафтана'"
           @click="equipItem(item)"
         >
           <img v-if="item.iconSrc" :src="item.iconSrc" :alt="item.label" class="bag_icon">
           <span v-else class="bag_emoji">🥋</span>
           <span class="bag_label">{{ item.shortLabel }}</span>
           <span class="bag_count">×{{ item.count }}</span>
-          <span class="bag_action">{{ item.equipped ? 'Надет' : 'Надеть' }}</span>
+          <span class="bag_action">{{ item.equipped ? 'Надет' : (item.canEquip ? 'Надеть' : 'Нет проф.') }}</span>
         </button>
       </div>
     </div>
@@ -128,6 +133,12 @@ const EMPTY_SLOT = {
   equipped_code: null,
   equipped_label: null,
 };
+
+function caftanProfessionFromCode(code) {
+  const match = String(code || '').match(/^caftan_(?:basic|embroidered|grand)_([a-z]+)$/);
+
+  return match ? match[1] : null;
+}
 
 export default {
   name: 'ProfileEquipmentBlock',
@@ -163,20 +174,33 @@ export default {
     hasBodyBonus() {
       return Boolean(this.equipment.equipped_caftan);
     },
+    playerProfessionCodes() {
+      const codes = this.equipment.player_profession_codes;
+
+      return Array.isArray(codes) ? codes : [];
+    },
     bagCaftans() {
       const equipped = this.equipment.equipped_caftan || '';
       const items = Array.isArray(this.game?.inventory_items) ? this.game.inventory_items : [];
+      const knownProfessions = this.playerProfessionCodes;
 
       return items
         .filter((item) => item.category === 'equipment' && String(item.code || '').startsWith('caftan_'))
-        .map((item) => ({
-          code: item.code,
-          label: item.label || item.code,
-          shortLabel: String(item.label || item.code).replace(/^Кафтан\s+[^:]+:\s*/i, '').replace(/^Кафтан\s*/i, ''),
-          count: Number(item.count) || 0,
-          equipped: equipped === item.code,
-          iconSrc: getCraftProductIconSrc(item.code),
-        }))
+        .map((item) => {
+          const professionCode = caftanProfessionFromCode(item.code);
+          const canEquip = professionCode !== null && knownProfessions.includes(professionCode);
+
+          return {
+            code: item.code,
+            label: item.label || item.code,
+            shortLabel: String(item.label || item.code).replace(/^Кафтан\s+[^:]+:\s*/i, '').replace(/^Кафтан\s*/i, ''),
+            count: Number(item.count) || 0,
+            equipped: equipped === item.code,
+            canEquip,
+            professionCode,
+            iconSrc: getCraftProductIconSrc(item.code),
+          };
+        })
         .sort((a, b) => a.label.localeCompare(b.label, 'ru'));
     },
   },
@@ -205,7 +229,7 @@ export default {
       window.dispatchEvent(new CustomEvent('prognos9ys:farm-refresh'));
     },
     async equipItem(item) {
-      if (!this.authData?.token || this.loading || !item?.code || item.equipped) {
+      if (!this.authData?.token || this.loading || !item?.code || item.equipped || item.canEquip === false) {
         return;
       }
 
@@ -276,6 +300,12 @@ export default {
 .bonus_title {
   color: @colorBlur;
   margin-bottom: 4px;
+}
+
+.bonus_hint {
+  font-size: 11px;
+  opacity: 0.8;
+  margin-bottom: 6px;
 }
 
 .bonus_row {

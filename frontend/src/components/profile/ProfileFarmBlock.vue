@@ -883,6 +883,15 @@ export default {
       if (!eq?.equipped_caftan) {
         return '';
       }
+
+      const professionLabel = eq.equipped_profession_label || eq.equipped_profession || '';
+      const selected = this.farm?.professions?.find((row) => row.code === this.selectedProfession);
+      const bonusActive = selected?.caftan_bonus_active === true;
+
+      if (selected && !bonusActive && professionLabel) {
+        return `бонус только для «${professionLabel}»`;
+      }
+
       const parts = [];
       if (Number(eq.combo_x2_bonus_pp) > 0) {
         parts.push(`+${eq.combo_x2_bonus_pp} п.п. ×2`);
@@ -893,7 +902,12 @@ export default {
       if (Number(eq.premium_bonus_pp) > 0) {
         parts.push(`+${eq.premium_bonus_pp} п.п. премиум`);
       }
-      return parts.join(', ');
+
+      if (!parts.length) {
+        return professionLabel ? `для «${professionLabel}»` : '';
+      }
+
+      return professionLabel ? `${parts.join(', ')} · ${professionLabel}` : parts.join(', ');
     },
     journalEntries() {
       const log = Array.isArray(this.workQueue.log) ? [...this.workQueue.log] : [];
@@ -1125,6 +1139,7 @@ export default {
           combo_x2_percent: owned?.combo_x2_percent ?? 0,
           combo_x3_percent: owned?.combo_x3_percent ?? 0,
           premium_percent: owned?.premium_percent ?? 0,
+          caftan_bonus_active: owned?.caftan_bonus_active ?? false,
           has_premium_drop: owned?.has_premium_drop ?? true,
           premium_min_level: owned?.premium_min_level ?? 2,
         };

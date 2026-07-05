@@ -3,14 +3,19 @@
 namespace Prognos9ys\Main\Service\Game;
 
 use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
+use Prognos9ys\Main\Model\Repository\ProfessionRepository;
 
 class EquipmentService
 {
     private GameEconomyRepository $repository;
+    private ProfessionRepository $professionRepository;
 
-    public function __construct(?GameEconomyRepository $repository = null)
-    {
+    public function __construct(
+        ?GameEconomyRepository $repository = null,
+        ?ProfessionRepository $professionRepository = null
+    ) {
         $this->repository = $repository ?? new GameEconomyRepository();
+        $this->professionRepository = $professionRepository ?? new ProfessionRepository();
     }
 
     /**
@@ -29,6 +34,19 @@ class EquipmentService
         $equipmentCode = trim($equipmentCode);
         if ($userId <= 0 || !EquipmentConfig::isCaftanCode($equipmentCode)) {
             throw new \InvalidArgumentException('Неизвестный кафтан');
+        }
+
+        $caftanProfession = EquipmentConfig::getCaftanProfessionCode($equipmentCode);
+        $playerProfessions = $this->getPlayerProfessionCodes($userId);
+        if ($caftanProfession === null || !in_array($caftanProfession, $playerProfessions, true)) {
+            $professionLabel = $caftanProfession !== null
+                ? (string)(ProfessionMaterialConfig::getProfession($caftanProfession)['label'] ?? $caftanProfession)
+                : '';
+            $hint = $professionLabel !== ''
+                ? 'Сначала изучите профессию: ' . $professionLabel
+                : 'Кафтан не привязан к изученной профессии';
+
+            throw new \RuntimeException($hint);
         }
 
         $category = ChestLootConfig::CATEGORY_EQUIPMENT;
@@ -125,9 +143,68 @@ class EquipmentService
     public function getSummary(int $userId): array
     {
         if ($userId <= 0) {
-            return EquipmentConfig::buildSummary('');
+            return array_merge(EquipmentConfig::buildSummary(''), [
+                'player_profession_codes' => [],
+            ]);
         }
 
-        return EquipmentConfig::buildSummary($this->repository->getEquippedCaftanCode($userId));
+        $playerProfessions = $this->getPlayerProfessionCodes($userId);
+        $equipped = $this->normalizeEquippedCaftan($userId, $playerProfessions);
+
+        return array_merge(EquipmentConfig::buildSummary($equipped), [
+            'player_profession_codes' => $playerProfessions,
+        ]);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function getPlayerProfessionCodes(int $userId): array
+    {
+        $codes = [];
+        foreach ($this->professionRepository->getProfessionsByUserId($userId) as $row) {
+            $code = trim((string)($row['UF_PROFESSION_CODE'] ?? ''));
+            if ($code !== '') {
+                $codes[] = $code;
+            }
+        }
+
+        return array_values(array_unique($codes));
+    }
+
+    /**
+     * @param array<int, string> $playerProfessions
+     */
+    private function normalizeEquippedCaftan(int $userId, array $playerProfessions): string
+    {
+        $equipped = $this->repository->getEquippedCaftanCode($userId);
+        if ($equipped === '') {
+            return '';
+        }
+
+        if (!EquipmentConfig::isCaftanCode($equipped)) {
+            $this->repository->setEquippedCaftanCode($userId, '');
+            GameProfileService::invalidateSummaryCache($userId);
+
+            return '';
+        }
+
+        $caftanProfession = EquipmentConfig::getCaftanProfessionCode($equipped);
+        if ($caftanProfession === null || !in_array($caftanProfession, $playerProfessions, true)) {
+            $this->repository->setEquippedCaftanCode($userId, '');
+            $this->repository->incrementLootItem(
+                $userId,
+                ChestLootConfig::LOOT_EVENT_GLOBAL,
+                $equipped,
+                ChestLootConfig::CATEGORY_EQUIPMENT,
+                1,
+                'N'
+            );
+            GameProfileService::invalidateSummaryCache($userId);
+
+            return '';
+        }
+
+        return $equipped;
     }
 }

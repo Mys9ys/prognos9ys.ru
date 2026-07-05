@@ -182,6 +182,12 @@ const PROFESSION_PACK_CODES = new Set([
   'pack_equipment_work',
 ]);
 
+function caftanProfessionFromCode(code) {
+  const match = String(code || '').match(/^caftan_(?:basic|embroidered|grand)_([a-z]+)$/);
+
+  return match ? match[1] : null;
+}
+
 const OPENABLE_PACK_CODES = new Set([
   'pack_pennant_wc26',
   'pack_scarf_wc26',
@@ -317,6 +323,9 @@ export default {
     lootSlots() {
       const items = Array.isArray(this.game?.inventory_items) ? this.game.inventory_items : [];
       const learnedRecipes = Array.isArray(this.game?.learned_recipes) ? this.game.learned_recipes : [];
+      const playerProfessions = Array.isArray(this.game?.equipment?.player_profession_codes)
+        ? this.game.equipment.player_profession_codes
+        : [];
 
       return items
         .filter((item) => Number(item.count) > 0)
@@ -324,6 +333,10 @@ export default {
           const isProfessionCert = item.code === 'cert_profession' && item.category === 'cert';
           const isRecipeItem = item.category === 'recipe';
           const isCaftanEquipment = item.category === 'equipment' && String(item.code || '').startsWith('caftan_');
+          const caftanProfession = isCaftanEquipment ? caftanProfessionFromCode(item.code) : null;
+          const caftanProfessionKnown = Boolean(
+            caftanProfession && playerProfessions.includes(caftanProfession),
+          );
           const equippedCaftan = this.game?.equipment?.equipped_caftan || '';
           const recipeLearned = isRecipeItem && learnedRecipes.includes(item.code);
           const isAlbumRecipe = item.code === 'recipe_album' && isRecipeItem;
@@ -369,13 +382,15 @@ export default {
             teamAlreadyGlued,
             recipeLearned,
             recipeLearnable: isRecipeItem && !recipeLearned,
-            actionDisabled: (isRecipeItem && recipeLearned) || (isWc26Glueable && teamAlreadyGlued),
+            actionDisabled: (isRecipeItem && recipeLearned)
+              || (isWc26Glueable && teamAlreadyGlued)
+              || (isCaftanEquipment && !caftanProfessionKnown),
             actionLabel: isWc26Glueable
               ? (teamAlreadyGlued ? 'В альбоме' : 'В альбом')
               : (isStubPack
                 ? 'Скоро'
                 : (isCaftanEquipment
-                  ? 'Надеть'
+                  ? (caftanProfessionKnown ? 'Надеть' : 'Нет проф.')
                   : (isRecipeItem
                     ? (recipeLearned ? 'Изучено' : 'Изучить')
                     : (isProfessionCert ? 'Активировать' : null)))),

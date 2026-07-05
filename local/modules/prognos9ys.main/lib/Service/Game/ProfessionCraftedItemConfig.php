@@ -42,9 +42,6 @@ class ProfessionCraftedItemConfig
             'wall_section_door' => self::row('wall_section_door', 'Секция с проёмом', 133.0, self::STORAGE_MATERIAL),
             'roof_bundle' => self::row('roof_bundle', 'Пакет крыши', 235.0, self::STORAGE_MATERIAL),
             'roof_bundle_light' => self::row('roof_bundle_light', 'Лёгкое покрытие крыши', 140.0, self::STORAGE_MATERIAL),
-            'caftan_basic' => self::row('caftan_basic', 'Кафтан (обычный)', 60.0, self::STORAGE_EQUIPMENT),
-            'caftan_embroidered' => self::row('caftan_embroidered', 'Кафтан (расшитый)', 170.0, self::STORAGE_EQUIPMENT),
-            'caftan_grand' => self::row('caftan_grand', 'Кафтан (великолепный)', 420.0, self::STORAGE_EQUIPMENT),
         ], CaftanRecipeConfig::craftedItemEntries());
     }
 

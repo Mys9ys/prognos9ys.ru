@@ -135,6 +135,26 @@ class CaftanRecipeConfig
         'recipe_caftan_grand',
     ];
 
+    /** @var string[] */
+    private const LEGACY_PRODUCT_CODES = [
+        'caftan_basic',
+        'caftan_embroidered',
+        'caftan_grand',
+    ];
+
+    /**
+     * Коды для CLI-отката на бою (см. local/tools/fix_rollback_legacy_caftans.php).
+     *
+     * @return array{recipes:array<int,string>,products:array<int,string>}
+     */
+    public static function legacyRollbackTargets(): array
+    {
+        return [
+            'recipes' => self::LEGACY_RECIPE_CODES,
+            'products' => self::LEGACY_PRODUCT_CODES,
+        ];
+    }
+
     /**
      * @return string[]
      */
@@ -217,10 +237,6 @@ class CaftanRecipeConfig
             return false;
         }
 
-        if (in_array($code, ['caftan_basic', 'caftan_embroidered', 'caftan_grand'], true)) {
-            return true;
-        }
-
         return (bool)preg_match('/^caftan_(basic|embroidered|grand)_[a-z]+$/', $code);
     }
 
@@ -232,7 +248,7 @@ class CaftanRecipeConfig
         }
 
         if (in_array($recipeCode, self::LEGACY_RECIPE_CODES, true)) {
-            return true;
+            return false;
         }
 
         return (bool)preg_match('/^recipe_caftan_(basic|embroidered|grand)_[a-z]+$/', $recipeCode);
@@ -285,10 +301,6 @@ class CaftanRecipeConfig
             return $matches[1];
         }
 
-        if (in_array($productCode, ['caftan_basic', 'caftan_embroidered', 'caftan_grand'], true)) {
-            return 'weaver';
-        }
-
         return null;
     }
 
@@ -330,7 +342,7 @@ class CaftanRecipeConfig
      */
     public static function recipeMetaEntries(): array
     {
-        $entries = self::legacyRecipeMetaEntries();
+        $entries = [];
 
         foreach (self::professionCodes() as $professionCode) {
             foreach (self::TIERS as $tier) {
@@ -402,7 +414,7 @@ class CaftanRecipeConfig
      */
     public static function craftDefinitionEntries(): array
     {
-        $definitions = self::legacyCraftDefinitionEntries();
+        $definitions = [];
         $material = 'material';
         $equipment = 'equipment';
 
@@ -577,97 +589,6 @@ class CaftanRecipeConfig
         }
 
         return $definitions;
-    }
-
-    /**
-     * @return array<string, array{code:string,label:string,profession:string,nominal:float,tier:string}>
-     */
-    private static function legacyRecipeMetaEntries(): array
-    {
-        return [
-            'recipe_caftan_basic' => [
-                'code' => 'recipe_caftan_basic',
-                'label' => 'Рецепт: кафтан ткача (обычный)',
-                'profession' => 'weaver',
-                'nominal' => self::TIER_NOMINALS[self::TIER_BASIC],
-                'tier' => ProfessionRecipeConfig::TIER_ADVANCED,
-            ],
-            'recipe_caftan_embroidered' => [
-                'code' => 'recipe_caftan_embroidered',
-                'label' => 'Рецепт: кафтан ткача (расшитый)',
-                'profession' => 'weaver',
-                'nominal' => self::TIER_NOMINALS[self::TIER_EMBROIDERED],
-                'tier' => ProfessionRecipeConfig::TIER_ADVANCED,
-            ],
-            'recipe_caftan_grand' => [
-                'code' => 'recipe_caftan_grand',
-                'label' => 'Рецепт: кафтан ткача (великолепный)',
-                'profession' => 'weaver',
-                'nominal' => self::TIER_NOMINALS[self::TIER_GRAND],
-                'tier' => ProfessionRecipeConfig::TIER_ADVANCED,
-            ],
-        ];
-    }
-
-    /**
-     * @return array<string, array{
-     *   recipe_code:string,
-     *   profession:string,
-     *   tier:string,
-     *   work_cost:int,
-     *   craft_xp:int,
-     *   inputs:array<int, array{code:string,qty:int,source:string,premium?:bool}>,
-     *   outputs:array<int, array{code:string,qty:int,source:string}>
-     * }>
-     */
-    private static function legacyCraftDefinitionEntries(): array
-    {
-        $material = 'material';
-        $equipment = 'equipment';
-        $weaver = 'weaver';
-
-        return [
-            'recipe_caftan_basic' => self::craftDef(
-                'recipe_caftan_basic',
-                $weaver,
-                ProfessionRecipeConfig::TIER_ADVANCED,
-                [
-                    self::input('cloth', 4, $material),
-                    self::input('rope', 1, $material),
-                    self::input('silk', 3, $material, true),
-                ],
-                [
-                    self::output(self::productCode(self::TIER_BASIC, $weaver), 1, $equipment),
-                ]
-            ),
-            'recipe_caftan_embroidered' => self::craftDef(
-                'recipe_caftan_embroidered',
-                $weaver,
-                ProfessionRecipeConfig::TIER_ADVANCED,
-                [
-                    self::input('cloth', 6, $material),
-                    self::input('rope', 2, $material),
-                    self::input('silk', 3, $material, true),
-                    self::input('fine_cloth', 1, $material, true),
-                ],
-                [
-                    self::output(self::productCode(self::TIER_EMBROIDERED, $weaver), 1, $equipment),
-                ]
-            ),
-            'recipe_caftan_grand' => self::craftDef(
-                'recipe_caftan_grand',
-                $weaver,
-                ProfessionRecipeConfig::TIER_ADVANCED,
-                [
-                    self::input('cloth', 8, $material),
-                    self::input('fine_cloth', 2, $material, true),
-                    self::input(self::productCode(self::TIER_EMBROIDERED, $weaver), 1, $equipment),
-                ],
-                [
-                    self::output(self::productCode(self::TIER_GRAND, $weaver), 1, $equipment),
-                ]
-            ),
-        ];
     }
 
     /**

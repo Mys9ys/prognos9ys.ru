@@ -1143,6 +1143,52 @@ class GameEconomyRepository
     }
 
     /**
+     * @param array<int, string> $recipeCodes
+     */
+    public function removeLearnedRecipes(int $userId, array $recipeCodes): int
+    {
+        if ($userId <= 0 || $recipeCodes === []) {
+            return 0;
+        }
+
+        $this->ensureLearnedRecipesSchema();
+        $row = $this->getProgressByUserId($userId);
+        if (!$row) {
+            return 0;
+        }
+
+        $remove = [];
+        foreach ($recipeCodes as $recipeCode) {
+            $recipeCode = trim((string)$recipeCode);
+            if ($recipeCode !== '') {
+                $remove[$recipeCode] = true;
+            }
+        }
+
+        if ($remove === []) {
+            return 0;
+        }
+
+        $learned = $this->getLearnedRecipes($userId);
+        $filtered = array_values(array_filter(
+            $learned,
+            static fn(string $code): bool => !isset($remove[$code])
+        ));
+
+        $removedCount = count($learned) - count($filtered);
+        if ($removedCount <= 0) {
+            return 0;
+        }
+
+        $this->updateProgress((int)$row['ID'], [
+            'UF_LEARNED_RECIPES' => implode(',', $filtered),
+        ]);
+        $this->userProgressDataClass = null;
+
+        return $removedCount;
+    }
+
+    /**
      * @return array<string, int>
      */
     public function getRecipeAchievementStatsForUser(int $userId): array

@@ -338,8 +338,8 @@ class ProfessionFarmService
         $totalXpGain = 0;
 
         for ($i = 0; $i < $iterations; $i++) {
-            $combo = $this->rollComboMultiplier($comboLevel, $equippedCaftan);
-            $premiumQty = $this->rollPremiumDrop($comboLevel, $equippedCaftan) ? 1 : 0;
+            $combo = $this->rollComboMultiplier($comboLevel, $equippedCaftan, $professionCode);
+            $premiumQty = $this->rollPremiumDrop($comboLevel, $equippedCaftan, $professionCode) ? 1 : 0;
             $totalComboYield += $combo;
             $totalPremiumQty += $premiumQty;
             $totalXpGain += $combo * ProfessionEconomyConfig::XP_PER_NORMAL_UNIT
@@ -533,9 +533,9 @@ class ProfessionFarmService
         ]);
     }
 
-    private function rollComboMultiplier(int $level, string $equippedCaftan = ''): int
+    private function rollComboMultiplier(int $level, string $equippedCaftan = '', string $farmProfessionCode = ''): int
     {
-        $chances = EquipmentConfig::chancesForLevel($level, $equippedCaftan);
+        $chances = EquipmentConfig::chancesForLevel($level, $equippedCaftan, $farmProfessionCode);
         $p3 = ($chances['combo_x3'] ?? 0) / 100;
         $p2 = ($chances['combo_x2'] ?? 0) / 100;
         $roll = mt_rand(0, 1000000) / 1000000;
@@ -552,9 +552,9 @@ class ProfessionFarmService
         return 1;
     }
 
-    private function rollPremiumDrop(int $level, string $equippedCaftan = ''): bool
+    private function rollPremiumDrop(int $level, string $equippedCaftan = '', string $farmProfessionCode = ''): bool
     {
-        $chances = EquipmentConfig::chancesForLevel($level, $equippedCaftan);
+        $chances = EquipmentConfig::chancesForLevel($level, $equippedCaftan, $farmProfessionCode);
         $chance = ($chances['premium'] ?? 0) / 100;
         $roll = mt_rand(0, 1000000) / 1000000;
 
@@ -582,7 +582,7 @@ class ProfessionFarmService
             $progress = $this->levelService->getProgressSummary($xp);
             $maxXp = $this->repository->maxXpForProfessionLevel($playerLevel);
             $chanceLevel = max(1, $effectiveLevel);
-            $chances = EquipmentConfig::chancesForLevel($chanceLevel, $equippedCaftan);
+            $chances = EquipmentConfig::chancesForLevel($chanceLevel, $equippedCaftan, $code);
 
             $items[] = [
                 'code' => $code,
@@ -614,6 +614,7 @@ class ProfessionFarmService
                 'combo_x2_percent' => $chances['combo_x2'],
                 'combo_x3_percent' => $chances['combo_x3'],
                 'premium_percent' => $chances['premium'],
+                'caftan_bonus_active' => (bool)($chances['caftan_bonus_active'] ?? false),
                 'has_premium_drop' => true,
                 'premium_min_level' => ProfessionEconomyConfig::PREMIUM_DROP_MIN_LEVEL,
             ];
