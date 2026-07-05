@@ -28,15 +28,14 @@
 
       <template v-if="activeMainTab === 'banks'">
         <div class="starter_loan_panel" v-if="starterLoan.can_take">
-          <div class="section_title">Стартовый займ</div>
-          <p class="hint">Для игроков с низким балансом — банк подбирается автоматически.</p>
+          <div class="section_title">Заём</div>
           <button
             type="button"
             class="btn starter_loan_btn"
             :disabled="loading"
             @click="onTakeStarterLoan"
           >
-            Займ {{ starterLoan.amount }}
+            Заём {{ starterLoan.amount }}
             <AppIcon name="prognobak" :size="14" />
           </button>
           <div class="starter_loan_hint" v-if="starterLoan.hint">{{ starterLoan.hint }}</div>
@@ -399,7 +398,6 @@ export default {
       return this.bankInfo.starter_loan || {
         can_take: false,
         amount: 500,
-        wallet_max: 150,
       };
     },
     contractEvents() {
@@ -607,7 +605,7 @@ export default {
       }
     },
     async onTakeStarterLoan() {
-      if (!this.starterLoan.can_take || this.loading) {
+      if (this.loading) {
         return;
       }
 

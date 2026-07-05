@@ -5,7 +5,7 @@ namespace Prognos9ys\Main\Service\Game;
 use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
 
 /**
- * Стартовый займ 500 🪙 — кнопка в профиле для игроков с низкой ликвидностью.
+ * Стартовый займ 500 🪙 — кнопка в профиле и в банке для всех игроков.
  */
 class StarterLoanService
 {
@@ -27,53 +27,23 @@ class StarterLoanService
      * @return array{
      *   can_take:bool,
      *   amount:float,
-     *   wallet_max:float,
-     *   reason?:string,
      *   hint?:string
      * }
      */
     public function buildEligibility(int $userId): array
     {
         $amount = GameEconomyConfig::STARTER_LOAN_AMOUNT_PROGNOBAKS;
-        $walletMax = GameEconomyConfig::STARTER_LOAN_WALLET_MAX;
-        $base = [
-            'can_take' => false,
-            'amount' => $amount,
-            'wallet_max' => $walletMax,
-        ];
 
         if ($userId <= 0) {
-            return $base + ['reason' => 'not_authorized'];
-        }
-
-        $wallet = $this->walletService->getWalletSummary($userId);
-        $prognobaks = round((float)($wallet['prognobaks'] ?? 0), 1);
-        if ($prognobaks > $walletMax) {
-            return $base + [
-                'reason' => 'wallet_too_high',
-                'hint' => 'Доступно при балансе ≤ ' . (int)$walletMax . ' 🪙',
-            ];
-        }
-
-        if ($this->countActiveLoans($userId) > 0) {
-            return $base + [
-                'reason' => 'active_loan',
-                'hint' => 'Сначала верните текущий займ',
-            ];
-        }
-
-        $bank = $this->findBestBankForLoan($userId, $amount);
-        if (!$bank) {
-            return $base + [
-                'reason' => 'no_lender_bank',
-                'hint' => 'Пока нет банков для займа — попробуйте позже',
+            return [
+                'can_take' => false,
+                'amount' => $amount,
             ];
         }
 
         return [
             'can_take' => true,
             'amount' => $amount,
-            'wallet_max' => $walletMax,
             'hint' => '+' . (int)GameEconomyConfig::LOAN_INTEREST_PERCENT . '% за '
                 . GameEconomyConfig::BANK_TERM_MATCHES . ' матчей',
         ];
@@ -81,10 +51,12 @@ class StarterLoanService
 
     public function takeStarterLoan(int $userId, ?int $eventId = null): array
     {
-        $eligibility = $this->buildEligibility($userId);
-        if (empty($eligibility['can_take'])) {
-            $hint = trim((string)($eligibility['hint'] ?? ''));
-            throw new \RuntimeException($hint !== '' ? $hint : 'Стартовый займ сейчас недоступен');
+        if ($userId <= 0) {
+            throw new \RuntimeException('Пользователь не авторизован');
+        }
+
+        if ($this->countActiveLoans($userId) > 0) {
+            throw new \RuntimeException('Сначала верните текущий займ');
         }
 
         $amount = GameEconomyConfig::STARTER_LOAN_AMOUNT_PROGNOBAKS;

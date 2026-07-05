@@ -32,7 +32,7 @@
         :disabled="loanLoading"
         @click="onTakeStarterLoan"
       >
-        Займ {{ starterLoan.amount }}
+        Заём {{ starterLoan.amount }}
         <AppIcon name="prognobak" :size="16" />
       </button>
       <div class="starter_loan_hint" v-if="starterLoan.hint">{{ starterLoan.hint }}</div>
@@ -98,14 +98,13 @@ export default {
       return this.bank?.starter_loan || {
         can_take: false,
         amount: 500,
-        wallet_max: 150,
       };
     },
   },
   methods: {
     ...mapActions('game', ['takeStarterLoan']),
     async onTakeStarterLoan() {
-      if (!this.starterLoan.can_take || this.loanLoading) {
+      if (this.loanLoading) {
         return;
       }
 
