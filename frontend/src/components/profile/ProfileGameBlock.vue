@@ -37,6 +37,9 @@
       </button>
       <div class="starter_loan_hint" v-if="starterLoan.hint">{{ starterLoan.hint }}</div>
     </div>
+    <div class="starter_loan active_loan_hint" v-else-if="bank.active_loans > 0">
+      <span class="starter_loan_hint">Есть активный займ — вернуть в банке → «Операции» или «Банки»</span>
+    </div>
     <div class="msg error" v-if="loanError">{{ loanError }}</div>
     <div class="msg ok" v-if="loanMessage">{{ loanMessage }}</div>
     <div class="bank_hint" v-if="bank.has_bank || bank.active_deposits || bank.active_loans">

@@ -41,6 +41,14 @@ class StarterLoanService
             ];
         }
 
+        if ($this->countActiveLoans($userId) > 0) {
+            return [
+                'can_take' => false,
+                'amount' => $amount,
+                'hint' => 'Сначала верните текущий займ во вкладке «Операции»',
+            ];
+        }
+
         return [
             'can_take' => true,
             'amount' => $amount,

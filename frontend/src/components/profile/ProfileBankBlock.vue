@@ -41,6 +41,40 @@
           <div class="starter_loan_hint" v-if="starterLoan.hint">{{ starterLoan.hint }}</div>
         </div>
 
+        <div class="starter_loan_panel active_loans_panel" v-else-if="myLoansCount > 0">
+          <div class="section_title">Активный займ</div>
+          <p class="hint">Вернуть можно здесь или во вкладке «Операции» → «Займы».</p>
+          <div v-if="repayAllSummary?.can_repay_all" class="repay_all_row">
+            <button
+              type="button"
+              class="btn repay_all_btn"
+              :disabled="loading"
+              @click="onRepayAllLoans"
+            >
+              {{ repayAllButtonLabel }} —
+              {{ formatAmount(repayAllSummary.total_due) }}
+              <AppIcon name="prognobak" :size="14" />
+            </button>
+          </div>
+          <div
+            v-else-if="repayAllSummary?.reason === 'insufficient_funds'"
+            class="hint repay_all_hint"
+          >
+            Для возврата нужно {{ formatAmount(repayAllSummary.total_due) }}
+            <AppIcon name="prognobak" :size="12" /> (на кошельке {{ formatAmount(repayAllSummary.wallet) }})
+          </div>
+          <BankContractCard
+            v-for="l in contracts.loans"
+            :key="'banks-loan-' + l.id"
+            :contract="l"
+            kind="loan"
+            show-cancel
+            show-early-repay
+            @cancel="onCancelLoan"
+            @repay="onRepayLoan"
+          />
+        </div>
+
         <div class="section" v-if="canOpen && !myBank">
           <div class="section_title">Открыть банк</div>
           <p class="hint">Нужно ≥250 <AppIcon name="prognobak" :size="14" /> на кошельке, 200 замораживаются в резерве.</p>
@@ -119,20 +153,20 @@
             </template>
             <template v-else>
               <div v-if="!myLoansCount" class="hint">Нет активных займов</div>
-              <div v-if="myLoansCount > 1 && repayAllSummary?.can_repay_all" class="repay_all_row">
+              <div v-if="myLoansCount >= 1 && repayAllSummary?.can_repay_all" class="repay_all_row">
                 <button
                   type="button"
                   class="btn repay_all_btn"
                   :disabled="loading"
                   @click="onRepayAllLoans"
                 >
-                  Вернуть все ({{ repayAllSummary.loan_count }}) —
+                  {{ repayAllButtonLabel }} —
                   {{ formatAmount(repayAllSummary.total_due) }}
                   <AppIcon name="prognobak" :size="14" />
                 </button>
               </div>
               <div
-                v-else-if="myLoansCount > 1 && repayAllSummary?.loan_count > 1 && repayAllSummary?.reason === 'insufficient_funds'"
+                v-else-if="myLoansCount >= 1 && repayAllSummary?.loan_count >= 1 && repayAllSummary?.reason === 'insufficient_funds'"
                 class="hint repay_all_hint"
               >
                 Для погашения всех займов нужно {{ formatAmount(repayAllSummary.total_due) }}
@@ -417,6 +451,14 @@ export default {
     },
     myContractsCount() {
       return this.myDepositsCount + this.myLoansCount;
+    },
+    repayAllButtonLabel() {
+      const count = Number(this.repayAllSummary?.loan_count || this.myLoansCount || 0);
+      if (count <= 1) {
+        return 'Вернуть займ';
+      }
+
+      return `Вернуть все (${count})`;
     },
     consignmentSettings() {
       return this.myBank?.consignment || null;
@@ -749,12 +791,14 @@ export default {
     },
     async onRepayAllLoans() {
       const summary = this.repayAllSummary;
-      if (!summary?.can_repay_all || summary.loan_count < 2) {
+      if (!summary?.can_repay_all || summary.loan_count < 1) {
         return;
       }
 
       const total = this.formatAmount(summary.total_due);
-      const msg = `Вернуть все займы (${summary.loan_count}): списать ${total} 🪙 с кошелька?`;
+      const msg = summary.loan_count > 1
+        ? `Вернуть все займы (${summary.loan_count}): списать ${total} 🪙 с кошелька?`
+        : `Вернуть займ: списать ${total} 🪙 с кошелька?`;
       if (!window.confirm(msg)) {
         return;
       }
@@ -865,11 +909,23 @@ export default {
 
 .starter_loan_panel {
   .shadow_inset;
+  margin-bottom: 10px;
   padding: 8px;
-  border-radius: 4px;
+  border-radius: 5px;
+  background: fade(@DarkColorBG, 80%);
+  border: 1px solid fade(@colorBlur, 20%);
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.active_loans_panel {
+  .hint {
+    margin: 0 0 8px;
+    font-size: 11px;
+    color: @colorBlur;
+    line-height: 1.35;
+  }
 }
 
 .starter_loan_btn {
