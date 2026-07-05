@@ -141,8 +141,10 @@ class EstateRecipesConfig
     {
         $components = [
             'foundation_block' => 14,
-            'wall_section' => 12,
+            'wall_section' => 4,
             'wall_section_corner' => 5,
+            'wall_section_window' => 6,
+            'wall_section_door' => 2,
             'roof_bundle' => 1,
             'door' => 2,
             'window_regular' => 6,
@@ -171,7 +173,9 @@ class EstateRecipesConfig
     {
         $components = [
             'foundation_block' => 7,
-            'wall_section' => 9,
+            'wall_section' => 3,
+            'wall_section_window' => 5,
+            'wall_section_door' => 1,
             'roof_bundle_light' => 1,
             'window_regular' => 5,
             'door' => 1,
@@ -198,7 +202,9 @@ class EstateRecipesConfig
     {
         $components = [
             'foundation_block' => 8,
-            'wall_section' => 10,
+            'wall_section' => 5,
+            'wall_section_window' => 3,
+            'wall_section_door' => 2,
             'roof_bundle_light' => 1,
             'window_regular' => 3,
             'door' => 2,
