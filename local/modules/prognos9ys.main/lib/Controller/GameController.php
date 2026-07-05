@@ -38,6 +38,7 @@ use Prognos9ys\Main\Service\Game\ProfessionCertificateService;
 use Prognos9ys\Main\Service\Game\StarterLoanService;
 use Prognos9ys\Main\Service\Game\TreasuryService;
 use Prognos9ys\Main\Service\Game\EstateMapService;
+use Prognos9ys\Main\Service\Game\EquipmentService;
 use Prognos9ys\Main\Service\Game\TreasuryCityService;
 use Prognos9ys\Main\Service\Game\TreasuryShopService;
 use Prognos9ys\Main\Service\Game\UserBankService;
