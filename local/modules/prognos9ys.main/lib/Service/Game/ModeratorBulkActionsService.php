@@ -176,6 +176,8 @@ class ModeratorBulkActionsService
             || $bulkAction === 'farm_sell_crafted'
             || $bulkAction === 'farm_self_process'
             || $bulkAction === 'open_wc26_chests'
+            || $bulkAction === 'open_all_chests'
+            || $bulkAction === 'sell_recipes'
             || self::isSellLootBulkAction($bulkAction)
             || FarmBulkActionConfig::isTreasuryAction($bulkAction)
             || FarmBulkActionConfig::isTreasuryCraftAction($bulkAction)) {
@@ -338,6 +340,50 @@ class ModeratorBulkActionsService
                     $userId,
                     'success',
                     'Открыто ' . $opened,
+                    $result
+                );
+
+            case 'open_all_chests':
+                $chestService = new ChestOpenService($this->repository);
+                try {
+                    $result = $chestService->openAllChests($userId, 999);
+                } catch (\RuntimeException $e) {
+                    return $this->oneResult($bulkAction, $userId, 'skipped', $e->getMessage());
+                }
+
+                $opened = (int)($result['summary']['opened_count'] ?? 0);
+                if ($opened <= 0) {
+                    return $this->oneResult($bulkAction, $userId, 'skipped', 'Нет сундуков', $result);
+                }
+
+                return $this->oneResult(
+                    $bulkAction,
+                    $userId,
+                    'success',
+                    'Открыто ' . $opened,
+                    $result
+                );
+
+            case 'sell_recipes':
+                $result = (new ExchangeService($this->repository))->sellAllRecipeScrollsAtNominal($userId);
+                $listedQty = (int)($result['listed_qty'] ?? 0);
+                if ($listedQty <= 0) {
+                    $message = 'Нечего выставить';
+                    foreach ($result['lines'] ?? [] as $line) {
+                        if (($line['status'] ?? '') === 'fail') {
+                            $message = (string)($line['text'] ?? $message);
+                            break;
+                        }
+                    }
+
+                    return $this->oneResult($bulkAction, $userId, 'skipped', $message, $result);
+                }
+
+                return $this->oneResult(
+                    $bulkAction,
+                    $userId,
+                    'success',
+                    'Выставлено ' . $listedQty . ' рец.',
                     $result
                 );
 
@@ -598,6 +644,22 @@ class ModeratorBulkActionsService
 
                 return ['eligible' => true, 'hint' => $count . ' сунд.'];
 
+            case 'open_all_chests':
+                $count = (new ChestOpenService($this->repository))->countAllOpenableChests($userId);
+                if ($count <= 0) {
+                    return ['eligible' => false, 'skip_reason' => 'Нет сундуков'];
+                }
+
+                return ['eligible' => true, 'hint' => $count . ' сунд.'];
+
+            case 'sell_recipes':
+                $qty = (new ExchangeService($this->repository))->countSellableRecipeScrolls($userId);
+                if ($qty <= 0) {
+                    return ['eligible' => false, 'skip_reason' => 'Нет рецептов'];
+                }
+
+                return ['eligible' => true, 'hint' => $qty . ' рец.'];
+
             default:
                 return ['eligible' => false, 'skip_reason' => 'Неизвестное действие'];
         }
@@ -841,6 +903,8 @@ class ModeratorBulkActionsService
             'sell_xp_bank_crafting_25',
             'sell_xp_bank_mining_25',
             'open_wc26_chests',
+            'open_all_chests',
+            'sell_recipes',
         ], true) && !FarmBulkActionConfig::isTreasuryAction($bulkAction)
             && !FarmBulkActionConfig::isTreasuryCraftAction($bulkAction)) {
             throw new \InvalidArgumentException('Неизвестное массовое действие');

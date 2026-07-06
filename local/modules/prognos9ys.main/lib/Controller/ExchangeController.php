@@ -66,7 +66,7 @@ class ExchangeController extends BaseController
 
         return array_merge(
             ['status' => 'ok'],
-            (new ExchangeService())->getCatalog($offset, $limit, $tab, $search, $qtySort)
+            (new ExchangeService())->getCatalog($offset, $limit, $tab, $search, $qtySort, $userId)
         );
     }
 

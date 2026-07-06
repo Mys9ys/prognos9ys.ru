@@ -126,6 +126,103 @@ class ChestOpenService
     }
 
     /**
+     * @return array<int, string>
+     */
+    public static function allPools(): array
+    {
+        return [
+            self::POOL_WC26,
+            self::POOL_LEVEL,
+            self::POOL_ACHIEVEMENT,
+            self::POOL_PROFESSION,
+        ];
+    }
+
+    public function countOpenableChests(int $userId, string $pool): int
+    {
+        if ($userId <= 0) {
+            return 0;
+        }
+
+        $eventId = $this->scopeService->getAnchorEventId();
+        if ($eventId <= 0) {
+            return 0;
+        }
+
+        $config = $this->resolvePoolConfig($pool);
+
+        return $this->repository->countOpenableWc26ChestUnits($userId, $eventId, $config['types']);
+    }
+
+    public function countAllOpenableChests(int $userId): int
+    {
+        $total = 0;
+        foreach (self::allPools() as $pool) {
+            $total += $this->countOpenableChests($userId, $pool);
+        }
+
+        return $total;
+    }
+
+    /**
+     * @return array{
+     *   opens: array<int, array>,
+     *   summary: array<string, mixed>,
+     *   lines: array<int, array{text:string,status:string}>,
+     *   pools: array<int, string>
+     * }
+     */
+    public function openAllChests(int $userId, int $qtyPerPool = 999): array
+    {
+        $combinedOpens = [];
+        $combinedSummary = [
+            'prognobaks' => 0.0,
+            'rublius' => 0.0,
+            'items' => [],
+            'opened_count' => 0,
+        ];
+        $combinedLines = [];
+        $openedPools = [];
+
+        foreach (self::allPools() as $pool) {
+            try {
+                $result = $this->openChests($userId, $pool, $qtyPerPool);
+            } catch (\RuntimeException $e) {
+                continue;
+            }
+
+            $opened = (int)($result['summary']['opened_count'] ?? 0);
+            if ($opened <= 0) {
+                continue;
+            }
+
+            $openedPools[] = $pool;
+            $combinedOpens = array_merge($combinedOpens, $result['opens'] ?? []);
+            $combinedSummary['prognobaks'] += (float)($result['summary']['prognobaks'] ?? 0);
+            $combinedSummary['rublius'] += (float)($result['summary']['rublius'] ?? 0);
+            $combinedSummary['opened_count'] += $opened;
+            foreach ($result['summary']['items'] ?? [] as $itemKey => $itemQty) {
+                $combinedSummary['items'][$itemKey] = ($combinedSummary['items'][$itemKey] ?? 0) + $itemQty;
+            }
+            foreach ($result['lines'] ?? [] as $line) {
+                $combinedLines[] = $line;
+            }
+        }
+
+        if ($combinedSummary['opened_count'] <= 0) {
+            throw new \RuntimeException('Нет сундуков для открытия');
+        }
+
+        return [
+            'opens' => $combinedOpens,
+            'summary' => $combinedSummary,
+            'lines' => $combinedLines,
+            'pools' => $openedPools,
+            'pool' => 'all',
+        ];
+    }
+
+    /**
      * @return array{types:string[],loot_event_id:int,generic_block3:bool,empty_error:string}
      */
     private function resolvePoolConfig(string $pool): array

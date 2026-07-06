@@ -37,7 +37,7 @@ class ExchangeService
             'commission_percent' => $this->resolveCommissionPercent($userId),
             'consignment_payout_percent' => BankConsignmentConfig::INSTANT_PAYOUT_PERCENT,
             'catalog_tabs' => ExchangeCatalogConfig::getTabs(),
-            'sellable' => $this->buildSellableCatalog($userId),
+            'sellable' => $this->enrichSellableWithRecipeFlags($userId, $this->buildSellableCatalog($userId)),
         ];
     }
 
@@ -49,7 +49,8 @@ class ExchangeService
         int $limit = 25,
         string $catalogTab = '',
         string $search = '',
-        string $qtySort = ''
+        string $qtySort = '',
+        int $viewerUserId = 0
     ): array
     {
         $listings = $this->repository->getActiveExchangeListings(2000, $catalogTab);
@@ -163,6 +164,9 @@ class ExchangeService
         $offset = max(0, $offset);
         $total = count($items);
         $pageItems = array_slice($items, $offset, $limit);
+        if ($viewerUserId > 0) {
+            $pageItems = $this->enrichCatalogWithRecipeFlags($viewerUserId, $pageItems);
+        }
 
         return [
             'items' => $pageItems,
@@ -1538,6 +1542,149 @@ class ExchangeService
             'lines' => $lines,
             'slots_left' => $slotsLeft,
         ];
+    }
+
+    public function countSellableRecipeScrolls(int $userId): int
+    {
+        if ($userId <= 0) {
+            return 0;
+        }
+
+        $total = 0;
+        foreach ($this->getRecipeLootStacks($userId) as $loot) {
+            $total += (int)($loot['count'] ?? 0);
+        }
+
+        return $total;
+    }
+
+    /**
+     * @return array{
+     *   listed_qty: int,
+     *   listings: array<int, array<string, mixed>>,
+     *   lines: array<int, array{text:string,status:string}>,
+     *   slots_left: int
+     * }
+     */
+    public function sellAllRecipeScrollsAtNominal(int $userId): array
+    {
+        if ($userId <= 0) {
+            throw new \InvalidArgumentException('Некорректный пользователь');
+        }
+
+        $listedQty = 0;
+        $listings = [];
+        $lines = [];
+        $slotsLeft = max(
+            0,
+            $this->resolveMaxListings($userId) - $this->repository->countActiveExchangeListingsForUser($userId)
+        );
+
+        foreach ($this->getRecipeLootStacks($userId) as $loot) {
+            if ($slotsLeft <= 0) {
+                break;
+            }
+
+            $code = (string)($loot['code'] ?? '');
+            $category = (string)($loot['category'] ?? '');
+            if ($code === '' || $category === '') {
+                continue;
+            }
+
+            $result = $this->sellLootItemAtNominal($userId, $code, $category);
+            $listedQty += (int)($result['listed_qty'] ?? 0);
+            $listings = array_merge($listings, $result['listings'] ?? []);
+            $lines = array_merge($lines, $result['lines'] ?? []);
+            $slotsLeft = (int)($result['slots_left'] ?? $slotsLeft);
+        }
+
+        if (!$lines) {
+            $lines[] = ['text' => 'Нет рецептов для продажи', 'status' => 'skip'];
+        }
+
+        return [
+            'listed_qty' => $listedQty,
+            'listings' => $listings,
+            'lines' => $lines,
+            'slots_left' => $slotsLeft,
+        ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function getRecipeLootStacks(int $userId): array
+    {
+        $anchorEventId = (new GameEventScopeService())->getAnchorEventId();
+        $stacks = ChestLootConfig::mergeInventoryLootStacks(array_merge(
+            $this->repository->getLootItemStacksForUser($userId, ChestLootConfig::LOOT_EVENT_GLOBAL),
+            $anchorEventId > 0 ? $this->repository->getLootItemStacksForUser($userId, $anchorEventId) : []
+        ));
+
+        $recipeStacks = [];
+        foreach ($stacks as $loot) {
+            if ((string)($loot['category'] ?? '') !== ChestLootConfig::CATEGORY_RECIPE) {
+                continue;
+            }
+            if ((int)($loot['count'] ?? 0) <= 0) {
+                continue;
+            }
+
+            $recipeStacks[] = $loot;
+        }
+
+        return $recipeStacks;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $items
+     * @return array<int, array<string, mixed>>
+     */
+    private function enrichCatalogWithRecipeFlags(int $userId, array $items): array
+    {
+        foreach ($items as &$item) {
+            if (!$this->isRecipeCatalogItem($item)) {
+                continue;
+            }
+
+            $recipeCode = (string)($item['code'] ?? '');
+            $item['recipe_learned'] = $this->repository->hasLearnedRecipe($userId, $recipeCode);
+        }
+        unset($item);
+
+        return $items;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $items
+     * @return array<int, array<string, mixed>>
+     */
+    private function enrichSellableWithRecipeFlags(int $userId, array $items): array
+    {
+        foreach ($items as &$item) {
+            if ((string)($item['category'] ?? '') !== ChestLootConfig::CATEGORY_RECIPE) {
+                continue;
+            }
+
+            $recipeCode = (string)($item['code'] ?? '');
+            $item['recipe_learned'] = $this->repository->hasLearnedRecipe($userId, $recipeCode);
+        }
+        unset($item);
+
+        return $items;
+    }
+
+    /**
+     * @param array<string, mixed> $item
+     */
+    private function isRecipeCatalogItem(array $item): bool
+    {
+        return (string)($item['category'] ?? '') === ChestLootConfig::CATEGORY_RECIPE
+            || ExchangeCatalogConfig::resolveTab(
+                (string)($item['kind'] ?? ''),
+                (string)($item['category'] ?? ''),
+                (string)($item['code'] ?? '')
+            ) === ExchangeCatalogConfig::TAB_RECIPE;
     }
 
     /**

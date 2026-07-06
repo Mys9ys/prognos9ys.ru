@@ -7,7 +7,8 @@
         type="button"
         class="tab_btn"
         :class="{ active: activeTab === tab.id }"
-        @click="activeTab = tab.id"
+        :disabled="loading || busy"
+        @click="setActiveTab(tab.id)"
       >
         {{ tab.label }}
       </button>
@@ -20,13 +21,13 @@
       <span>Комиссия: {{ state.commission_percent }}%</span>
     </div>
 
-    <PreLoader v-if="loading && !state" />
+    <PreLoader v-if="loading" />
 
-    <div class="msg error" v-if="error">{{ error }}</div>
-    <div class="msg ok" v-if="message">{{ message }}</div>
+    <div class="msg error" v-if="error && !loading">{{ error }}</div>
+    <div class="msg ok" v-if="message && !loading">{{ message }}</div>
 
     <!-- Каталог -->
-    <div v-if="activeTab === 'catalog'" class="panel">
+    <div v-if="!loading && activeTab === 'catalog'" class="panel">
       <div class="category_tabs" v-if="catalogTabs.length">
         <button
           v-for="tab in catalogTabs"
@@ -34,6 +35,7 @@
           type="button"
           class="tab_btn category_tab_btn"
           :class="{ active: catalogCategoryTab === tab.id }"
+          :disabled="loading || busy"
           @click="setCatalogCategoryTab(tab.id)"
         >
           {{ tab.label }}
@@ -72,13 +74,16 @@
         </div>
       </div>
       <div class="catalog_list" v-if="catalogItems.length">
-        <div v-for="group in catalogItems" :key="group.group_key" class="catalog_row">
+        <div v-for="group in catalogItems" :key="group.group_key" class="catalog_row" :class="{ recipe_unlearned: isUnlearnedRecipe(group) }">
           <div class="row_thumb" aria-hidden="true">
             <img v-if="itemThumb(group).src" :src="itemThumb(group).src" alt="">
             <span v-else class="row_thumb_emoji">{{ itemThumb(group).emoji }}</span>
           </div>
           <div class="row_body">
-            <div class="row_label" :title="group.label">{{ group.label }}</div>
+            <div class="row_label" :title="group.label">
+              {{ group.label }}
+              <span v-if="isUnlearnedRecipe(group)" class="badge_unlearned">не изучен</span>
+            </div>
             <div class="row_line row_price">
               {{ group.qty_total }} шт. · {{ group.price_per_unit }} {{ currencySymbol(group.currency) }}
               <span v-if="group.has_consignment" class="badge_consignment">комиссионка</span>
@@ -134,7 +139,7 @@
     </div>
 
     <!-- Продать -->
-    <div v-if="activeTab === 'sell'" class="panel">
+    <div v-if="!loading && activeTab === 'sell'" class="panel">
       <div class="category_tabs" v-if="catalogTabs.length">
         <button
           v-for="tab in catalogTabs"
@@ -142,6 +147,7 @@
           type="button"
           class="tab_btn category_tab_btn"
           :class="{ active: sellCategoryTab === tab.id }"
+          :disabled="loading || busy"
           @click="sellCategoryTab = tab.id"
         >
           {{ tab.label }}
@@ -191,13 +197,16 @@
         </div>
       </div>
       <div class="sell_list" v-if="sortedFilteredSellable.length">
-        <div v-for="(item, index) in sortedFilteredSellable" :key="sellKey(item, index)" class="sell_row">
+        <div v-for="(item, index) in sortedFilteredSellable" :key="sellKey(item, index)" class="sell_row" :class="{ recipe_unlearned: isUnlearnedRecipe(item) }">
           <div class="row_thumb" aria-hidden="true">
             <img v-if="itemThumb(item).src" :src="itemThumb(item).src" alt="">
             <span v-else class="row_thumb_emoji">{{ itemThumb(item).emoji }}</span>
           </div>
           <div class="row_body">
-            <div class="row_label" :title="item.label">{{ item.label }}</div>
+            <div class="row_label" :title="item.label">
+              {{ item.label }}
+              <span v-if="isUnlearnedRecipe(item)" class="badge_unlearned">не изучен</span>
+            </div>
             <div class="row_line">
               В инвентаре: {{ item.available }} · {{ item.nominal }}–{{ item.max_price }} {{ currencySymbol(item.currency) }}
             </div>
@@ -237,7 +246,7 @@
     </div>
 
     <!-- Мои лоты -->
-    <div v-if="activeTab === 'my'" class="panel">
+    <div v-if="!loading && activeTab === 'my'" class="panel">
       <div class="exchange_sort exchange_sort_standalone">
         <span class="sort_label">Кол-во</span>
         <button
@@ -281,7 +290,7 @@
     </div>
 
     <!-- Работы -->
-    <div v-if="activeTab === 'labor'" class="panel">
+    <div v-if="!loading && activeTab === 'labor'" class="panel">
       <div class="labor_hint" v-if="laborState">
         Цикл {{ laborState.iteration_minutes }} мин · 1–{{ laborState.max_cycles_per_claim }} циклов на смену ·
         комиссия 0%
@@ -470,7 +479,7 @@
     </div>
 
     <!-- Госстройка -->
-    <div v-if="activeTab === 'citybuild'" class="panel">
+    <div v-if="!loading && activeTab === 'citybuild'" class="panel">
       <div class="labor_hint">
         Сдача крафтовых компонентов в стройку городов ЧМ-26. Оплата по номиналу (+13% за монтаж), комиссия 0%.
         Материалы списываются из инвентаря.
@@ -545,7 +554,7 @@
     </div>
 
     <!-- История -->
-    <div v-if="activeTab === 'history'" class="panel">
+    <div v-if="!loading && activeTab === 'history'" class="panel">
       <div class="exchange_sort exchange_sort_standalone">
         <span class="sort_label">Кол-во</span>
         <button
@@ -634,6 +643,8 @@ export default {
       catalogSearchQuery: '',
       sellSearchQuery: '',
       catalogSearchTimer: null,
+      catalogLoadSeq: 0,
+      panelLoadSeq: 0,
       qtySort: {
         catalog: '',
         sell: '',
@@ -702,19 +713,7 @@ export default {
   },
   watch: {
     activeTab(tab) {
-      if (tab === 'catalog') {
-        this.loadCatalog(true);
-      } else if (tab === 'sell') {
-        this.refreshDuplicatePlan();
-      } else if (tab === 'my') {
-        this.loadMyListings();
-      } else if (tab === 'history') {
-        this.loadHistory();
-      } else if (tab === 'labor') {
-        this.loadLabor(true);
-      } else if (tab === 'citybuild') {
-        this.loadCityBuildOrders();
-      }
+      this.loadPanelForTab(tab);
     },
     sellCategoryTab(tab) {
       if (this.activeTab === 'sell' && tab === 'souvenir') {
@@ -867,10 +866,62 @@ export default {
     },
 
     setCatalogCategoryTab(tabId) {
-      if (this.catalogCategoryTab === tabId) {
+      if (this.catalogCategoryTab === tabId || this.loading) {
         return;
       }
       this.catalogCategoryTab = tabId;
+    },
+
+    setActiveTab(tabId) {
+      if (this.activeTab === tabId || this.loading) {
+        return;
+      }
+      this.activeTab = tabId;
+    },
+
+    isUnlearnedRecipe(item) {
+      if (!item || item.recipe_learned !== false) {
+        return false;
+      }
+
+      const category = String(item.category || '');
+      const tab = String(item.catalog_tab || '');
+
+      return category === 'recipe' || tab === 'recipe';
+    },
+
+    async loadPanelForTab(tab) {
+      const requestId = ++this.panelLoadSeq;
+
+      if (tab === 'catalog') {
+        await this.loadCatalog(true, requestId);
+        return;
+      }
+
+      this.loading = true;
+      this.error = '';
+
+      try {
+        if (tab === 'sell') {
+          await this.refreshState();
+          await this.refreshDuplicatePlan();
+        } else if (tab === 'my') {
+          await this.loadMyListings();
+        } else if (tab === 'history') {
+          await this.loadHistory();
+        } else if (tab === 'labor') {
+          await this.loadLabor(true, requestId);
+          return;
+        } else if (tab === 'citybuild') {
+          await this.loadCityBuildOrders();
+        }
+      } catch (e) {
+        this.error = e.message || 'Ошибка загрузки';
+      } finally {
+        if (requestId === this.panelLoadSeq) {
+          this.loading = false;
+        }
+      }
     },
 
     async bootstrap() {
@@ -901,10 +952,13 @@ export default {
       }
     },
 
-    async loadCatalog(reset = false) {
+    async loadCatalog(reset = false, panelRequestId = 0) {
       if (!this.authData?.token) {
         return;
       }
+
+      const requestId = ++this.catalogLoadSeq;
+      const tabAtStart = this.catalogCategoryTab;
 
       if (reset) {
         this.catalogPagination.offset = 0;
@@ -922,6 +976,13 @@ export default {
           this.qtySort.catalog
         );
 
+        if (requestId !== this.catalogLoadSeq || tabAtStart !== this.catalogCategoryTab) {
+          return;
+        }
+        if (panelRequestId > 0 && panelRequestId !== this.panelLoadSeq) {
+          return;
+        }
+
         if (data?.status === 'ok') {
           const items = Array.isArray(data.items) ? data.items : [];
           this.catalogItems = reset ? items : [...this.catalogItems, ...items];
@@ -936,9 +997,14 @@ export default {
           });
         }
       } catch (e) {
-        this.error = e.message || 'Ошибка каталога';
+        if (requestId === this.catalogLoadSeq) {
+          this.error = e.message || 'Ошибка каталога';
+        }
       } finally {
-        this.loading = false;
+        if (requestId === this.catalogLoadSeq
+          && (panelRequestId <= 0 || panelRequestId === this.panelLoadSeq)) {
+          this.loading = false;
+        }
       }
     },
 
@@ -1004,10 +1070,12 @@ export default {
       return Math.max(1, Math.min(max, raw));
     },
 
-    async loadLabor(reset = false) {
+    async loadLabor(reset = false, panelRequestId = 0) {
       if (!this.authData?.token) {
         return;
       }
+
+      const requestId = panelRequestId > 0 ? panelRequestId : ++this.panelLoadSeq;
 
       if (reset) {
         this.laborPagination.offset = 0;
@@ -1027,6 +1095,10 @@ export default {
             this.laborPagination.limit
           ),
         ]);
+
+        if (requestId !== this.panelLoadSeq) {
+          return;
+        }
 
         if (stateData?.status === 'ok' && stateData.labor) {
           this.laborState = stateData.labor;
@@ -1050,9 +1122,14 @@ export default {
           };
         }
       } catch (e) {
-        this.error = e.message || 'Ошибка загрузки работ';
+        if (requestId === this.panelLoadSeq) {
+          this.error = e.message || 'Ошибка загрузки работ';
+        }
       } finally {
-        this.loading = false;
+        if (requestId === this.panelLoadSeq
+          && (panelRequestId <= 0 || panelRequestId === requestId)) {
+          this.loading = false;
+        }
       }
     },
 
@@ -1698,6 +1775,11 @@ export default {
     border-color: fade(@orange, 70%);
     background: fade(@orange, 20%);
   }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
 }
 
 .exchange_meta {
@@ -1714,6 +1796,27 @@ export default {
   border-radius: 5px;
   padding: 8px;
   color: @colorText;
+}
+
+.catalog_row,
+.sell_row {
+  &.recipe_unlearned {
+    border: 1px solid fade(@orange, 55%);
+    background: fade(@orange, 8%);
+    border-radius: 4px;
+  }
+}
+
+.badge_unlearned {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 5px;
+  font-size: 10px;
+  line-height: 1.3;
+  border-radius: 3px;
+  color: lighten(@orange, 10%);
+  background: fade(@orange, 18%);
+  vertical-align: middle;
 }
 
 .catalog_row,

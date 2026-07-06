@@ -228,6 +228,26 @@
             <AppIcon name="chest_wc2026" :size="12" />
             <span>Сундуки ЧМ26</span>
           </button>
+          <button
+              type="button"
+              class="bulk_btn"
+              :disabled="bulkLoading"
+              title="Открыть все типы сундуков (ЧМ, уровень, ачивки, профессии) — до 30 за пул"
+              @click="runBulk('open_all_chests')"
+          >
+            <AppIcon name="chest_wc2026" :size="12" />
+            <span>Все сундуки</span>
+          </button>
+          <button
+              type="button"
+              class="bulk_btn"
+              :disabled="bulkLoading"
+              title="Выставить на биржу все рецепты из инвентаря по номиналу — у кого есть"
+              @click="runBulk('sell_recipes')"
+          >
+            <span class="bulk_emoji">📜</span>
+            <span>Рецепты</span>
+          </button>
         </div>
         <div class="bulk_msg ok" v-if="bulkMessage">{{ bulkMessage }}</div>
         <div class="bulk_msg error" v-if="bulkError">{{ bulkError }}</div>
@@ -496,6 +516,8 @@ const BULK_TITLES = {
   sell_xp_bank_crafting_25: 'Банка XP крафта на биржу',
   sell_xp_bank_mining_25: 'Банка XP добычи на биржу',
   open_wc26_chests: 'Открыть сундуки ЧМ-26',
+  open_all_chests: 'Открыть все сундуки',
+  sell_recipes: 'Продать рецепты всем',
 };
 const FARM_TREASURY_PROMPTS = {
   farm_treasury_1: 'Мгновенная смена на казну (×1 цикл, +2 🪙 каждому) для всех игроков с кошельком? Пропуск — если уже идёт смена или в казне не хватает монет.',
@@ -955,6 +977,8 @@ export default {
         sell_xp_bank_crafting_25: 'Выставить на биржу банки XP крафта (25) по номиналу у всех, у кого они есть?',
         sell_xp_bank_mining_25: 'Выставить на биржу банки XP добычи (25) по номиналу у всех, у кого они есть?',
         open_wc26_chests: 'Открыть все закрытые сундуки ЧМ-26 (до 30 за игрока) у всех, у кого они есть?',
+        open_all_chests: 'Открыть все сундуки (ЧМ, уровень, ачивки, профессии — до 30 за тип) у всех, у кого они есть?',
+        sell_recipes: 'Выставить на биржу все рецепты из инвентаря по номиналу у всех, у кого они есть? Лимит лотов соблюдается.',
         ...FARM_TREASURY_PROMPTS,
         ...FARM_TREASURY_CRAFT_PROMPTS,
       };
