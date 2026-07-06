@@ -26,11 +26,14 @@ class EstateMapService
     {
         $dbCities = $this->cityRepository->getAllCitiesIndexedBySlug();
         $userPlots = $userId > 0 ? $this->getUserPlotsIndexed($userId) : [];
-        $groups = [];
+        $regions = [];
 
-        foreach (EstateWorldMapConfig::groups() as $groupId => $slugs) {
+        foreach (EstateWorldMapConfig::regions() as $regionId => $regionDef) {
             $cities = [];
-            foreach ($slugs as $slug) {
+            $foundedInRegion = 0;
+            $openInRegion = 0;
+
+            foreach ($regionDef['cities'] as $slug => $cityDef) {
                 $meta = EstateCityConfig::all()[$slug] ?? null;
                 if ($meta === null) {
                     continue;
@@ -44,22 +47,41 @@ class EstateMapService
                 $cityId = (int)($row['ID'] ?? 0);
                 $plotsClaimed = $cityId > 0 ? $this->cityRepository->countClaimedPlots($cityId) : 0;
                 $userPlot = $userPlots[$slug] ?? null;
+                $onMap = $status !== EstateCityConfig::STATUS_PLANNED;
+                $isOpen = $status === EstateCityConfig::STATUS_OPEN;
+
+                if ($onMap) {
+                    $foundedInRegion++;
+                }
+                if ($isOpen) {
+                    $openInRegion++;
+                }
 
                 $cities[] = [
                     'slug' => $slug,
                     'city_name' => $meta['city_name'],
                     'country_label' => $meta['country_label'],
+                    'region_id' => $regionId,
+                    'local' => $cityDef['local'],
+                    'neighbors' => array_values($cityDef['neighbors'] ?? []),
                     'status' => $status,
-                    'on_map' => $status !== EstateCityConfig::STATUS_PLANNED,
-                    'is_open' => $status === EstateCityConfig::STATUS_OPEN,
+                    'on_map' => $onMap,
+                    'is_open' => $isOpen,
                     'plots_claimed' => $plotsClaimed,
                     'plots_total' => EstateCityConfig::TOTAL_PLOTS,
                     'user_plot_number' => $userPlot,
                 ];
             }
 
-            $groups[] = [
-                'id' => $groupId,
+            $regions[] = [
+                'id' => $regionId,
+                'label' => (string)$regionDef['label'],
+                'world' => $regionDef['world'],
+                'zone_polygon' => $regionDef['zone_polygon'],
+                'neighbor_regions' => array_values($regionDef['neighbor_regions'] ?? []),
+                'founded_count' => $foundedInRegion,
+                'open_count' => $openInRegion,
+                'city_count' => count($cities),
                 'cities' => $cities,
             ];
         }
@@ -67,11 +89,21 @@ class EstateMapService
         $catalog = $this->treasuryCityService->getCatalog();
 
         return [
-            'groups' => $groups,
+            'regions' => $regions,
             'founded_count' => $catalog['founded_count'],
             'open_count' => $catalog['open_count'],
             'total_cities' => count(EstateCityConfig::all()),
-            'layout' => 'wc26_groups_12x4',
+            'layout' => EstateWorldMapConfig::LAYOUT_PANGAEA_V1,
+            'world_map' => [
+                'aspect_ratio' => '16 / 9',
+                'background' => 'image',
+                'image' => '/mob_app/img/estate/pangaea_world.png',
+            ],
+            'battle_graph' => [
+                'city_pairs' => EstateWorldMapConfig::allCityNeighborPairs(),
+                'region_pairs' => EstateWorldMapConfig::allRegionNeighborPairs(),
+                'cross_region_city_links' => EstateWorldMapConfig::crossRegionCityLinks(),
+            ],
         ];
     }
 
@@ -161,10 +193,15 @@ class EstateMapService
             ];
         }
 
+        $regionId = EstateWorldMapConfig::regionForSlug($slug);
+
         return [
             'slug' => $slug,
             'city_name' => $meta['city_name'],
             'country_label' => $meta['country_label'],
+            'region_id' => $regionId,
+            'region_label' => $regionId ? EstateWorldMapConfig::getRegionLabel($regionId) : '',
+            'neighbors' => EstateWorldMapConfig::getCityNeighbors($slug),
             'status' => $status,
             'on_map' => $status !== EstateCityConfig::STATUS_PLANNED,
             'is_open' => $status === EstateCityConfig::STATUS_OPEN,

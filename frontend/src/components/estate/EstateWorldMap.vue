@@ -12,38 +12,54 @@
       <span class="legend_item mine">ваш участок</span>
     </div>
 
-    <div class="groups_grid" v-if="map?.groups?.length">
-      <div
-        v-for="group in map.groups"
-        :key="group.id"
-        class="group_column"
+    <div class="pangaea_frame" v-if="map?.regions?.length">
+      <img
+        class="pangaea_bg"
+        :src="pangaeaImage"
+        alt="Карта пангеи"
+        draggable="false"
       >
-        <div class="group_label">Гр. {{ group.id }}</div>
-        <button
-          v-for="city in group.cities"
-          :key="city.slug"
-          type="button"
-          class="city_cell"
-          :class="cityCellClass(city)"
-          :title="cityTitle(city)"
-          @click="$emit('select-city', city.slug)"
-        >
-          <img
-            v-if="pennantSrc(city.slug)"
-            :src="pennantSrc(city.slug)"
-            class="city_pennant"
-            alt=""
-          >
-          <span class="city_name">{{ shortCityName(city.city_name) }}</span>
-          <span class="city_status_dot" />
-        </button>
-      </div>
+
+      <button
+        v-for="region in map.regions"
+        :key="'pin-' + region.id"
+        type="button"
+        class="region_pin"
+        :class="{
+          active: selectedRegionId === region.id,
+          has_open: region.open_count > 0,
+          has_mine: regionHasMine(region),
+        }"
+        :style="pinStyle(region)"
+        :title="regionTitle(region)"
+        @click="onRegionClick(region.id)"
+      >
+        <span class="pin_dot" />
+        <span class="pin_label">{{ shortLabel(region.label) }}</span>
+        <span class="pin_stat">{{ region.open_count }}/{{ region.city_count }}</span>
+      </button>
     </div>
+
+    <div class="region_chips" v-if="map?.regions?.length">
+      <button
+        v-for="region in map.regions"
+        :key="'chip-' + region.id"
+        type="button"
+        class="region_chip"
+        :class="{ active: selectedRegionId === region.id, has_open: region.open_count > 0 }"
+        @click="onRegionClick(region.id)"
+      >
+        {{ region.label }}
+        <span class="chip_stat">{{ region.open_count }}/{{ region.city_count }}</span>
+      </button>
+    </div>
+
+    <p class="map_hint">Метка на карте или кнопка региона ниже — откроет города зоны.</p>
   </div>
 </template>
 
 <script>
-import { getWc26PennantIconSrc } from '@/config/wc26PennantIcons';
+import pangaeaImage from '@/assets/estate/pangaea_world.png';
 
 export default {
   name: 'EstateWorldMap',
@@ -52,49 +68,52 @@ export default {
       type: Object,
       default: null,
     },
-    selectedSlug: {
+    selectedRegionId: {
       type: String,
       default: '',
     },
   },
-  emits: ['select-city'],
+  emits: ['select-region'],
+  data() {
+    return {
+      pangaeaImage,
+    };
+  },
   methods: {
-    pennantSrc(slug) {
-      return getWc26PennantIconSrc(`pennant_wc26_${slug}`);
+    pinStyle(region) {
+      const x = Number(region?.world?.x) || 50;
+      const y = Number(region?.world?.y) || 50;
+
+      return {
+        left: `${x}%`,
+        top: `${y}%`,
+      };
     },
-    shortCityName(name) {
-      const text = String(name || '');
-      return text.length > 11 ? `${text.slice(0, 10)}…` : text;
+    shortLabel(label) {
+      const text = String(label || '');
+      if (text.length <= 14) {
+        return text;
+      }
+
+      return `${text.slice(0, 13)}…`;
     },
-    cityCellClass(city) {
-      const classes = [city.status || 'planned'];
-      if (!city.on_map) {
-        classes.push('ghost');
-      }
-      if (city.is_open) {
-        classes.push('open');
-      }
-      if (city.user_plot_number) {
-        classes.push('mine');
-      }
-      if (this.selectedSlug === city.slug) {
-        classes.push('selected');
-      }
-      return classes;
+    regionHasMine(region) {
+      return Array.isArray(region.cities)
+        && region.cities.some((city) => city.user_plot_number);
     },
-    cityTitle(city) {
+    regionTitle(region) {
       const parts = [
-        city.city_name,
-        city.country_label,
-        city.status === 'open' ? 'открыт' : (city.status === 'founding' ? 'стройка' : 'план'),
+        region.label,
+        `открыто ${region.open_count}/${region.city_count}`,
       ];
-      if (city.is_open) {
-        parts.push(`участки ${city.plots_claimed}/${city.plots_total}`);
+      if (region.founded_count > region.open_count) {
+        parts.push(`стройка ${region.founded_count - region.open_count}`);
       }
-      if (city.user_plot_number) {
-        parts.push(`ваш №${city.user_plot_number}`);
-      }
-      return parts.filter(Boolean).join(' · ');
+
+      return parts.join(' · ');
+    },
+    onRegionClick(regionId) {
+      this.$emit('select-region', regionId);
     },
   },
 };
@@ -110,7 +129,8 @@ export default {
 }
 
 .map_summary,
-.map_legend {
+.map_legend,
+.map_hint {
   color: @colorBlur;
   font-size: 12px;
   text-align: left;
@@ -143,110 +163,108 @@ export default {
   }
 }
 
-.groups_grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
-  overflow-x: auto;
-}
-
-@media (min-width: 520px) {
-  .groups_grid {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 760px) {
-  .groups_grid {
-    grid-template-columns: repeat(12, minmax(0, 1fr));
-  }
-}
-
-.group_column {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-
-.group_label {
-  font-size: 10px;
-  color: @colorBlur;
-  text-align: center;
-}
-
-.city_cell {
+.pangaea_frame {
   position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid fade(@colorBlur, 35%);
+  background: #0a1628;
+  aspect-ratio: 16 / 9;
+}
+
+.pangaea_bg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  user-select: none;
+}
+
+.region_pin {
+  position: absolute;
+  z-index: 2;
+  transform: translate(-50%, -100%);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  min-height: 58px;
-  padding: 4px 2px;
-  border-radius: 5px;
-  border: 1px dashed fade(@colorBlur, 45%);
-  background: fade(@darkbg, 35%);
+  gap: 1px;
+  max-width: 88px;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: @colorText;
   cursor: pointer;
-  .shadow_inset;
+  text-shadow: 0 1px 3px fade(#000, 85%);
 
-  &.ghost {
-    opacity: 0.55;
+  &:hover .pin_dot,
+  &.active .pin_dot {
+    background: @orange;
+    box-shadow: 0 0 0 2px fade(@orange, 45%);
   }
 
-  &.founding {
-    border-color: fade(@orange, 75%);
-    border-style: dashed;
+  &.has_open .pin_dot {
+    background: #8ecf8e;
   }
 
-  &.open {
-    border-style: solid;
-    border-color: fade(@colorText, 35%);
-  }
-
-  &.mine {
-    box-shadow: inset 0 0 0 1px fade(#7fd67f, 55%);
-  }
-
-  &.selected {
-    border-color: @orange;
-    border-style: solid;
-  }
-
-  &:active {
-    opacity: 0.9;
+  &.has_mine .pin_dot {
+    box-shadow: 0 0 0 2px fade(#7fd67f, 75%);
   }
 }
 
-.city_pennant {
-  width: 22px;
-  height: 22px;
-  object-fit: contain;
-}
-
-.city_name {
-  font-size: 9px;
-  line-height: 1.15;
-  text-align: center;
-  max-width: 100%;
-}
-
-.city_status_dot {
-  width: 6px;
-  height: 6px;
+.pin_dot {
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
-  background: fade(@colorBlur, 70%);
+  background: fade(@colorText, 88%);
+  border: 1px solid fade(#000, 55%);
+  flex-shrink: 0;
 }
 
-.city_cell.founding .city_status_dot {
-  background: @orange;
+.pin_label {
+  font-size: 9px;
+  line-height: 1.1;
+  font-weight: 600;
+  text-align: center;
+  pointer-events: none;
 }
 
-.city_cell.open .city_status_dot {
-  background: #9ee09e;
+.pin_stat {
+  font-size: 8px;
+  line-height: 1;
+  color: fade(@colorBlur, 95%);
+  pointer-events: none;
 }
 
-.city_cell.mine .city_status_dot {
-  background: #7fd67f;
+.region_chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.region_chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid fade(@colorBlur, 40%);
+  background: fade(@DarkColorBG, 72%);
+  color: @colorText;
+  font-size: 11px;
+  cursor: pointer;
+
+  &.has_open {
+    border-color: fade(#8ecf8e, 55%);
+  }
+
+  &.active {
+    border-color: @orange;
+    background: fade(@orange, 16%);
+  }
+}
+
+.chip_stat {
+  font-size: 10px;
+  color: @colorBlur;
 }
 </style>

@@ -24,6 +24,8 @@ if exist "%MOB_APP%\css" rd /s /q "%MOB_APP%\css"
 
 robocopy "%FRONTEND%\dist" "%MOB_APP%" /E /XF .htaccess /XD ajax /NFL /NDL /NJH /NJS /nc /ns /np
 copy /Y "%FRONTEND%\src\assets\img\no_logo.jpg" "%MOB_APP%\img\no_logo.jpg" >nul
+if not exist "%MOB_APP%\img\estate" mkdir "%MOB_APP%\img\estate"
+copy /Y "%FRONTEND%\src\assets\estate\pangaea_world.png" "%MOB_APP%\img\estate\pangaea_world.png" >nul
 robocopy "%MOB_APP_AJAX%" "%MOB_APP%\ajax" /E /NFL /NDL /NJH /NJS /nc /ns /np
 if exist "%FRONTEND%\dist\ajax" (
     robocopy "%FRONTEND%\dist\ajax" "%MOB_APP%\ajax" /E /NFL /NDL /NJH /NJS /nc /ns /np
