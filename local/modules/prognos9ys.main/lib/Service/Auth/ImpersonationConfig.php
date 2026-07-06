@@ -38,4 +38,22 @@ class ImpersonationConfig
 
         return in_array(self::ADMIN_GROUP_ID, $groups, true);
     }
+
+    /** Админы и супермодераторы — дашборд посещений экранов. */
+    public static function canViewVisitStats(int $userId): bool
+    {
+        if ($userId <= 0) {
+            return false;
+        }
+
+        $groups = array_map('intval', (array)\CUser::GetUserGroup($userId));
+
+        foreach (self::allowedGroupIds() as $groupId) {
+            if (in_array((int)$groupId, $groups, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

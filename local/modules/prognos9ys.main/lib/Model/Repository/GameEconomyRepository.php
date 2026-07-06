@@ -63,6 +63,7 @@ class GameEconomyRepository
     private ?string $chestOpenLogDataClass = null;
     private ?string $xpBankDrinkLogDataClass = null;
     private ?string $encyclopediaGrantLogDataClass = null;
+    private ?string $screenVisitLogDataClass = null;
     private ?string $exchangeListingDataClass = null;
     private ?string $exchangeTradeDataClass = null;
     private ?string $exchangeNominalDataClass = null;
@@ -158,6 +159,13 @@ class GameEconomyRepository
     {
         return $this->encyclopediaGrantLogDataClass ??= $this->compileDataClass(
             GameEconomyHlInstaller::TABLE_ENCYCLOPEDIA_GRANT_LOG
+        );
+    }
+
+    public function getScreenVisitLogDataClass(): string
+    {
+        return $this->screenVisitLogDataClass ??= $this->compileDataClass(
+            GameEconomyHlInstaller::TABLE_SCREEN_VISIT_LOG
         );
     }
 
@@ -2500,6 +2508,61 @@ class GameEconomyRepository
 
         if (!$result->isSuccess()) {
             throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $fields
+     */
+    public function addScreenVisitLog(array $fields): void
+    {
+        $dataClass = $this->getScreenVisitLogDataClass();
+        $result = $dataClass::add($fields);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function getScreenVisitLogRowsSince(\Bitrix\Main\Type\DateTime $since, int $limit = 50000): array
+    {
+        $dataClass = $this->getScreenVisitLogDataClass();
+        $rows = [];
+        $response = $dataClass::getList([
+            'filter' => ['>=UF_VISITED_AT' => $since],
+            'select' => [
+                'UF_SCREEN',
+                'UF_IS_GUEST',
+                'UF_USER_ID',
+                'UF_IP',
+                'UF_VISITED_AT',
+                'UF_DEVICE',
+            ],
+            'order' => ['UF_VISITED_AT' => 'ASC'],
+            'limit' => max(1, min($limit, 100000)),
+        ]);
+
+        while ($row = $response->fetch()) {
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
+    public function deleteScreenVisitLogsBefore(\Bitrix\Main\Type\DateTime $threshold): void
+    {
+        $dataClass = $this->getScreenVisitLogDataClass();
+        $response = $dataClass::getList([
+            'filter' => ['<UF_VISITED_AT' => $threshold],
+            'select' => ['ID'],
+            'limit' => 500,
+        ]);
+
+        while ($row = $response->fetch()) {
+            $dataClass::delete((int)$row['ID']);
         }
     }
 

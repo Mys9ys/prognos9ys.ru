@@ -625,4 +625,14 @@ export const apiActions = {
             { moderatorToken }
         ),
     },
+    analytics: {
+        logScreenVisit: (screen, userToken = '', referrer = '') => runBitrixAction(
+            'prognos9ys:main.AnalyticsController.logScreenVisit',
+            { screen, userToken: userToken || undefined, referrer: referrer || undefined }
+        ),
+        getVisitStats: (userToken, days = 30) => runBitrixAction(
+            'prognos9ys:main.AnalyticsController.getVisitStats',
+            { userToken, days }
+        ),
+    },
 };

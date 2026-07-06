@@ -223,6 +223,11 @@ const routes = [
         props: true,
         meta: { public: true },
     },
+    {
+        path: '/visit-stats',
+        component: () => import('@/pages/admin/VisitStatsPage.vue'),
+        ...authRoute,
+    },
     // квновские роуты -->
     kvnEvent,
     kvnGame

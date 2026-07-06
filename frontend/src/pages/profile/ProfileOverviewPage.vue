@@ -7,6 +7,11 @@
       <div v-else class="hint">Загрузка…</div>
     </div>
 
+    <div class="section_card" v-if="canImpersonate">
+      <div class="section_title">Администрирование</div>
+      <router-link class="admin_link" to="/visit-stats">Статистика посещений →</router-link>
+    </div>
+
     <div class="section_card">
       <div class="section_title">Разделы</div>
       <div class="hub_grid">
@@ -30,6 +35,7 @@
 </template>
 
 <script>
+import { mapGetters } from 'vuex';
 import PageHeader from '@/components/main/PageHeader.vue';
 import ProfileGameBlock from '@/components/profile/ProfileGameBlock.vue';
 import ProfileRulesBlock from '@/components/profile/ProfileRulesBlock.vue';
@@ -46,6 +52,7 @@ export default {
   },
   mixins: [gamePageMixin],
   computed: {
+    ...mapGetters('auth', ['canImpersonate']),
     hubLinks() {
       return [
         { id: 'prognosis', title: 'Прогнозы', icon: 'prognosis', route: '/prognosis' },
@@ -85,6 +92,18 @@ export default {
   font-size: 14px;
   margin-bottom: 8px;
   text-align: left;
+}
+
+.admin_link {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  color: @YesWrite;
+  text-decoration: none;
+
+  &:hover {
+    color: @orange;
+  }
 }
 
 .hint {

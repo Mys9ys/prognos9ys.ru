@@ -4,6 +4,7 @@ import routes from "@/router/routes";
 import store from "@/store";
 import { resolveLegacyProfileRedirect } from "@/router/legacyRedirects";
 import { authRoute } from "@/utils/authRedirect";
+import { logScreenVisit } from "@/utils/screenVisitLogger";
 
 const router = createRouter({
     routes,
@@ -27,6 +28,10 @@ router.beforeEach((to) => {
     if (!token && !isPublic) {
         return '/catalog';
     }
+});
+
+router.afterEach((to) => {
+    logScreenVisit(to);
 });
 
 export default router

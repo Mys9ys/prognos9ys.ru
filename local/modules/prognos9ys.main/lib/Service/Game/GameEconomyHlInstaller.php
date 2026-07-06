@@ -42,6 +42,7 @@ class GameEconomyHlInstaller
     public const TABLE_ALBUM_SLOT = 'prognos9ys_album_slot';
     public const TABLE_PREMIUM_WORK_QUEUE = 'prognos9ys_premium_work_queue';
     public const TABLE_ENCYCLOPEDIA_GRANT_LOG = 'prognos9ys_encyclopedia_grant_log';
+    public const TABLE_SCREEN_VISIT_LOG = 'prognos9ys_screen_visit_log';
 
     public function install(): array
     {
@@ -838,6 +839,33 @@ class GameEconomyHlInstaller
         }
 
         return ['encyclopedia_grant_log_hl_id' => $hlId];
+    }
+
+    public function upgradeScreenVisitLogHl(): array
+    {
+        if (!Loader::includeModule('highloadblock')) {
+            throw new \RuntimeException('Модуль highloadblock не установлен');
+        }
+
+        $hlId = $this->ensureHlBlock('Prognos9ysScreenVisitLog', self::TABLE_SCREEN_VISIT_LOG, [
+            'UF_SCREEN' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_IS_GUEST' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_USER_ID' => ['USER_TYPE_ID' => 'integer'],
+            'UF_IP' => ['USER_TYPE_ID' => 'string'],
+            'UF_VISITED_AT' => ['USER_TYPE_ID' => 'datetime', 'MANDATORY' => 'Y'],
+            'UF_USER_AGENT' => ['USER_TYPE_ID' => 'string'],
+            'UF_REFERRER' => ['USER_TYPE_ID' => 'string'],
+            'UF_DEVICE' => ['USER_TYPE_ID' => 'string'],
+        ]);
+
+        if (class_exists(\Bitrix\Main\Application::class)) {
+            $app = \Bitrix\Main\Application::getInstance();
+            if ($app) {
+                $app->getManagedCache()->cleanDir('orm');
+            }
+        }
+
+        return ['screen_visit_log_hl_id' => $hlId];
     }
 
     /**
