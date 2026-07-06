@@ -116,6 +116,79 @@ class PackOpenService
         ];
     }
 
+    /**
+     * @return array<int, string>
+     */
+    public static function recipePackCodes(): array
+    {
+        return [
+            ProfessionRecipeConfig::PACK_RECIPE_BASIC,
+            ProfessionRecipeConfig::PACK_RECIPE_ADVANCED,
+        ];
+    }
+
+    public function countRecipePacks(int $userId): int
+    {
+        if ($userId <= 0) {
+            return 0;
+        }
+
+        $total = 0;
+        foreach (self::recipePackCodes() as $packCode) {
+            $total += $this->repository->getSealedPackCount($userId, $packCode);
+        }
+
+        return $total;
+    }
+
+    /**
+     * @return array{
+     *   opened_count:int,
+     *   packs:array<int, array<string, mixed>>,
+     *   lines:array<int, array{text:string,status:string}>
+     * }
+     */
+    public function openAllRecipePacks(int $userId, int $qtyPerPack = 999): array
+    {
+        $combinedLines = [];
+        $openedPacks = [];
+        $totalOpened = 0;
+
+        foreach (self::recipePackCodes() as $packCode) {
+            $available = $this->repository->getSealedPackCount($userId, $packCode);
+            if ($available <= 0) {
+                continue;
+            }
+
+            try {
+                $result = $this->open($userId, $packCode, min($qtyPerPack, $available));
+            } catch (\RuntimeException $e) {
+                continue;
+            }
+
+            $opened = (int)($result['opened_count'] ?? 0);
+            if ($opened <= 0) {
+                continue;
+            }
+
+            $totalOpened += $opened;
+            $openedPacks[] = $result;
+            foreach ($result['lines'] ?? [] as $line) {
+                $combinedLines[] = $line;
+            }
+        }
+
+        if ($totalOpened <= 0) {
+            throw new \RuntimeException('Нет паков с рецептами');
+        }
+
+        return [
+            'opened_count' => $totalOpened,
+            'packs' => $openedPacks,
+            'lines' => $combinedLines,
+        ];
+    }
+
     private function resolveRewardEventId(string $packCode): int
     {
         if (!PackOpenConfig::usesAnchorEvent($packCode)) {

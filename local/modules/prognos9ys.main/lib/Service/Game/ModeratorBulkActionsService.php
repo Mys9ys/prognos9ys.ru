@@ -177,6 +177,7 @@ class ModeratorBulkActionsService
             || $bulkAction === 'farm_self_process'
             || $bulkAction === 'open_wc26_chests'
             || $bulkAction === 'open_all_chests'
+            || $bulkAction === 'open_recipe_packs'
             || $bulkAction === 'sell_recipes'
             || self::isSellLootBulkAction($bulkAction)
             || FarmBulkActionConfig::isTreasuryAction($bulkAction)
@@ -361,6 +362,27 @@ class ModeratorBulkActionsService
                     $userId,
                     'success',
                     'Открыто ' . $opened,
+                    $result
+                );
+
+            case 'open_recipe_packs':
+                $packService = new PackOpenService($this->repository);
+                try {
+                    $result = $packService->openAllRecipePacks($userId, 999);
+                } catch (\RuntimeException $e) {
+                    return $this->oneResult($bulkAction, $userId, 'skipped', $e->getMessage());
+                }
+
+                $opened = (int)($result['opened_count'] ?? 0);
+                if ($opened <= 0) {
+                    return $this->oneResult($bulkAction, $userId, 'skipped', 'Нет паков', $result);
+                }
+
+                return $this->oneResult(
+                    $bulkAction,
+                    $userId,
+                    'success',
+                    'Открыто ' . $opened . ' пак.',
                     $result
                 );
 
@@ -652,6 +674,23 @@ class ModeratorBulkActionsService
 
                 return ['eligible' => true, 'hint' => $count . ' сунд.'];
 
+            case 'open_recipe_packs':
+                $packService = new PackOpenService($this->repository);
+                $count = $packService->countRecipePacks($userId);
+                if ($count <= 0) {
+                    return ['eligible' => false, 'skip_reason' => 'Нет паков'];
+                }
+
+                $parts = [];
+                foreach (PackOpenService::recipePackCodes() as $packCode) {
+                    $qty = $this->repository->getSealedPackCount($userId, $packCode);
+                    if ($qty > 0) {
+                        $parts[] = ChestLootConfig::getLabel($packCode) . ' ' . $qty;
+                    }
+                }
+
+                return ['eligible' => true, 'hint' => implode(', ', $parts)];
+
             case 'sell_recipes':
                 $qty = (new ExchangeService($this->repository))->countSellableRecipeScrolls($userId);
                 if ($qty <= 0) {
@@ -904,6 +943,7 @@ class ModeratorBulkActionsService
             'sell_xp_bank_mining_25',
             'open_wc26_chests',
             'open_all_chests',
+            'open_recipe_packs',
             'sell_recipes',
         ], true) && !FarmBulkActionConfig::isTreasuryAction($bulkAction)
             && !FarmBulkActionConfig::isTreasuryCraftAction($bulkAction)) {

@@ -242,6 +242,16 @@
               type="button"
               class="bulk_btn"
               :disabled="bulkLoading"
+              title="Распаковать все паки с рецептами (базовые и продвинутые, до 30 за тип) — у кого есть"
+              @click="runBulk('open_recipe_packs')"
+          >
+            <span class="bulk_emoji">📦</span>
+            <span>Паки рецептов</span>
+          </button>
+          <button
+              type="button"
+              class="bulk_btn"
+              :disabled="bulkLoading"
               title="Выставить на биржу все рецепты из инвентаря по номиналу — у кого есть"
               @click="runBulk('sell_recipes')"
           >
@@ -517,6 +527,7 @@ const BULK_TITLES = {
   sell_xp_bank_mining_25: 'Банка XP добычи на биржу',
   open_wc26_chests: 'Открыть сундуки ЧМ-26',
   open_all_chests: 'Открыть все сундуки',
+  open_recipe_packs: 'Распаковать паки рецептов',
   sell_recipes: 'Продать рецепты всем',
 };
 const FARM_TREASURY_PROMPTS = {
@@ -978,6 +989,7 @@ export default {
         sell_xp_bank_mining_25: 'Выставить на биржу банки XP добычи (25) по номиналу у всех, у кого они есть?',
         open_wc26_chests: 'Открыть все закрытые сундуки ЧМ-26 (до 30 за игрока) у всех, у кого они есть?',
         open_all_chests: 'Открыть все сундуки (ЧМ, уровень, ачивки, профессии — до 30 за тип) у всех, у кого они есть?',
+        open_recipe_packs: 'Распаковать все паки с рецептами (базовые и продвинутые, до 30 за тип) у всех, у кого они есть?',
         sell_recipes: 'Выставить на биржу все рецепты из инвентаря по номиналу у всех, у кого они есть? Лимит лотов соблюдается.',
         ...FARM_TREASURY_PROMPTS,
         ...FARM_TREASURY_CRAFT_PROMPTS,
