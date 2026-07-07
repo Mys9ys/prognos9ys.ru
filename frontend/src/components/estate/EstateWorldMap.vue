@@ -54,6 +54,20 @@
       </button>
     </div>
 
+    <div class="my_plots_block" v-if="myPlots.length">
+      <div class="my_plots_title">Мои участки</div>
+      <button
+        v-for="plot in myPlots"
+        :key="plot.slug"
+        type="button"
+        class="my_plot_link"
+        @click="onMyPlotClick(plot)"
+      >
+        <span class="my_plot_main">{{ plot.cityName }} · участок №{{ plot.plotNumber }}</span>
+        <span class="my_plot_meta">{{ plot.regionLabel }}</span>
+      </button>
+    </div>
+
     <p class="map_hint">Метка на карте или кнопка региона ниже — откроет города зоны.</p>
   </div>
 </template>
@@ -73,11 +87,38 @@ export default {
       default: '',
     },
   },
-  emits: ['select-region'],
+  emits: ['select-region', 'open-city'],
   data() {
     return {
       pangaeaImage,
     };
+  },
+  computed: {
+    myPlots() {
+      if (!Array.isArray(this.map?.regions)) {
+        return [];
+      }
+
+      const rows = [];
+      this.map.regions.forEach((region) => {
+        (region.cities || []).forEach((city) => {
+          const plotNumber = Number(city.user_plot_number || 0);
+          if (plotNumber <= 0) {
+            return;
+          }
+
+          rows.push({
+            slug: city.slug,
+            regionId: region.id,
+            cityName: city.city_name || city.slug,
+            regionLabel: region.label || '',
+            plotNumber,
+          });
+        });
+      });
+
+      return rows.sort((a, b) => a.cityName.localeCompare(b.cityName, 'ru'));
+    },
   },
   methods: {
     pinStyle(region) {
@@ -114,6 +155,12 @@ export default {
     },
     onRegionClick(regionId) {
       this.$emit('select-region', regionId);
+    },
+    onMyPlotClick(plot) {
+      this.$emit('open-city', {
+        slug: plot.slug,
+        regionId: plot.regionId,
+      });
     },
   },
 };
@@ -264,6 +311,51 @@ export default {
 }
 
 .chip_stat {
+  font-size: 10px;
+  color: @colorBlur;
+}
+
+.my_plots_block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 4px;
+  border-top: 1px dashed fade(@colorBlur, 30%);
+}
+
+.my_plots_title {
+  font-size: 12px;
+  font-weight: 600;
+  color: @colorText;
+  text-align: left;
+}
+
+.my_plot_link {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 5px;
+  border: 1px solid fade(#7fd67f, 55%);
+  background: fade(#7fd67f, 8%);
+  color: @colorText;
+  cursor: pointer;
+  text-align: left;
+
+  &:hover {
+    border-color: fade(#9ee09e, 80%);
+    background: fade(#9ee09e, 12%);
+  }
+}
+
+.my_plot_main {
+  font-size: 12px;
+  color: #9ee09e;
+}
+
+.my_plot_meta {
   font-size: 10px;
   color: @colorBlur;
 }

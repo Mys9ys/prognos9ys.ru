@@ -50,6 +50,10 @@ class LaborExchangeService
         }
 
         $rows = array_values(array_filter($rows, function (array $row) use ($userId): bool {
+            if (LaborOrderRepository::isEstateOrder($row)) {
+                return false;
+            }
+
             if ($this->isTreasuryOrder($row)) {
                 return true;
             }
@@ -81,6 +85,9 @@ class LaborExchangeService
         $items = [];
 
         foreach ($this->orderRepository->getOrdersByPosterUserId($userId, 50) as $row) {
+            if (LaborOrderRepository::isEstateOrder($row)) {
+                continue;
+            }
             $items[] = $this->formatOrder($row, $userId, $professionCodes);
         }
 
@@ -122,6 +129,7 @@ class LaborExchangeService
         $orderId = $this->orderRepository->addOrder([
             'UF_POSTER_USER_ID' => $userId,
             'UF_POSTER_KIND' => LaborExchangeConfig::POSTER_KIND_USER,
+            'UF_ORDER_PURPOSE' => LaborExchangeConfig::ORDER_PURPOSE_LABOR,
             'UF_PROFESSION_CODE' => $professionCode,
             'UF_OUTPUT_CODE' => $outputCode,
             'UF_INPUT_CODE' => $inputCode,
@@ -398,6 +406,10 @@ class LaborExchangeService
     {
         $order = $this->requirePosterOrder($userId, $orderId);
 
+        if (LaborOrderRepository::isEstateOrder($order)) {
+            throw new \RuntimeException('Это заказ усадьбы — снимите его на вкладке «Усадьбы»');
+        }
+
         if ((string)($order['UF_STATUS'] ?? '') !== LaborExchangeConfig::STATUS_OPEN) {
             throw new \RuntimeException('Заказ уже закрыт');
         }
@@ -636,6 +648,10 @@ class LaborExchangeService
 
         if ((string)($order['UF_STATUS'] ?? '') !== LaborExchangeConfig::STATUS_OPEN) {
             throw new \RuntimeException('Заказ недоступен');
+        }
+
+        if (LaborOrderRepository::isEstateOrder($order)) {
+            throw new \RuntimeException('Это заказ усадьбы — выполните его на вкладке «Усадьбы»');
         }
 
         $posterUserId = (int)($order['UF_POSTER_USER_ID'] ?? 0);

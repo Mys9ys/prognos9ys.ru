@@ -164,6 +164,78 @@ class CityRepository
         }
     }
 
+    public function getUserPlotInCity(int $cityId, int $userId): ?array
+    {
+        if ($cityId <= 0 || $userId <= 0) {
+            return null;
+        }
+
+        $dataClass = $this->getCityPlotDataClass();
+
+        return $dataClass::getList([
+            'filter' => [
+                '=UF_CITY_ID' => $cityId,
+                '=UF_OWNER_USER_ID' => $userId,
+            ],
+            'limit' => 1,
+        ])->fetch() ?: null;
+    }
+
+    /**
+     * Атомарно закрепляет свободный участок.
+     *
+     * @return array<string, mixed>
+     */
+    public function claimPlot(int $cityId, int $plotNumber, int $userId): array
+    {
+        if ($cityId <= 0 || $plotNumber <= 0 || $userId <= 0) {
+            throw new \InvalidArgumentException('Некорректные параметры участка');
+        }
+
+        $connection = \Bitrix\Main\Application::getConnection();
+        $helper = $connection->getSqlHelper();
+        $lockName = $helper->forSql(sprintf('p9_city_plot_%d_%d', $cityId, $plotNumber));
+        $lockRow = $connection->query("SELECT GET_LOCK('{$lockName}', 5) AS L")->fetch();
+        if ((int)($lockRow['L'] ?? 0) !== 1) {
+            throw new \RuntimeException('Не удалось заблокировать участок, попробуйте ещё раз');
+        }
+
+        try {
+            $dataClass = $this->getCityPlotDataClass();
+            $plot = $dataClass::getList([
+                'filter' => [
+                    '=UF_CITY_ID' => $cityId,
+                    '=UF_PLOT_NUMBER' => $plotNumber,
+                ],
+                'limit' => 1,
+            ])->fetch();
+
+            if (!$plot) {
+                throw new \RuntimeException('Участок не найден');
+            }
+
+            if ((int)($plot['UF_OWNER_USER_ID'] ?? 0) > 0) {
+                throw new \RuntimeException('Участок уже занят');
+            }
+
+            $now = new DateTime();
+            $result = $dataClass::update((int)$plot['ID'], [
+                'UF_OWNER_USER_ID' => $userId,
+                'UF_CLAIMED_AT' => $now,
+            ]);
+            if (!$result->isSuccess()) {
+                throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+            }
+
+            $plot['UF_OWNER_USER_ID'] = $userId;
+            $plot['UF_CLAIMED_AT'] = $now;
+
+            return $plot;
+        } finally {
+            $connection->query("SELECT RELEASE_LOCK('{$lockName}')");
+        }
+    }
+
     private function getCityDataClass(): string
     {
         return $this->cityDataClass

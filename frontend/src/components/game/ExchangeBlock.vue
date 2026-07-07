@@ -478,6 +478,94 @@
       </button>
     </div>
 
+    <!-- Усадьбы: заказы на производство -->
+    <div v-if="!loading && activeTab === 'estate'" class="panel">
+      <div class="labor_hint">
+        Заказы на компоненты для усадеб. Сдайте готовые изделия из инвентаря — оплата из эскроу заказчика, компоненты идут на стройку.
+      </div>
+
+      <div class="labor_section_title">Мои заказы</div>
+      <div class="catalog_list" v-if="myEstateOrders.length">
+        <div v-for="order in myEstateOrders" :key="'my-estate-' + order.id" class="catalog_row">
+          <div class="row_main">
+            <div class="row_label">{{ order.output_label }} ×{{ order.iterations_total }}</div>
+            <div class="row_meta">
+              {{ order.iterations_done }}/{{ order.iterations_total }} ·
+              {{ order.pay_per_cycle }} 🪙/шт · эскроу {{ order.coin_escrow }} 🪙
+              <span v-if="order.status === 'open'"> · осталось {{ order.iterations_remaining }}</span>
+              · {{ orderStatusLabel(order.status) }}
+            </div>
+            <div class="row_meta recipe_line" v-if="order.recipe_label">
+              {{ order.recipe_label }} ({{ order.profession_label }})
+            </div>
+          </div>
+          <div class="row_actions" v-if="order.can_cancel">
+            <button
+              type="button"
+              class="action_btn danger"
+              :disabled="busy"
+              @click="cancelEstateOrder(order.id)"
+            >
+              Снять
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="empty" v-else>У вас нет заказов на производство</div>
+
+      <div class="labor_section_title">Открытые заказы</div>
+      <div class="catalog_list" v-if="estateOrders.length">
+        <div v-for="order in estateOrders" :key="'estate-' + order.id" class="catalog_row">
+          <div class="row_main">
+            <div class="row_label">{{ order.output_label }} · {{ order.poster_name }}</div>
+            <div class="row_meta">
+              осталось {{ order.iterations_remaining }}/{{ order.iterations_total }} ·
+              {{ order.pay_per_cycle }} 🪙/шт
+              <span v-if="order.user_have > 0"> · в инвентаре {{ order.user_have }}</span>
+            </div>
+            <div class="row_meta recipe_line" v-if="order.recipe_label">
+              {{ order.recipe_label }} ({{ order.profession_label }})
+            </div>
+          </div>
+          <div class="row_actions estate_submit_actions" v-if="order.can_submit">
+            <input
+              v-model.number="estateSubmitQty[order.id]"
+              type="number"
+              min="1"
+              :max="estateMaxSubmit(order)"
+              class="qty_input"
+              title="Сколько сдать"
+            />
+            <span class="citybuild_payout">
+              +{{ estateSubmitPayout(order) }} 🪙
+            </span>
+            <button
+              type="button"
+              class="action_btn"
+              :disabled="busy"
+              @click="submitEstateOrder(order.id)"
+            >
+              Сдать
+            </button>
+          </div>
+          <div class="row_actions" v-else-if="order.is_mine">
+            <span class="badge_consignment">ваш заказ</span>
+          </div>
+        </div>
+      </div>
+      <div class="empty" v-else>Нет открытых заказов на производство</div>
+
+      <button
+        v-if="estatePagination.has_more"
+        type="button"
+        class="more_btn"
+        :disabled="loading"
+        @click="loadMoreEstateOrders"
+      >
+        Ещё
+      </button>
+    </div>
+
     <!-- Госстройка -->
     <div v-if="!loading && activeTab === 'citybuild'" class="panel">
       <div class="labor_hint">
@@ -612,6 +700,7 @@ export default {
         { id: 'sell', label: 'Продать' },
         { id: 'my', label: 'Мои лоты' },
         { id: 'labor', label: 'Работы' },
+        { id: 'estate', label: 'Усадьбы' },
         { id: 'citybuild', label: 'Госстройка' },
         { id: 'history', label: 'История' },
       ],
@@ -639,6 +728,11 @@ export default {
       laborClaimQty: {},
       cityBuildOrders: [],
       cityBuildQty: {},
+      estateOrders: [],
+      myEstateOrders: [],
+      estateMeta: null,
+      estatePagination: { offset: 0, limit: 25, has_more: false },
+      estateSubmitQty: {},
       duplicatePlanTotal: 0,
       catalogSearchQuery: '',
       sellSearchQuery: '',
@@ -652,6 +746,8 @@ export default {
         history: '',
         labor: '',
         myLabor: '',
+        estate: '',
+        myEstate: '',
       },
     };
   },
@@ -911,6 +1007,9 @@ export default {
           await this.loadHistory();
         } else if (tab === 'labor') {
           await this.loadLabor(true, requestId);
+          return;
+        } else if (tab === 'estate') {
+          await this.loadEstate(true, requestId);
           return;
         } else if (tab === 'citybuild') {
           await this.loadCityBuildOrders();
@@ -1337,6 +1436,144 @@ export default {
         }
       } catch (e) {
         this.error = e.message || 'Не удалось взять заказ';
+      } finally {
+        this.busy = false;
+      }
+    },
+
+    estateMaxSubmit(order) {
+      const max = Number(order?.max_submit_qty) || 0;
+      const remaining = Number(order?.iterations_remaining) || max;
+      const have = Number(order?.user_have) || max;
+      return Math.max(1, Math.min(max || remaining, remaining, have));
+    },
+
+    estateSubmitPayout(order) {
+      const qty = this.resolveEstateSubmitQty(order.id);
+      const pay = Number(order?.pay_per_cycle) || 0;
+      return (qty * pay).toFixed(1).replace(/\.0$/, '');
+    },
+
+    resolveEstateSubmitQty(orderId) {
+      const order = [...this.estateOrders, ...this.myEstateOrders].find((item) => item.id === orderId);
+      const max = order ? this.estateMaxSubmit(order) : 1;
+      const raw = Number(this.estateSubmitQty[orderId]) || max;
+      return Math.max(1, Math.min(max, raw));
+    },
+
+    ensureEstateSubmitQty(orders) {
+      const qty = { ...this.estateSubmitQty };
+      (orders || []).forEach((order) => {
+        if (!qty[order.id] && order.can_submit) {
+          qty[order.id] = this.estateMaxSubmit(order);
+        }
+      });
+      this.estateSubmitQty = qty;
+    },
+
+    async loadEstate(reset = false, requestId = null) {
+      if (!this.authData?.token) {
+        return;
+      }
+
+      if (reset) {
+        this.estatePagination.offset = 0;
+        this.estateOrders = [];
+      }
+
+      this.loading = true;
+      this.error = '';
+
+      try {
+        const [openData, myData] = await Promise.all([
+          apiActions.exchange.getEstateOrders(
+            this.authData.token,
+            this.estatePagination.offset,
+            this.estatePagination.limit,
+          ),
+          reset || !this.myEstateOrders.length
+            ? apiActions.exchange.getMyEstateOrders(this.authData.token)
+            : Promise.resolve({ status: 'ok', orders: this.myEstateOrders }),
+        ]);
+
+        if (requestId !== null && requestId !== this.panelLoadSeq) {
+          return;
+        }
+
+        if (openData?.status === 'ok') {
+          const items = Array.isArray(openData.items) ? openData.items : [];
+          this.estateOrders = reset ? items : [...this.estateOrders, ...items];
+          this.ensureEstateSubmitQty(this.estateOrders);
+          this.estatePagination = {
+            ...this.estatePagination,
+            ...(openData.pagination || {}),
+          };
+          this.estateMeta = openData.meta || this.estateMeta;
+          if (openData.game) {
+            this.applyGame(openData.game);
+          }
+        }
+
+        if (myData?.status === 'ok') {
+          this.myEstateOrders = Array.isArray(myData.orders) ? myData.orders : [];
+          if (myData.game) {
+            this.applyGame(myData.game);
+          }
+        }
+      } catch (e) {
+        this.error = e.message || 'Ошибка загрузки заказов усадьбы';
+      } finally {
+        if (requestId === null || requestId === this.panelLoadSeq) {
+          this.loading = false;
+        }
+      }
+    },
+
+    async loadMoreEstateOrders() {
+      this.estatePagination.offset += this.estatePagination.limit;
+      await this.loadEstate(false);
+    },
+
+    async cancelEstateOrder(orderId) {
+      this.busy = true;
+      this.error = '';
+      this.message = '';
+
+      try {
+        const data = await apiActions.exchange.cancelEstateOrder(this.authData.token, orderId);
+        if (data?.status === 'ok') {
+          this.message = 'Заказ снят, 🪙 возвращены';
+          this.applyGame(data.game);
+          await this.refreshState();
+          await this.loadEstate(true);
+        }
+      } catch (e) {
+        this.error = e.message || 'Не удалось снять заказ';
+      } finally {
+        this.busy = false;
+      }
+    },
+
+    async submitEstateOrder(orderId) {
+      const qty = this.resolveEstateSubmitQty(orderId);
+      this.busy = true;
+      this.error = '';
+      this.message = '';
+
+      try {
+        const data = await apiActions.exchange.submitEstateOrder(
+          this.authData.token,
+          orderId,
+          qty,
+        );
+        if (data?.status === 'ok') {
+          this.message = data.message || `Сдано: ${qty} шт.`;
+          this.applyGame(data.game);
+          await this.refreshState();
+          await this.loadEstate(true);
+        }
+      } catch (e) {
+        this.error = e.message || 'Не удалось сдать компонент';
       } finally {
         this.busy = false;
       }
@@ -2136,6 +2373,10 @@ export default {
   font-size: 11px;
   color: @colorBlur;
   margin-bottom: 10px;
+}
+
+.estate_submit_actions {
+  margin-bottom: 4px;
 }
 
 .labor_section_title {

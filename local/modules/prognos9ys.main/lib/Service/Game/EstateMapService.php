@@ -2,6 +2,7 @@
 
 namespace Prognos9ys\Main\Service\Game;
 
+use Bitrix\Main\UserTable;
 use Prognos9ys\Main\Model\Repository\CityRepository;
 
 class EstateMapService
@@ -136,15 +137,59 @@ class EstateMapService
             }
         }
 
+        $ownerNames = $this->resolvePlotOwnerNames($plotsByNumber);
+
+        $myPlotNumber = 0;
+        foreach ($plotsByNumber as $num => $rowData) {
+            if ((int)($rowData['UF_OWNER_USER_ID'] ?? 0) === $userId) {
+                $myPlotNumber = (int)$num;
+                break;
+            }
+        }
+
+        $myProjects = [];
+        if ($userId > 0 && $myPlotNumber > 0) {
+            $myProjects = (new EstatePlotService())->getPlotProjects($userId, $slug, $myPlotNumber);
+        }
+
+        $myStage = 'none';
+        if ($myProjects !== []) {
+            $fence = null;
+            $house = null;
+            foreach ($myProjects as $project) {
+                if (($project['recipe_code'] ?? '') === 'estate_fence_1') {
+                    $fence = $project;
+                } elseif (($project['recipe_code'] ?? '') === 'estate_house_1') {
+                    $house = $project;
+                }
+            }
+
+            if (($house['status'] ?? '') === 'complete') {
+                $myStage = 'complete';
+            } elseif (($fence['status'] ?? '') === 'complete') {
+                $myStage = 'house_building';
+            } else {
+                $myStage = 'fence_building';
+            }
+        }
+
         $plots = [];
         for ($num = 1; $num <= EstateCityConfig::TOTAL_PLOTS; $num++) {
             $plotRow = $plotsByNumber[$num] ?? null;
             $ownerId = (int)($plotRow['UF_OWNER_USER_ID'] ?? 0);
+            $isMine = $userId > 0 && $ownerId === $userId;
+            $estateStage = 'none';
+            if ($ownerId > 0) {
+                $estateStage = $isMine ? $myStage : 'claimed';
+            }
             $plots[] = [
                 'number' => $num,
                 'side' => EstateCityConfig::plotSide($num),
                 'claimed' => $ownerId > 0,
-                'is_mine' => $userId > 0 && $ownerId === $userId,
+                'is_mine' => $isMine,
+                'owner_user_id' => $ownerId,
+                'owner_name' => $ownerId > 0 ? (string)($ownerNames[$ownerId] ?? ('user#' . $ownerId)) : '',
+                'estate_stage' => $estateStage,
             ];
         }
 
@@ -215,6 +260,8 @@ class EstateMapService
             ],
             'buildings' => $buildings,
             'estate_projects' => $estateProjects,
+            'my_plot_number' => $myPlotNumber,
+            'my_estate_projects' => $myProjects,
         ];
     }
 
@@ -240,5 +287,43 @@ class EstateMapService
         }
 
         return $result;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $plotsByNumber
+     * @return array<int, string>
+     */
+    private function resolvePlotOwnerNames(array $plotsByNumber): array
+    {
+        $ids = [];
+        foreach ($plotsByNumber as $row) {
+            $ownerId = (int)($row['UF_OWNER_USER_ID'] ?? 0);
+            if ($ownerId > 0) {
+                $ids[$ownerId] = true;
+            }
+        }
+
+        if ($ids === []) {
+            return [];
+        }
+
+        $names = [];
+        $rows = UserTable::getList([
+            'filter' => ['@ID' => array_keys($ids)],
+            'select' => ['ID', 'LOGIN', 'NAME', 'LAST_NAME'],
+        ]);
+        while ($row = $rows->fetch()) {
+            $id = (int)($row['ID'] ?? 0);
+            if ($id <= 0) {
+                continue;
+            }
+            $name = trim((string)($row['NAME'] ?? '') . ' ' . (string)($row['LAST_NAME'] ?? ''));
+            if ($name === '') {
+                $name = (string)($row['LOGIN'] ?? ('user#' . $id));
+            }
+            $names[$id] = $name;
+        }
+
+        return $names;
     }
 }

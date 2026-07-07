@@ -15,6 +15,7 @@
           :map="map"
           :selected-region-id="selectedRegionId"
           @select-region="onSelectRegion"
+          @open-city="onOpenCity"
         />
         <EstateRegionMap
           v-else-if="view === 'region' && selectedRegion"
@@ -39,16 +40,110 @@
         </div>
         <p class="hint street_hint">
           20 усадеб: по 5 сверху и снизу слева и справа. В центре — биржа, банк и широкая управа.
-          Листайте вбок на узком экране.
+          Листайте вбок на узком экране. Зелёный — свободен, коричневый — занят, оранжевый — ваш.
         </p>
+        <div v-if="cityMessage" class="message">{{ cityMessage }}</div>
         <div v-if="cityLoading" class="hint">Загрузка улицы…</div>
         <div v-else-if="cityError" class="error">{{ cityError }}</div>
-        <EstateCityStreetMap v-else-if="cityMap" :city="cityMap" />
+        <EstateCityStreetMap
+          v-else-if="cityMap"
+          :city="cityMap"
+          :loading="cityActionLoading"
+          @claim-plot="onClaimPlot"
+          @plot-info="onPlotInfo"
+          @donate-component="onDonateComponent"
+          @donate-project-all="onDonateProjectAll"
+          @withdraw-component="onWithdrawComponent"
+          @order-component="onOrderComponent"
+          @order-project-all="onOrderProjectAll"
+        />
       </div>
       <div class="section_card" v-else-if="view === 'region'">
         <p class="hint">Выберите город на карте региона.</p>
       </div>
     </template>
+
+    <div
+      v-if="estateModal"
+      class="estate_modal_overlay"
+      @click.self="closeEstateModal"
+    >
+      <div class="estate_modal" role="dialog">
+        <div class="estate_modal_title">{{ estateModal.title }}</div>
+        <p v-if="estateModal.message" class="estate_modal_message">{{ estateModal.message }}</p>
+        <div
+          v-if="estateModal.showQtyPicker && estateModal.mode === 'confirm'"
+          class="estate_modal_qty_row"
+        >
+          <label class="estate_modal_qty_label" for="estate-order-qty">Количество</label>
+          <div class="estate_modal_qty_controls">
+            <button
+              type="button"
+              class="estate_modal_qty_btn"
+              title="Минимум"
+              :disabled="estateModal.loading"
+              @click="setOrderModalQtyMin"
+            >
+              min
+            </button>
+            <input
+              id="estate-order-qty"
+              v-model.number="estateModal.orderQty"
+              type="number"
+              min="1"
+              :max="estateModal.orderQtyMax"
+              class="estate_modal_qty_input"
+              :disabled="estateModal.loading"
+            />
+            <button
+              type="button"
+              class="estate_modal_qty_btn"
+              title="Максимум"
+              :disabled="estateModal.loading"
+              @click="setOrderModalQtyMax"
+            >
+              max
+            </button>
+          </div>
+          <span class="estate_modal_qty_hint">из {{ estateModal.orderQtyMax }}</span>
+          <p v-if="orderModalReserve" class="estate_modal_reserve">
+            Будет зарезервировано: {{ orderModalReserve }} 🪙
+          </p>
+        </div>
+        <p v-if="estateModal.meta" class="estate_modal_meta">{{ estateModal.meta }}</p>
+        <p v-if="estateModal.error" class="estate_modal_error">{{ estateModal.error }}</p>
+        <p v-if="estateModal.success" class="estate_modal_success">{{ estateModal.success }}</p>
+
+        <div class="estate_modal_actions">
+          <button
+            v-if="estateModal.mode === 'confirm' && !estateModal.loading"
+            type="button"
+            class="modal_btn secondary"
+            @click="closeEstateModal"
+          >
+            Отмена
+          </button>
+          <button
+            v-if="estateModal.mode === 'confirm'"
+            type="button"
+            class="modal_btn"
+            :class="estateModal.confirmClass || 'primary'"
+            :disabled="estateModal.loading"
+            @click="confirmEstateModal"
+          >
+            {{ estateModal.loading ? 'Подождите…' : (estateModal.confirmLabel || 'Подтвердить') }}
+          </button>
+          <button
+            v-if="estateModal.mode === 'alert'"
+            type="button"
+            class="modal_btn primary"
+            @click="closeEstateModal"
+          >
+            Понятно
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -72,7 +167,10 @@ export default {
       selectedSlug: '',
       cityMap: null,
       cityLoading: false,
+      cityActionLoading: false,
       cityError: '',
+      cityMessage: '',
+      estateModal: null,
     };
   },
   computed: {
@@ -83,6 +181,21 @@ export default {
       }
 
       return this.map.regions.find((region) => region.id === this.selectedRegionId) || null;
+    },
+    orderModalReserve() {
+      const modal = this.estateModal;
+      if (!modal?.showQtyPicker) {
+        return '';
+      }
+
+      const max = Math.max(1, Number(modal.orderQtyMax) || 1);
+      const qty = Math.max(1, Math.min(max, Number(modal.orderQty) || 1));
+      const pay = Number(modal.orderPayPerUnit) || 0;
+      if (!pay) {
+        return '';
+      }
+
+      return (qty * pay).toFixed(1).replace(/\.0$/, '');
     },
   },
   mounted() {
@@ -140,6 +253,28 @@ export default {
       await this.loadCityMap(slug);
     },
 
+    async onOpenCity({ slug, regionId }) {
+      if (!slug) {
+        return;
+      }
+
+      if (regionId) {
+        this.selectedRegionId = regionId;
+      } else {
+        const region = (this.map?.regions || []).find((row) => (
+          Array.isArray(row.cities) && row.cities.some((city) => city.slug === slug)
+        ));
+        if (region?.id) {
+          this.selectedRegionId = region.id;
+        }
+      }
+
+      this.selectedSlug = slug;
+      this.view = 'street';
+      this.cityError = '';
+      await this.loadCityMap(slug);
+    },
+
     async loadCityMap(slug) {
       const token = this.authData?.token;
       if (!token || !slug) {
@@ -148,7 +283,10 @@ export default {
 
       this.cityLoading = true;
       this.cityError = '';
-      this.cityMap = null;
+      this.cityMessage = '';
+      if (!this.cityActionLoading) {
+        this.cityMap = null;
+      }
       try {
         const data = await apiActions.game.getEstateCityMap(token, slug);
         if (data?.status !== 'ok') {
@@ -162,6 +300,493 @@ export default {
         this.cityError = e?.message || 'Ошибка загрузки улицы';
       } finally {
         this.cityLoading = false;
+      }
+    },
+    async onClaimPlot({ plotNumber }) {
+      if (!this.authData?.token || !this.selectedSlug || !plotNumber || this.cityActionLoading) {
+        return;
+      }
+
+      this.openEstateModal({
+        mode: 'confirm',
+        title: `Участок №${plotNumber}`,
+        message: 'Подтвердите выбор участка для усадьбы.',
+        meta: 'Будет списана 1 лицензия cert_estate.',
+        confirmLabel: 'Занять участок',
+        onConfirm: () => this.executeClaimPlot(plotNumber),
+      });
+    },
+    async executeClaimPlot(plotNumber) {
+      const token = this.authData?.token;
+      if (!token || !this.selectedSlug || !plotNumber) {
+        return;
+      }
+
+      this.cityActionLoading = true;
+      this.cityError = '';
+      this.cityMessage = '';
+      try {
+        const data = await apiActions.game.claimEstatePlot(token, this.selectedSlug, Number(plotNumber));
+        if (data?.status !== 'ok') {
+          throw new Error(data?.message || 'Не удалось занять участок');
+        }
+        this.cityMap = data.city || this.cityMap;
+        this.cityMessage = `Участок №${plotNumber} успешно закреплён за вами`;
+        await this.loadMap();
+        this.setModalSuccess(`Участок №${plotNumber} закреплён за вами.`);
+      } catch (e) {
+        this.setModalError(e?.message || 'Ошибка захвата участка');
+      } finally {
+        this.cityActionLoading = false;
+      }
+    },
+    onPlotInfo(payload = {}) {
+      const message = payload?.message || 'Участок недоступен';
+      this.cityMessage = message;
+      this.openEstateModal({
+        mode: 'alert',
+        title: 'Участок недоступен',
+        message,
+      });
+    },
+    onDonateComponent(payload) {
+      if (this.cityActionLoading) {
+        return;
+      }
+
+      const project = this.findProject(payload?.projectCode);
+      const item = this.findProjectItem(project, payload?.componentCode);
+      const qty = Math.max(1, Number(payload?.qty || 1));
+      const have = Number(item?.user_have ?? project?.inventory?.[payload?.componentCode] ?? 0);
+      const left = Number(project?.remaining?.[payload?.componentCode] || 0);
+      const donateQty = Math.min(qty, left, have);
+
+      this.openEstateModal({
+        mode: 'confirm',
+        title: 'Сдать компонент',
+        message: `${item?.label || payload?.componentCode} ×${donateQty}`,
+        meta: `В инвентаре: ${have} · осталось сдать: ${left}`,
+        confirmLabel: 'Сдать',
+        confirmClass: 'donate',
+        onConfirm: () => this.executeDonateComponent({
+          ...payload,
+          qty: donateQty,
+          componentLabel: item?.label || payload?.componentCode,
+        }),
+      });
+    },
+    async executeDonateComponent({ plotNumber, projectCode, componentCode, qty, componentLabel }) {
+      const token = this.authData?.token;
+      if (
+        !token
+        || !this.selectedSlug
+        || !plotNumber
+        || !projectCode
+        || !componentCode
+      ) {
+        return;
+      }
+
+      this.cityActionLoading = true;
+      this.cityError = '';
+      this.cityMessage = '';
+      try {
+        const data = await apiActions.game.submitEstateBuildComponent(
+          token,
+          this.selectedSlug,
+          Number(plotNumber),
+          projectCode,
+          componentCode,
+          qty || 1,
+        );
+        if (data?.status !== 'ok') {
+          throw new Error(data?.message || 'Не удалось сдать компонент');
+        }
+        this.cityMap = data.city || this.cityMap;
+        const label = componentLabel || componentCode;
+        this.cityMessage = `Сдано: ${label} ×${qty || 1}`;
+        await this.loadMap();
+        this.setModalSuccess(`Сдано: ${label} ×${qty || 1}`);
+      } catch (e) {
+        this.setModalError(e?.message || 'Ошибка сдачи компонента');
+      } finally {
+        this.cityActionLoading = false;
+      }
+    },
+    onWithdrawComponent(payload) {
+      if (this.cityActionLoading) {
+        return;
+      }
+
+      const project = this.findProject(payload?.projectCode);
+      const item = this.findProjectItem(project, payload?.componentCode);
+      const qty = Math.max(1, Number(payload?.qty || 1));
+      const stash = Number(item?.stash_have ?? project?.stash?.[payload?.componentCode] ?? 0);
+      const withdrawQty = Math.min(qty, stash);
+
+      this.openEstateModal({
+        mode: 'confirm',
+        title: 'Забрать в инвентарь',
+        message: `${item?.label || payload?.componentCode} ×${withdrawQty}`,
+        meta: `На стройке: ${stash} · вернётся в инвентарь`,
+        confirmLabel: 'Забрать',
+        confirmClass: 'withdraw',
+        onConfirm: () => this.executeWithdrawComponent({
+          ...payload,
+          qty: withdrawQty,
+          componentLabel: item?.label || payload?.componentCode,
+        }),
+      });
+    },
+    async executeWithdrawComponent({ plotNumber, projectCode, componentCode, qty, componentLabel }) {
+      const token = this.authData?.token;
+      if (
+        !token
+        || !this.selectedSlug
+        || !plotNumber
+        || !projectCode
+        || !componentCode
+      ) {
+        return;
+      }
+
+      this.cityActionLoading = true;
+      this.cityError = '';
+      this.cityMessage = '';
+      try {
+        const data = await apiActions.game.withdrawEstateBuildComponent(
+          token,
+          this.selectedSlug,
+          Number(plotNumber),
+          projectCode,
+          componentCode,
+          qty || 1,
+        );
+        if (data?.status !== 'ok') {
+          throw new Error(data?.message || 'Не удалось забрать компонент');
+        }
+        this.cityMap = data.city || this.cityMap;
+        const label = componentLabel || componentCode;
+        this.cityMessage = `Забрано в инвентарь: ${label} ×${qty || 1}`;
+        await this.loadMap();
+        this.setModalSuccess(`Забрано в инвентарь: ${label} ×${qty || 1}`);
+      } catch (e) {
+        this.setModalError(e?.message || 'Ошибка возврата компонента');
+      } finally {
+        this.cityActionLoading = false;
+      }
+    },
+    onDonateProjectAll(payload) {
+      if (this.cityActionLoading) {
+        return;
+      }
+
+      const project = this.findProject(payload?.projectCode);
+      const lines = this.donatableLines(project);
+      if (!lines.length) {
+        this.openEstateModal({
+          mode: 'alert',
+          title: 'Сдать все',
+          message: 'Нет компонентов в инвентаре для сдачи.',
+        });
+        return;
+      }
+
+      this.openEstateModal({
+        mode: 'confirm',
+        title: `Сдать все: ${project?.label || payload?.projectCode}`,
+        message: lines.map((row) => `${row.label} ×${row.qty}`).join('\n'),
+        meta: 'Будут сданы только те позиции, что есть в инвентаре.',
+        confirmLabel: 'Сдать все',
+        confirmClass: 'donate',
+        onConfirm: () => this.executeDonateProjectAll(payload, lines),
+      });
+    },
+    async executeDonateProjectAll({ plotNumber, projectCode }, lines) {
+      if (!this.authData?.token || !this.selectedSlug || !plotNumber || !projectCode || !lines.length) {
+        return;
+      }
+
+      this.cityActionLoading = true;
+      this.cityError = '';
+      this.cityMessage = '';
+      try {
+        for (const row of lines) {
+          await apiActions.game.submitEstateBuildComponent(
+            this.authData.token,
+            this.selectedSlug,
+            Number(plotNumber),
+            projectCode,
+            row.code,
+            row.qty,
+          );
+        }
+        await this.loadCityMap(this.selectedSlug);
+        await this.loadMap();
+        this.cityMessage = `Проект ${projectCode}: сданы доступные компоненты`;
+        this.setModalSuccess('Сданы все доступные компоненты из инвентаря.');
+      } catch (e) {
+        this.setModalError(e?.message || 'Ошибка массовой сдачи');
+      } finally {
+        this.cityActionLoading = false;
+      }
+    },
+    onOrderComponent(payload) {
+      if (this.cityActionLoading) {
+        return;
+      }
+
+      const project = this.findProject(payload?.projectCode);
+      const item = this.findProjectItem(project, payload?.componentCode);
+      const left = Math.max(1, Number(project?.remaining?.[payload?.componentCode] || 1));
+      const payPerUnit = Number(item?.order_pay_per_unit || 0);
+
+      this.openEstateModal({
+        mode: 'confirm',
+        title: 'Заказ на производство',
+        message: item?.label || payload?.componentCode,
+        meta: `Осталось для стройки: ${left} · заказ на бирже (вкладка «Усадьбы»). Готовое пойдёт на стройку.`,
+        showQtyPicker: true,
+        orderQty: 1,
+        orderQtyMax: left,
+        orderPayPerUnit: payPerUnit,
+        confirmLabel: 'Разместить заказ',
+        confirmClass: 'order',
+        onConfirm: () => this.executeOrderComponent({
+          ...payload,
+          qty: this.resolveOrderModalQty(),
+          componentLabel: item?.label || payload?.componentCode,
+        }),
+      });
+    },
+    async executeOrderComponent({ componentCode, qty, componentLabel, plotNumber, projectCode }) {
+      const token = this.authData?.token;
+      if (!token || !componentCode || !qty) {
+        return;
+      }
+
+      this.cityActionLoading = true;
+      this.cityError = '';
+      this.cityMessage = '';
+      try {
+        const data = await apiActions.exchange.createEstateProductionOrder(
+          token,
+          componentCode,
+          Number(qty),
+          this.selectedSlug || '',
+          Number(plotNumber || this.cityMap?.my_plot_number || 0),
+          projectCode || '',
+        );
+        if (data?.status !== 'ok') {
+          throw new Error(data?.message || 'Не удалось разместить заказ');
+        }
+        const label = componentLabel || componentCode;
+        const order = data?.order || {};
+        const reserved = order.pay_total_reserved || order.coin_escrow || '';
+        this.cityMessage = `Заказ на производство: ${label} ×${qty}`;
+        await this.loadCityMap(this.selectedSlug);
+        this.setModalSuccess(
+          `Заказ размещён: ${label} ×${qty}`
+          + (reserved ? ` · зарезервировано ${reserved} 🪙` : ''),
+        );
+      } catch (e) {
+        this.setModalError(e?.message || 'Ошибка заказа');
+      } finally {
+        this.cityActionLoading = false;
+      }
+    },
+    onOrderProjectAll(payload) {
+      if (this.cityActionLoading) {
+        return;
+      }
+
+      const project = this.findProject(payload?.projectCode);
+      const lines = this.orderableLines(project);
+      if (!lines.length) {
+        return;
+      }
+
+      this.openEstateModal({
+        mode: 'confirm',
+        title: `Заказать все: ${project?.label || payload?.projectCode}`,
+        message: lines.map((row) => `${row.label} ×${row.qty}`).join('\n'),
+        meta: 'Заказы на производство на бирже (вкладка «Усадьбы»). 🪙 резервируются под оплату; готовое — на стройку.',
+        confirmLabel: 'Разместить заказы',
+        confirmClass: 'order',
+        onConfirm: () => this.executeOrderProjectAll(payload, lines),
+      });
+    },
+    async executeOrderProjectAll(payload, lines) {
+      if (!this.authData?.token || !lines.length) {
+        return;
+      }
+
+      this.cityActionLoading = true;
+      this.cityError = '';
+      this.cityMessage = '';
+      try {
+        for (const row of lines) {
+          await apiActions.exchange.createEstateProductionOrder(
+            this.authData.token,
+            row.code,
+            row.qty,
+            this.selectedSlug || '',
+            Number(payload?.plotNumber || this.cityMap?.my_plot_number || 0),
+            payload?.projectCode || '',
+          );
+        }
+        this.cityMessage = 'Размещены заказы на производство недостающих компонентов';
+        await this.loadCityMap(this.selectedSlug);
+        this.setModalSuccess('Заказы на бирже размещены. Смотрите вкладку «Усадьбы».');
+      } catch (e) {
+        this.setModalError(e?.message || 'Ошибка массового заказа');
+      } finally {
+        this.cityActionLoading = false;
+      }
+    },
+    findProject(projectCode) {
+      return (this.cityMap?.my_estate_projects || []).find(
+        (row) => String(row.recipe_code || '') === String(projectCode || ''),
+      ) || null;
+    },
+    findProjectItem(project, componentCode) {
+      const items = project?.needed_items || [];
+      return items.find((row) => String(row.code || '') === String(componentCode || '')) || null;
+    },
+    donatableLines(project) {
+      const remaining = project?.remaining || {};
+      const inventory = project?.inventory || {};
+      const lines = [];
+
+      Object.keys(remaining).forEach((code) => {
+        const need = Number(remaining[code] || 0);
+        const have = Number(inventory[code] || 0);
+        const qty = Math.min(need, have);
+        if (qty <= 0) {
+          return;
+        }
+        const item = this.findProjectItem(project, code);
+        lines.push({
+          code,
+          label: item?.label || code,
+          qty,
+        });
+      });
+
+      return lines;
+    },
+    orderableLines(project) {
+      const remaining = project?.remaining || {};
+      const lines = [];
+
+      Object.keys(remaining).forEach((code) => {
+        const qty = Number(remaining[code] || 0);
+        if (qty <= 0) {
+          return;
+        }
+        const item = this.findProjectItem(project, code);
+        lines.push({
+          code,
+          label: item?.label || code,
+          qty,
+        });
+      });
+
+      return lines;
+    },
+    openEstateModal({
+      mode,
+      title,
+      message = '',
+      meta = '',
+      confirmLabel = '',
+      confirmClass = 'primary',
+      showQtyPicker = false,
+      orderQty = 1,
+      orderQtyMax = 1,
+      orderPayPerUnit = 0,
+      onConfirm = null,
+    }) {
+      this.estateModal = {
+        mode,
+        title,
+        message,
+        meta,
+        confirmLabel,
+        confirmClass,
+        showQtyPicker,
+        orderQty: Math.max(1, Number(orderQty) || 1),
+        orderQtyMax: Math.max(1, Number(orderQtyMax) || 1),
+        orderPayPerUnit: Number(orderPayPerUnit) || 0,
+        onConfirm,
+        loading: false,
+        error: '',
+        success: '',
+      };
+    },
+    resolveOrderModalQty() {
+      const modal = this.estateModal;
+      if (!modal) {
+        return 1;
+      }
+
+      const max = Math.max(1, Number(modal.orderQtyMax) || 1);
+      return Math.max(1, Math.min(max, Number(modal.orderQty) || 1));
+    },
+    setOrderModalQtyMin() {
+      if (!this.estateModal) {
+        return;
+      }
+      this.estateModal.orderQty = 1;
+    },
+    setOrderModalQtyMax() {
+      if (!this.estateModal) {
+        return;
+      }
+      this.estateModal.orderQty = Math.max(1, Number(this.estateModal.orderQtyMax) || 1);
+    },
+    closeEstateModal() {
+      if (this.estateModal?.loading) {
+        return;
+      }
+      this.estateModal = null;
+    },
+    setModalError(message) {
+      if (!this.estateModal) {
+        this.cityError = message;
+        return;
+      }
+      this.estateModal.mode = 'alert';
+      this.estateModal.error = message;
+      this.estateModal.success = '';
+      this.estateModal.loading = false;
+    },
+    setModalSuccess(message) {
+      if (!this.estateModal) {
+        this.cityMessage = message;
+        return;
+      }
+      this.estateModal.mode = 'alert';
+      this.estateModal.success = message;
+      this.estateModal.error = '';
+      this.estateModal.loading = false;
+    },
+    async confirmEstateModal() {
+      if (!this.estateModal?.onConfirm || this.estateModal.loading) {
+        return;
+      }
+
+      this.estateModal.loading = true;
+      this.estateModal.error = '';
+      this.estateModal.success = '';
+      try {
+        await this.estateModal.onConfirm();
+      } catch (e) {
+        this.setModalError(e?.message || 'Ошибка выполнения');
+      } finally {
+        if (this.estateModal) {
+          this.estateModal.loading = false;
+        }
       }
     },
   },
@@ -222,5 +847,170 @@ export default {
 .error {
   color: #f08080;
   font-size: 12px;
+}
+
+.message {
+  color: #9ee09e;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.estate_modal_overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  background: fade(#000, 55%);
+}
+
+.estate_modal {
+  width: 100%;
+  max-width: 360px;
+  padding: 12px;
+  border-radius: 6px;
+  background: @DarkColorBG;
+  border: 1px solid fade(@orange, 45%);
+  color: @colorText;
+}
+
+.estate_modal_title {
+  font-size: 14px;
+  font-weight: 700;
+  color: @orange;
+  margin-bottom: 6px;
+}
+
+.estate_modal_message {
+  font-size: 12px;
+  color: @colorText;
+  line-height: 1.4;
+  margin: 0 0 8px;
+  white-space: pre-line;
+}
+
+.estate_modal_meta {
+  font-size: 11px;
+  color: @colorBlur;
+  line-height: 1.35;
+  margin: 0 0 10px;
+}
+
+.estate_modal_qty_row {
+  margin: 0 0 10px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.estate_modal_qty_label {
+  font-size: 12px;
+  color: @colorText;
+}
+
+.estate_modal_qty_controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.estate_modal_qty_btn {
+  border: 1px solid fade(@colorBlur, 40%);
+  border-radius: 4px;
+  background: fade(@DarkColorBG, 70%);
+  color: @colorBlur;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 6px 7px;
+  cursor: pointer;
+  text-transform: lowercase;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+}
+
+.estate_modal_qty_input {
+  width: 72px;
+  padding: 5px 8px;
+  border: 1px solid fade(@colorBlur, 40%);
+  border-radius: 4px;
+  background: fade(@DarkColorBG, 70%);
+  color: @colorText;
+  font-size: 12px;
+}
+
+.estate_modal_qty_hint {
+  font-size: 11px;
+  color: @colorBlur;
+}
+
+.estate_modal_reserve {
+  width: 100%;
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: @colorText;
+}
+
+.estate_modal_error {
+  font-size: 12px;
+  color: #f08080;
+  margin: 0 0 10px;
+}
+
+.estate_modal_success {
+  font-size: 12px;
+  color: #9ee09e;
+  margin: 0 0 10px;
+}
+
+.estate_modal_actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.modal_btn {
+  border-radius: 4px;
+  font-size: 11px;
+  padding: 5px 10px;
+  cursor: pointer;
+  border: 1px solid fade(@colorBlur, 40%);
+  background: fade(@DarkColorBG, 70%);
+  color: @colorText;
+
+  &.primary {
+    border-color: fade(@orange, 60%);
+    background: fade(@orange, 16%);
+  }
+
+  &.donate {
+    border-color: fade(@orange, 60%);
+    background: fade(@orange, 16%);
+  }
+
+  &.withdraw {
+    border-color: fade(#a67c52, 60%);
+    background: fade(#6b4428, 22%);
+  }
+
+  &.order {
+    border-color: fade(@YesWrite, 60%);
+    background: fade(@YesWrite, 15%);
+  }
+
+  &.secondary {
+    color: @colorBlur;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
 }
 </style>

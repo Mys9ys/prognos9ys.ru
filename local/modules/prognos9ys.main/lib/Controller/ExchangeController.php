@@ -5,6 +5,7 @@ namespace Prognos9ys\Main\Controller;
 use Prognos9ys\Main\Model\Repository\ProfessionRepository;
 use Prognos9ys\Main\Service\Auth\ImpersonationService;
 use Prognos9ys\Main\Service\Auth\TokenAuthService;
+use Prognos9ys\Main\Service\Game\EstateProductionOrderService;
 use Prognos9ys\Main\Service\Game\ExchangeService;
 use Prognos9ys\Main\Service\Game\GameProfileService;
 use Prognos9ys\Main\Service\Game\LaborExchangeConfig;
@@ -36,6 +37,12 @@ class ExchangeController extends BaseController
             'startLaborWorkshop' => $this->getDefaultConfigureForPostToken(),
             'getCityBuildOrders' => $this->getDefaultConfigureForPostToken(),
             'submitCityBuildComponent' => $this->getDefaultConfigureForPostToken(),
+            'getEstateOrders' => $this->getDefaultConfigureForPostToken(),
+            'getMyEstateOrders' => $this->getDefaultConfigureForPostToken(),
+            'createEstateProductionOrder' => $this->getDefaultConfigureForPostToken(),
+            'cancelEstateOrder' => $this->getDefaultConfigureForPostToken(),
+            'submitEstateOrder' => $this->getDefaultConfigureForPostToken(),
+            'claimEstateOrder' => $this->getDefaultConfigureForPostToken(),
         ];
     }
 
@@ -447,6 +454,134 @@ class ExchangeController extends BaseController
 
         return array_merge(['status' => 'ok'], $result, [
             'orders' => (new TreasuryCityService())->getBuildOrdersForExchange($userId),
+            'game' => (new GameProfileService())->getSummary($userId),
+        ]);
+    }
+
+    public function getEstateOrdersAction(int $offset = 0, int $limit = 25): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        $service = new EstateProductionOrderService();
+        $result = $service->getOpenOrders($userId, $offset, $limit);
+
+        return array_merge(['status' => 'ok'], $result, [
+            'meta' => $service->getMeta(),
+            'game' => (new GameProfileService())->getSummary($userId),
+        ]);
+    }
+
+    public function getMyEstateOrdersAction(): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        $service = new EstateProductionOrderService();
+
+        return [
+            'status' => 'ok',
+            'orders' => $service->getMyOrders($userId),
+            'meta' => $service->getMeta(),
+            'game' => (new GameProfileService())->getSummary($userId),
+        ];
+    }
+
+    public function createEstateProductionOrderAction(
+        string $componentCode,
+        int $qty = 1,
+        string $citySlug = '',
+        int $plotNumber = 0,
+        string $projectCode = ''
+    ): array {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        $context = [];
+        if (trim($citySlug) !== '') {
+            $context['city_slug'] = trim($citySlug);
+        }
+        if ($plotNumber > 0) {
+            $context['plot_number'] = $plotNumber;
+        }
+        if (trim($projectCode) !== '') {
+            $context['project_code'] = trim($projectCode);
+        }
+
+        try {
+            $order = (new EstateProductionOrderService())->createOrder(
+                $userId,
+                $componentCode,
+                $qty,
+                $context
+            );
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok', 'order' => $order], [
+            'game' => (new GameProfileService())->getSummary($userId),
+        ]);
+    }
+
+    public function cancelEstateOrderAction(int $orderId): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        try {
+            $order = (new EstateProductionOrderService())->cancelOrder($userId, $orderId);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok', 'order' => $order], [
+            'game' => (new GameProfileService())->getSummary($userId),
+        ]);
+    }
+
+    public function claimEstateOrderAction(int $orderId, int $qty = 0): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        try {
+            $result = (new EstateProductionOrderService())->claimOrder($userId, $orderId, $qty);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok'], $result, [
+            'game' => (new GameProfileService())->getSummary($userId),
+        ]);
+    }
+
+    public function submitEstateOrderAction(int $orderId, int $qty = 0): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        try {
+            $result = (new EstateProductionOrderService())->submitFromInventory($userId, $orderId, $qty);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok'], $result, [
             'game' => (new GameProfileService())->getSummary($userId),
         ]);
     }

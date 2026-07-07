@@ -65,6 +65,7 @@ class EstateBuildingRecipeBridge
                 'code' => $code,
                 'label' => ProfessionCraftedItemConfig::getLabel($code),
                 'qty' => $qty,
+                'order_pay_per_unit' => EstateRecipesConfig::calcComponentDonationUnitPayout($code),
             ], $craft);
         }
 

@@ -278,6 +278,26 @@ class GameEconomyRepository
         return round(abs($total), 1);
     }
 
+    public function hasTreasuryTxByRef(string $refType, int $refId): bool
+    {
+        $refType = trim($refType);
+        if ($refType === '' || $refId <= 0) {
+            return false;
+        }
+
+        $dataClass = $this->getTreasuryTxDataClass();
+        $row = $dataClass::getList([
+            'filter' => [
+                '=UF_REF_TYPE' => $refType,
+                '=UF_REF_ID' => $refId,
+            ],
+            'select' => ['ID'],
+            'limit' => 1,
+        ])->fetch();
+
+        return (int)($row['ID'] ?? 0) > 0;
+    }
+
     public function hasMatchEconomySettlement(int $matchId): bool
     {
         if ($matchId <= 0) {

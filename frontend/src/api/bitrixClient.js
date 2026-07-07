@@ -259,6 +259,32 @@ export const apiActions = {
             'prognos9ys:main.GameController.getEstateCityMap',
             { userToken, citySlug }
         ),
+        claimEstatePlot: (userToken, citySlug, plotNumber) => runBitrixAction(
+            'prognos9ys:main.GameController.claimEstatePlot',
+            { userToken, citySlug, plotNumber }
+        ),
+        submitEstateBuildComponent: (
+            userToken,
+            citySlug,
+            plotNumber,
+            projectCode,
+            componentCode,
+            qty = 1
+        ) => runBitrixAction(
+            'prognos9ys:main.GameController.submitEstateBuildComponent',
+            { userToken, citySlug, plotNumber, projectCode, componentCode, qty }
+        ),
+        withdrawEstateBuildComponent: (
+            userToken,
+            citySlug,
+            plotNumber,
+            projectCode,
+            componentCode,
+            qty = 1
+        ) => runBitrixAction(
+            'prognos9ys:main.GameController.withdrawEstateBuildComponent',
+            { userToken, citySlug, plotNumber, projectCode, componentCode, qty }
+        ),
         startTreasuryCity: (userToken, citySlug) => runBitrixAction(
             'prognos9ys:main.GameController.startTreasuryCity',
             { userToken, citySlug }
@@ -609,6 +635,44 @@ export const apiActions = {
         submitCityBuildComponent: (userToken, citySlug, recipeCode, componentCode, qty = 1) => runBitrixAction(
             'prognos9ys:main.ExchangeController.submitCityBuildComponent',
             { userToken, citySlug, recipeCode, componentCode, qty }
+        ),
+        getEstateOrders: (userToken, offset = 0, limit = 25) => runBitrixAction(
+            'prognos9ys:main.ExchangeController.getEstateOrders',
+            { userToken, offset, limit }
+        ),
+        getMyEstateOrders: (userToken) => runBitrixAction(
+            'prognos9ys:main.ExchangeController.getMyEstateOrders',
+            { userToken }
+        ),
+        createEstateProductionOrder: (
+            userToken,
+            componentCode,
+            qty = 1,
+            citySlug = '',
+            plotNumber = 0,
+            projectCode = '',
+        ) => runBitrixAction(
+            'prognos9ys:main.ExchangeController.createEstateProductionOrder',
+            {
+                userToken,
+                componentCode,
+                qty,
+                citySlug: citySlug || undefined,
+                plotNumber: plotNumber > 0 ? plotNumber : undefined,
+                projectCode: projectCode || undefined,
+            }
+        ),
+        cancelEstateOrder: (userToken, orderId) => runBitrixAction(
+            'prognos9ys:main.ExchangeController.cancelEstateOrder',
+            { userToken, orderId }
+        ),
+        claimEstateOrder: (userToken, orderId, qty = 0) => runBitrixAction(
+            'prognos9ys:main.ExchangeController.claimEstateOrder',
+            { userToken, orderId, qty: qty > 0 ? qty : undefined }
+        ),
+        submitEstateOrder: (userToken, orderId, qty = 0) => runBitrixAction(
+            'prognos9ys:main.ExchangeController.submitEstateOrder',
+            { userToken, orderId, qty: qty > 0 ? qty : undefined }
         ),
     },
     impersonation: {

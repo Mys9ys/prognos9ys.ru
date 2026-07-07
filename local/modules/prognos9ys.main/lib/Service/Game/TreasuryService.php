@@ -148,6 +148,7 @@ class TreasuryService
             'gov_support_return' => 'Возврат тела гос. вклада',
             'gov_support_early_close' => 'Досрочное закрытие гос. вклада',
             'exchange_commission' => 'Комиссия биржи',
+            'city_bank_branch_presence' => 'Оплата прописки филиала банка (50 🪙)',
         ];
 
         return $map[$reason] ?? $reason;

@@ -19,6 +19,7 @@
             :class="plotClass(plot)"
             :style="plotStyle(1, index + 1)"
             :title="plotTitle(plot)"
+            @click="onPlotClick(plot)"
           >
             <span class="plot_num">{{ plot.number }}</span>
           </div>
@@ -29,6 +30,7 @@
             :class="plotClass(plot)"
             :style="plotStyle(1, index + rightPlotCol)"
             :title="plotTitle(plot)"
+            @click="onPlotClick(plot)"
           >
             <span class="plot_num">{{ plot.number }}</span>
           </div>
@@ -41,6 +43,7 @@
             :class="plotClass(plot)"
             :style="plotStyle(3, index + 1)"
             :title="plotTitle(plot)"
+            @click="onPlotClick(plot)"
           >
             <span class="plot_num">{{ plot.number }}</span>
           </div>
@@ -51,6 +54,7 @@
             :class="plotClass(plot)"
             :style="plotStyle(3, index + rightPlotCol)"
             :title="plotTitle(plot)"
+            @click="onPlotClick(plot)"
           >
             <span class="plot_num">{{ plot.number }}</span>
           </div>
@@ -103,50 +107,115 @@
         :key="building.recipe_code"
         class="building_card"
       >
-        <div class="building_head">
+        <div
+          class="building_head"
+          :class="{ clickable: building.needed_items?.length }"
+          @click="toggleBuilding(building.recipe_code)"
+        >
           <span>{{ building.label }}</span>
-          <span>{{ building.progress_pct }}%</span>
+          <span class="building_head_meta">
+            <span
+              v-if="building.needed_items?.length"
+              class="expand_hint"
+            >
+              {{ isBuildingExpanded(building.recipe_code) ? '▼' : '▶' }}
+              {{ building.needed_items.length }}
+            </span>
+            <span>{{ building.progress_pct }}%</span>
+          </span>
         </div>
         <div class="progress_bar">
           <div class="progress_fill" :style="{ width: building.progress_pct + '%' }" />
         </div>
-        <div class="components_list" v-if="building.needed_items?.length">
+        <div
+          class="components_list"
+          v-if="building.needed_items?.length && isBuildingExpanded(building.recipe_code)"
+        >
           <div
             v-for="item in building.needed_items"
             :key="building.recipe_code + '-' + item.code"
             class="component_row"
           >
             <span>{{ item.label }} ×{{ item.qty }}</span>
-            <span class="recipe_hint" v-if="item.recipe_label">
-              ← {{ item.recipe_label }}
-            </span>
-            <span class="recipe_hint warn" v-else>рецепт не найден</span>
           </div>
         </div>
       </div>
     </div>
 
     <div class="section" v-if="city.estate_projects?.length">
-      <div class="section_title">Усадьба на участке (черновик)</div>
+      <div class="section_title">Усадьба на участке</div>
+      <p v-if="!city.my_plot_number" class="section_hint">
+        Займите свободный участок (нужна лицензия) — потом откроется стройка.
+      </p>
       <div
-        v-for="project in city.estate_projects"
+        v-for="project in activeEstateProjects"
         :key="project.code"
         class="building_card estate"
       >
         <div class="building_head">
-          <span>{{ project.label }}</span>
-          <span>~{{ project.nominal_total }} 🪙</span>
+          <span>{{ project.label || project.code }}</span>
+          <div class="building_head_right">
+            <span>{{ project.status === 'complete' ? 'Готово' : (project.progress_pct || 0) + '%' }}</span>
+            <div class="project_actions" v-if="canProjectActions(project)">
+              <button
+                type="button"
+                class="donate_btn"
+                :disabled="!canDonateProjectAll(project)"
+                @click="onDonateProjectAll(project)"
+              >
+                Сдать все
+              </button>
+              <button type="button" class="order_btn" @click="onOrderProjectAll(project)">Заказать все</button>
+            </div>
+          </div>
+        </div>
+        <div class="progress_bar" v-if="project.needed_items?.length">
+          <div class="progress_fill" :style="{ width: (project.progress_pct || 0) + '%' }" />
         </div>
         <div class="components_list">
           <div
-            v-for="item in project.components"
+            v-for="item in (project.needed_items || project.components || [])"
             :key="project.code + '-' + item.code"
             class="component_row"
           >
             <span>{{ item.label }} ×{{ item.qty }}</span>
-            <span class="recipe_hint" v-if="item.recipe_label">
-              ← {{ item.recipe_label }}
+            <span v-if="project.remaining && project.remaining[item.code]" class="remain_badge">
+              осталось {{ project.remaining[item.code] }}
             </span>
+            <span v-if="canDonate(project, item)" class="inventory_badge" :class="{ empty: !hasInventory(project, item) }">
+              в инвентаре {{ userHave(project, item) }}
+            </span>
+            <span v-if="stashHave(project, item) > 0" class="stash_badge">
+              на стройке {{ stashHave(project, item) }}
+            </span>
+            <div class="row_actions">
+              <button
+                v-if="canDonate(project, item)"
+                type="button"
+                class="donate_btn"
+                :disabled="!hasInventory(project, item)"
+                :title="!hasInventory(project, item) ? 'Нет в инвентаре' : ''"
+                @click="onDonate(project, item, 1)"
+              >
+                Сдать
+              </button>
+              <button
+                v-if="canWithdraw(project, item)"
+                type="button"
+                class="withdraw_btn"
+                @click="onWithdraw(project, item, 1)"
+              >
+                Забрать
+              </button>
+              <button
+                v-if="canOrder(project, item)"
+                type="button"
+                class="order_btn"
+                @click="onOrder(project, item, 1)"
+              >
+                Заказать
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -161,16 +230,27 @@ const RIGHT_PLOT_COL = 10;
 
 export default {
   name: 'EstateCityStreetMap',
+  emits: ['claim-plot', 'plot-info', 'donate-component', 'donate-project-all', 'withdraw-component', 'order-component', 'order-project-all'],
   props: {
     city: {
       type: Object,
       default: null,
     },
+    loading: {
+      type: Boolean,
+      default: false,
+    },
   },
   data() {
     return {
       rightPlotCol: RIGHT_PLOT_COL,
+      expandedBuildings: {},
     };
+  },
+  watch: {
+    'city.slug'() {
+      this.expandedBuildings = {};
+    },
   },
   computed: {
     statusLabel() {
@@ -215,6 +295,16 @@ export default {
       });
       return map;
     },
+    activeEstateProjects() {
+      if (Array.isArray(this.city?.my_estate_projects) && this.city.my_estate_projects.length) {
+        return this.city.my_estate_projects.map((row) => ({
+          code: row.recipe_code,
+          ...row,
+        }));
+      }
+
+      return Array.isArray(this.city?.estate_projects) ? this.city.estate_projects : [];
+    },
   },
   methods: {
     plotStyle(row, col) {
@@ -229,10 +319,12 @@ export default {
       return slot?.label || fallback;
     },
     plotClass(plot) {
+      const claimed = Boolean(plot.claimed);
       return {
-        claimed: plot.claimed,
         mine: plot.is_mine,
-        free: this.city?.is_open && !plot.claimed,
+        occupied: claimed && !plot.is_mine,
+        free: this.city?.is_open && !claimed,
+        clickable: this.city?.is_open && !claimed && !this.loading,
       };
     },
     plotTitle(plot) {
@@ -240,12 +332,155 @@ export default {
         return `Ваш участок №${plot.number}`;
       }
       if (plot.claimed) {
-        return `Занят №${plot.number}`;
+        return plot.owner_name
+          ? `Участок №${plot.number}: ${plot.owner_name}`
+          : `Занят №${plot.number}`;
       }
       if (this.city?.is_open) {
-        return `Свободен №${plot.number}`;
+        return `Свободен №${plot.number} (клик: занять)`;
       }
       return `Участок №${plot.number} (город закрыт)`;
+    },
+    isBuildingExpanded(recipeCode) {
+      return Boolean(this.expandedBuildings[String(recipeCode || '')]);
+    },
+    toggleBuilding(recipeCode) {
+      const key = String(recipeCode || '');
+      if (!key || !this.city?.buildings?.length) {
+        return;
+      }
+
+      const building = this.city.buildings.find((row) => String(row.recipe_code || '') === key);
+      if (!building?.needed_items?.length) {
+        return;
+      }
+
+      this.expandedBuildings = {
+        ...this.expandedBuildings,
+        [key]: !this.expandedBuildings[key],
+      };
+    },
+    onPlotClick(plot) {
+      if (!this.city?.is_open || this.loading || !plot) {
+        return;
+      }
+
+      if (plot.claimed && !plot.is_mine) {
+        this.$emit('plot-info', {
+          type: 'occupied',
+          message: `Участок №${plot.number} уже занят (${plot.owner_name || 'другой игрок'})`,
+        });
+        return;
+      }
+      if (plot.claimed && plot.is_mine) {
+        this.$emit('plot-info', {
+          type: 'mine',
+          message: `У вас уже есть участок №${plot.number} в этом городе`,
+        });
+        return;
+      }
+      if (this.city?.my_plot_number && Number(this.city.my_plot_number) !== Number(plot.number)) {
+        this.$emit('plot-info', {
+          type: 'already_have',
+          message: `У вас уже есть участок №${this.city.my_plot_number}. В одном городе доступна только одна усадьба.`,
+        });
+        return;
+      }
+
+      this.$emit('claim-plot', { plotNumber: Number(plot.number) });
+    },
+    canDonate(project, item) {
+      if (this.loading || !this.city?.my_plot_number) {
+        return false;
+      }
+      if ((project?.status || '') === 'complete') {
+        return false;
+      }
+      const left = Number(project?.remaining?.[item.code] || 0);
+      return left > 0;
+    },
+    userHave(project, item) {
+      if (item && Number.isFinite(Number(item.user_have))) {
+        return Number(item.user_have);
+      }
+      return Number(project?.inventory?.[item.code] || 0);
+    },
+    hasInventory(project, item) {
+      return this.userHave(project, item) > 0;
+    },
+    stashHave(project, item) {
+      if (item && Number.isFinite(Number(item.stash_have))) {
+        return Number(item.stash_have);
+      }
+      return Number(project?.stash?.[item.code] || 0);
+    },
+    canWithdraw(project, item) {
+      if (this.loading || !this.city?.my_plot_number) {
+        return false;
+      }
+      return this.stashHave(project, item) > 0;
+    },
+    canDonateProjectAll(project) {
+      const items = project.needed_items || project.components || [];
+      return items.some((item) => this.canDonate(project, item) && this.hasInventory(project, item));
+    },
+    onDonate(project, item, qty = 1) {
+      if (!this.canDonate(project, item)) {
+        return;
+      }
+      this.$emit('donate-component', {
+        plotNumber: Number(this.city.my_plot_number),
+        projectCode: String(project.code || project.recipe_code || ''),
+        componentCode: String(item.code || ''),
+        qty: Math.max(1, Number(qty || 1)),
+      });
+    },
+    onWithdraw(project, item, qty = 1) {
+      if (!this.canWithdraw(project, item)) {
+        return;
+      }
+      const maxQty = this.stashHave(project, item);
+      this.$emit('withdraw-component', {
+        plotNumber: Number(this.city.my_plot_number),
+        projectCode: String(project.code || project.recipe_code || ''),
+        componentCode: String(item.code || ''),
+        qty: Math.max(1, Math.min(Number(qty || 1), maxQty)),
+      });
+    },
+    canOrder(project, item) {
+      return this.canDonate(project, item);
+    },
+    onOrder(project, item, qty = 1) {
+      if (!this.canOrder(project, item)) {
+        return;
+      }
+      this.$emit('order-component', {
+        plotNumber: Number(this.city.my_plot_number),
+        projectCode: String(project.code || project.recipe_code || ''),
+        componentCode: String(item.code || ''),
+        qty: Math.max(1, Number(qty || 1)),
+      });
+    },
+    canProjectActions(project) {
+      return !this.loading && this.city?.my_plot_number && (project?.status || '') !== 'complete';
+    },
+    onDonateProjectAll(project) {
+      if (!this.canProjectActions(project)) {
+        return;
+      }
+      this.$emit('donate-project-all', {
+        plotNumber: Number(this.city.my_plot_number),
+        projectCode: String(project.code || project.recipe_code || ''),
+      });
+    },
+    onOrderProjectAll(project) {
+      if (!this.canProjectActions(project)) {
+        return;
+      }
+      this.$emit('order-project-all', {
+        plotNumber: Number(this.city.my_plot_number),
+        projectCode: String(project.code || project.recipe_code || ''),
+      });
     },
     civicClass(code) {
       const row = this.buildingByCode[code];
@@ -256,6 +491,9 @@ export default {
         return 'complete';
       }
       if ((row.progress_pct || 0) > 0) {
+        return 'building';
+      }
+      if ((row.status || '') === 'pending_fee') {
         return 'building';
       }
       return 'planned';
@@ -341,30 +579,36 @@ export default {
 .plot {
   width: @cell;
   height: @cell;
-  border: 1px solid fade(@colorBlur, 50%);
+  border: 1px solid fade(@colorBlur, 45%);
   border-radius: 2px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 10px;
-  color: @colorBlur;
-  background: fade(@colorText2, 40%);
+  color: fade(@colorBlur, 85%);
+  background: fade(@colorBlur, 16%);
   z-index: 1;
 
   &.free {
-    border-color: fade(#9ee09e, 60%);
-    color: #9ee09e;
+    border-color: #6dbf6d;
+    background: fade(#6dbf6d, 24%);
+    color: #b8e8b8;
   }
 
-  &.claimed {
-    border-color: fade(@colorText, 35%);
-    background: fade(@colorText2, 55%);
+  &.occupied {
+    border-color: #a67c52;
+    background: fade(#6b4428, 48%);
+    color: #d4b896;
   }
 
   &.mine {
     border-color: @orange;
+    background: fade(@orange, 22%);
     color: @orange;
-    background: fade(@orange, 8%);
+  }
+
+  &.clickable {
+    cursor: pointer;
   }
 }
 
@@ -454,9 +698,32 @@ export default {
 .building_head {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
   font-size: 12px;
   color: @colorText;
   margin-bottom: 4px;
+
+  &.clickable {
+    cursor: pointer;
+  }
+}
+
+.building_head_meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.expand_hint {
+  font-size: 10px;
+  color: @colorBlur;
+}
+
+.building_head_right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
 }
 
 .progress_bar {
@@ -481,16 +748,85 @@ export default {
 .component_row {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
   font-size: 11px;
   color: @colorBlur;
+  border: 1px solid fade(@colorBlur, 20%);
+  border-radius: 4px;
+  padding: 4px 6px;
 }
 
-.recipe_hint {
-  color: fade(@orange, 85%);
+.section_hint {
+  color: @colorBlur;
+  font-size: 11px;
+  margin-bottom: 6px;
+}
 
-  &.warn {
-    color: fade(#ff8f8f, 90%);
+.remain_badge {
+  color: @orange;
+}
+
+.donate_btn {
+  border: 1px solid fade(@orange, 60%);
+  background: fade(@orange, 16%);
+  color: @colorText;
+  border-radius: 4px;
+  font-size: 10px;
+  padding: 1px 6px;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
   }
+}
+
+.order_btn {
+  border: 1px solid fade(@YesWrite, 60%);
+  background: fade(@YesWrite, 15%);
+  color: @colorText;
+  border-radius: 4px;
+  font-size: 10px;
+  padding: 1px 6px;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+.withdraw_btn {
+  border: 1px solid fade(#a67c52, 60%);
+  background: fade(#6b4428, 22%);
+  color: @colorText;
+  border-radius: 4px;
+  font-size: 10px;
+  padding: 1px 6px;
+  cursor: pointer;
+}
+
+.inventory_badge {
+  font-size: 10px;
+  color: fade(@colorBlur, 90%);
+
+  &.empty {
+    color: fade(#f08080, 90%);
+  }
+}
+
+.stash_badge {
+  font-size: 10px;
+  color: #d4b896;
+}
+
+.row_actions,
+.project_actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
 }
 </style>

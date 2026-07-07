@@ -134,6 +134,208 @@ class ProfessionCraftService
     }
 
     /**
+     * Крафт исполнителем с выдачей продукта заказчику (заказ усадьбы на бирже).
+     *
+     * @return array{
+     *   recipe_code:string,
+     *   crafted_qty:int,
+     *   xp_gain:int,
+     *   profession_code:string,
+     *   profession_level_rewards:array<int, array<string, mixed>>,
+     *   work_cost_total:float
+     * }
+     */
+    public function craftForRecipient(
+        int $workerUserId,
+        int $recipientUserId,
+        string $recipeCode,
+        string $professionCode,
+        int $qty = 1
+    ): array {
+        if ($workerUserId <= 0 || $recipientUserId <= 0) {
+            throw new \InvalidArgumentException('Некорректные участники заказа');
+        }
+
+        $qty = max(1, min(LaborExchangeConfig::MAX_ESTATE_CLAIM_QTY, $qty));
+        $definition = $this->validateEstateOrderCraftDefinition($recipeCode, $professionCode);
+        $professionRow = $this->professionRepository->getProfessionByUserAndCode($workerUserId, $professionCode);
+        if (!$professionRow) {
+            $label = (string)(ProfessionMaterialConfig::getProfession($professionCode)['label'] ?? $professionCode);
+            throw new \RuntimeException('Нужна профессия: ' . $label);
+        }
+
+        $preview = $this->buildCraftPreview(
+            $workerUserId,
+            $definition,
+            false,
+            (float)$this->walletService->getWalletSummary($workerUserId)['prognobaks']
+        );
+
+        if (empty($preview['can_craft'])) {
+            throw new \RuntimeException((string)($preview['missing_reason'] ?? 'Нельзя выполнить крафт'));
+        }
+
+        $workCost = (float)((int)($definition['work_cost'] ?? ProfessionRecipeConfig::WORK_COST) * $qty);
+        $wallet = $this->walletService->getWalletSummary($workerUserId);
+        if ((float)$wallet['prognobaks'] < $workCost) {
+            throw new \RuntimeException('Нужно ' . $workCost . ' 🪙 за работу');
+        }
+
+        if (!$this->canCraftQty($workerUserId, $definition, $qty)) {
+            throw new \RuntimeException('Недостаточно материалов для крафта ×' . $qty);
+        }
+
+        $craftedQty = 0;
+        $xpGain = 0;
+        $levelRewards = [];
+
+        for ($i = 0; $i < $qty; $i++) {
+            $this->consumeInputs($workerUserId, $definition);
+            $craftedQty += $this->grantOutputs($recipientUserId, $definition);
+            $iterationXp = (int)($definition['craft_xp'] ?? ProfessionRecipeConfig::CRAFT_XP);
+            $xpGain += $iterationXp;
+            $xpResult = $this->grantProfessionXp($workerUserId, $professionCode, $iterationXp);
+            $levelRewards = array_merge($levelRewards, $xpResult['level_rewards']);
+            $this->economyRepository->incrementRecipeCraftRunCount($workerUserId, $professionCode, $recipeCode);
+        }
+
+        if ($workCost > 0) {
+            $this->walletService->debit(
+                $workerUserId,
+                GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                $workCost,
+                'estate_order_craft_fee',
+                'recipe',
+                0
+            );
+        }
+
+        return [
+            'recipe_code' => $recipeCode,
+            'crafted_qty' => $craftedQty,
+            'xp_gain' => $xpGain,
+            'profession_code' => $professionCode,
+            'profession_level_rewards' => $levelRewards,
+            'work_cost_total' => $workCost,
+        ];
+    }
+
+    public function maxCraftableQty(int $userId, string $recipeCode, string $professionCode): int
+    {
+        return $this->resolveEstateOrderCraftEligibility($userId, $recipeCode, $professionCode)['max_qty'];
+    }
+
+    /**
+     * @return array{max_qty:int, block_reason:string}
+     */
+    public function resolveEstateOrderCraftEligibility(int $userId, string $recipeCode, string $professionCode): array
+    {
+        if ($userId <= 0 || trim($recipeCode) === '' || trim($professionCode) === '') {
+            return ['max_qty' => 0, 'block_reason' => 'Некорректный заказ'];
+        }
+
+        try {
+            $definition = $this->validateEstateOrderCraftDefinition($recipeCode, $professionCode);
+        } catch (\Throwable $e) {
+            return ['max_qty' => 0, 'block_reason' => $e->getMessage()];
+        }
+
+        $professionRow = $this->professionRepository->getProfessionByUserAndCode($userId, $professionCode);
+        if (!$professionRow) {
+            $label = (string)(ProfessionMaterialConfig::getProfession($professionCode)['label'] ?? $professionCode);
+
+            return ['max_qty' => 0, 'block_reason' => 'Нужна профессия: ' . $label];
+        }
+
+        $wallet = (float)$this->walletService->getWalletSummary($userId)['prognobaks'];
+        $preview = $this->buildCraftPreview($userId, $definition, false, $wallet);
+
+        $max = LaborExchangeConfig::MAX_ESTATE_CLAIM_QTY;
+        for ($qty = $max; $qty >= 1; $qty--) {
+            if ($this->canCraftQty($userId, $definition, $qty)) {
+                return ['max_qty' => $qty, 'block_reason' => ''];
+            }
+        }
+
+        return [
+            'max_qty' => 0,
+            'block_reason' => (string)($preview['missing_reason'] ?? 'Недостаточно ресурсов для крафта'),
+        ];
+    }
+
+    /**
+     * @return array{
+     *   recipe_code:string,
+     *   profession:string,
+     *   tier:string,
+     *   work_cost:int,
+     *   craft_xp:int,
+     *   inputs:array<int, array{code:string,qty:int,source:string,premium?:bool}>,
+     *   outputs:array<int, array{code:string,qty:int,source:string}>
+     * }
+     */
+    private function validateEstateOrderCraftDefinition(string $recipeCode, string $professionCode): array
+    {
+        $recipeCode = trim($recipeCode);
+        $professionCode = trim($professionCode);
+        $definition = ProfessionRecipeConfig::getCraftDefinition($recipeCode);
+        if (!$definition) {
+            throw new \RuntimeException('Неизвестный рецепт');
+        }
+
+        if ($professionCode !== (string)($definition['profession'] ?? '')) {
+            throw new \RuntimeException('Рецепт не соответствует профессии');
+        }
+
+        return $definition;
+    }
+
+    /**
+     * @param array{
+     *   recipe_code:string,
+     *   profession:string,
+     *   tier:string,
+     *   work_cost:int,
+     *   craft_xp:int,
+     *   inputs:array<int, array{code:string,qty:int,source:string,premium?:bool}>,
+     *   outputs:array<int, array{code:string,qty:int,source:string}>
+     * } $definition
+     */
+    private function canCraftQty(int $userId, array $definition, int $qty): bool
+    {
+        if ($qty <= 0) {
+            return false;
+        }
+
+        foreach ($definition['inputs'] ?? [] as $input) {
+            $code = (string)($input['code'] ?? '');
+            $need = max(1, (int)($input['qty'] ?? 1)) * $qty;
+            $source = (string)($input['source'] ?? 'material');
+            $premium = !empty($input['premium']);
+
+            if ($source === 'material') {
+                if ($this->professionRepository->getUserMaterialQty($userId, $code, $premium) < $need) {
+                    return false;
+                }
+
+                continue;
+            }
+
+            $category = $source === 'equipment'
+                ? ChestLootConfig::CATEGORY_EQUIPMENT
+                : ChestLootConfig::CATEGORY_ALBUM;
+            if ($this->economyRepository->getEventAgnosticLootItemCount($userId, $code, $category) < $need) {
+                return false;
+            }
+        }
+
+        $workCost = (float)((int)($definition['work_cost'] ?? ProfessionRecipeConfig::WORK_COST) * $qty);
+        $wallet = $this->walletService->getWalletSummary($userId);
+
+        return (float)$wallet['prognobaks'] >= $workCost;
+    }
+
+    /**
      * @return array{
      *   recipe_code:string,
      *   copied_qty:int,

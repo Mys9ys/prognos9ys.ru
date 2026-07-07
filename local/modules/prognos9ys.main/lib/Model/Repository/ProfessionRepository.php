@@ -888,6 +888,89 @@ class ProfessionRepository
         return $dataClass::getById((int)$result->getId())->fetch();
     }
 
+    public function getEstateConstructionProject(
+        int $ownerUserId,
+        string $citySlug,
+        int $plotNumber,
+        string $recipeCode
+    ): ?array {
+        if ($ownerUserId <= 0 || $plotNumber <= 0 || $citySlug === '' || $recipeCode === '') {
+            return null;
+        }
+
+        $dataClass = $this->getConstructionProjectDataClass();
+
+        return $dataClass::getList([
+            'filter' => [
+                '=UF_OWNER_USER_ID' => $ownerUserId,
+                '=UF_CITY_SLUG' => strtolower(trim($citySlug)),
+                '=UF_RECIPE_CODE' => $recipeCode,
+                '=UF_KIND' => $this->estateKind($citySlug, $plotNumber),
+            ],
+            'limit' => 1,
+        ])->fetch() ?: null;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function getEstateConstructionProjectsByPlot(int $ownerUserId, string $citySlug, int $plotNumber): array
+    {
+        if ($ownerUserId <= 0 || $plotNumber <= 0 || $citySlug === '') {
+            return [];
+        }
+
+        $dataClass = $this->getConstructionProjectDataClass();
+        $rows = [];
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_OWNER_USER_ID' => $ownerUserId,
+                '=UF_CITY_SLUG' => strtolower(trim($citySlug)),
+                '=UF_KIND' => $this->estateKind($citySlug, $plotNumber),
+            ],
+            'order' => ['ID' => 'ASC'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
+    public function ensureEstateConstructionProject(
+        int $ownerUserId,
+        string $citySlug,
+        int $plotNumber,
+        string $recipeCode
+    ): array {
+        $existing = $this->getEstateConstructionProject($ownerUserId, $citySlug, $plotNumber, $recipeCode);
+        if ($existing) {
+            return $existing;
+        }
+
+        $now = new DateTime();
+        $dataClass = $this->getConstructionProjectDataClass();
+        $result = $dataClass::add([
+            'UF_OWNER_USER_ID' => $ownerUserId,
+            'UF_CITY_SLUG' => strtolower(trim($citySlug)),
+            'UF_RECIPE_CODE' => $recipeCode,
+            'UF_KIND' => $this->estateKind($citySlug, $plotNumber),
+            'UF_PROGRESS' => 0,
+            'UF_STATUS' => 'building',
+            'UF_STASH_JSON' => '{}',
+            'UF_BRIGADE_JSON' => '[]',
+            'UF_CREATED_AT' => $now,
+            'UF_UPDATED_AT' => $now,
+        ]);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+
+        return $dataClass::getById((int)$result->getId())->fetch();
+    }
+
     /**
      * @param array<string, int> $stash
      */
@@ -1011,5 +1094,10 @@ class ProfessionRepository
         $entity = HighloadBlockTable::compileEntity($hlblock);
 
         return $entity->getDataClass();
+    }
+
+    private function estateKind(string $citySlug, int $plotNumber): string
+    {
+        return 'player_estate_plot:' . strtolower(trim($citySlug)) . ':' . max(1, $plotNumber);
     }
 }

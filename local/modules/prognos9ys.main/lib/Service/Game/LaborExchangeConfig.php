@@ -23,4 +23,10 @@ class LaborExchangeConfig
     public const POSTER_KIND_USER = 'user';
 
     public const POSTER_KIND_TREASURY = 'treasury';
+
+    public const ORDER_PURPOSE_LABOR = 'labor';
+
+    public const ORDER_PURPOSE_ESTATE = 'estate';
+
+    public const MAX_ESTATE_CLAIM_QTY = 6;
 }

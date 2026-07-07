@@ -596,6 +596,9 @@ class GameEconomyHlInstaller
             'UF_PAY_PER_CYCLE' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
             'UF_COIN_ESCROW' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
             'UF_STATUS' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_RECIPE_CODE' => ['USER_TYPE_ID' => 'string'],
+            'UF_ORDER_PURPOSE' => ['USER_TYPE_ID' => 'string'],
+            'UF_CONTEXT_JSON' => ['USER_TYPE_ID' => 'string'],
             'UF_CREATED_AT' => ['USER_TYPE_ID' => 'datetime'],
             'UF_UPDATED_AT' => ['USER_TYPE_ID' => 'datetime'],
         ]);
@@ -603,6 +606,18 @@ class GameEconomyHlInstaller
         $this->ensureHlBlock('Prognos9ysProfessionSession', self::TABLE_PROFESSION_SESSION, [
             'UF_LABOR_ORDER_ID' => ['USER_TYPE_ID' => 'integer'],
         ]);
+
+        if (class_exists(\Bitrix\Main\Application::class)) {
+            $app = \Bitrix\Main\Application::getInstance();
+            if ($app) {
+                $app->getManagedCache()->cleanDir('orm');
+            }
+        }
+
+        global $USER_FIELD_MANAGER;
+        if (is_object($USER_FIELD_MANAGER)) {
+            $USER_FIELD_MANAGER->CleanCache();
+        }
 
         return [
             'labor_order_hl_id' => $laborOrderHlId,

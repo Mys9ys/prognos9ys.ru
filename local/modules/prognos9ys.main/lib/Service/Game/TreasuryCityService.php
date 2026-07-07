@@ -4,6 +4,7 @@ namespace Prognos9ys\Main\Service\Game;
 
 use Bitrix\Main\Type\DateTime;
 use Prognos9ys\Main\Model\Repository\CityRepository;
+use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
 use Prognos9ys\Main\Model\Repository\ProfessionRepository;
 
 class TreasuryCityService
@@ -14,16 +15,20 @@ class TreasuryCityService
         'civic_bank_branch' => 1,
         'civic_exchange_branch' => 2,
     ];
+    private const BANK_BRANCH_PRESENCE_REF_TYPE = 'city_bank_branch_presence';
 
     private CityRepository $cityRepository;
     private ProfessionRepository $professionRepository;
+    private GameEconomyRepository $economyRepository;
 
     public function __construct(
         ?CityRepository $cityRepository = null,
-        ?ProfessionRepository $professionRepository = null
+        ?ProfessionRepository $professionRepository = null,
+        ?GameEconomyRepository $economyRepository = null
     ) {
         $this->cityRepository = $cityRepository ?? new CityRepository();
         $this->professionRepository = $professionRepository ?? new ProfessionRepository();
+        $this->economyRepository = $economyRepository ?? new GameEconomyRepository();
     }
 
     /**
@@ -274,6 +279,32 @@ class TreasuryCityService
                 'UF_STATUS' => EstateCityConfig::STATUS_OPEN,
                 'UF_OPENED_AT' => $now,
             ]);
+        }
+
+        if ($isComplete && $recipeCode === 'civic_bank_branch') {
+            $projectId = (int)($project['ID'] ?? 0);
+            if ($projectId > 0) {
+                $alreadyPaid = $this->economyRepository
+                    ->hasTreasuryTxByRef(self::BANK_BRANCH_PRESENCE_REF_TYPE, $projectId);
+                if (!$alreadyPaid) {
+                    try {
+                        (new TreasuryService())->debit(
+                            GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                            EstateCityConfig::BRANCH_PRESENCE_FEE,
+                            'city_bank_branch_presence',
+                            $projectId,
+                            $userId,
+                            self::BANK_BRANCH_PRESENCE_REF_TYPE
+                        );
+                    } catch (\RuntimeException $exception) {
+                        $this->professionRepository->updateConstructionProject((int)$project['ID'], [
+                            'UF_STATUS' => 'pending_fee',
+                            'UF_UPDATED_AT' => $now,
+                        ]);
+                        $isComplete = false;
+                    }
+                }
+            }
         }
 
         return [

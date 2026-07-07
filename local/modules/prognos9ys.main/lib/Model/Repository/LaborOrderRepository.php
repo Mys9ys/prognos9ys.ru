@@ -14,6 +14,8 @@ class LaborOrderRepository
 {
     private ?string $laborOrderDataClass = null;
 
+    private static bool $estateOrderFieldsReady = false;
+
     private ProfessionRepository $professionRepository;
 
     public function __construct(?ProfessionRepository $professionRepository = null)
@@ -98,6 +100,69 @@ class LaborOrderRepository
         }
 
         return $rows;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function getOpenOrdersByPurpose(string $purpose, int $limit = 50, int $offset = 0): array
+    {
+        $dataClass = $this->getLaborOrderDataClass();
+        $rows = [];
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_STATUS' => LaborExchangeConfig::STATUS_OPEN,
+                '=UF_ORDER_PURPOSE' => $purpose,
+            ],
+            'order' => ['ID' => 'DESC'],
+            'limit' => $limit,
+            'offset' => $offset,
+        ]);
+
+        while ($row = $response->fetch()) {
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function getOrdersByPosterUserIdAndPurpose(int $userId, string $purpose, int $limit = 50): array
+    {
+        if ($userId <= 0) {
+            return [];
+        }
+
+        $dataClass = $this->getLaborOrderDataClass();
+        $rows = [];
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_POSTER_USER_ID' => $userId,
+                '=UF_ORDER_PURPOSE' => $purpose,
+            ],
+            'order' => ['ID' => 'DESC'],
+            'limit' => $limit,
+        ]);
+
+        while ($row = $response->fetch()) {
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
+    public static function resolveOrderPurpose(array $order): string
+    {
+        $purpose = trim((string)($order['UF_ORDER_PURPOSE'] ?? ''));
+
+        return $purpose !== '' ? $purpose : LaborExchangeConfig::ORDER_PURPOSE_LABOR;
+    }
+
+    public static function isEstateOrder(array $order): bool
+    {
+        return self::resolveOrderPurpose($order) === LaborExchangeConfig::ORDER_PURPOSE_ESTATE;
     }
 
     public function addOrder(array $fields): int
@@ -280,8 +345,21 @@ class LaborOrderRepository
 
     private function getLaborOrderDataClass(): string
     {
+        $this->ensureEstateOrderFields();
+
         return $this->laborOrderDataClass
             ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_LABOR_ORDER);
+    }
+
+    private function ensureEstateOrderFields(): void
+    {
+        if (self::$estateOrderFieldsReady) {
+            return;
+        }
+
+        (new GameEconomyHlInstaller())->upgradeLaborExchangeHl();
+        $this->laborOrderDataClass = null;
+        self::$estateOrderFieldsReady = true;
     }
 
     private function compileDataClass(string $tableName): string
