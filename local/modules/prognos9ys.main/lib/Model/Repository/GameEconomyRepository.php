@@ -41,6 +41,9 @@ class GameEconomyRepository
     /** @var bool */
     private static $premiumWorkQueueSchemaReady = false;
 
+    /** @var bool */
+    private static $screenVisitLogHlReady = false;
+
     /** @var string|null */
     private static ?string $walletDataClassShared = null;
 
@@ -164,9 +167,33 @@ class GameEconomyRepository
 
     public function getScreenVisitLogDataClass(): string
     {
+        $this->ensureScreenVisitLogHl();
+
         return $this->screenVisitLogDataClass ??= $this->compileDataClass(
             GameEconomyHlInstaller::TABLE_SCREEN_VISIT_LOG
         );
+    }
+
+    private function ensureScreenVisitLogHl(): void
+    {
+        if (self::$screenVisitLogHlReady) {
+            return;
+        }
+
+        if (!Loader::includeModule('highloadblock')) {
+            return;
+        }
+
+        $hlblock = HighloadBlockTable::getList([
+            'filter' => ['=TABLE_NAME' => GameEconomyHlInstaller::TABLE_SCREEN_VISIT_LOG],
+        ])->fetch();
+
+        if (!$hlblock) {
+            (new GameEconomyHlInstaller())->upgradeScreenVisitLogHl();
+            $this->screenVisitLogDataClass = null;
+        }
+
+        self::$screenVisitLogHlReady = true;
     }
 
     public function getExchangeListingDataClass(): string

@@ -22,6 +22,7 @@ try {
     $installer->upgradeWalletPremiumHl();
     $installer->upgradePremiumWorkQueueHl();
     $installer->upgradeWalletEquipmentHl();
+    $installer->upgradeScreenVisitLogHl();
     GameEconomyRepository::resetWalletDataClassCache();
     echo 'HL blocks installed:' . PHP_EOL;
     foreach ($result as $key => $value) {
