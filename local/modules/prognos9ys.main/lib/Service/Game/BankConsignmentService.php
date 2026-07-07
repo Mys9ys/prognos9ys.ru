@@ -62,6 +62,96 @@ class BankConsignmentService
         return $this->getConsignmentSettingsForBank($updated ?: $bank);
     }
 
+    public function getExchangeLiquidExposure(int $bankId): float
+    {
+        $map = $this->getExchangeLiquidExposureMap([$bankId]);
+
+        return (float)($map[$bankId] ?? 0.0);
+    }
+
+    /**
+     * @param int[] $bankIds
+     * @return array<int, float>
+     */
+    public function getExchangeLiquidExposureMap(array $bankIds): array
+    {
+        $bankIds = array_values(array_unique(array_filter(array_map('intval', $bankIds), static function (int $id): bool {
+            return $id > 0;
+        })));
+
+        $totals = [];
+        foreach ($bankIds as $bankId) {
+            $totals[$bankId] = 0.0;
+        }
+
+        if ($bankIds === []) {
+            return $totals;
+        }
+
+        $consignments = $this->repository->getActiveConsignmentsByBankIds($bankIds);
+
+        if ($consignments === []) {
+            return $totals;
+        }
+
+        $listingIds = [];
+        foreach ($consignments as $consignment) {
+            $listingId = (int)($consignment['UF_LISTING_ID'] ?? 0);
+            if ($listingId > 0) {
+                $listingIds[] = $listingId;
+            }
+        }
+
+        $listings = $this->repository->getExchangeListingsByIds($listingIds);
+
+        foreach ($consignments as $consignment) {
+            if ((string)($consignment['UF_STATUS'] ?? '') !== BankConsignmentConfig::STATUS_ACTIVE) {
+                continue;
+            }
+
+            $bankId = (int)($consignment['UF_BANK_ID'] ?? 0);
+            if ($bankId <= 0 || !array_key_exists($bankId, $totals)) {
+                continue;
+            }
+
+            $kind = (string)($consignment['UF_ITEM_KIND'] ?? '');
+            if (ExchangeConfig::resolveSettlementCurrency($kind) === GameEconomyConfig::CURRENCY_RUBLIUS) {
+                continue;
+            }
+
+            $listingId = (int)($consignment['UF_LISTING_ID'] ?? 0);
+            $listing = $listings[$listingId] ?? null;
+            if (!$listing) {
+                continue;
+            }
+
+            if ((string)($listing['UF_STATUS'] ?? '') !== ExchangeConfig::STATUS_ACTIVE) {
+                continue;
+            }
+
+            $qtyRemaining = (int)($listing['UF_QTY_REMAINING'] ?? 0);
+            if ($qtyRemaining <= 0) {
+                continue;
+            }
+
+            $instantPaid = round((float)($consignment['UF_INSTANT_PAID'] ?? 0), 1);
+            if ($instantPaid <= 0) {
+                $price = round((float)($listing['UF_PRICE_PER_UNIT'] ?? 0), 1);
+                $instantPaid = round(
+                    $price * $qtyRemaining * BankConsignmentConfig::INSTANT_PAYOUT_PERCENT / 100,
+                    1
+                );
+            } else {
+                $qtyTotal = max(1, (int)($consignment['UF_QTY'] ?? 1));
+                $instantPaid = round($instantPaid * $qtyRemaining / $qtyTotal, 1);
+            }
+
+            $totals[$bankId] = round($totals[$bankId] + $instantPaid, 1);
+        }
+
+        return $totals;
+    }
+
     /**
      * @return array{price_per_unit: float, instant_per_unit: float, chunks: int, total_instant: float}
      */

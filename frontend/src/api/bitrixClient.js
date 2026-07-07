@@ -458,6 +458,18 @@ export const apiActions = {
             'prognos9ys:main.GameController.updateBankConsignmentSettings',
             { userToken, enabled: enabled ? 1 : 0, categoriesJson }
         ),
+        openBankBranch: (userToken, citySlug) => runBitrixAction(
+            'prognos9ys:main.GameController.openBankBranch',
+            { userToken, citySlug }
+        ),
+        getCityBankBranches: (userToken, citySlug) => runBitrixAction(
+            'prognos9ys:main.GameController.getCityBankBranches',
+            { userToken, citySlug }
+        ),
+        adminOpenCityBankBranches: (userToken, citySlug) => runBitrixAction(
+            'prognos9ys:main.GameController.adminOpenCityBankBranches',
+            { userToken, citySlug }
+        ),
         getAchievements: (userToken) => runBitrixAction(
             'prognos9ys:main.GameController.getAchievements',
             { userToken }

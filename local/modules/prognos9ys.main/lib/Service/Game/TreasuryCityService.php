@@ -17,6 +17,9 @@ class TreasuryCityService
     ];
     private const BANK_BRANCH_PRESENCE_REF_TYPE = 'city_bank_branch_presence';
 
+    /** @var string[]|null */
+    private static $completeBankBranchCitySlugs = null;
+
     private CityRepository $cityRepository;
     private ProfessionRepository $professionRepository;
     private GameEconomyRepository $economyRepository;
@@ -113,6 +116,60 @@ class TreasuryCityService
         }
 
         return $this->getCityDetail($slug);
+    }
+
+    public function isCivicBuildingComplete(string $citySlug, string $recipeCode): bool
+    {
+        $citySlug = strtolower(trim($citySlug));
+        $recipeCode = trim($recipeCode);
+        if ($citySlug === '' || $recipeCode === '') {
+            return false;
+        }
+
+        foreach ($this->professionRepository->getConstructionProjectsByCity($citySlug) as $project) {
+            if ((string)($project['UF_RECIPE_CODE'] ?? '') !== $recipeCode) {
+                continue;
+            }
+
+            $status = (string)($project['UF_STATUS'] ?? 'building');
+            if ($status === 'complete') {
+                return true;
+            }
+
+            $recipe = EstateRecipesConfig::all()[$recipeCode] ?? null;
+            if ($recipe === null) {
+                return false;
+            }
+
+            $bom = (array)($recipe['components'] ?? []);
+            $stash = $this->professionRepository->decodeStashJson($project['UF_STASH_JSON'] ?? '{}');
+
+            return $this->calcRemaining($bom, $stash) === [];
+        }
+
+        return false;
+    }
+
+    /**
+     * @return string[]
+     */
+    public function listCitySlugsWithCompleteBankBranch(): array
+    {
+        if (self::$completeBankBranchCitySlugs !== null) {
+            return self::$completeBankBranchCitySlugs;
+        }
+
+        $slugs = [];
+        foreach ($this->professionRepository->getCompleteCityConstructionProjectsByRecipe('civic_bank_branch') as $project) {
+            $slug = strtolower(trim((string)($project['UF_CITY_SLUG'] ?? '')));
+            if ($slug !== '') {
+                $slugs[$slug] = $slug;
+            }
+        }
+
+        self::$completeBankBranchCitySlugs = array_values($slugs);
+
+        return self::$completeBankBranchCitySlugs;
     }
 
     /**
@@ -282,6 +339,7 @@ class TreasuryCityService
         }
 
         if ($isComplete && $recipeCode === 'civic_bank_branch') {
+            self::$completeBankBranchCitySlugs = null;
             $projectId = (int)($project['ID'] ?? 0);
             if ($projectId > 0) {
                 $alreadyPaid = $this->economyRepository

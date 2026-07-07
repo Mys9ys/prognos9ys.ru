@@ -24,9 +24,16 @@ class UserBankService
 
     public function listBanks(int $limit = 30): array
     {
+        $rows = $this->repository->getActiveUserBanks($limit);
+        $bankIds = array_map(static function (array $row): int {
+            return (int)($row['ID'] ?? 0);
+        }, $rows);
+        $exposureMap = (new BankConsignmentService($this->repository))->getExchangeLiquidExposureMap($bankIds);
+
         $banks = [];
-        foreach ($this->repository->getActiveUserBanks($limit) as $row) {
-            $banks[] = $this->formatBankPublic($row);
+        foreach ($rows as $row) {
+            $bankId = (int)($row['ID'] ?? 0);
+            $banks[] = $this->formatBankPublic($row, $exposureMap[$bankId] ?? 0.0);
         }
 
         return $banks;
@@ -40,6 +47,8 @@ class UserBankService
         }
 
         $bankId = (int)$row['ID'];
+        $exposureMap = (new BankConsignmentService($this->repository))->getExchangeLiquidExposureMap([$bankId]);
+
         $deposits = [];
         foreach ($this->repository->getActiveDepositsByBankId($bankId) as $deposit) {
             if (GovSupportDepositService::isGovSupportDeposit($deposit)) {
@@ -57,12 +66,14 @@ class UserBankService
             $loans[] = $this->enrichContractWithClient(BankLoanService::formatContract($loan));
         }
 
-        return array_merge($this->formatBankPublic($row), [
+        return array_merge($this->formatBankPublic($row, $exposureMap[$bankId] ?? 0.0), [
             'deposits' => $deposits,
             'loans' => $loans,
             'active_contracts' => count($deposits) + count($loans),
             'lifetime' => (new BankOperationsService($this->repository))->getLifetimeTotalsForBank($bankId),
             'consignment' => (new BankConsignmentService($this->repository))->getConsignmentSettingsForBank($row),
+            'branches' => (new BankBranchService($this->repository))->formatOpenedBranches($row),
+            'branch_opportunities' => (new BankBranchService($this->repository))->getOpenOpportunities($row),
         ]);
     }
 
@@ -91,6 +102,7 @@ class UserBankService
             'UF_OWNER_ID' => $userId,
             'UF_RESERVED' => $reserve,
             'UF_LIQUID' => 0,
+            'UF_BRANCH_CITIES' => '',
             'UF_ACTIVE' => GameEconomyConfig::USER_BANK_STATUS_ACTIVE,
             'UF_CONSIGNMENT_ENABLED' => 'Y',
             'UF_CONSIGNMENT_CATEGORIES' => BankConsignmentConfig::encodeCategoryFlags(
@@ -152,17 +164,24 @@ class UserBankService
         return ['closed' => true, 'bank_id' => $bankId, 'returned' => $payout];
     }
 
-    public function formatBankPublic(array $row): array
+    public function formatBankPublic(array $row, ?float $consignmentLiquid = null): array
     {
         $ownerId = (int)($row['UF_OWNER_ID'] ?? 0);
+        $bankId = (int)($row['ID'] ?? 0);
+
+        if ($consignmentLiquid === null) {
+            $consignmentLiquid = (new BankConsignmentService($this->repository))->getExchangeLiquidExposure($bankId);
+        }
 
         return [
-            'id' => (int)$row['ID'],
+            'id' => $bankId,
             'owner_id' => $ownerId,
             'owner_name' => $this->resolveUserName($ownerId),
             'reserved' => round((float)($row['UF_RESERVED'] ?? 0), 1),
             'liquid' => round((float)($row['UF_LIQUID'] ?? 0), 1),
+            'consignment_liquid' => round($consignmentLiquid, 1),
             'loanable' => $this->repository->getUserBankLoanableAmount($row),
+            'branches' => (new BankBranchService($this->repository))->formatOpenedBranches($row),
             'active' => ($row['UF_ACTIVE'] ?? '') === GameEconomyConfig::USER_BANK_STATUS_ACTIVE,
             'deposit_rate_percent' => GameEconomyConfig::DEPOSIT_INTEREST_PERCENT,
             'loan_rate_percent' => GameEconomyConfig::LOAN_INTEREST_PERCENT,

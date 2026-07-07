@@ -149,6 +149,7 @@ class TreasuryService
             'gov_support_early_close' => 'Досрочное закрытие гос. вклада',
             'exchange_commission' => 'Комиссия биржи',
             'city_bank_branch_presence' => 'Оплата прописки филиала банка (50 🪙)',
+            'bank_branch_presence' => 'Прописка филиала банка (владелец → казна)',
         ];
 
         return $map[$reason] ?? $reason;

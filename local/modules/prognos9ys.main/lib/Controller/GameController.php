@@ -10,6 +10,7 @@ use Prognos9ys\Main\Service\Game\AlbumCollectionBuyService;
 use Prognos9ys\Main\Service\Game\AlbumCraftService;
 use Prognos9ys\Main\Service\Game\AlbumRecipeService;
 use Prognos9ys\Main\Service\Game\AlbumService;
+use Prognos9ys\Main\Service\Game\BankBranchService;
 use Prognos9ys\Main\Service\Game\BankConsignmentService;
 use Prognos9ys\Main\Service\Game\BankContractLifecycleService;
 use Prognos9ys\Main\Service\Game\BankDepositService;
@@ -97,6 +98,9 @@ class GameController extends BaseController
             'forceCloseDeposit' => $this->getDefaultConfigureForPostToken(),
             'closeBank' => $this->getDefaultConfigureForPostToken(),
             'updateBankConsignmentSettings' => $this->getDefaultConfigureForPostToken(),
+            'openBankBranch' => $this->getDefaultConfigureForPostToken(),
+            'getCityBankBranches' => $this->getDefaultConfigureForPostToken(),
+            'adminOpenCityBankBranches' => $this->getDefaultConfigureForPostToken(),
             'getAchievements' => $this->getDefaultConfigureForPostToken(),
             'claimAchievement' => $this->getDefaultConfigureForPostToken(),
             'openWc26Chests' => $this->getDefaultConfigureForPostToken(),
@@ -1012,6 +1016,65 @@ class GameController extends BaseController
             'consignment' => $consignment,
             'bank' => (new UserBankService())->getMyBank($userId),
         ];
+    }
+
+    public function openBankBranchAction(string $citySlug = ''): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        try {
+            $result = (new BankBranchService())->openBranch($userId, $citySlug);
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 422);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok'], $result, [
+            'bank' => (new UserBankService())->getMyBank($userId),
+            'game' => (new GameProfileService())->getSummary($userId),
+        ]);
+    }
+
+    public function getCityBankBranchesAction(string $citySlug = ''): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        try {
+            $result = (new BankBranchService())->listBranchesInCity($citySlug);
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 422);
+        }
+
+        return array_merge(['status' => 'ok'], $result);
+    }
+
+    public function adminOpenCityBankBranchesAction(string $citySlug = ''): array
+    {
+        $actorId = TokenAuthService::getCurrentUserId();
+        if (!$actorId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        if (!(new ImpersonationService())->canImpersonate($actorId)) {
+            throw new ApiException('Нет доступа', 403);
+        }
+
+        try {
+            $result = (new BankBranchService())->adminOpenAllBranchesInCity($actorId, $citySlug);
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 422);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok'], $result);
     }
 
     public function moderatorBulkActionAction(string $bulkAction): array

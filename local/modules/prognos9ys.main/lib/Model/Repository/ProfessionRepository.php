@@ -859,6 +859,35 @@ class ProfessionRepository
         return $rows;
     }
 
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function getCompleteCityConstructionProjectsByRecipe(string $recipeCode): array
+    {
+        $recipeCode = trim($recipeCode);
+        if ($recipeCode === '') {
+            return [];
+        }
+
+        $dataClass = $this->getConstructionProjectDataClass();
+        $rows = [];
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_OWNER_USER_ID' => 0,
+                '!UF_CITY_SLUG' => false,
+                '=UF_RECIPE_CODE' => $recipeCode,
+                '@UF_STATUS' => ['complete', 'pending_fee'],
+            ],
+            'order' => ['UF_CITY_SLUG' => 'ASC', 'ID' => 'ASC'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
     public function ensureCityConstructionProject(string $citySlug, string $recipeCode, string $kind): array
     {
         $existing = $this->getCityConstructionProject($citySlug, $recipeCode);

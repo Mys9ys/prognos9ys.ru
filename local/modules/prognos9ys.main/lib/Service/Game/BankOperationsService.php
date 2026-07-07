@@ -8,6 +8,9 @@ use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
 
 class BankOperationsService
 {
+    private const OPERATIONS_CONTRACT_LIMIT = 120;
+    private const OPERATIONS_CONSIGNMENT_LIMIT = 80;
+
     private const REASON_LABELS = [
         'bank_reserve_lock' => 'Резерв при открытии банка',
         'bank_reserve_unlock' => 'Возврат резерва банка',
@@ -34,6 +37,7 @@ class BankOperationsService
         'bank_client_gov_interest' => 'Проценты гос. вклада в казну',
         'bank_client_gov_return' => 'Возврат гос. вклада в казну',
         'bank_consignment_payout' => 'Выплата за комиссионку',
+        'bank_branch_presence' => 'Прописка филиала банка',
         'bank_client_consignment_payout' => 'Выплата по комиссионке',
         'bank_client_consignment_sale' => 'Продажа комиссионки',
         'bank_exchange_sale' => 'Продажа с биржи',
@@ -64,6 +68,7 @@ class BankOperationsService
         'bank_client_gov_interest' => 'returns',
         'bank_client_gov_return' => 'returns',
         'bank_consignment_payout' => 'consignment',
+        'bank_branch_presence' => 'all',
         'bank_client_consignment_payout' => 'consignment',
         'bank_client_consignment_sale' => 'consignment',
         'bank_exchange_sale' => 'consignment',
@@ -106,9 +111,10 @@ class BankOperationsService
             $bankId = (int)$myBank['ID'];
             $depositIds = [];
             $loanIds = [];
-            $rolledBackDepositIds = $this->getRolledBackDepositIds($bankId);
+            $bankDeposits = $this->repository->getDepositsByBankId($bankId, self::OPERATIONS_CONTRACT_LIMIT);
+            $bankLoans = $this->repository->getLoansByBankId($bankId, self::OPERATIONS_CONTRACT_LIMIT);
 
-            foreach ($this->repository->getDepositsByBankId($bankId) as $deposit) {
+            foreach ($bankDeposits as $deposit) {
                 $depositIds[] = (int)$deposit['ID'];
                 foreach ($this->formatBankDepositEvents($deposit, $bankId) as $event) {
                     if (!isset($seenIds[$event['id']])) {
@@ -118,7 +124,7 @@ class BankOperationsService
                 }
             }
 
-            foreach ($this->repository->getLoansByBankId($bankId) as $loan) {
+            foreach ($bankLoans as $loan) {
                 $loanIds[] = (int)$loan['ID'];
                 foreach ($this->formatBankLoanEvents($loan, $bankId) as $event) {
                     if (!isset($seenIds[$event['id']])) {
@@ -127,6 +133,8 @@ class BankOperationsService
                     }
                 }
             }
+
+            $rolledBackDepositIds = $this->getRolledBackDepositIds($depositIds);
 
             foreach ($this->repository->getWalletTxByRefs('deposit', $depositIds, [
                 'bank_deposit_interest',
@@ -224,14 +232,18 @@ class BankOperationsService
     }
 
     /**
+     * @param int[] $depositIds
      * @return array<int, true>
      */
-    private function getRolledBackDepositIds(int $bankId): array
+    private function getRolledBackDepositIds(array $depositIds): array
     {
-        $depositIds = array_map(
-            static fn(array $row): int => (int)$row['ID'],
-            $this->repository->getDepositsByBankId($bankId)
-        );
+        $depositIds = array_values(array_filter(array_map('intval', $depositIds), static function (int $id): bool {
+            return $id > 0;
+        }));
+
+        if ($depositIds === []) {
+            return [];
+        }
 
         $rolledBack = [];
         foreach ($this->repository->getWalletTxByRefs('deposit', $depositIds, [
@@ -860,7 +872,7 @@ class BankOperationsService
     {
         $events = [];
 
-        foreach ($this->repository->getConsignmentsByBankId($bankId) as $consignment) {
+        foreach ($this->repository->getConsignmentsByBankId($bankId, self::OPERATIONS_CONSIGNMENT_LIMIT) as $consignment) {
             $consignmentId = (int)($consignment['ID'] ?? 0);
             if ($consignmentId <= 0) {
                 continue;
@@ -903,7 +915,7 @@ class BankOperationsService
         $events = [];
         $inventory = new ExchangeInventoryService($this->repository);
 
-        foreach ($this->repository->getExchangeTradesForBankId($bankId, 300) as $trade) {
+        foreach ($this->repository->getExchangeTradesForBankId($bankId, min(80, self::OPERATIONS_CONSIGNMENT_LIMIT)) as $trade) {
             $tradeId = (int)($trade['ID'] ?? 0);
             if ($tradeId <= 0) {
                 continue;

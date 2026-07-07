@@ -80,8 +80,9 @@
           </div>
           <div
             class="cell civic"
-            :class="civicClass('civic_bank_branch')"
+            :class="[civicClass('civic_bank_branch'), { clickable: isBankCellClickable }]"
             style="grid-column: 8; grid-row: 1"
+            @click="onBankClick"
           >
             <span>{{ bankLabel }}</span>
           </div>
@@ -113,8 +114,8 @@
       >
         <div
           class="building_head"
-          :class="{ clickable: building.needed_items?.length }"
-          @click="toggleBuilding(building.recipe_code)"
+          :class="{ clickable: building.needed_items?.length || isBankBuildingClickable(building) }"
+          @click="onBuildingHeadClick(building)"
         >
           <span>{{ building.label }}</span>
           <span class="building_head_meta">
@@ -234,7 +235,7 @@ const RIGHT_PLOT_COL = 10;
 
 export default {
   name: 'EstateCityStreetMap',
-  emits: ['claim-plot', 'plot-info', 'plot-view', 'donate-component', 'donate-project-all', 'build-project', 'order-component', 'order-project-all'],
+  emits: ['claim-plot', 'plot-info', 'plot-view', 'donate-component', 'donate-project-all', 'build-project', 'order-component', 'order-project-all', 'bank-branches'],
   props: {
     city: {
       type: Object,
@@ -291,6 +292,9 @@ export default {
     },
     hallLabel() {
       return this.civicLabel('civic_city_hall', 'Управа');
+    },
+    isBankCellClickable() {
+      return this.isBankBuildingComplete();
     },
     buildingByCode() {
       const map = {};
@@ -352,6 +356,30 @@ export default {
     },
     isBuildingExpanded(recipeCode) {
       return Boolean(this.expandedBuildings[String(recipeCode || '')]);
+    },
+    isBankBuildingComplete(building = null) {
+      const row = building || this.buildingByCode.civic_bank_branch;
+      if (!row) {
+        return false;
+      }
+      return row.status === 'complete' || Number(row.progress_pct || 0) >= 100;
+    },
+    isBankBuildingClickable(building) {
+      return String(building?.recipe_code || '') === 'civic_bank_branch'
+        && this.isBankBuildingComplete(building);
+    },
+    onBuildingHeadClick(building) {
+      if (this.isBankBuildingClickable(building)) {
+        this.$emit('bank-branches');
+        return;
+      }
+      this.toggleBuilding(building.recipe_code);
+    },
+    onBankClick() {
+      if (!this.isBankCellClickable || this.loading) {
+        return;
+      }
+      this.$emit('bank-branches');
     },
     toggleBuilding(recipeCode) {
       const key = String(recipeCode || '');
@@ -710,6 +738,10 @@ export default {
     border-color: fade(#9ee09e, 75%);
     color: #9ee09e;
     background: fade(#9ee09e, 8%);
+  }
+
+  &.clickable {
+    cursor: pointer;
   }
 }
 

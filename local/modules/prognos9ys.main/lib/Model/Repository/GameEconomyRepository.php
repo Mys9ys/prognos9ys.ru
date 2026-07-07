@@ -44,6 +44,9 @@ class GameEconomyRepository
     /** @var bool */
     private static $screenVisitLogHlReady = false;
 
+    /** @var bool */
+    private static $userBankHlReady = false;
+
     /** @var string|null */
     private static ?string $walletDataClassShared = null;
 
@@ -184,16 +187,24 @@ class GameEconomyRepository
             return;
         }
 
-        $hlblock = HighloadBlockTable::getList([
-            'filter' => ['=TABLE_NAME' => GameEconomyHlInstaller::TABLE_SCREEN_VISIT_LOG],
-        ])->fetch();
-
-        if (!$hlblock) {
-            (new GameEconomyHlInstaller())->upgradeScreenVisitLogHl();
-            $this->screenVisitLogDataClass = null;
-        }
+        (new GameEconomyHlInstaller())->upgradeScreenVisitLogHl();
+        $this->screenVisitLogDataClass = null;
 
         self::$screenVisitLogHlReady = true;
+    }
+
+    private function ensureUserBankHl(): void
+    {
+        if (self::$userBankHlReady) {
+            return;
+        }
+
+        if (!Loader::includeModule('highloadblock')) {
+            return;
+        }
+
+        (new GameEconomyHlInstaller())->ensureUserBankExtensionFields();
+        self::$userBankHlReady = true;
     }
 
     public function getExchangeListingDataClass(): string
@@ -805,6 +816,7 @@ class GameEconomyRepository
                     'bank_loan_repay',
                     'bank_loan_interest',
                     'bank_consignment_payout',
+                    'bank_branch_presence',
                 ],
             ],
             'order' => ['UF_CREATED_AT' => 'DESC', 'ID' => 'DESC'],
@@ -2584,6 +2596,7 @@ class GameEconomyRepository
                 'UF_SCREEN',
                 'UF_IS_GUEST',
                 'UF_USER_ID',
+                'UF_USER_NAME',
                 'UF_IP',
                 'UF_VISITED_AT',
                 'UF_DEVICE',
@@ -3003,9 +3016,12 @@ class GameEconomyRepository
         $listingMeta = [];
         $listingIds = [];
 
+        $listingScanLimit = max($limit * 4, 120);
         $listingResponse = $listingClass::getList([
             'filter' => ['=UF_SELLER_BANK_ID' => $bankId],
             'select' => ['ID', 'UF_ORIGINAL_USER_ID', 'UF_CONSIGNMENT_ID'],
+            'order' => ['ID' => 'DESC'],
+            'limit' => min($listingScanLimit, 500),
         ]);
 
         while ($listingRow = $listingResponse->fetch()) {
@@ -4003,6 +4019,8 @@ class GameEconomyRepository
 
     public function getUserBankDataClass(): string
     {
+        $this->ensureUserBankHl();
+
         return $this->compileDataClass(GameEconomyHlInstaller::TABLE_USER_BANK);
     }
 
@@ -4218,9 +4236,9 @@ class GameEconomyRepository
         ], ['ID' => 'DESC']);
     }
 
-    public function getDepositsByBankId(int $bankId): array
+    public function getDepositsByBankId(int $bankId, int $limit = 0): array
     {
-        return $this->getDepositsByFilter(['=UF_BANK_ID' => $bankId], ['ID' => 'DESC']);
+        return $this->getDepositsByFilter(['=UF_BANK_ID' => $bankId], ['ID' => 'DESC'], $limit);
     }
 
     public function getAllActiveDeposits(): array
@@ -4244,14 +4262,18 @@ class GameEconomyRepository
             + count($this->getActiveLoansByBankId($bankId));
     }
 
-    private function getDepositsByFilter(array $filter, array $order = ['ID' => 'ASC']): array
+    private function getDepositsByFilter(array $filter, array $order = ['ID' => 'ASC'], int $limit = 0): array
     {
         $dataClass = $this->getBankDepositDataClass();
         $rows = [];
-        $response = $dataClass::getList([
+        $params = [
             'filter' => $filter,
             'order' => $order,
-        ]);
+        ];
+        if ($limit > 0) {
+            $params['limit'] = $limit;
+        }
+        $response = $dataClass::getList($params);
 
         while ($row = $response->fetch()) {
             $rows[] = $row;
@@ -4319,9 +4341,9 @@ class GameEconomyRepository
         ]);
     }
 
-    public function getLoansByBankId(int $bankId): array
+    public function getLoansByBankId(int $bankId, int $limit = 0): array
     {
-        return $this->getLoansByFilter(['=UF_BANK_ID' => $bankId], ['ID' => 'DESC']);
+        return $this->getLoansByFilter(['=UF_BANK_ID' => $bankId], ['ID' => 'DESC'], $limit);
     }
 
     public function getLoansByUserId(int $userId): array
@@ -4366,14 +4388,18 @@ class GameEconomyRepository
         return $map;
     }
 
-    private function getLoansByFilter(array $filter, array $order = ['ID' => 'ASC']): array
+    private function getLoansByFilter(array $filter, array $order = ['ID' => 'ASC'], int $limit = 0): array
     {
         $dataClass = $this->getBankLoanDataClass();
         $rows = [];
-        $response = $dataClass::getList([
+        $params = [
             'filter' => $filter,
             'order' => $order,
-        ]);
+        ];
+        if ($limit > 0) {
+            $params['limit'] = $limit;
+        }
+        $response = $dataClass::getList($params);
 
         while ($row = $response->fetch()) {
             $rows[] = $row;
@@ -5000,6 +5026,36 @@ class GameEconomyRepository
     }
 
     /**
+     * @param int[] $ids
+     * @return array<int, array<string, mixed>>
+     */
+    public function getExchangeListingsByIds(array $ids): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static function (int $id): bool {
+            return $id > 0;
+        })));
+
+        if ($ids === []) {
+            return [];
+        }
+
+        $dataClass = $this->getExchangeListingDataClass();
+        $rows = [];
+        $response = $dataClass::getList([
+            'filter' => ['@ID' => $ids],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $listingId = (int)($row['ID'] ?? 0);
+            if ($listingId > 0) {
+                $rows[$listingId] = $row;
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
      * Активные лоты материалов на бирже: код → остаток штук.
      *
      * @return array<string, int>
@@ -5396,6 +5452,38 @@ class GameEconomyRepository
             'filter' => ['=UF_BANK_ID' => $bankId],
             'order' => ['UF_CREATED_AT' => 'DESC', 'ID' => 'DESC'],
             'limit' => max(1, min($limit, 500)),
+        ]);
+
+        while ($row = $response->fetch()) {
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param int[] $bankIds
+     * @return array<int, array<string, mixed>>
+     */
+    public function getActiveConsignmentsByBankIds(array $bankIds, int $limit = 2000): array
+    {
+        $bankIds = array_values(array_unique(array_filter(array_map('intval', $bankIds), static function (int $id): bool {
+            return $id > 0;
+        })));
+
+        if ($bankIds === []) {
+            return [];
+        }
+
+        $dataClass = $this->getBankConsignmentDataClass();
+        $rows = [];
+        $response = $dataClass::getList([
+            'filter' => [
+                '@UF_BANK_ID' => $bankIds,
+                '=UF_STATUS' => BankConsignmentConfig::STATUS_ACTIVE,
+            ],
+            'order' => ['UF_CREATED_AT' => 'DESC', 'ID' => 'DESC'],
+            'limit' => max(1, min($limit, 5000)),
         ]);
 
         while ($row = $response->fetch()) {

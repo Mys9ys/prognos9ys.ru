@@ -130,6 +130,7 @@ class GameEconomyHlInstaller
             'UF_OWNER_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
             'UF_RESERVED' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
             'UF_LIQUID' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
+            'UF_BRANCH_CITIES' => ['USER_TYPE_ID' => 'string'],
             'UF_ACTIVE' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
             'UF_CONSIGNMENT_ENABLED' => ['USER_TYPE_ID' => 'boolean'],
             'UF_CONSIGNMENT_CATEGORIES' => ['USER_TYPE_ID' => 'string'],
@@ -443,6 +444,7 @@ class GameEconomyHlInstaller
         $this->ensureHlBlock('Prognos9ysUserBank', self::TABLE_USER_BANK, [
             'UF_CONSIGNMENT_ENABLED' => ['USER_TYPE_ID' => 'boolean'],
             'UF_CONSIGNMENT_CATEGORIES' => ['USER_TYPE_ID' => 'string'],
+            'UF_BRANCH_CITIES' => ['USER_TYPE_ID' => 'string'],
         ]);
 
         $this->ensureHlBlock('Prognos9ysExchangeListing', self::TABLE_EXCHANGE_LISTING, [
@@ -474,6 +476,22 @@ class GameEconomyHlInstaller
         return [
             'bank_consignment_hl_id' => $consignmentHlId,
         ];
+    }
+
+    /**
+     * Лёгкая миграция полей user_bank без seed — безопасно на каждый запрос.
+     */
+    public function ensureUserBankExtensionFields(): void
+    {
+        if (!Loader::includeModule('highloadblock')) {
+            return;
+        }
+
+        $this->ensureHlBlock('Prognos9ysUserBank', self::TABLE_USER_BANK, [
+            'UF_CONSIGNMENT_ENABLED' => ['USER_TYPE_ID' => 'boolean'],
+            'UF_CONSIGNMENT_CATEGORIES' => ['USER_TYPE_ID' => 'string'],
+            'UF_BRANCH_CITIES' => ['USER_TYPE_ID' => 'string'],
+        ]);
     }
 
     private function seedConsignmentEnabledForActiveBanks(): void
@@ -866,6 +884,7 @@ class GameEconomyHlInstaller
             'UF_SCREEN' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
             'UF_IS_GUEST' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
             'UF_USER_ID' => ['USER_TYPE_ID' => 'integer'],
+            'UF_USER_NAME' => ['USER_TYPE_ID' => 'string'],
             'UF_IP' => ['USER_TYPE_ID' => 'string'],
             'UF_VISITED_AT' => ['USER_TYPE_ID' => 'datetime', 'MANDATORY' => 'Y'],
             'UF_USER_AGENT' => ['USER_TYPE_ID' => 'string'],

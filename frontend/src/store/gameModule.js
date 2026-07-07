@@ -269,6 +269,14 @@ export const gameModule = {
             }
             return apiActions.game.getGovSupportDeposits(userToken);
         },
+        async openBankBranch(ctx, citySlug) {
+            const userToken = ctx.rootState.auth?.authData?.token;
+            if (!userToken) {
+                throw new Error('Требуется авторизация');
+            }
+            const res = await apiActions.game.openBankBranch(userToken, citySlug);
+            return applyGamePayload(ctx, res);
+        },
     },
     namespaced: true,
 };

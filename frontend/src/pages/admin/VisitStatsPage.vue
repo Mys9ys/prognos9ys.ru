@@ -53,6 +53,7 @@
               <th>Просмотры</th>
               <th>Уник. гости (IP)</th>
               <th>Уник. игроки</th>
+              <th>Ники</th>
             </tr>
           </thead>
           <tbody>
@@ -61,6 +62,28 @@
               <td>{{ row.visits }}</td>
               <td>{{ row.unique_guests }}</td>
               <td>{{ row.unique_users }}</td>
+              <td class="players_cell">{{ formatPlayerNames(row.players) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="section_card">
+        <div class="section_title">Игроки</div>
+        <div v-if="!stats.top_players || !stats.top_players.length" class="hint">Пока нет данных</div>
+        <table v-else class="stats_table">
+          <thead>
+            <tr>
+              <th>Ник</th>
+              <th>Просмотры</th>
+              <th>Последний визит</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in stats.top_players" :key="row.user_id">
+              <td>{{ row.user_name }}</td>
+              <td>{{ row.visits }}</td>
+              <td>{{ formatDateTime(row.last_seen) }}</td>
             </tr>
           </tbody>
         </table>
@@ -182,6 +205,29 @@ export default {
         return iso;
       }
       return `${parts[2]}.${parts[1]}`;
+    },
+    formatDateTime(value) {
+      if (!value) {
+        return '—';
+      }
+      const [datePart, timePart] = String(value).split(' ');
+      if (!datePart) {
+        return value;
+      }
+      const formattedDate = this.formatDate(datePart);
+      if (!timePart) {
+        return formattedDate;
+      }
+      return `${formattedDate} ${timePart}`;
+    },
+    formatPlayerNames(players) {
+      if (!Array.isArray(players) || !players.length) {
+        return '—';
+      }
+      return players
+        .map((item) => item?.user_name)
+        .filter(Boolean)
+        .join(', ');
     },
     deviceLabel(code) {
       return DEVICE_LABELS[code] || code;
@@ -310,6 +356,13 @@ export default {
   font-family: monospace;
   word-break: break-all;
   color: @greenblur;
+}
+
+.players_cell {
+  font-size: 10px;
+  line-height: 1.35;
+  color: fade(@colorText, 88%);
+  word-break: break-word;
 }
 
 .device_list {

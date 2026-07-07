@@ -57,6 +57,7 @@
           @build-project="onBuildProject"
           @order-component="onOrderComponent"
           @order-project-all="onOrderProjectAll"
+          @bank-branches="onBankBranches"
         />
       </div>
       <div class="section_card" v-else-if="view === 'region'">
@@ -77,6 +78,31 @@
           class="estate_modal_preview"
         />
         <p v-if="estateModal.message" class="estate_modal_message">{{ estateModal.message }}</p>
+        <div v-if="estateModal.kind === 'bank-branches'" class="estate_modal_branches">
+          <p v-if="estateModal.bankBranchesLoading" class="estate_modal_meta">Загрузка филиалов…</p>
+          <template v-else>
+            <p v-if="!estateModal.buildingComplete" class="estate_modal_meta">
+              Госздание «Филиал банка» в этом городе ещё не построено.
+            </p>
+            <ul v-else-if="estateModal.bankBranches?.length" class="bank_branches_list">
+              <li
+                v-for="branch in estateModal.bankBranches"
+                :key="branch.bank_id"
+                class="bank_branch_row"
+              >
+                <span class="bank_branch_name">{{ branch.owner_name }}</span>
+                <span class="bank_branch_meta">банк #{{ branch.bank_id }}</span>
+              </li>
+            </ul>
+            <p v-else class="estate_modal_meta">Пока нет банков с филиалом в этом городе.</p>
+            <p
+              v-if="estateModal.buildingComplete && estateModal.pendingCount > 0"
+              class="estate_modal_meta"
+            >
+              Без филиала: {{ estateModal.pendingCount }} банк(ов).
+            </p>
+          </template>
+        </div>
         <div
           v-if="estateModal.showQtyPicker && estateModal.mode === 'confirm'"
           class="estate_modal_qty_row"
@@ -122,6 +148,28 @@
 
         <div class="estate_modal_actions">
           <button
+            v-if="estateModal.kind === 'bank-branches' && canImpersonate && estateModal.buildingComplete"
+            type="button"
+            class="modal_btn primary"
+            :disabled="estateModal.loading || estateModal.bankBranchesLoading || !estateModal.pendingCount"
+            @click="confirmAdminOpenBranches"
+          >
+            {{
+              estateModal.loading
+                ? 'Подождите…'
+                : `Открыть филиалы (${estateModal.pendingCount || 0})`
+            }}
+          </button>
+          <button
+            v-if="estateModal.kind === 'bank-branches' && !estateModal.loading"
+            type="button"
+            class="modal_btn"
+            :class="canImpersonate && estateModal.buildingComplete ? 'secondary' : 'primary'"
+            @click="closeEstateModal"
+          >
+            Закрыть
+          </button>
+          <button
             v-if="estateModal.mode === 'confirm' && !estateModal.loading"
             type="button"
             class="modal_btn secondary"
@@ -154,7 +202,7 @@
 </template>
 
 <script>
-import { mapState } from 'vuex';
+import { mapGetters, mapState } from 'vuex';
 import { apiActions } from '@/api/bitrixClient';
 import EstateWorldMap from '@/components/estate/EstateWorldMap.vue';
 import EstateRegionMap from '@/components/estate/EstateRegionMap.vue';
@@ -182,6 +230,7 @@ export default {
   },
   computed: {
     ...mapState('auth', ['authData']),
+    ...mapGetters('auth', ['canImpersonate']),
     selectedRegion() {
       if (!this.map?.regions || !this.selectedRegionId) {
         return null;
@@ -698,6 +747,7 @@ export default {
     },
     openEstateModal({
       mode,
+      kind = '',
       title,
       message = '',
       meta = '',
@@ -708,8 +758,13 @@ export default {
       orderQtyMax = 1,
       orderPayPerUnit = 0,
       onConfirm = null,
+      bankBranches = [],
+      bankBranchesLoading = false,
+      pendingCount = 0,
+      buildingComplete = false,
     }) {
       this.estateModal = {
+        kind,
         mode,
         title,
         message,
@@ -724,6 +779,10 @@ export default {
         loading: false,
         error: '',
         success: '',
+        bankBranches,
+        bankBranchesLoading,
+        pendingCount,
+        buildingComplete,
       };
     },
     resolveOrderModalQty() {
@@ -758,7 +817,9 @@ export default {
         this.cityError = message;
         return;
       }
-      this.estateModal.mode = 'alert';
+      if (this.estateModal.kind !== 'bank-branches') {
+        this.estateModal.mode = 'alert';
+      }
       this.estateModal.error = message;
       this.estateModal.success = '';
       this.estateModal.loading = false;
@@ -768,7 +829,9 @@ export default {
         this.cityMessage = message;
         return;
       }
-      this.estateModal.mode = 'alert';
+      if (this.estateModal.kind !== 'bank-branches') {
+        this.estateModal.mode = 'alert';
+      }
       this.estateModal.success = message;
       this.estateModal.error = '';
       this.estateModal.loading = false;
@@ -785,6 +848,74 @@ export default {
         await this.estateModal.onConfirm();
       } catch (e) {
         this.setModalError(e?.message || 'Ошибка выполнения');
+      } finally {
+        if (this.estateModal) {
+          this.estateModal.loading = false;
+        }
+      }
+    },
+    async onBankBranches() {
+      const token = this.authData?.token;
+      if (!token || !this.selectedSlug) {
+        return;
+      }
+
+      const cityName = this.cityMap?.city_name || this.selectedSlug;
+      this.openEstateModal({
+        kind: 'bank-branches',
+        mode: 'bank-branches',
+        title: 'Филиалы банков',
+        message: cityName,
+        bankBranches: [],
+        bankBranchesLoading: true,
+        pendingCount: 0,
+        buildingComplete: false,
+      });
+
+      try {
+        const data = await apiActions.game.getCityBankBranches(token, this.selectedSlug);
+        if (data?.status !== 'ok') {
+          throw new Error(data?.message || 'Не удалось загрузить филиалы');
+        }
+        if (!this.estateModal || this.estateModal.kind !== 'bank-branches') {
+          return;
+        }
+        this.estateModal.bankBranches = Array.isArray(data.branches) ? data.branches : [];
+        this.estateModal.pendingCount = Number(data.pending_count) || 0;
+        this.estateModal.buildingComplete = Boolean(data.building_complete);
+        this.estateModal.bankBranchesLoading = false;
+      } catch (e) {
+        if (this.estateModal?.kind === 'bank-branches') {
+          this.setModalError(e?.message || 'Ошибка загрузки филиалов');
+          this.estateModal.bankBranchesLoading = false;
+        }
+      }
+    },
+    async confirmAdminOpenBranches() {
+      const token = this.authData?.token;
+      if (!token || !this.selectedSlug || !this.canImpersonate || !this.estateModal) {
+        return;
+      }
+
+      this.estateModal.loading = true;
+      this.estateModal.error = '';
+      this.estateModal.success = '';
+      try {
+        const data = await apiActions.game.adminOpenCityBankBranches(token, this.selectedSlug);
+        if (data?.status !== 'ok') {
+          throw new Error(data?.message || 'Не удалось открыть филиалы');
+        }
+        this.estateModal.bankBranches = Array.isArray(data.branches) ? data.branches : [];
+        this.estateModal.pendingCount = Number(data.pending_count) || 0;
+        const opened = Number(data.opened_count) || 0;
+        const failed = Array.isArray(data.failed) ? data.failed.length : 0;
+        let message = `Открыто филиалов: ${opened}`;
+        if (failed > 0) {
+          message += `, ошибок: ${failed}`;
+        }
+        this.estateModal.success = message;
+      } catch (e) {
+        this.setModalError(e?.message || 'Ошибка массового открытия');
       } finally {
         if (this.estateModal) {
           this.estateModal.loading = false;
@@ -902,6 +1033,40 @@ export default {
   color: @colorBlur;
   line-height: 1.35;
   margin: 0 0 10px;
+}
+
+.estate_modal_branches {
+  margin-bottom: 8px;
+}
+
+.bank_branches_list {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.bank_branch_row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid fade(@colorBlur, 25%);
+  border-radius: 4px;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+
+.bank_branch_name {
+  color: @colorText;
+}
+
+.bank_branch_meta {
+  color: @colorBlur;
+  font-size: 10px;
+  white-space: nowrap;
 }
 
 .estate_modal_qty_row {

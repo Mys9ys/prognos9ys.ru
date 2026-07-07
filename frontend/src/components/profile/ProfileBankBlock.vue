@@ -101,7 +101,10 @@
               </span>
               <span>займ: {{ b.loanable ?? (b.reserved + b.liquid) }} <AppIcon name="prognobak" :size="14" /></span>
             </div>
-            <div class="meta">Резерв {{ b.reserved }} · вклады {{ b.liquid }} · +{{ b.deposit_rate_percent }}% / +{{ b.loan_rate_percent }}% за {{ b.term_matches }} матчей</div>
+            <div class="meta">Резерв {{ b.reserved }} · вклады {{ b.liquid }} · на бирже (комисс.) {{ b.consignment_liquid ?? 0 }} · +{{ b.deposit_rate_percent }}% / +{{ b.loan_rate_percent }}% за {{ b.term_matches }} матчей</div>
+            <div class="meta branches_meta" v-if="b.branches && b.branches.length">
+              Филиалы: {{ formatBranchNames(b.branches) }}
+            </div>
             <div class="actions">
               <button class="btn small" :disabled="loading" @click="onCreateDeposit(b.id)">
                 Вклад {{ depositAmount }} <AppIcon name="prognobak" :size="14" />
@@ -198,8 +201,9 @@
               @click="activeOpsTab = tab.id"
             >{{ tab.label }}</button>
           </div>
-          <button class="btn secondary" :disabled="loading" @click="loadOperations">Обновить</button>
-          <div v-if="!filteredOperations.length" class="hint">Пока нет операций в этой категории</div>
+          <button class="btn secondary" :disabled="loading || operationsLoading" @click="loadOperations">Обновить</button>
+          <div v-if="operationsLoading" class="hint">Загрузка операций…</div>
+          <div v-else-if="!filteredOperations.length" class="hint">Пока нет операций в этой категории</div>
           <div class="operation" v-for="op in filteredOperations" :key="op.id">
             <div class="operation_main">
               <span class="operation_label">{{ op.label }}</span>
@@ -226,6 +230,7 @@
           <div class="section_title">Мой банк</div>
           <div class="row"><span>Резерв (свои)</span><span>{{ myBank.reserved }} <AppIcon name="prognobak" :size="14" /></span></div>
           <div class="row"><span>Ликвидность (вклады)</span><span>{{ myBank.liquid }} <AppIcon name="prognobak" :size="14" /></span></div>
+          <div class="row"><span>На бирже (комиссионка)</span><span>{{ myBank.consignment_liquid ?? 0 }} <AppIcon name="prognobak" :size="14" /></span></div>
           <div class="row"><span>Доступно для займов</span><span>{{ myBank.loanable }} <AppIcon name="prognobak" :size="14" /></span></div>
           <div class="row"><span>Контракты</span><span>{{ myBank.active_contracts }}</span></div>
           <div class="lifetime_stats" v-if="myBank.lifetime">
@@ -297,10 +302,34 @@
             @click="onCloseBank"
           >Закрыть банк</button>
           <div class="owner_deposit_block" v-if="contractEvents.length">
-            <div class="hint">Вклад в свой банк пополняет ликвидность для выдачи займов (сумма как у всех — {{ depositAmount }} <AppIcon name="prognobak" :size="14" />).</div>
+            <div class="hint">Вклад в свой банк пополняет ликвидность для выдачи займов и комиссионки (сумма как у всех — {{ depositAmount }} <AppIcon name="prognobak" :size="14" />).</div>
             <button class="btn small" :disabled="loading" @click="onCreateDeposit(myBank.id)">
               Вклад в свой банк {{ depositAmount }} <AppIcon name="prognobak" :size="14" />
             </button>
+          </div>
+          <div class="branch_block" v-if="branchOpportunities.length || openedBranches.length">
+            <div class="subsection_title">Филиалы банка</div>
+            <div class="hint" v-if="openedBranches.length">
+              Открыты: {{ formatBranchNames(openedBranches) }}
+            </div>
+            <div v-if="!branchOpportunities.length && !openedBranches.length" class="hint">
+              Пока нет городов с построенным филиалом банка.
+            </div>
+            <div
+              v-for="city in branchOpportunities"
+              :key="'branch-' + city.slug"
+              class="branch_row"
+            >
+              <span>{{ city.city_name }}</span>
+              <button
+                type="button"
+                class="btn small"
+                :disabled="loading"
+                @click="onOpenBankBranch(city)"
+              >
+                Открыть филиал ({{ city.fee }} <AppIcon name="prognobak" :size="14" />)
+              </button>
+            </div>
           </div>
           <div class="consignment_block" v-if="consignmentSettings">
             <div class="subsection_title">Комиссионка</div>
@@ -370,6 +399,7 @@ export default {
       repayAllSummary: null,
       operations: [],
       operationsLoaded: false,
+      operationsLoading: false,
       activeOpsTab: 'all',
       activeBankContractTab: 'deposits',
       activeMyContractTab: 'deposits',
@@ -463,6 +493,12 @@ export default {
     consignmentSettings() {
       return this.myBank?.consignment || null;
     },
+    branchOpportunities() {
+      return this.myBank?.branch_opportunities || [];
+    },
+    openedBranches() {
+      return this.myBank?.branches || [];
+    },
   },
   watch: {
     contractEvents: {
@@ -529,6 +565,7 @@ export default {
       'forceCloseDeposit',
       'closeGovSupportDeposit',
       'updateBankConsignmentSettings',
+      'openBankBranch',
     ]),
     ...mapActions('auth', ['refreshGameInfo', 'impersonateStart']),
     formatSignedAmount(amount) {
@@ -538,6 +575,12 @@ export default {
     },
     formatAmount(amount) {
       return Number(amount ?? 0).toFixed(1).replace(/\.0$/, '');
+    },
+    formatBranchNames(branches) {
+      if (!Array.isArray(branches) || !branches.length) {
+        return '';
+      }
+      return branches.map((item) => item?.city_name || item?.slug).filter(Boolean).join(', ');
     },
     async refresh() {
       this.error = '';
@@ -592,12 +635,19 @@ export default {
       }
     },
     async loadOperations() {
+      if (this.operationsLoading) {
+        return;
+      }
+      this.operationsLoading = true;
       try {
         const res = await this.getBankOperations(30);
         this.operations = res.operations || [];
         this.operationsLoaded = true;
       } catch (e) {
         this.error = e.message || 'Не удалось загрузить операции';
+        this.operations = [];
+      } finally {
+        this.operationsLoading = false;
       }
     },
     async onOpenBank() {
@@ -736,6 +786,33 @@ export default {
         await this.refresh();
       } catch (e) {
         this.error = e.message || 'Не удалось сохранить настройки';
+      } finally {
+        this.loading = false;
+      }
+    },
+    async onOpenBankBranch(city) {
+      if (!city?.slug) {
+        return;
+      }
+
+      const fee = city.fee ?? 50;
+      const confirmed = window.confirm(
+        `Открыть филиал банка в городе «${city.city_name}» за ${fee} 🪙?`
+      );
+      if (!confirmed) {
+        return;
+      }
+
+      this.loading = true;
+      this.error = '';
+      this.message = '';
+      try {
+        await this.openBankBranch(city.slug);
+        this.message = `Филиал открыт: ${city.city_name}`;
+        await this.refreshGameInfo();
+        await this.refresh();
+      } catch (e) {
+        this.error = e.message || 'Не удалось открыть филиал';
       } finally {
         this.loading = false;
       }
@@ -987,10 +1064,24 @@ export default {
   }
 }
 
-.consignment_block {
+.consignment_block,
+.branch_block {
   margin-top: 12px;
   padding-top: 10px;
   border-top: 1px solid fade(@colorBlur, 25%);
+}
+
+.branch_row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+  font-size: 12px;
+}
+
+.branches_meta {
+  margin-top: 2px;
 }
 
 .consign_toggle,

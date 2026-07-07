@@ -15,6 +15,7 @@ class ScreenVisitLogService
     private const MAX_SCREEN_LEN = 255;
     private const MAX_UA_LEN = 255;
     private const MAX_REFERRER_LEN = 512;
+    private const MAX_USER_NAME_LEN = 100;
 
     private GameEconomyRepository $repository;
 
@@ -39,11 +40,13 @@ class ScreenVisitLogService
         $userAgent = $this->truncate((string)($userAgent ?? $this->resolveUserAgent()), self::MAX_UA_LEN);
         $referrer = $this->truncate((string)($referrer ?? ''), self::MAX_REFERRER_LEN);
         $isGuest = $userId <= 0;
+        $userName = $isGuest ? '' : $this->resolveUserDisplayName($userId);
 
         $this->repository->addScreenVisitLog([
             'UF_SCREEN' => $screen,
             'UF_IS_GUEST' => $isGuest ? 'Y' : 'N',
             'UF_USER_ID' => $isGuest ? 0 : $userId,
+            'UF_USER_NAME' => $userName,
             'UF_IP' => $ip,
             'UF_VISITED_AT' => new DateTime(),
             'UF_USER_AGENT' => $userAgent,
@@ -62,9 +65,11 @@ class ScreenVisitLogService
      *     date:string,
      *     visits:int,
      *     unique_guests:int,
-     *     unique_users:int
+     *     unique_users:int,
+     *     players:array<int,array{user_id:int,user_name:string}>
      *   }>,
      *   top_screens:array<int,array{screen:string,visits:int,guest_visits:int,user_visits:int}>,
+     *   top_players:array<int,array{user_id:int,user_name:string,visits:int,last_seen:string}>,
      *   devices:array<int,array{device:string,visits:int}>,
      *   truncated:bool
      * }
@@ -83,11 +88,17 @@ class ScreenVisitLogService
             'user_visits' => 0,
         ];
 
-        /** @var array<string, array{visits:int,guest_ips:array<string,bool>,user_ids:array<int,bool>}> */
+        /** @var array<string, array{visits:int,guest_ips:array<string,bool>,user_ids:array<int,bool>,players:array<int,array{user_id:int,user_name:string}>}> */
         $daily = [];
 
         /** @var array<string, array{visits:int,guest_visits:int,user_visits:int}> */
         $screens = [];
+
+        /** @var array<int, array{user_name:string,visits:int,last_seen:string}> */
+        $players = [];
+
+        /** @var array<int, bool> */
+        $missingNameUserIds = [];
 
         /** @var array<string, int> */
         $devices = [];
@@ -97,6 +108,7 @@ class ScreenVisitLogService
             $screen = (string)($row['UF_SCREEN'] ?? '');
             $ip = (string)($row['UF_IP'] ?? '');
             $userId = (int)($row['UF_USER_ID'] ?? 0);
+            $userName = trim((string)($row['UF_USER_NAME'] ?? ''));
             $device = (string)($row['UF_DEVICE'] ?? 'unknown');
             $visitedAt = $row['UF_VISITED_AT'] ?? null;
 
@@ -117,6 +129,7 @@ class ScreenVisitLogService
                     'visits' => 0,
                     'guest_ips' => [],
                     'user_ids' => [],
+                    'players' => [],
                 ];
             }
             $daily[$dateKey]['visits']++;
@@ -124,6 +137,33 @@ class ScreenVisitLogService
                 $daily[$dateKey]['guest_ips'][$ip] = true;
             } elseif (!$isGuest && $userId > 0) {
                 $daily[$dateKey]['user_ids'][$userId] = true;
+                if (!isset($daily[$dateKey]['players'][$userId])) {
+                    $daily[$dateKey]['players'][$userId] = [
+                        'user_id' => $userId,
+                        'user_name' => $userName,
+                    ];
+                } elseif ($userName !== '' && $daily[$dateKey]['players'][$userId]['user_name'] === '') {
+                    $daily[$dateKey]['players'][$userId]['user_name'] = $userName;
+                }
+
+                if (!isset($players[$userId])) {
+                    $players[$userId] = [
+                        'user_name' => $userName,
+                        'visits' => 0,
+                        'last_seen' => '',
+                    ];
+                } elseif ($userName !== '' && $players[$userId]['user_name'] === '') {
+                    $players[$userId]['user_name'] = $userName;
+                }
+                $players[$userId]['visits']++;
+                $seenAt = $this->formatDateTimeKey($visitedAt);
+                if ($seenAt !== '' && ($players[$userId]['last_seen'] === '' || $seenAt > $players[$userId]['last_seen'])) {
+                    $players[$userId]['last_seen'] = $seenAt;
+                }
+
+                if ($userName === '') {
+                    $missingNameUserIds[$userId] = true;
+                }
             }
 
             if ($screen !== '') {
@@ -148,15 +188,41 @@ class ScreenVisitLogService
             $devices[$device] = ($devices[$device] ?? 0) + 1;
         }
 
+        if ($missingNameUserIds) {
+            $resolvedNames = $this->resolveUserDisplayNames(array_keys($missingNameUserIds));
+            foreach ($players as $userId => &$player) {
+                if ($player['user_name'] === '' && isset($resolvedNames[$userId])) {
+                    $player['user_name'] = $resolvedNames[$userId];
+                }
+            }
+            unset($player);
+
+            foreach ($daily as &$item) {
+                foreach ($item['players'] as $userId => &$playerRow) {
+                    if ($playerRow['user_name'] === '' && isset($resolvedNames[$userId])) {
+                        $playerRow['user_name'] = $resolvedNames[$userId];
+                    }
+                }
+                unset($playerRow);
+            }
+            unset($item);
+        }
+
         ksort($daily);
 
         $dailyList = [];
         foreach ($daily as $date => $item) {
+            $playerList = array_values($item['players']);
+            usort($playerList, static function (array $a, array $b): int {
+                return strcasecmp((string)($a['user_name'] ?? ''), (string)($b['user_name'] ?? ''));
+            });
+
             $dailyList[] = [
                 'date' => $date,
                 'visits' => (int)$item['visits'],
                 'unique_guests' => count($item['guest_ips']),
                 'unique_users' => count($item['user_ids']),
+                'players' => $playerList,
             ];
         }
 
@@ -174,6 +240,30 @@ class ScreenVisitLogService
         });
         $topScreens = array_slice($topScreens, 0, 25);
 
+        $topPlayers = [];
+        foreach ($players as $userId => $item) {
+            $name = trim((string)($item['user_name'] ?? ''));
+            if ($name === '') {
+                $name = 'игрок #' . $userId;
+            }
+
+            $topPlayers[] = [
+                'user_id' => (int)$userId,
+                'user_name' => $name,
+                'visits' => (int)$item['visits'],
+                'last_seen' => (string)($item['last_seen'] ?? ''),
+            ];
+        }
+        usort($topPlayers, static function (array $a, array $b): int {
+            $byVisits = ($b['visits'] ?? 0) <=> ($a['visits'] ?? 0);
+            if ($byVisits !== 0) {
+                return $byVisits;
+            }
+
+            return strcasecmp((string)($a['user_name'] ?? ''), (string)($b['user_name'] ?? ''));
+        });
+        $topPlayers = array_slice($topPlayers, 0, 50);
+
         $deviceList = [];
         foreach ($devices as $device => $count) {
             $deviceList[] = [
@@ -190,6 +280,7 @@ class ScreenVisitLogService
             'totals' => $totals,
             'daily' => $dailyList,
             'top_screens' => $topScreens,
+            'top_players' => $topPlayers,
             'devices' => $deviceList,
             'truncated' => $truncated,
         ];
@@ -298,6 +389,77 @@ class ScreenVisitLogService
         }
 
         return '';
+    }
+
+    /**
+     * @param mixed $visitedAt
+     */
+    private function formatDateTimeKey($visitedAt): string
+    {
+        if ($visitedAt instanceof DateTime) {
+            return $visitedAt->format('Y-m-d H:i');
+        }
+
+        if ($visitedAt instanceof \DateTimeInterface) {
+            return $visitedAt->format('Y-m-d H:i');
+        }
+
+        if (is_string($visitedAt) && $visitedAt !== '') {
+            return substr($visitedAt, 0, 16);
+        }
+
+        return '';
+    }
+
+    private function resolveUserDisplayName(int $userId): string
+    {
+        if ($userId <= 0) {
+            return '';
+        }
+
+        $names = $this->resolveUserDisplayNames([$userId]);
+
+        return $names[$userId] ?? ('игрок #' . $userId);
+    }
+
+    /**
+     * @param int[] $userIds
+     * @return array<int, string>
+     */
+    private function resolveUserDisplayNames(array $userIds): array
+    {
+        $userIds = array_values(array_unique(array_filter(array_map('intval', $userIds), static function (int $id): bool {
+            return $id > 0;
+        })));
+
+        if (!$userIds) {
+            return [];
+        }
+
+        $names = [];
+        $response = \Bitrix\Main\UserTable::getList([
+            'filter' => ['@ID' => $userIds],
+            'select' => ['ID', 'LOGIN', 'NAME', 'LAST_NAME'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $userId = (int)($row['ID'] ?? 0);
+            if ($userId <= 0) {
+                continue;
+            }
+
+            $name = trim((string)($row['NAME'] ?? ''));
+            if ($name === '') {
+                $name = trim((string)($row['LOGIN'] ?? ''));
+            }
+            if ($name === '') {
+                $name = 'игрок #' . $userId;
+            }
+
+            $names[$userId] = $this->truncate($name, self::MAX_USER_NAME_LEN);
+        }
+
+        return $names;
     }
 
     private function maybePurgeOld(): void
