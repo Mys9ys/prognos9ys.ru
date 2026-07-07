@@ -207,14 +207,14 @@ export default {
 
 .period_label {
   font-size: 12px;
-  color: @colorBlur;
+  color: @colorText;
 }
 
 .period_select {
   margin-left: 6px;
   background: @DarkColorBG;
   color: @colorText;
-  border: 1px solid fade(@colorBlur, 40%);
+  border: 1px solid fade(@colorText, 35%);
   border-radius: 4px;
   padding: 4px 6px;
 }
@@ -243,6 +243,7 @@ export default {
 
 .summary_card {
   background: @DarkColorBG;
+  border: 1px solid fade(@colorText, 12%);
   border-radius: 5px;
   padding: 10px;
   text-align: center;
@@ -256,12 +257,13 @@ export default {
 
 .summary_label {
   font-size: 11px;
-  color: @colorBlur;
+  color: fade(@colorText, 82%);
   margin-top: 4px;
 }
 
 .section_card {
   background: @DarkColorBG;
+  border: 1px solid fade(@colorText, 12%);
   border-radius: 5px;
   padding: 8px;
   margin-bottom: 8px;
@@ -269,6 +271,7 @@ export default {
 
 .section_title {
   font-size: 13px;
+  font-weight: 700;
   color: @orange;
   margin-bottom: 8px;
 }
@@ -277,23 +280,36 @@ export default {
   width: 100%;
   font-size: 11px;
   border-collapse: collapse;
+  color: @colorText;
 
   th,
   td {
-    padding: 4px 6px;
-    border-bottom: 1px solid fade(@colorBlur, 25%);
+    padding: 5px 6px;
+    border-bottom: 1px solid fade(@colorText, 14%);
     text-align: left;
   }
 
   th {
-    color: @colorBlur;
+    color: fade(@colorText, 72%);
     font-weight: 600;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+
+  tbody tr:nth-child(even) {
+    background: fade(@colorText, 4%);
+  }
+
+  td {
+    color: @colorText;
   }
 }
 
 .mono {
   font-family: monospace;
   word-break: break-all;
+  color: @greenblur;
 }
 
 .device_list {
@@ -306,13 +322,14 @@ export default {
   display: flex;
   justify-content: space-between;
   font-size: 12px;
+  color: @colorText;
   padding: 4px 0;
-  border-bottom: 1px solid fade(@colorBlur, 20%);
+  border-bottom: 1px solid fade(@colorText, 14%);
 }
 
 .hint {
   font-size: 12px;
-  color: @colorBlur;
+  color: fade(@colorText, 78%);
 
   &.warn {
     color: @orange;

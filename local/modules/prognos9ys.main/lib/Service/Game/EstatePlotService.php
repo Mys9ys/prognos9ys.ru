@@ -165,6 +165,10 @@ class EstatePlotService
             throw new \RuntimeException('Этот этап уже завершён');
         }
 
+        if ((string)($project['UF_STATUS'] ?? '') === 'ready') {
+            throw new \RuntimeException('Материалы собраны — нажмите «Построить»');
+        }
+
         $recipe = EstateRecipesConfig::all()[$projectCode] ?? null;
         if (!$recipe) {
             throw new \RuntimeException('Рецепт этапа не найден');
@@ -297,6 +301,10 @@ class EstatePlotService
             $qty
         );
 
+        if ((string)($resolved['project']['UF_STATUS'] ?? '') === 'ready') {
+            throw new \RuntimeException('Материалы собраны — нажмите «Построить»');
+        }
+
         $stash = $resolved['stash'];
         $stashHave = (int)($stash[$componentCode] ?? 0);
         if ($stashHave <= 0) {
@@ -330,6 +338,137 @@ class EstatePlotService
     }
 
     /**
+     * Завершить этап стройки: списать собранные материалы и отметить этап построенным.
+     *
+     * @return array{
+     *   city_slug:string,
+     *   plot_number:int,
+     *   project_code:string,
+     *   project:array<string,mixed>,
+     *   projects:array<int,array<string,mixed>>
+     * }
+     */
+    public function completeProjectBuild(
+        int $userId,
+        string $citySlug,
+        int $plotNumber,
+        string $projectCode
+    ): array {
+        $citySlug = strtolower(trim($citySlug));
+        $projectCode = trim($projectCode);
+
+        if (
+            $userId <= 0
+            || $citySlug === ''
+            || $projectCode === ''
+            || !EstateCityConfig::isValidPlotNumber($plotNumber)
+        ) {
+            throw new \InvalidArgumentException('Некорректные параметры стройки');
+        }
+
+        if (!in_array($projectCode, self::ESTATE_STAGES, true)) {
+            throw new \InvalidArgumentException('Неизвестный этап стройки усадьбы');
+        }
+
+        $city = $this->cityRepository->getCityBySlug($citySlug);
+        if (!$city || (string)($city['UF_STATUS'] ?? '') !== EstateCityConfig::STATUS_OPEN) {
+            throw new \RuntimeException('Город недоступен для стройки');
+        }
+
+        $myPlot = $this->cityRepository->getUserPlotInCity((int)$city['ID'], $userId);
+        if ((int)($myPlot['UF_PLOT_NUMBER'] ?? 0) !== $plotNumber) {
+            throw new \RuntimeException('Этот участок вам не принадлежит');
+        }
+
+        $project = $this->professionRepository->getEstateConstructionProject($userId, $citySlug, $plotNumber, $projectCode);
+        if (!$project) {
+            throw new \RuntimeException('Проект усадьбы не инициализирован');
+        }
+
+        if ($projectCode === 'estate_house_1') {
+            $fence = $this->professionRepository->getEstateConstructionProject($userId, $citySlug, $plotNumber, 'estate_fence_1');
+            if (!$fence || (string)($fence['UF_STATUS'] ?? '') !== 'complete') {
+                throw new \RuntimeException('Сначала постройте забор');
+            }
+        }
+
+        $recipe = EstateRecipesConfig::all()[$projectCode] ?? null;
+        if (!$recipe) {
+            throw new \RuntimeException('Рецепт этапа не найден');
+        }
+
+        $bom = (array)($recipe['components'] ?? []);
+        $stash = $this->professionRepository->decodeStashJson((string)($project['UF_STASH_JSON'] ?? '{}'));
+        $remaining = $this->calcRemaining($bom, $stash);
+        $status = (string)($project['UF_STATUS'] ?? 'building');
+
+        if ($status === 'complete' && $remaining === [] && $stash === []) {
+            throw new \RuntimeException('Этот этап уже построен');
+        }
+
+        if ($remaining !== []) {
+            throw new \RuntimeException('Сначала соберите все материалы на стройке');
+        }
+
+        if ($status !== 'ready' && !($status === 'complete' && $stash !== [])) {
+            throw new \RuntimeException('Этап ещё не готов к постройке');
+        }
+
+        $this->professionRepository->updateConstructionProject((int)$project['ID'], [
+            'UF_STASH_JSON' => '{}',
+            'UF_STATUS' => 'complete',
+            'UF_PROGRESS' => 100,
+            'UF_UPDATED_AT' => new DateTime(),
+        ]);
+
+        $project = $this->professionRepository->getEstateConstructionProject($userId, $citySlug, $plotNumber, $projectCode) ?: $project;
+
+        return [
+            'city_slug' => $citySlug,
+            'plot_number' => $plotNumber,
+            'project_code' => $projectCode,
+            'project' => $this->formatProjectRow($project, $userId),
+            'projects' => $this->getPlotProjects($userId, $citySlug, $plotNumber),
+        ];
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $projects
+     */
+    public static function resolveVisualStageFromProjects(array $projects): string
+    {
+        $fence = null;
+        $house = null;
+
+        foreach ($projects as $project) {
+            $code = (string)($project['recipe_code'] ?? '');
+            if ($code === 'estate_fence_1') {
+                $fence = $project;
+            } elseif ($code === 'estate_house_1') {
+                $house = $project;
+            }
+        }
+
+        if ($house && (string)($house['status'] ?? '') === 'complete') {
+            return 'complete';
+        }
+
+        if ($fence && (string)($fence['status'] ?? '') === 'complete') {
+            return 'house_building';
+        }
+
+        if ($fence && (string)($fence['status'] ?? '') === 'ready') {
+            return 'fence_ready';
+        }
+
+        if ($fence || $house) {
+            return 'fence_building';
+        }
+
+        return 'claimed';
+    }
+
+    /**
      * @return array<int, array<string, mixed>>
      */
     public function getPlotProjects(int $userId, string $citySlug, int $plotNumber): array
@@ -359,9 +498,14 @@ class EstatePlotService
         $stash = $this->professionRepository->decodeStashJson((string)($project['UF_STASH_JSON'] ?? '{}'));
         $status = (string)($project['UF_STATUS'] ?? 'building');
         $remaining = $this->calcRemaining($bom, $stash);
-        if ($status !== 'complete' && $remaining === []) {
-            $status = 'complete';
+
+        if ($status === 'complete' && $remaining === [] && $stash !== []) {
+            $status = 'ready';
+        } elseif ($status !== 'complete' && $remaining === []) {
+            $status = 'ready';
         }
+
+        $canBuild = $status === 'ready';
 
         $inventory = [];
         foreach ($bom as $code => $_need) {
@@ -384,6 +528,7 @@ class EstatePlotService
             'recipe_code' => $recipeCode,
             'label' => (string)($recipe['label_ru'] ?? $recipe['label'] ?? $recipeCode),
             'status' => $status,
+            'can_build' => $canBuild,
             'progress_pct' => $status === 'complete' ? 100 : $this->calcProgressPct($bom, $stash),
             'needed' => $bom,
             'remaining' => $remaining,
@@ -489,12 +634,12 @@ class EstatePlotService
     private function persistProjectStash(array $project, array $bom, array $stash): void
     {
         $remaining = $this->calcRemaining($bom, $stash);
-        $isComplete = $remaining === [];
+        $status = $remaining === [] ? 'ready' : 'building';
 
         $this->professionRepository->updateConstructionProject((int)$project['ID'], [
             'UF_STASH_JSON' => $this->professionRepository->encodeStashJson($stash),
-            'UF_STATUS' => $isComplete ? 'complete' : 'building',
-            'UF_PROGRESS' => $isComplete ? 100 : (int)round($this->calcProgressPct($bom, $stash)),
+            'UF_STATUS' => $status,
+            'UF_PROGRESS' => (int)round($this->calcProgressPct($bom, $stash)),
             'UF_UPDATED_AT' => new DateTime(),
         ]);
     }

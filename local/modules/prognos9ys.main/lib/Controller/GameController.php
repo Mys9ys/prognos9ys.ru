@@ -74,6 +74,7 @@ class GameController extends BaseController
             'claimEstatePlot' => $this->getDefaultConfigureForPostToken(),
             'submitEstateBuildComponent' => $this->getDefaultConfigureForPostToken(),
             'withdrawEstateBuildComponent' => $this->getDefaultConfigureForPostToken(),
+            'completeEstateBuildProject' => $this->getDefaultConfigureForPostToken(),
             'startTreasuryCity' => $this->getDefaultConfigureForPostToken(),
             'getTreasuryShop' => $this->getDefaultConfigureForPostToken(),
             'buyTreasuryChest' => $this->getDefaultConfigureForPostToken(),
@@ -562,6 +563,39 @@ class GameController extends BaseController
                 $projectCode,
                 $componentCode,
                 $qty
+            );
+            $city = (new EstateMapService())->getCityStreetMap($citySlug, $userId);
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return [
+            'status' => 'ok',
+            'result' => $result,
+            'city' => $city,
+            'farm' => (new ProfessionFarmService())->getState($userId),
+            'game' => (new GameProfileService())->getWalletMutationSummary($userId),
+        ];
+    }
+
+    public function completeEstateBuildProjectAction(
+        string $citySlug,
+        int $plotNumber,
+        string $projectCode
+    ): array {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        try {
+            $result = (new EstatePlotService())->completeProjectBuild(
+                $userId,
+                $citySlug,
+                $plotNumber,
+                $projectCode
             );
             $city = (new EstateMapService())->getCityStreetMap($citySlug, $userId);
         } catch (\InvalidArgumentException $e) {

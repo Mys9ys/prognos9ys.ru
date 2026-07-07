@@ -285,6 +285,15 @@ export const apiActions = {
             'prognos9ys:main.GameController.withdrawEstateBuildComponent',
             { userToken, citySlug, plotNumber, projectCode, componentCode, qty }
         ),
+        completeEstateBuildProject: (
+            userToken,
+            citySlug,
+            plotNumber,
+            projectCode
+        ) => runBitrixAction(
+            'prognos9ys:main.GameController.completeEstateBuildProject',
+            { userToken, citySlug, plotNumber, projectCode }
+        ),
         startTreasuryCity: (userToken, citySlug) => runBitrixAction(
             'prognos9ys:main.GameController.startTreasuryCity',
             { userToken, citySlug }

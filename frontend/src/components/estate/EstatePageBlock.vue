@@ -51,9 +51,10 @@
           :loading="cityActionLoading"
           @claim-plot="onClaimPlot"
           @plot-info="onPlotInfo"
+          @plot-view="onPlotView"
           @donate-component="onDonateComponent"
           @donate-project-all="onDonateProjectAll"
-          @withdraw-component="onWithdrawComponent"
+          @build-project="onBuildProject"
           @order-component="onOrderComponent"
           @order-project-all="onOrderProjectAll"
         />
@@ -70,6 +71,11 @@
     >
       <div class="estate_modal" role="dialog">
         <div class="estate_modal_title">{{ estateModal.title }}</div>
+        <EstatePlotPreview
+          v-if="estateModal.plotView"
+          :stage="estateModal.plotView.stage"
+          class="estate_modal_preview"
+        />
         <p v-if="estateModal.message" class="estate_modal_message">{{ estateModal.message }}</p>
         <div
           v-if="estateModal.showQtyPicker && estateModal.mode === 'confirm'"
@@ -153,10 +159,11 @@ import { apiActions } from '@/api/bitrixClient';
 import EstateWorldMap from '@/components/estate/EstateWorldMap.vue';
 import EstateRegionMap from '@/components/estate/EstateRegionMap.vue';
 import EstateCityStreetMap from '@/components/estate/EstateCityStreetMap.vue';
+import EstatePlotPreview from '@/components/estate/EstatePlotPreview.vue';
 
 export default {
   name: 'EstatePageBlock',
-  components: { EstateWorldMap, EstateRegionMap, EstateCityStreetMap },
+  components: { EstateWorldMap, EstateRegionMap, EstateCityStreetMap, EstatePlotPreview },
   data() {
     return {
       loading: false,
@@ -349,6 +356,64 @@ export default {
         message,
       });
     },
+    onPlotView(payload = {}) {
+      const plotNumber = Number(payload?.plotNumber || 0);
+      const owner = payload?.ownerName || 'игрок';
+      const isMine = Boolean(payload?.isMine);
+      this.openEstateModal({
+        mode: 'alert',
+        title: `Участок №${plotNumber}`,
+        message: isMine ? 'Ваша усадьба на этой улице' : `Усадьба: ${owner}`,
+        plotView: {
+          stage: payload?.stage || 'claimed',
+        },
+      });
+    },
+    onBuildProject(payload) {
+      if (this.cityActionLoading) {
+        return;
+      }
+
+      this.openEstateModal({
+        mode: 'confirm',
+        title: 'Построить',
+        message: payload?.projectLabel || payload?.projectCode,
+        meta: 'Материалы будут списаны со стройки. Этап нельзя отменить.',
+        confirmLabel: 'Построить',
+        confirmClass: 'build',
+        onConfirm: () => this.executeBuildProject(payload),
+      });
+    },
+    async executeBuildProject({ plotNumber, projectCode, projectLabel }) {
+      const token = this.authData?.token;
+      if (!token || !this.selectedSlug || !plotNumber || !projectCode) {
+        return;
+      }
+
+      this.cityActionLoading = true;
+      this.cityError = '';
+      this.cityMessage = '';
+      try {
+        const data = await apiActions.game.completeEstateBuildProject(
+          token,
+          this.selectedSlug,
+          Number(plotNumber),
+          projectCode,
+        );
+        if (data?.status !== 'ok') {
+          throw new Error(data?.message || 'Не удалось построить');
+        }
+        this.cityMap = data.city || this.cityMap;
+        const label = projectLabel || projectCode;
+        this.cityMessage = `Построено: ${label}`;
+        await this.loadMap();
+        this.setModalSuccess(`Построено: ${label}`);
+      } catch (e) {
+        this.setModalError(e?.message || 'Ошибка постройки');
+      } finally {
+        this.cityActionLoading = false;
+      }
+    },
     onDonateComponent(payload) {
       if (this.cityActionLoading) {
         return;
@@ -409,69 +474,6 @@ export default {
         this.setModalSuccess(`Сдано: ${label} ×${qty || 1}`);
       } catch (e) {
         this.setModalError(e?.message || 'Ошибка сдачи компонента');
-      } finally {
-        this.cityActionLoading = false;
-      }
-    },
-    onWithdrawComponent(payload) {
-      if (this.cityActionLoading) {
-        return;
-      }
-
-      const project = this.findProject(payload?.projectCode);
-      const item = this.findProjectItem(project, payload?.componentCode);
-      const qty = Math.max(1, Number(payload?.qty || 1));
-      const stash = Number(item?.stash_have ?? project?.stash?.[payload?.componentCode] ?? 0);
-      const withdrawQty = Math.min(qty, stash);
-
-      this.openEstateModal({
-        mode: 'confirm',
-        title: 'Забрать в инвентарь',
-        message: `${item?.label || payload?.componentCode} ×${withdrawQty}`,
-        meta: `На стройке: ${stash} · вернётся в инвентарь`,
-        confirmLabel: 'Забрать',
-        confirmClass: 'withdraw',
-        onConfirm: () => this.executeWithdrawComponent({
-          ...payload,
-          qty: withdrawQty,
-          componentLabel: item?.label || payload?.componentCode,
-        }),
-      });
-    },
-    async executeWithdrawComponent({ plotNumber, projectCode, componentCode, qty, componentLabel }) {
-      const token = this.authData?.token;
-      if (
-        !token
-        || !this.selectedSlug
-        || !plotNumber
-        || !projectCode
-        || !componentCode
-      ) {
-        return;
-      }
-
-      this.cityActionLoading = true;
-      this.cityError = '';
-      this.cityMessage = '';
-      try {
-        const data = await apiActions.game.withdrawEstateBuildComponent(
-          token,
-          this.selectedSlug,
-          Number(plotNumber),
-          projectCode,
-          componentCode,
-          qty || 1,
-        );
-        if (data?.status !== 'ok') {
-          throw new Error(data?.message || 'Не удалось забрать компонент');
-        }
-        this.cityMap = data.city || this.cityMap;
-        const label = componentLabel || componentCode;
-        this.cityMessage = `Забрано в инвентарь: ${label} ×${qty || 1}`;
-        await this.loadMap();
-        this.setModalSuccess(`Забрано в инвентарь: ${label} ×${qty || 1}`);
-      } catch (e) {
-        this.setModalError(e?.message || 'Ошибка возврата компонента');
       } finally {
         this.cityActionLoading = false;
       }
@@ -891,6 +893,10 @@ export default {
   white-space: pre-line;
 }
 
+.estate_modal_preview {
+  margin-bottom: 10px;
+}
+
 .estate_modal_meta {
   font-size: 11px;
   color: @colorBlur;
@@ -997,6 +1003,11 @@ export default {
   &.withdraw {
     border-color: fade(#a67c52, 60%);
     background: fade(#6b4428, 22%);
+  }
+
+  &.build {
+    border-color: fade(@orange, 75%);
+    background: fade(@orange, 28%);
   }
 
   &.order {

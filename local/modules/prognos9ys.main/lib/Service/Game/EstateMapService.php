@@ -152,27 +152,11 @@ class EstateMapService
             $myProjects = (new EstatePlotService())->getPlotProjects($userId, $slug, $myPlotNumber);
         }
 
-        $myStage = 'none';
-        if ($myProjects !== []) {
-            $fence = null;
-            $house = null;
-            foreach ($myProjects as $project) {
-                if (($project['recipe_code'] ?? '') === 'estate_fence_1') {
-                    $fence = $project;
-                } elseif (($project['recipe_code'] ?? '') === 'estate_house_1') {
-                    $house = $project;
-                }
-            }
+        $myStage = $myProjects !== []
+            ? EstatePlotService::resolveVisualStageFromProjects($myProjects)
+            : 'none';
 
-            if (($house['status'] ?? '') === 'complete') {
-                $myStage = 'complete';
-            } elseif (($fence['status'] ?? '') === 'complete') {
-                $myStage = 'house_building';
-            } else {
-                $myStage = 'fence_building';
-            }
-        }
-
+        $plotStageCache = [];
         $plots = [];
         for ($num = 1; $num <= EstateCityConfig::TOTAL_PLOTS; $num++) {
             $plotRow = $plotsByNumber[$num] ?? null;
@@ -180,7 +164,16 @@ class EstateMapService
             $isMine = $userId > 0 && $ownerId === $userId;
             $estateStage = 'none';
             if ($ownerId > 0) {
-                $estateStage = $isMine ? $myStage : 'claimed';
+                if ($isMine) {
+                    $estateStage = $myStage;
+                } else {
+                    $cacheKey = $ownerId . ':' . $num;
+                    if (!isset($plotStageCache[$cacheKey])) {
+                        $ownerProjects = (new EstatePlotService())->getPlotProjects($ownerId, $slug, $num);
+                        $plotStageCache[$cacheKey] = EstatePlotService::resolveVisualStageFromProjects($ownerProjects);
+                    }
+                    $estateStage = $plotStageCache[$cacheKey];
+                }
             }
             $plots[] = [
                 'number' => $num,

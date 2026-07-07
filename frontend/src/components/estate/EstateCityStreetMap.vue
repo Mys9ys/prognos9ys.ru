@@ -22,6 +22,7 @@
             @click="onPlotClick(plot)"
           >
             <span class="plot_num">{{ plot.number }}</span>
+            <span v-if="plot.claimed" class="plot_estate_icon" :class="'stage_' + (plot.estate_stage || 'claimed')" />
           </div>
           <div
             v-for="(plot, index) in plotsOddBottom"
@@ -33,6 +34,7 @@
             @click="onPlotClick(plot)"
           >
             <span class="plot_num">{{ plot.number }}</span>
+            <span v-if="plot.claimed" class="plot_estate_icon" :class="'stage_' + (plot.estate_stage || 'claimed')" />
           </div>
 
           <!-- Низ (сторона управы): чётные -->
@@ -46,6 +48,7 @@
             @click="onPlotClick(plot)"
           >
             <span class="plot_num">{{ plot.number }}</span>
+            <span v-if="plot.claimed" class="plot_estate_icon" :class="'stage_' + (plot.estate_stage || 'claimed')" />
           </div>
           <div
             v-for="(plot, index) in plotsEvenBottom"
@@ -57,6 +60,7 @@
             @click="onPlotClick(plot)"
           >
             <span class="plot_num">{{ plot.number }}</span>
+            <span v-if="plot.claimed" class="plot_estate_icon" :class="'stage_' + (plot.estate_stage || 'claimed')" />
           </div>
 
           <!-- Вертикальные дороги -->
@@ -155,8 +159,16 @@
         <div class="building_head">
           <span>{{ project.label || project.code }}</span>
           <div class="building_head_right">
-            <span>{{ project.status === 'complete' ? 'Готово' : (project.progress_pct || 0) + '%' }}</span>
+            <span>{{ projectStatusLabel(project) }}</span>
             <div class="project_actions" v-if="canProjectActions(project)">
+              <button
+                v-if="canBuildProject(project)"
+                type="button"
+                class="build_btn"
+                @click="onBuildProject(project)"
+              >
+                Построить
+              </button>
               <button
                 type="button"
                 class="donate_btn"
@@ -185,7 +197,7 @@
             <span v-if="canDonate(project, item)" class="inventory_badge" :class="{ empty: !hasInventory(project, item) }">
               в инвентаре {{ userHave(project, item) }}
             </span>
-            <span v-if="stashHave(project, item) > 0" class="stash_badge">
+            <span v-if="stashHave(project, item) > 0 && project.status === 'building'" class="stash_badge">
               на стройке {{ stashHave(project, item) }}
             </span>
             <div class="row_actions">
@@ -198,14 +210,6 @@
                 @click="onDonate(project, item, 1)"
               >
                 Сдать
-              </button>
-              <button
-                v-if="canWithdraw(project, item)"
-                type="button"
-                class="withdraw_btn"
-                @click="onWithdraw(project, item, 1)"
-              >
-                Забрать
               </button>
               <button
                 v-if="canOrder(project, item)"
@@ -230,7 +234,7 @@ const RIGHT_PLOT_COL = 10;
 
 export default {
   name: 'EstateCityStreetMap',
-  emits: ['claim-plot', 'plot-info', 'donate-component', 'donate-project-all', 'withdraw-component', 'order-component', 'order-project-all'],
+  emits: ['claim-plot', 'plot-info', 'plot-view', 'donate-component', 'donate-project-all', 'build-project', 'order-component', 'order-project-all'],
   props: {
     city: {
       type: Object,
@@ -320,21 +324,26 @@ export default {
     },
     plotClass(plot) {
       const claimed = Boolean(plot.claimed);
+      const stage = String(plot.estate_stage || '');
       return {
         mine: plot.is_mine,
         occupied: claimed && !plot.is_mine,
         free: this.city?.is_open && !claimed,
-        clickable: this.city?.is_open && !claimed && !this.loading,
+        clickable: this.city?.is_open && !this.loading,
+        estate_claimed: claimed && stage === 'claimed',
+        estate_fence: stage === 'fence_building' || stage === 'fence_ready',
+        estate_house: stage === 'house_building',
+        estate_done: stage === 'complete',
       };
     },
     plotTitle(plot) {
       if (plot.is_mine) {
-        return `Ваш участок №${plot.number}`;
+        return `Ваш участок №${plot.number} (клик: вид усадьбы)`;
       }
       if (plot.claimed) {
         return plot.owner_name
-          ? `Участок №${plot.number}: ${plot.owner_name}`
-          : `Занят №${plot.number}`;
+          ? `Участок №${plot.number}: ${plot.owner_name} (клик: вид усадьбы)`
+          : `Занят №${plot.number} (клик: вид усадьбы)`;
       }
       if (this.city?.is_open) {
         return `Свободен №${plot.number} (клик: занять)`;
@@ -365,20 +374,16 @@ export default {
         return;
       }
 
-      if (plot.claimed && !plot.is_mine) {
-        this.$emit('plot-info', {
-          type: 'occupied',
-          message: `Участок №${plot.number} уже занят (${plot.owner_name || 'другой игрок'})`,
+      if (plot.claimed) {
+        this.$emit('plot-view', {
+          plotNumber: Number(plot.number),
+          isMine: Boolean(plot.is_mine),
+          ownerName: plot.owner_name || '',
+          stage: plot.estate_stage || 'claimed',
         });
         return;
       }
-      if (plot.claimed && plot.is_mine) {
-        this.$emit('plot-info', {
-          type: 'mine',
-          message: `У вас уже есть участок №${plot.number} в этом городе`,
-        });
-        return;
-      }
+
       if (this.city?.my_plot_number && Number(this.city.my_plot_number) !== Number(plot.number)) {
         this.$emit('plot-info', {
           type: 'already_have',
@@ -389,11 +394,35 @@ export default {
 
       this.$emit('claim-plot', { plotNumber: Number(plot.number) });
     },
+    projectStatusLabel(project) {
+      const status = String(project?.status || '');
+      if (status === 'complete') {
+        return 'Построено';
+      }
+      if (status === 'ready' || project?.can_build) {
+        return 'Собрано';
+      }
+      return `${project?.progress_pct || 0}%`;
+    },
+    canBuildProject(project) {
+      return Boolean(project?.can_build) || String(project?.status || '') === 'ready';
+    },
+    onBuildProject(project) {
+      if (!this.canBuildProject(project)) {
+        return;
+      }
+      this.$emit('build-project', {
+        plotNumber: Number(this.city.my_plot_number),
+        projectCode: String(project.code || project.recipe_code || ''),
+        projectLabel: project.label || project.code,
+      });
+    },
     canDonate(project, item) {
       if (this.loading || !this.city?.my_plot_number) {
         return false;
       }
-      if ((project?.status || '') === 'complete') {
+      const status = String(project?.status || '');
+      if (status === 'complete' || status === 'ready') {
         return false;
       }
       const left = Number(project?.remaining?.[item.code] || 0);
@@ -414,12 +443,6 @@ export default {
       }
       return Number(project?.stash?.[item.code] || 0);
     },
-    canWithdraw(project, item) {
-      if (this.loading || !this.city?.my_plot_number) {
-        return false;
-      }
-      return this.stashHave(project, item) > 0;
-    },
     canDonateProjectAll(project) {
       const items = project.needed_items || project.components || [];
       return items.some((item) => this.canDonate(project, item) && this.hasInventory(project, item));
@@ -433,18 +456,6 @@ export default {
         projectCode: String(project.code || project.recipe_code || ''),
         componentCode: String(item.code || ''),
         qty: Math.max(1, Number(qty || 1)),
-      });
-    },
-    onWithdraw(project, item, qty = 1) {
-      if (!this.canWithdraw(project, item)) {
-        return;
-      }
-      const maxQty = this.stashHave(project, item);
-      this.$emit('withdraw-component', {
-        plotNumber: Number(this.city.my_plot_number),
-        projectCode: String(project.code || project.recipe_code || ''),
-        componentCode: String(item.code || ''),
-        qty: Math.max(1, Math.min(Number(qty || 1), maxQty)),
       });
     },
     canOrder(project, item) {
@@ -582,12 +593,15 @@ export default {
   border: 1px solid fade(@colorBlur, 45%);
   border-radius: 2px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 1px;
   font-size: 10px;
   color: fade(@colorBlur, 85%);
   background: fade(@colorBlur, 16%);
   z-index: 1;
+  position: relative;
 
   &.free {
     border-color: #6dbf6d;
@@ -595,10 +609,24 @@ export default {
     color: #b8e8b8;
   }
 
-  &.occupied {
+  &.occupied,
+  &.estate_claimed,
+  &.estate_fence {
     border-color: #a67c52;
     background: fade(#6b4428, 48%);
     color: #d4b896;
+  }
+
+  &.estate_house {
+    border-color: fade(@orange, 70%);
+    background: fade(@orange, 18%);
+    color: #f0d0a0;
+  }
+
+  &.estate_done {
+    border-color: fade(@YesWrite, 70%);
+    background: fade(@YesWrite, 22%);
+    color: #d0f0c0;
   }
 
   &.mine {
@@ -609,6 +637,35 @@ export default {
 
   &.clickable {
     cursor: pointer;
+  }
+}
+
+.plot_num {
+  line-height: 1;
+}
+
+.plot_estate_icon {
+  width: 10px;
+  height: 8px;
+  border-radius: 1px;
+  opacity: 0.9;
+
+  &.stage_claimed,
+  &.stage_fence_building {
+    background: fade(@orange, 55%);
+    border: 1px dashed fade(@colorText, 40%);
+  }
+
+  &.stage_fence_ready {
+    background: linear-gradient(180deg, #c9a06a 0%, #8b5a2b 100%);
+  }
+
+  &.stage_house_building {
+    background: linear-gradient(180deg, #e8dcc8 40%, #c45c3a 40%);
+  }
+
+  &.stage_complete {
+    background: linear-gradient(180deg, #c45c3a 0%, #e8dcc8 45%, #6dbf6d 45%);
   }
 }
 
@@ -767,6 +824,17 @@ export default {
   color: @orange;
 }
 
+.build_btn {
+  border: 1px solid fade(@orange, 75%);
+  background: fade(@orange, 28%);
+  color: @colorText;
+  border-radius: 4px;
+  font-size: 10px;
+  padding: 1px 8px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
 .donate_btn {
   border: 1px solid fade(@orange, 60%);
   background: fade(@orange, 16%);
@@ -795,16 +863,6 @@ export default {
     opacity: 0.45;
     cursor: not-allowed;
   }
-}
-
-.withdraw_btn {
-  border: 1px solid fade(#a67c52, 60%);
-  background: fade(#6b4428, 22%);
-  color: @colorText;
-  border-radius: 4px;
-  font-size: 10px;
-  padding: 1px 6px;
-  cursor: pointer;
 }
 
 .inventory_badge {
