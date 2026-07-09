@@ -236,6 +236,10 @@ class PremiumFarmMacroPlannerService
         $state = $this->projection->createVirtualState($userId);
         $tasks = [];
 
+        if ($source === self::SOURCE_BUY) {
+            $this->assertRecipeInputsAvailableForBuy($userId, $definition, $batches);
+        }
+
         foreach ($definition['inputs'] ?? [] as $input) {
             $code = (string)($input['code'] ?? '');
             $need = max(1, (int)($input['qty'] ?? 1)) * $batches;
@@ -284,6 +288,64 @@ class PremiumFarmMacroPlannerService
         $this->assertMacroCoinReserve($userId, $state);
 
         return $tasks;
+    }
+
+    /**
+     * Для режима buy макрос должен быть детерминированным:
+     * либо хватает на все batches, либо возвращаем ошибку до постановки в очередь.
+     *
+     * @param array<string, mixed> $definition
+     */
+    private function assertRecipeInputsAvailableForBuy(int $userId, array $definition, int $batches): void
+    {
+        foreach ($definition['inputs'] ?? [] as $input) {
+            $code = (string)($input['code'] ?? '');
+            $inputSource = (string)($input['source'] ?? 'material');
+            $premium = !empty($input['premium']);
+            if ($code === '' || $inputSource !== 'material') {
+                continue;
+            }
+
+            $need = max(1, (int)($input['qty'] ?? 1)) * $batches;
+            $haveSelf = $this->professionRepository->getUserMaterialQty($userId, $code, $premium);
+            $marketQty = $this->countMarketMaterialQty($code, $premium);
+            $available = $haveSelf + $marketQty;
+            if ($available < $need) {
+                $label = ProfessionCraftedItemConfig::getLabel($code);
+                throw new \RuntimeException(
+                    'Недостаточно ресурса для выбранного объёма: '
+                    . $label
+                    . ' нужно '
+                    . $need
+                    . ', доступно '
+                    . $available
+                    . ' (инвентарь '
+                    . $haveSelf
+                    . ' + биржа '
+                    . $marketQty
+                    . ')'
+                );
+            }
+        }
+    }
+
+    private function countMarketMaterialQty(string $code, bool $premium): int
+    {
+        $category = $premium
+            ? ExchangeConfig::MATERIAL_CATEGORY_PREMIUM
+            : ExchangeConfig::MATERIAL_CATEGORY_NORMAL;
+        $total = 0;
+        foreach ($this->economyRepository->findActiveExchangeListingsForSku(
+            ExchangeConfig::KIND_MATERIAL,
+            $code,
+            $category,
+            0,
+            ''
+        ) as $listing) {
+            $total += max(0, (int)($listing['UF_QTY_REMAINING'] ?? 0));
+        }
+
+        return $total;
     }
 
     /**

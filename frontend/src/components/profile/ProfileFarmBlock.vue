@@ -1828,12 +1828,6 @@ export default {
       return Math.max(1, Number(outputs[0].qty) || 1);
     },
 
-    macroBatchesForRecipeOutput(recipe, desiredOutputQty) {
-      const target = Math.max(1, Number(desiredOutputQty) || 1);
-      const perBatch = this.recipePrimaryOutputQty(recipe);
-      return Math.min(10, Math.ceil(target / perBatch));
-    },
-
     async onEnqueueAlbumMacro(source = 'gather', batchesOverride = null) {
       const token = this.authData?.token;
       if (!token || !this.albumCraftProfessionCode) {
@@ -1879,8 +1873,7 @@ export default {
       this.error = '';
       this.message = '';
       try {
-        const desiredOutput = Math.max(1, Number(batchesOverride || this.recipeMacroBatches) || 1);
-        const batches = this.macroBatchesForRecipeOutput(recipe, desiredOutput);
+        const batches = Math.max(1, Math.min(10, Number(batchesOverride || this.recipeMacroBatches) || 1));
         const expectedOutput = batches * this.recipePrimaryOutputQty(recipe);
         const data = await apiActions.game.enqueuePremiumMacro(token, 'recipe', {
           recipe_code: recipe.code,

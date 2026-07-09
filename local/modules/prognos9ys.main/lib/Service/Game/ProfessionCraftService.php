@@ -104,16 +104,7 @@ class ProfessionCraftService
             throw new \RuntimeException((string)($preview['missing_reason'] ?? 'Нельзя выполнить крафт'));
         }
 
-        $workCost = (int)($definition['work_cost'] ?? ProfessionRecipeConfig::WORK_COST);
         $this->consumeInputs($userId, $definition);
-        $this->walletService->debit(
-            $userId,
-            GameEconomyConfig::CURRENCY_PROGNOBAKS,
-            (float)$workCost,
-            'profession_craft',
-            'recipe',
-            0
-        );
 
         $craftedQty = $this->grantOutputs($userId, $definition);
         $xpGain = (int)($definition['craft_xp'] ?? ProfessionRecipeConfig::CRAFT_XP);
@@ -333,10 +324,7 @@ class ProfessionCraftService
             }
         }
 
-        $workCost = (float)((int)($definition['work_cost'] ?? ProfessionRecipeConfig::WORK_COST) * $qty);
-        $wallet = $this->walletService->getWalletSummary($userId);
-
-        return (float)$wallet['prognobaks'] >= $workCost;
+        return true;
     }
 
     /**
@@ -532,10 +520,6 @@ class ProfessionCraftService
         if ($hasActiveSession && $missingReason === '') {
             $missingReason = 'Сначала завершите или остановите текущую смену';
         }
-        if ($walletPrognobaks < $workCost && $missingReason === '') {
-            $missingReason = 'Нужно ' . $workCost . ' 🪙 за работу (есть ' . round($walletPrognobaks, 1) . ')';
-        }
-
         return [
             'code' => $recipeCode,
             'label' => ProfessionRecipeConfig::getRecipeLabel($recipeCode),
@@ -752,7 +736,7 @@ class ProfessionCraftService
         }
 
         $lines = [
-            ['text' => 'Списано: ' . implode(', ', $spentParts) . ', работа ' . (int)$definition['work_cost'] . ' 🪙', 'status' => 'ok'],
+            ['text' => 'Списано: ' . implode(', ', $spentParts), 'status' => 'ok'],
         ];
 
         foreach ($definition['outputs'] ?? [] as $output) {

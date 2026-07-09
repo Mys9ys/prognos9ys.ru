@@ -374,6 +374,7 @@ class PremiumWorkQueueService
             }
         } catch (\Throwable $exception) {
             $this->failTask($taskId, $exception->getMessage());
+            $this->abortPendingTasksAfterFailure($userId, $taskId, $exception->getMessage());
             $this->dispatchNext($userId);
         }
     }
@@ -429,6 +430,43 @@ class PremiumWorkQueueService
             'UF_UPDATED_AT' => $now,
             'UF_FINISHED_AT' => $now,
         ]);
+    }
+
+    private function abortPendingTasksAfterFailure(int $userId, int $failedTaskId, string $reason): void
+    {
+        $rows = $this->repository->getPremiumWorkQueueItemsForUser($userId, [
+            PremiumWorkQueueConfig::STATUS_PENDING,
+        ]);
+        if (!$rows) {
+            return;
+        }
+
+        $failedSort = 0;
+        $failedRow = $this->repository->getPremiumWorkQueueItemById($failedTaskId);
+        if ($failedRow) {
+            $failedSort = (int)($failedRow['UF_SORT'] ?? 0);
+        }
+
+        $safeReason = trim($reason) !== '' ? trim($reason) : 'Ошибка выполнения предыдущей задачи';
+        $abortMessage = 'Прервано после ошибки: ' . $safeReason;
+        $now = new DateTime();
+
+        foreach ($rows as $row) {
+            $id = (int)($row['ID'] ?? 0);
+            if ($id <= 0) {
+                continue;
+            }
+            if ($failedSort > 0 && (int)($row['UF_SORT'] ?? 0) <= $failedSort) {
+                continue;
+            }
+
+            $this->repository->updatePremiumWorkQueueItem($id, [
+                'UF_STATUS' => PremiumWorkQueueConfig::STATUS_FAILED,
+                'UF_ERROR_TEXT' => mb_substr($abortMessage, 0, 500),
+                'UF_UPDATED_AT' => $now,
+                'UF_FINISHED_AT' => $now,
+            ]);
+        }
     }
 
     private function syncActiveFarmTasks(int $userId): void

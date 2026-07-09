@@ -414,10 +414,7 @@ class PremiumFarmQueueProjectionService
             $state['materials_self'][$code] = (int)($state['materials_self'][$code] ?? 0) + $qty;
         }
 
-        $state['reserved_prognobaks'] = round(
-            (float)$state['reserved_prognobaks'] + (int)($definition['work_cost'] ?? ProfessionRecipeConfig::WORK_COST),
-            1
-        );
+        $state['reserved_prognobaks'] = round((float)$state['reserved_prognobaks'], 1);
     }
 
     private function estimateBuyCost(string $kind, string $code, string $category, int $qty): float
