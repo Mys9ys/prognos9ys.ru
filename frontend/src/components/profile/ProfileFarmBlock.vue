@@ -16,7 +16,14 @@
           class="farm_tab"
           :class="{ active: activeFarmTab === 'work' }"
           @click="selectFarmTab('work')"
-        >Запуски</button>
+        >
+          Запуски
+          <span
+            v-if="hasActiveFarmRun"
+            class="farm_tab_hot"
+            title="Идёт смена или очередь Premium"
+          ></span>
+        </button>
         <button
           type="button"
           class="farm_tab"
@@ -512,23 +519,53 @@
               ★ В очередь
             </button>
           </div>
-          <div v-if="workQueue.premium_active" class="recipe_macro_row">
-            <button
-              type="button"
-              class="btn macro wide"
-              :disabled="actionLoading || !albumCraftProfessionCode"
-              @click="onEnqueueAlbumMacro('gather')"
-            >
-              Собрать ресурсы и изготовить
-            </button>
-            <button
-              type="button"
-              class="btn macro_buy wide"
-              :disabled="actionLoading || !albumCraftProfessionCode"
-              @click="onEnqueueAlbumMacro('buy')"
-            >
-              Купить ресурсы и изготовить
-            </button>
+          <div v-if="workQueue.premium_active" class="recipe_macro_actions">
+            <div class="recipe_macro_action_row">
+              <span class="recipe_macro_action_label">Собрать и изготовить</span>
+              <div class="recipe_macro_qty">
+                <button
+                  type="button"
+                  class="btn macro mini"
+                  :disabled="actionLoading || !albumCraftProfessionCode"
+                  @click="onEnqueueAlbumMacro('gather', 1)"
+                >x1</button>
+                <button
+                  type="button"
+                  class="btn macro mini"
+                  :disabled="actionLoading || !albumCraftProfessionCode"
+                  @click="onEnqueueAlbumMacro('gather', 5)"
+                >x5</button>
+                <button
+                  type="button"
+                  class="btn macro mini"
+                  :disabled="actionLoading || !albumCraftProfessionCode"
+                  @click="onEnqueueAlbumMacro('gather', 10)"
+                >x10</button>
+              </div>
+            </div>
+            <div class="recipe_macro_action_row">
+              <span class="recipe_macro_action_label">Купить и изготовить</span>
+              <div class="recipe_macro_qty">
+                <button
+                  type="button"
+                  class="btn macro_buy mini"
+                  :disabled="actionLoading || !albumCraftProfessionCode"
+                  @click="onEnqueueAlbumMacro('buy', 1)"
+                >x1</button>
+                <button
+                  type="button"
+                  class="btn macro_buy mini"
+                  :disabled="actionLoading || !albumCraftProfessionCode"
+                  @click="onEnqueueAlbumMacro('buy', 5)"
+                >x5</button>
+                <button
+                  type="button"
+                  class="btn macro_buy mini"
+                  :disabled="actionLoading || !albumCraftProfessionCode"
+                  @click="onEnqueueAlbumMacro('buy', 10)"
+                >x10</button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -650,23 +687,53 @@
                 Копия рецепта
               </button>
             </div>
-            <div v-if="workQueue.premium_active" class="recipe_macro_row">
-              <button
-                type="button"
-                class="btn macro wide"
-                :disabled="actionLoading || farm.session"
-                @click="onEnqueueRecipeMacro(recipe, 'gather')"
-              >
-                Собрать ресурсы и изготовить
-              </button>
-              <button
-                type="button"
-                class="btn macro_buy wide"
-                :disabled="actionLoading || farm.session"
-                @click="onEnqueueRecipeMacro(recipe, 'buy')"
-              >
-                Купить ресурсы и изготовить
-              </button>
+            <div v-if="workQueue.premium_active" class="recipe_macro_actions">
+              <div class="recipe_macro_action_row">
+                <span class="recipe_macro_action_label">Собрать и изготовить</span>
+                <div class="recipe_macro_qty">
+                  <button
+                    type="button"
+                    class="btn macro mini"
+                    :disabled="actionLoading || farm.session"
+                    @click="onEnqueueRecipeMacro(recipe, 'gather', 1)"
+                  >x1</button>
+                  <button
+                    type="button"
+                    class="btn macro mini"
+                    :disabled="actionLoading || farm.session"
+                    @click="onEnqueueRecipeMacro(recipe, 'gather', 5)"
+                  >x5</button>
+                  <button
+                    type="button"
+                    class="btn macro mini"
+                    :disabled="actionLoading || farm.session"
+                    @click="onEnqueueRecipeMacro(recipe, 'gather', 10)"
+                  >x10</button>
+                </div>
+              </div>
+              <div class="recipe_macro_action_row">
+                <span class="recipe_macro_action_label">Купить и изготовить</span>
+                <div class="recipe_macro_qty">
+                  <button
+                    type="button"
+                    class="btn macro_buy mini"
+                    :disabled="actionLoading || farm.session"
+                    @click="onEnqueueRecipeMacro(recipe, 'buy', 1)"
+                  >x1</button>
+                  <button
+                    type="button"
+                    class="btn macro_buy mini"
+                    :disabled="actionLoading || farm.session"
+                    @click="onEnqueueRecipeMacro(recipe, 'buy', 5)"
+                  >x5</button>
+                  <button
+                    type="button"
+                    class="btn macro_buy mini"
+                    :disabled="actionLoading || farm.session"
+                    @click="onEnqueueRecipeMacro(recipe, 'buy', 10)"
+                  >x10</button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -868,6 +935,17 @@ export default {
     },
     showFarmTabs() {
       return !this.farm?.slots?.needs_pick;
+    },
+    hasActiveFarmRun() {
+      if (this.farm?.session) {
+        return true;
+      }
+      if (!this.workQueue.premium_active) {
+        return false;
+      }
+      const active = Array.isArray(this.workQueue.active) ? this.workQueue.active.length : 0;
+      const pending = Array.isArray(this.workQueue.pending) ? this.workQueue.pending.length : 0;
+      return active + pending > 0;
     },
     showRecipesTab() {
       return true;
@@ -1313,8 +1391,6 @@ export default {
           this.ensureWorkModeValid();
           if (this.farm?.slots?.needs_pick) {
             this.activeFarmTab = 'professions';
-          } else if (!silent && !this.farmTabUserSelected && this.farm?.session) {
-            this.activeFarmTab = 'work';
           }
           this.schedulePoll();
           this.syncCountdown();
@@ -1579,8 +1655,6 @@ export default {
         return;
       }
 
-      this.activeFarmTab = 'work';
-
       const rewards = shift.last_result?.profession_level_rewards;
       if (Array.isArray(rewards) && rewards.length) {
         this.message = `Смена завершена · ${rewards.map((r) => this.formatProfessionLevelReward(r)).join(' · ')}`;
@@ -1740,7 +1814,27 @@ export default {
       }
     },
 
-    async onEnqueueAlbumMacro(source = 'gather') {
+    macroBatchesForAlbumOutput(desiredOutputQty) {
+      const target = Math.max(1, Number(desiredOutputQty) || 1);
+      const perCraft = Number(this.farm?.album_craft?.output_count) || 2;
+      return Math.min(10, Math.ceil(target / perCraft));
+    },
+
+    recipePrimaryOutputQty(recipe) {
+      const outputs = Array.isArray(recipe?.outputs) ? recipe.outputs : [];
+      if (!outputs.length) {
+        return 1;
+      }
+      return Math.max(1, Number(outputs[0].qty) || 1);
+    },
+
+    macroBatchesForRecipeOutput(recipe, desiredOutputQty) {
+      const target = Math.max(1, Number(desiredOutputQty) || 1);
+      const perBatch = this.recipePrimaryOutputQty(recipe);
+      return Math.min(10, Math.ceil(target / perBatch));
+    },
+
+    async onEnqueueAlbumMacro(source = 'gather', batchesOverride = null) {
       const token = this.authData?.token;
       if (!token || !this.albumCraftProfessionCode) {
         return;
@@ -1750,8 +1844,9 @@ export default {
       this.error = '';
       this.message = '';
       try {
+        const desiredOutput = Math.max(1, Number(batchesOverride || this.albumMacroBatches) || 1);
         const data = await apiActions.game.enqueuePremiumMacro(token, 'album', {
-          batches: Number(this.albumMacroBatches) || 1,
+          batches: this.macroBatchesForAlbumOutput(desiredOutput),
           sell: Boolean(this.albumMacroSell),
           sell_mode: this.albumMacroConsign ? 'consign' : 'listing',
           source,
@@ -1763,7 +1858,6 @@ export default {
             data,
             `Макрос (${modeLabel}) добавлен: ${count} ${count === 1 ? 'задача' : 'задач'} в очередь`,
           );
-          this.activeFarmTab = 'recipes';
           window.dispatchEvent(new CustomEvent('prognos9ys:album-refresh'));
         } else {
           this.error = data?.message || 'Не удалось запустить макрос';
@@ -1775,7 +1869,7 @@ export default {
       }
     },
 
-    async onEnqueueRecipeMacro(recipe, source = 'gather') {
+    async onEnqueueRecipeMacro(recipe, source = 'gather', batchesOverride = null) {
       const token = this.authData?.token;
       if (!token || !recipe?.code) {
         return;
@@ -1785,9 +1879,12 @@ export default {
       this.error = '';
       this.message = '';
       try {
+        const desiredOutput = Math.max(1, Number(batchesOverride || this.recipeMacroBatches) || 1);
+        const batches = this.macroBatchesForRecipeOutput(recipe, desiredOutput);
+        const expectedOutput = batches * this.recipePrimaryOutputQty(recipe);
         const data = await apiActions.game.enqueuePremiumMacro(token, 'recipe', {
           recipe_code: recipe.code,
-          batches: Number(this.recipeMacroBatches) || 1,
+          batches,
           source,
           sell: Boolean(this.recipeMacroSell),
           sell_mode: this.recipeMacroConsign ? 'consign' : 'listing',
@@ -1797,9 +1894,8 @@ export default {
           const modeLabel = source === 'buy' ? 'покупка' : 'добыча';
           this.applyPremiumWorkResponse(
             data,
-            `Макрос «${recipe.label}» (${modeLabel}): ${count} ${count === 1 ? 'задача' : 'задач'}`,
+            `Макрос «${recipe.label}» (${modeLabel}): ~${expectedOutput} шт., ${count} ${count === 1 ? 'задача' : 'задач'}`,
           );
-          this.activeFarmTab = 'recipes';
         } else {
           this.error = data?.message || 'Не удалось запустить макрос';
         }
@@ -1902,7 +1998,6 @@ export default {
         });
       }
       this.message = fallbackMessage;
-      this.activeFarmTab = 'work';
       if (this.farm?.session) {
         this.schedulePoll();
         this.syncCountdown();
@@ -2293,6 +2388,7 @@ export default {
 }
 
 .farm_tab {
+  position: relative;
   flex: 1;
   background: @darkbg;
   color: @colorText;
@@ -2305,6 +2401,31 @@ export default {
   &.active {
     background: @orange;
     color: #fff;
+  }
+
+  .farm_tab_hot {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: @yellow;
+    box-shadow: 0 0 6px @orange, 0 0 10px @yellow;
+    animation: farm_tab_hot_pulse 1.4s ease-in-out infinite;
+    pointer-events: none;
+  }
+}
+
+@keyframes farm_tab_hot_pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.65;
+    transform: scale(1.2);
   }
 }
 
@@ -2836,6 +2957,31 @@ export default {
   flex-direction: column;
   gap: 8px;
   margin-top: 10px;
+}
+
+.recipe_macro_actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.recipe_macro_action_row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.recipe_macro_action_label {
+  font-size: 12px;
+  color: @colorBlur;
+}
+
+.recipe_macro_qty {
+  display: inline-flex;
+  gap: 6px;
 }
 
 .work_actions_row .btn.macro {

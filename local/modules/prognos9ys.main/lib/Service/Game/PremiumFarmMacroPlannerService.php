@@ -10,6 +10,8 @@ use Prognos9ys\Main\Model\Repository\ProfessionRepository;
  */
 class PremiumFarmMacroPlannerService
 {
+    private const MAX_MACRO_BATCHES = 10;
+
     /** @var array<string, array{gather:string, process?:string, input?:string}> */
     private const OUTPUT_CHAINS = [
         'log' => ['gather' => 'woodcutter'],
@@ -97,7 +99,7 @@ class PremiumFarmMacroPlannerService
             throw new \RuntimeException('Сначала изучите рецепт альбома');
         }
 
-        $batches = max(1, min(5, (int)($options['batches'] ?? 1)));
+        $batches = max(1, min(self::MAX_MACRO_BATCHES, (int)($options['batches'] ?? 1)));
         $sell = (bool)($options['sell'] ?? false);
         $sellMode = (string)($options['sell_mode'] ?? 'listing');
         if (!in_array($sellMode, ['listing', 'consign'], true)) {
@@ -169,9 +171,9 @@ class PremiumFarmMacroPlannerService
             throw new \RuntimeException('Профессия не изучена');
         }
 
-        $outputQty = max(1, min(5, (int)($options['output_qty'] ?? 0)));
+        $outputQty = max(1, min(self::MAX_MACRO_BATCHES, (int)($options['output_qty'] ?? 0)));
         if ($outputQty <= 0) {
-            $outputQty = max(1, min(5, (int)($options['iterations'] ?? 1)));
+            $outputQty = max(1, min(self::MAX_MACRO_BATCHES, (int)($options['iterations'] ?? 1)));
         }
 
         $outputCode = (string)($definition['output'] ?? '');
@@ -223,7 +225,7 @@ class PremiumFarmMacroPlannerService
             throw new \RuntimeException('Профессия не изучена');
         }
 
-        $batches = max(1, min(5, (int)($options['batches'] ?? 1)));
+        $batches = max(1, min(self::MAX_MACRO_BATCHES, (int)($options['batches'] ?? 1)));
         $source = $this->resolveSource($options);
         $sell = (bool)($options['sell'] ?? false);
         $sellMode = (string)($options['sell_mode'] ?? 'listing');
