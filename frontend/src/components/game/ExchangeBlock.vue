@@ -513,7 +513,18 @@
       </div>
       <div class="empty" v-else>У вас нет заказов на производство</div>
 
-      <div class="labor_section_title">Открытые заказы</div>
+      <div class="labor_section_head">
+        <div class="labor_section_title">Открытые заказы</div>
+        <button
+          v-if="estateSubmittableCount > 0"
+          type="button"
+          class="bulk_submit_btn"
+          :disabled="busy"
+          @click="submitAllEstateOrders"
+        >
+          Сдать все ({{ estateSubmittableCount }})
+        </button>
+      </div>
       <div class="catalog_list" v-if="estateOrders.length">
         <div v-for="order in estateOrders" :key="'estate-' + order.id" class="catalog_row">
           <div class="row_main">
@@ -570,6 +581,18 @@
     <div v-if="!loading && activeTab === 'citybuild'" class="panel">
       <div class="labor_hint">
         Заказы на компоненты для госстройки. Сдайте готовые изделия из инвентаря — компоненты сразу идут в стройку города.
+      </div>
+
+      <div class="labor_section_head" v-if="cityBuildSubmittableCount > 0">
+        <span class="labor_section_title labor_section_title_inline">Доступно для сдачи</span>
+        <button
+          type="button"
+          class="bulk_submit_btn"
+          :disabled="busy"
+          @click="submitAllCityBuild"
+        >
+          Сдать все ({{ cityBuildSubmittableCount }})
+        </button>
       </div>
 
       <div class="citybuild_list" v-if="cityBuildOrders.length">
@@ -673,6 +696,49 @@
       </div>
       <div class="empty" v-else>Сделок пока нет</div>
     </div>
+
+    <div
+      v-if="bulkSubmitModal"
+      class="bulk_modal_overlay"
+      @click.self="closeBulkSubmitModal"
+    >
+      <div class="bulk_modal" role="dialog" aria-labelledby="bulk-submit-title">
+        <div id="bulk-submit-title" class="bulk_modal_title">{{ bulkSubmitModal.title }}</div>
+        <p v-if="bulkSubmitModal.subtitle" class="bulk_modal_subtitle">{{ bulkSubmitModal.subtitle }}</p>
+        <p v-if="bulkSubmitModal.partial" class="bulk_modal_partial">
+          Сдача прервана — ниже только успешно сданные позиции.
+        </p>
+        <p v-if="bulkSubmitModal.empty" class="bulk_modal_empty">{{ bulkSubmitModal.empty }}</p>
+        <template v-else>
+          <div class="bulk_modal_totals">
+            <span>Позиций: <strong>{{ bulkSubmitModal.positionsCount }}</strong></span>
+            <span>Сдано: <strong>{{ bulkSubmitModal.totalQty }}</strong> шт.</span>
+            <span v-if="bulkSubmitModal.totalPayout > 0" class="bulk_modal_payout">
+              +{{ formatBulkPayout(bulkSubmitModal.totalPayout) }} 🪙
+            </span>
+          </div>
+          <ul v-if="bulkSubmitModal.lines.length" class="bulk_modal_lines">
+            <li
+              v-for="(line, idx) in bulkSubmitModal.lines"
+              :key="line.key || idx"
+              class="bulk_modal_line"
+            >
+              <div class="bulk_line_main">
+                <span class="bulk_line_label">{{ line.label }}</span>
+                <span class="bulk_line_qty">×{{ line.qty }}</span>
+                <span v-if="line.payout > 0" class="bulk_line_payout">
+                  +{{ formatBulkPayout(line.payout) }} 🪙
+                </span>
+              </div>
+              <div v-if="line.sublabel" class="bulk_line_sub">{{ line.sublabel }}</div>
+            </li>
+          </ul>
+        </template>
+        <div class="bulk_modal_actions">
+          <button type="button" class="action_btn" @click="closeBulkSubmitModal">Закрыть</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -744,6 +810,7 @@ export default {
         estate: '',
         myEstate: '',
       },
+      bulkSubmitModal: null,
     };
   },
   computed: {
@@ -800,6 +867,20 @@ export default {
         (order) => order.iterations_remaining,
         this.qtySort.labor
       );
+    },
+    estateSubmittableCount() {
+      return this.estateOrders.filter((order) => order.can_submit).length;
+    },
+    cityBuildSubmittableCount() {
+      let count = 0;
+      this.cityBuildOrders.forEach((order) => {
+        (order.remaining_items || []).forEach((item) => {
+          if (this.canSubmitCityBuild(order, item)) {
+            count += 1;
+          }
+        });
+      });
+      return count;
     },
   },
   watch: {
@@ -1277,9 +1358,9 @@ export default {
       orders.forEach((order) => {
         (order.remaining_items || []).forEach((item) => {
           const key = this.buildDonateKey(order, item.code);
-          if (!qty[key]) {
-            qty[key] = 1;
-          }
+          const max = this.cityBuildDonateMax(order, item);
+          const current = Number(qty[key]) || max;
+          qty[key] = Math.max(1, Math.min(max, current));
         });
       });
       this.cityBuildQty = qty;
@@ -1306,19 +1387,24 @@ export default {
       }
     },
 
-    async submitCityBuild(order, componentCode) {
+    async submitCityBuild(order, componentCode, options = {}) {
+      const bulk = Boolean(options.bulk);
       const key = this.buildDonateKey(order, componentCode);
       const remainingItem = (order.remaining_items || []).find((item) => item.code === componentCode);
       if (!remainingItem || !this.canSubmitCityBuild(order, remainingItem)) {
-        return;
+        return null;
       }
 
       const maxQty = this.cityBuildDonateMax(order, remainingItem);
-      const qty = Math.max(1, Math.min(maxQty, Number(this.cityBuildQty[key]) || 1));
+      const qty = bulk
+        ? maxQty
+        : Math.max(1, Math.min(maxQty, Number(this.cityBuildQty[key]) || 1));
 
-      this.busy = true;
-      this.error = '';
-      this.message = '';
+      if (!bulk) {
+        this.busy = true;
+        this.error = '';
+        this.message = '';
+      }
 
       try {
         const data = await apiActions.exchange.submitCityBuildComponent(
@@ -1333,25 +1419,96 @@ export default {
           this.cityBuildOrders = Array.isArray(data.orders) ? data.orders : this.cityBuildOrders;
           this.ensureCityBuildQty(this.cityBuildOrders);
           if (data.game) {
-            this.setUserInfo({ game: data.game });
-          } else {
+            this.applyGame(data.game);
+          } else if (!bulk) {
             await this.refreshGameInfo();
           }
-          const label = data.component_label || componentCode;
-          let msg = `Сдано: ${label} ×${data.donated_qty || qty}`;
-          if (data.paid_total > 0) {
-            msg += ` · +${data.paid_total} 🪙`;
+          if (!bulk) {
+            const label = data.component_label || componentCode;
+            let msg = `Сдано: ${label} ×${data.donated_qty || qty}`;
+            if (data.paid_total > 0) {
+              msg += ` · +${data.paid_total} 🪙`;
+            }
+            if (data.building_complete) {
+              msg += ` · ${order.label} готово`;
+            }
+            if (data.city_opened) {
+              msg += ' · город открыт на карте';
+            }
+            this.message = msg;
           }
-          if (data.building_complete) {
-            msg += ` · ${order.label} готово`;
-          }
-          if (data.city_opened) {
-            msg += ' · город открыт на карте';
-          }
-          this.message = msg;
+          return data;
         }
+
+        throw new Error(data?.message || 'Не удалось сдать компонент');
       } catch (e) {
-        this.error = e.message || 'Не удалось сдать компонент';
+        if (!bulk) {
+          this.error = e.message || 'Не удалось сдать компонент';
+        }
+        throw e;
+      } finally {
+        if (!bulk) {
+          this.busy = false;
+        }
+      }
+    },
+
+    findNextCityBuildTarget() {
+      for (const order of this.cityBuildOrders) {
+        for (const item of order.remaining_items || []) {
+          if (this.canSubmitCityBuild(order, item)) {
+            return { order, code: item.code };
+          }
+        }
+      }
+
+      return null;
+    },
+
+    async submitAllCityBuild() {
+      if (this.busy || this.cityBuildSubmittableCount <= 0) {
+        return;
+      }
+
+      this.busy = true;
+      this.error = '';
+      this.message = '';
+
+      const report = this.createBulkSubmitReport('Массовая сдача', 'Госстройка');
+      let submitted = 0;
+
+      try {
+        let target = this.findNextCityBuildTarget();
+        while (target) {
+          const { order, code } = target;
+          const item = (order.remaining_items || []).find((row) => row.code === code);
+          const data = await this.submitCityBuild(order, code, { bulk: true });
+          if (!data) {
+            break;
+          }
+
+          submitted += 1;
+          const qty = Number(data.donated_qty) || 0;
+          const payout = Number(data.paid_total) || 0;
+          this.recordBulkSubmitLine(report, {
+            key: `${order.project_id}-${code}`,
+            label: data.component_label || item?.label || code,
+            sublabel: `${order.city_name} · ${order.label}`,
+            qty,
+            payout,
+          });
+          target = this.findNextCityBuildTarget();
+        }
+
+        this.openBulkSubmitModal(report, {
+          emptyMessage: submitted === 0 ? 'Нет позиций для сдачи из инвентаря' : '',
+        });
+      } catch (e) {
+        this.error = e.message || 'Не удалось выполнить массовую сдачу';
+        this.openBulkSubmitModal(report, {
+          partial: submitted > 0,
+          emptyMessage: submitted === 0 ? 'Нет позиций для сдачи из инвентаря' : '',
+        });
       } finally {
         this.busy = false;
       }
@@ -1553,11 +1710,14 @@ export default {
       }
     },
 
-    async submitEstateOrder(orderId) {
+    async submitEstateOrder(orderId, options = {}) {
+      const bulk = Boolean(options.bulk);
       const qty = this.resolveEstateSubmitQty(orderId);
-      this.busy = true;
-      this.error = '';
-      this.message = '';
+      if (!bulk) {
+        this.busy = true;
+        this.error = '';
+        this.message = '';
+      }
 
       try {
         const data = await apiActions.exchange.submitEstateOrder(
@@ -1566,16 +1726,170 @@ export default {
           qty,
         );
         if (data?.status === 'ok') {
-          this.message = data.message || `Сдано: ${qty} шт.`;
+          if (!bulk) {
+            this.message = data.message || `Сдано: ${qty} шт.`;
+            this.applyGame(data.game);
+            await this.refreshState();
+            await this.loadEstate(true);
+          }
+          return data;
+        }
+
+        throw new Error(data?.message || 'Не удалось сдать компонент');
+      } catch (e) {
+        if (!bulk) {
+          this.error = e.message || 'Не удалось сдать компонент';
+        }
+        throw e;
+      } finally {
+        if (!bulk) {
+          this.busy = false;
+        }
+      }
+    },
+
+    async ensureAllEstateOrdersLoaded() {
+      while (this.estatePagination.has_more) {
+        this.estatePagination.offset += this.estatePagination.limit;
+        await this.loadEstate(false);
+      }
+    },
+
+    async submitAllEstateOrders() {
+      if (this.busy || this.estateSubmittableCount <= 0) {
+        return;
+      }
+
+      this.busy = true;
+      this.error = '';
+      this.message = '';
+
+      const report = this.createBulkSubmitReport('Массовая сдача', 'Усадьбы');
+      let submitted = 0;
+
+      try {
+        await this.ensureAllEstateOrdersLoaded();
+
+        let order = this.estateOrders.find((row) => row.can_submit);
+        while (order) {
+          const snapshot = {
+            id: order.id,
+            label: `${order.output_label} · ${order.poster_name}`,
+            sublabel: order.profession_label ? `специальность: ${order.profession_label}` : '',
+            fallbackQty: this.resolveEstateSubmitQty(order.id),
+            payPerCycle: Number(order.pay_per_cycle) || 0,
+          };
+          const data = await this.submitEstateOrder(order.id, { bulk: true });
+          if (!data) {
+            break;
+          }
+
+          submitted += 1;
+          const parsed = this.parseEstateSubmitResult(data, snapshot);
+          this.recordBulkSubmitLine(report, {
+            key: `estate-${snapshot.id}`,
+            label: snapshot.label,
+            sublabel: snapshot.sublabel,
+            qty: parsed.qty,
+            payout: parsed.payout,
+          });
           this.applyGame(data.game);
           await this.refreshState();
           await this.loadEstate(true);
+          await this.ensureAllEstateOrdersLoaded();
+          order = this.estateOrders.find((row) => row.can_submit);
         }
+
+        this.openBulkSubmitModal(report, {
+          emptyMessage: submitted === 0 ? 'Нет заказов для сдачи из инвентаря' : '',
+        });
       } catch (e) {
-        this.error = e.message || 'Не удалось сдать компонент';
+        this.error = e.message || 'Не удалось выполнить массовую сдачу';
+        this.openBulkSubmitModal(report, {
+          partial: submitted > 0,
+          emptyMessage: submitted === 0 ? 'Нет заказов для сдачи из инвентаря' : '',
+        });
       } finally {
         this.busy = false;
       }
+    },
+
+    createBulkSubmitReport(title, subtitle = '') {
+      return {
+        title,
+        subtitle,
+        lines: [],
+        totalQty: 0,
+        totalPayout: 0,
+        positionsCount: 0,
+      };
+    },
+
+    recordBulkSubmitLine(report, { key, label, sublabel = '', qty = 0, payout = 0 }) {
+      const quantity = Math.max(0, Number(qty) || 0);
+      const coins = Math.max(0, Number(payout) || 0);
+      if (!label || quantity <= 0) {
+        return;
+      }
+
+      const lineKey = key || label;
+      const existing = report.lines.find((line) => line.key === lineKey);
+      if (existing) {
+        existing.qty += quantity;
+        existing.payout += coins;
+      } else {
+        report.lines.push({
+          key: lineKey,
+          label,
+          sublabel,
+          qty: quantity,
+          payout: coins,
+        });
+      }
+
+      report.totalQty += quantity;
+      report.totalPayout += coins;
+      report.positionsCount = report.lines.length;
+    },
+
+    parseEstateSubmitResult(data, snapshot) {
+      const message = String(data?.message || '');
+      const qtyMatch = message.match(/сдано\s+(\d+)/i);
+      const payMatch = message.match(/\+([\d.]+)\s*🪙/);
+      const qty = qtyMatch ? Number(qtyMatch[1]) : snapshot.fallbackQty;
+      const payout = payMatch ? Number(payMatch[1]) : qty * snapshot.payPerCycle;
+      return { qty, payout };
+    },
+
+    openBulkSubmitModal(report, options = {}) {
+      const { partial = false, emptyMessage = '' } = options;
+      const hasLines = report.lines.length > 0;
+
+      this.bulkSubmitModal = {
+        title: report.title,
+        subtitle: report.subtitle,
+        lines: hasLines ? [...report.lines] : [],
+        totalQty: report.totalQty,
+        totalPayout: report.totalPayout,
+        positionsCount: report.positionsCount,
+        partial,
+        empty: hasLines ? '' : (emptyMessage || 'Нет позиций для сдачи'),
+      };
+
+      if (hasLines) {
+        const paidLabel = report.totalPayout > 0
+          ? ` · +${this.formatBulkPayout(report.totalPayout)} 🪙`
+          : '';
+        this.message = `Массовая сдача: ${report.totalQty} шт.${paidLabel}`;
+      }
+    },
+
+    closeBulkSubmitModal() {
+      this.bulkSubmitModal = null;
+    },
+
+    formatBulkPayout(value) {
+      return (Number(value) || 0).toFixed(1).replace(/\.0$/, '');
     },
 
     async startLaborWorkshop(orderId) {
@@ -2385,6 +2699,38 @@ export default {
   margin: 12px 0 6px;
 }
 
+.labor_section_head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 12px 0 6px;
+
+  .labor_section_title {
+    margin: 0;
+  }
+}
+
+.labor_section_title_inline {
+  margin: 0;
+}
+
+.bulk_submit_btn {
+  border: 1px solid fade(@orange, 60%);
+  background: fade(@orange, 16%);
+  color: @colorText;
+  border-radius: 4px;
+  font-size: 10px;
+  padding: 4px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
 .labor_create {
   margin-bottom: 8px;
 }
@@ -2475,5 +2821,125 @@ export default {
   &.warn {
     color: rgba(255, 143, 143, 0.9);
   }
+}
+
+.bulk_modal_overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  background: fade(#000, 55%);
+}
+
+.bulk_modal {
+  width: 100%;
+  max-width: 380px;
+  max-height: min(80vh, 520px);
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  border-radius: 6px;
+  background: @DarkColorBG;
+  border: 1px solid fade(@orange, 45%);
+  color: @colorText;
+}
+
+.bulk_modal_title {
+  font-size: 14px;
+  font-weight: 700;
+  color: @orange;
+  margin-bottom: 4px;
+}
+
+.bulk_modal_subtitle {
+  font-size: 12px;
+  color: @colorBlur;
+  margin: 0 0 8px;
+}
+
+.bulk_modal_partial {
+  font-size: 11px;
+  color: rgba(255, 143, 143, 0.9);
+  margin: 0 0 8px;
+}
+
+.bulk_modal_empty {
+  font-size: 12px;
+  color: @colorText;
+  margin: 0 0 12px;
+}
+
+.bulk_modal_totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  font-size: 12px;
+  padding: 8px;
+  margin-bottom: 8px;
+  border-radius: 4px;
+  background: fade(@orange, 10%);
+  border: 1px solid fade(@orange, 25%);
+}
+
+.bulk_modal_payout {
+  font-weight: 700;
+  color: #7dcea0;
+}
+
+.bulk_modal_lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.bulk_modal_line {
+  padding: 8px 0;
+  border-bottom: 1px solid fade(@colorText, 12%);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.bulk_line_main {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.bulk_line_label {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+}
+
+.bulk_line_qty {
+  color: @colorBlur;
+  white-space: nowrap;
+}
+
+.bulk_line_payout {
+  font-weight: 600;
+  color: #7dcea0;
+  white-space: nowrap;
+}
+
+.bulk_line_sub {
+  font-size: 11px;
+  color: @colorBlur;
+  margin-top: 2px;
+}
+
+.bulk_modal_actions {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
 }
 </style>
