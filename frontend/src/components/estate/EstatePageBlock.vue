@@ -867,12 +867,12 @@ export default {
 
       Object.keys(remaining).forEach((code) => {
         const need = Number(remaining[code] || 0);
-        const have = Number(inventory[code] || 0);
+        const item = this.findProjectItem(project, code);
+        const have = Number(item?.user_have ?? inventory[code] ?? 0);
         const qty = Math.min(need, have);
         if (qty <= 0) {
           return;
         }
-        const item = this.findProjectItem(project, code);
         lines.push({
           code,
           label: item?.label || code,

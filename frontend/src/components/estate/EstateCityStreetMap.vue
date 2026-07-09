@@ -174,6 +174,7 @@
                 type="button"
                 class="donate_btn"
                 :disabled="!canDonateProjectAll(project)"
+                :title="houseDonateBlockReason(project) || ''"
                 @click="onDonateProjectAll(project)"
               >
                 Сдать все
@@ -197,6 +198,12 @@
             </div>
           </div>
         </div>
+        <p v-if="houseDonateBlockReason(project)" class="estate_block_hint">
+          {{ houseDonateBlockReason(project) }}
+        </p>
+        <p v-else-if="projectInventoryReadyHint(project)" class="estate_ready_hint">
+          {{ projectInventoryReadyHint(project) }}
+        </p>
         <div class="progress_bar" v-if="project.needed_items?.length">
           <div class="progress_fill" :style="{ width: (project.progress_pct || 0) + '%' }" />
         </div>
@@ -229,8 +236,8 @@
                 type="button"
                 class="donate_btn"
                 :disabled="!hasInventory(project, item)"
-                :title="!hasInventory(project, item) ? 'Нет в инвентаре' : ''"
-                @click="onDonate(project, item, 1)"
+                :title="donateButtonTitle(project, item)"
+                @click="onDonate(project, item)"
               >
                 Сдать
               </button>
@@ -478,6 +485,77 @@ export default {
     canBuildProject(project) {
       return Boolean(project?.can_build) || String(project?.status || '') === 'ready';
     },
+    fenceProject() {
+      return this.activeEstateProjects.find(
+        (row) => String(row.recipe_code || row.code || '') === 'estate_fence_1',
+      ) || null;
+    },
+    isHouseProject(project) {
+      return String(project?.recipe_code || project?.code || '') === 'estate_house_1';
+    },
+    houseDonateBlockReason(project) {
+      if (!this.isHouseProject(project)) {
+        return '';
+      }
+
+      const fence = this.fenceProject();
+      if (!fence) {
+        return 'Сначала начните стройку забора на участке.';
+      }
+
+      const fenceStatus = String(fence.status || '');
+      if (fenceStatus === 'ready' || this.canBuildProject(fence)) {
+        return 'Забор собран — нажмите «Построить» у забора, затем сдавайте материалы на дом.';
+      }
+
+      if (fenceStatus !== 'complete') {
+        return 'Сначала завершите стройку забора.';
+      }
+
+      return '';
+    },
+    projectInventoryReadyHint(project) {
+      if (this.houseDonateBlockReason(project)) {
+        return '';
+      }
+
+      const status = String(project?.status || '');
+      if (status === 'complete' || status === 'ready' || !this.canProjectActions(project)) {
+        return '';
+      }
+
+      const items = project.needed_items || project.components || [];
+      if (!items.length) {
+        return '';
+      }
+
+      const canSubmitAnything = items.some(
+        (item) => this.canDonate(project, item) && this.hasInventory(project, item),
+      );
+      if (!canSubmitAnything) {
+        return '';
+      }
+
+      const stashTotal = items.reduce((sum, item) => sum + this.stashHave(project, item), 0);
+      if (stashTotal > 0) {
+        return '';
+      }
+
+      return 'Материалы в инвентаре — нажмите «Сдать» или «Сдать все», чтобы перенести их на стройку.';
+    },
+    donateButtonTitle(project, item) {
+      if (this.houseDonateBlockReason(project)) {
+        return this.houseDonateBlockReason(project);
+      }
+      if (!this.hasInventory(project, item)) {
+        return 'Нет в инвентаре';
+      }
+
+      const left = Number(project?.remaining?.[item.code] || 0);
+      const have = this.userHave(project, item);
+      const qty = Math.max(1, Math.min(left, have));
+      return qty > 1 ? `Сдать ${qty} шт.` : 'Сдать 1 шт.';
+    },
     onBuildProject(project) {
       if (!this.canBuildProject(project)) {
         return;
@@ -490,6 +568,9 @@ export default {
     },
     canDonate(project, item) {
       if (this.loading || !this.city?.my_plot_number) {
+        return false;
+      }
+      if (this.houseDonateBlockReason(project)) {
         return false;
       }
       const status = String(project?.status || '');
@@ -552,15 +633,20 @@ export default {
       const items = project.needed_items || project.components || [];
       return items.some((item) => this.canDonate(project, item) && this.hasInventory(project, item));
     },
-    onDonate(project, item, qty = 1) {
-      if (!this.canDonate(project, item)) {
+    onDonate(project, item) {
+      if (!this.canDonate(project, item) || !this.hasInventory(project, item)) {
         return;
       }
+
+      const left = Number(project?.remaining?.[item.code] || 0);
+      const have = this.userHave(project, item);
+      const qty = Math.max(1, Math.min(left, have));
+
       this.$emit('donate-component', {
         plotNumber: Number(this.city.my_plot_number),
         projectCode: String(project.code || project.recipe_code || ''),
         componentCode: String(item.code || ''),
-        qty: Math.max(1, Number(qty || 1)),
+        qty,
       });
     },
     canOrder(project, item) {
@@ -992,6 +1078,27 @@ export default {
     opacity: 0.45;
     cursor: not-allowed;
   }
+}
+
+.estate_block_hint,
+.estate_ready_hint {
+  margin: 0 0 8px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.estate_block_hint {
+  color: rgba(255, 143, 143, 0.95);
+  background: fade(#ff8f8f, 10%);
+  border: 1px solid fade(#ff8f8f, 28%);
+}
+
+.estate_ready_hint {
+  color: rgba(232, 197, 71, 0.95);
+  background: fade(@orange, 10%);
+  border: 1px solid fade(@orange, 28%);
 }
 
 .order_btn {

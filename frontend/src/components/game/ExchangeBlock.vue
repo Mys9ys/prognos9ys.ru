@@ -1,12 +1,5 @@
 <template>
   <div class="exchange_block">
-    <div v-if="bulkSubmitBusy" class="bulk_submit_busy_overlay" aria-busy="true" aria-live="polite">
-      <div class="bulk_submit_busy_box">
-        <PreLoader />
-        <p class="bulk_submit_busy_text">Массовая сдача…</p>
-      </div>
-    </div>
-
     <div class="exchange_tabs">
       <button
         v-for="tab in tabs"
@@ -707,43 +700,53 @@
     <div
       v-if="bulkSubmitModal"
       class="bulk_modal_overlay"
-      @click.self="closeBulkSubmitModal"
+      :class="{ bulk_modal_overlay_busy: bulkSubmitModal.loading }"
+      @click.self="onBulkModalOverlayClick"
     >
-      <div class="bulk_modal" role="dialog" aria-labelledby="bulk-submit-title">
+      <div class="bulk_modal" role="dialog" aria-labelledby="bulk-submit-title" aria-busy="bulkSubmitModal.loading">
         <div id="bulk-submit-title" class="bulk_modal_title">{{ bulkSubmitModal.title }}</div>
         <p v-if="bulkSubmitModal.subtitle" class="bulk_modal_subtitle">{{ bulkSubmitModal.subtitle }}</p>
-        <p v-if="bulkSubmitModal.partial" class="bulk_modal_partial">
-          Сдача прервана — ниже только успешно сданные позиции.
-        </p>
-        <p v-if="bulkSubmitModal.empty" class="bulk_modal_empty">{{ bulkSubmitModal.empty }}</p>
-        <template v-else>
-          <div class="bulk_modal_totals">
-            <span>Позиций: <strong>{{ bulkSubmitModal.positionsCount }}</strong></span>
-            <span>Сдано: <strong>{{ bulkSubmitModal.totalQty }}</strong> шт.</span>
-            <span v-if="bulkSubmitModal.totalPayout > 0" class="bulk_modal_payout">
-              +{{ formatBulkPayout(bulkSubmitModal.totalPayout) }} 🪙
-            </span>
-          </div>
-          <ul v-if="bulkSubmitModal.lines.length" class="bulk_modal_lines">
-            <li
-              v-for="(line, idx) in bulkSubmitModal.lines"
-              :key="line.key || idx"
-              class="bulk_modal_line"
-            >
-              <div class="bulk_line_main">
-                <span class="bulk_line_label">{{ line.label }}</span>
-                <span class="bulk_line_qty">×{{ line.qty }}</span>
-                <span v-if="line.payout > 0" class="bulk_line_payout">
-                  +{{ formatBulkPayout(line.payout) }} 🪙
-                </span>
-              </div>
-              <div v-if="line.sublabel" class="bulk_line_sub">{{ line.sublabel }}</div>
-            </li>
-          </ul>
-        </template>
-        <div class="bulk_modal_actions">
-          <button type="button" class="action_btn" @click="closeBulkSubmitModal">Закрыть</button>
+
+        <div v-if="bulkSubmitModal.loading" class="bulk_modal_loading">
+          <PreLoader />
+          <p class="bulk_modal_loading_title">{{ bulkSubmitModal.loadingTitle }}</p>
+          <p class="bulk_modal_loading_hint">{{ bulkSubmitModal.loadingHint }}</p>
         </div>
+
+        <template v-else>
+          <p v-if="bulkSubmitModal.partial" class="bulk_modal_partial">
+            Сдача прервана — ниже только успешно сданные позиции.
+          </p>
+          <p v-if="bulkSubmitModal.empty" class="bulk_modal_empty">{{ bulkSubmitModal.empty }}</p>
+          <template v-else>
+            <div class="bulk_modal_totals">
+              <span>Позиций: <strong>{{ bulkSubmitModal.positionsCount }}</strong></span>
+              <span>Сдано: <strong>{{ bulkSubmitModal.totalQty }}</strong> шт.</span>
+              <span v-if="bulkSubmitModal.totalPayout > 0" class="bulk_modal_payout">
+                +{{ formatBulkPayout(bulkSubmitModal.totalPayout) }} 🪙
+              </span>
+            </div>
+            <ul v-if="bulkSubmitModal.lines.length" class="bulk_modal_lines">
+              <li
+                v-for="(line, idx) in bulkSubmitModal.lines"
+                :key="line.key || idx"
+                class="bulk_modal_line"
+              >
+                <div class="bulk_line_main">
+                  <span class="bulk_line_label">{{ line.label }}</span>
+                  <span class="bulk_line_qty">×{{ line.qty }}</span>
+                  <span v-if="line.payout > 0" class="bulk_line_payout">
+                    +{{ formatBulkPayout(line.payout) }} 🪙
+                  </span>
+                </div>
+                <div v-if="line.sublabel" class="bulk_line_sub">{{ line.sublabel }}</div>
+              </li>
+            </ul>
+          </template>
+          <div class="bulk_modal_actions">
+            <button type="button" class="action_btn" @click="closeBulkSubmitModal">Закрыть</button>
+          </div>
+        </template>
       </div>
     </div>
   </div>
@@ -818,7 +821,6 @@ export default {
         myEstate: '',
       },
       bulkSubmitModal: null,
-      bulkSubmitBusy: false,
     };
   },
   computed: {
@@ -1474,14 +1476,14 @@ export default {
     },
 
     async submitAllCityBuild() {
-      if (this.busy || this.bulkSubmitBusy || this.cityBuildSubmittableCount <= 0) {
+      if (this.busy || this.cityBuildSubmittableCount <= 0) {
         return;
       }
 
       this.busy = true;
-      this.bulkSubmitBusy = true;
       this.error = '';
       this.message = '';
+      this.openBulkSubmitLoadingModal('Госстройка');
 
       try {
         const data = await apiActions.exchange.submitAllCityBuild(this.authData.token);
@@ -1504,8 +1506,8 @@ export default {
         });
       } catch (e) {
         this.error = e.message || 'Не удалось выполнить массовую сдачу';
+        this.closeBulkSubmitModal();
       } finally {
-        this.bulkSubmitBusy = false;
         this.busy = false;
       }
     },
@@ -1752,14 +1754,14 @@ export default {
     },
 
     async submitAllEstateOrders() {
-      if (this.busy || this.bulkSubmitBusy || this.estateSubmittableCount <= 0) {
+      if (this.busy || this.estateSubmittableCount <= 0) {
         return;
       }
 
       this.busy = true;
-      this.bulkSubmitBusy = true;
       this.error = '';
       this.message = '';
+      this.openBulkSubmitLoadingModal('Усадьбы');
 
       try {
         const data = await apiActions.exchange.submitAllEstateOrders(this.authData.token);
@@ -1795,10 +1797,47 @@ export default {
         });
       } catch (e) {
         this.error = e.message || 'Не удалось выполнить массовую сдачу';
+        this.closeBulkSubmitModal();
       } finally {
-        this.bulkSubmitBusy = false;
         this.busy = false;
       }
+    },
+
+    pickBulkLoadingCopy(subtitle = '') {
+      const hints = [
+        'Сверяем инвентарь с заказами…',
+        'Грузим телегу с брусьями…',
+        'Пересчитываем гвозди и пороги…',
+        'Прорабы уже спорят о сдаче…',
+        'Склад принимает поставку…',
+      ];
+      const hint = hints[Math.floor(Math.random() * hints.length)];
+      const title = subtitle ? `Сдаём: ${subtitle}` : 'Массовая сдача';
+      return { title, hint };
+    },
+
+    openBulkSubmitLoadingModal(subtitle = '') {
+      const copy = this.pickBulkLoadingCopy(subtitle);
+      this.bulkSubmitModal = {
+        title: 'Массовая сдача',
+        subtitle,
+        loading: true,
+        loadingTitle: copy.title,
+        loadingHint: copy.hint,
+        lines: [],
+        totalQty: 0,
+        totalPayout: 0,
+        positionsCount: 0,
+        partial: false,
+        empty: '',
+      };
+    },
+
+    onBulkModalOverlayClick() {
+      if (this.bulkSubmitModal?.loading) {
+        return;
+      }
+      this.closeBulkSubmitModal();
     },
 
     buildBulkReportFromApi(apiReport, subtitle = '') {
@@ -1829,6 +1868,7 @@ export default {
       this.bulkSubmitModal = {
         title: report.title,
         subtitle: report.subtitle,
+        loading: false,
         lines: hasLines ? [...report.lines] : [],
         totalQty: report.totalQty,
         totalPayout: report.totalPayout,
@@ -2792,7 +2832,12 @@ export default {
   align-items: center;
   justify-content: center;
   padding: 12px;
-  background: fade(#000, 55%);
+  background: fade(#000, 42%);
+}
+
+.bulk_modal_overlay_busy {
+  background: fade(#000, 28%);
+  pointer-events: none;
 }
 
 .bulk_modal {
@@ -2904,34 +2949,27 @@ export default {
   justify-content: flex-end;
 }
 
-.bulk_submit_busy_overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 1300;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 12px;
-  background: fade(#000, 62%);
-}
-
-.bulk_submit_busy_box {
+.bulk_modal_loading {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  min-width: 180px;
-  padding: 16px 20px;
-  border-radius: 6px;
-  background: @DarkColorBG;
-  border: 1px solid fade(@orange, 45%);
-  color: @colorText;
+  gap: 8px;
+  padding: 14px 8px 18px;
+  text-align: center;
 }
 
-.bulk_submit_busy_text {
+.bulk_modal_loading_title {
   margin: 0;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   color: @orange;
+}
+
+.bulk_modal_loading_hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: @colorBlur;
+  max-width: 280px;
 }
 </style>
