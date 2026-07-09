@@ -354,7 +354,18 @@
               ({{ warehouses.totals.items_with_stock }} видов с остатком)
             </p>
 
-            <div class="labor_treasury_section" v-if="canImpersonate">
+            <div class="warehouse_mode_tabs">
+              <button
+                v-for="tab in warehouseTabs"
+                :key="tab.id"
+                type="button"
+                class="warehouse_mode_tab"
+                :class="{ active: activeWarehouseTab === tab.id }"
+                @click="activeWarehouseTab = tab.id"
+              >{{ tab.label }}</button>
+            </div>
+
+            <div class="labor_treasury_section" v-if="canImpersonate && activeWarehouseTab === 'works'">
               <div class="subsection_title">Заказы на работу (казна)</div>
               <p class="hint">
                 Сырьё списывается с госсклада, оплата — из казны. Исполнители берут заказ на бирже → «Работы».
@@ -407,43 +418,76 @@
                   Из казны: {{ laborPayTotal }} 🪙
                 </p>
 
-                <div class="labor_orders_list" v-if="treasuryLaborOrders.length">
+                <div class="warehouse_subtabs labor_status_subtabs">
+                  <button
+                    v-for="tab in warehouseWorkTabs"
+                    :key="tab.id"
+                    type="button"
+                    class="warehouse_subtab"
+                    :class="{ active: activeWarehouseWorkTab === tab.id }"
+                    @click="activeWarehouseWorkTab = tab.id"
+                  >{{ tab.label }}</button>
+                </div>
+
+                <div class="labor_orders_list" v-if="groupedLaborOrders.length">
                   <div
-                    v-for="order in treasuryLaborOrders"
-                    :key="'treasury-order-' + order.id"
-                    class="labor_order_row"
+                    v-for="group in groupedLaborOrders"
+                    :key="'labor-group-' + group.key"
+                    class="labor_group"
                   >
-                    <div class="labor_order_main">
+                    <button
+                      type="button"
+                      class="labor_group_head"
+                      @click="toggleLaborGroup(group.key)"
+                    >
                       <div class="labor_order_label">
-                        {{ order.profession_label }} → {{ order.output_label }}
+                        {{ group.profession_label }} → {{ group.output_label }}
                       </div>
-                      <div class="labor_order_meta">
-                        {{ order.iterations_done }}/{{ order.iterations_total }} ·
-                        {{ order.pay_per_cycle }} 🪙/цикл
-                        <span v-if="order.has_active_worker" class="badge_active">в работе</span>
-                        <span v-else-if="order.status === 'open'"> · осталось {{ order.iterations_remaining }}</span>
-                        · {{ orderStatusLabel(order.status) }}
+                      <div class="labor_group_meta">
+                        <span v-if="activeWarehouseWorkTab === 'completed'">выполнено {{ group.iterations_total }}</span>
+                        <span v-else>осталось {{ group.iterations_remaining }}</span>
+                        <span class="labor_group_count">· заказов {{ group.orders.length }}</span>
+                        <span class="labor_group_arrow">{{ isLaborGroupExpanded(group.key) ? '▾' : '▸' }}</span>
+                      </div>
+                    </button>
+                    <div v-if="isLaborGroupExpanded(group.key)" class="labor_group_orders">
+                      <div
+                        v-for="order in group.orders"
+                        :key="'treasury-order-' + order.id"
+                        class="labor_order_row"
+                      >
+                        <div class="labor_order_main">
+                          <div class="labor_order_meta">
+                            {{ order.iterations_done }}/{{ order.iterations_total }} ·
+                            {{ order.pay_per_cycle }} 🪙/цикл
+                            <span v-if="order.has_active_worker" class="badge_active">в работе</span>
+                            <span v-else-if="order.status === 'open'"> · осталось {{ order.iterations_remaining }}</span>
+                            · {{ orderStatusLabel(order.status) }}
+                          </div>
+                        </div>
+                        <button
+                          v-if="order.can_cancel && order.status !== 'completed'"
+                          type="button"
+                          class="action_btn danger"
+                          :disabled="actionLoading"
+                          @click="cancelTreasuryLaborOrder(order.id)"
+                        >
+                          Снять
+                        </button>
                       </div>
                     </div>
-                    <button
-                      v-if="order.can_cancel"
-                      type="button"
-                      class="action_btn danger"
-                      :disabled="actionLoading"
-                      @click="cancelTreasuryLaborOrder(order.id)"
-                    >
-                      Снять
-                    </button>
                   </div>
                 </div>
-                <p v-else class="hint section_hint">Нет заказов казны на бирже труда.</p>
+                <p v-else class="hint section_hint">
+                  {{ activeWarehouseWorkTab === 'completed' ? 'Нет выполненных заказов.' : 'Нет активных заказов.' }}
+                </p>
               </template>
               <p v-else class="hint section_hint">
                 <button type="button" class="action_btn mini" @click="loadTreasuryLaborOrders">Обновить заказы</button>
               </p>
             </div>
 
-            <div class="warehouse_subtabs" v-if="warehouseGroups.length">
+            <div class="warehouse_subtabs" v-if="warehouseGroups.length && activeWarehouseTab === 'stock'">
               <button
                 v-for="group in warehouseGroups"
                 :key="group.id"
@@ -454,7 +498,7 @@
               >{{ group.label }}</button>
             </div>
 
-            <div class="warehouse_items" v-if="activeWarehouseGroup">
+            <div class="warehouse_items" v-if="activeWarehouseGroup && activeWarehouseTab === 'stock'">
               <div class="subsection_title">
                 {{ activeWarehouseGroup.label }}
                 — казна {{ activeWarehouseGroup.total_qty }},
@@ -492,7 +536,7 @@
               </div>
             </div>
 
-            <div class="treasury_exchange_section" v-if="canImpersonate">
+            <div class="treasury_exchange_section" v-if="canImpersonate && activeWarehouseTab === 'exchange'">
               <div class="subsection_title">Продажа с госсклада (биржа)</div>
               <p class="hint">
                 Лоты от имени «Казна», цена по номиналу, без комиссии. Покупка зачисляет 🪙 в казну.
@@ -609,6 +653,8 @@ export default {
     return {
       activeMainTab: 'overview',
       activeWarehouseGroupId: 'gather',
+      activeWarehouseTab: 'works',
+      activeWarehouseWorkTab: 'active',
       treasuryLoading: false,
       actionLoading: false,
       treasury: null,
@@ -624,6 +670,7 @@ export default {
       laborOrdersLoading: false,
       laborOrdersError: '',
       treasuryLaborOrders: [],
+      expandedLaborGroups: {},
       laborForm: {
         professionCode: '',
         iterations: 6,
@@ -695,6 +742,50 @@ export default {
     },
     warehouseFlows() {
       return this.warehouses?.flows?.profession || null;
+    },
+    warehouseTabs() {
+      return [
+        { id: 'works', label: 'Работы' },
+        { id: 'stock', label: 'Наличие' },
+        { id: 'exchange', label: 'На бирже' },
+      ];
+    },
+    warehouseWorkTabs() {
+      return [
+        { id: 'active', label: 'Активные' },
+        { id: 'completed', label: 'Выполненные' },
+      ];
+    },
+    filteredTreasuryLaborOrders() {
+      const orders = Array.isArray(this.treasuryLaborOrders) ? this.treasuryLaborOrders : [];
+      if (this.activeWarehouseWorkTab === 'completed') {
+        return orders.filter((order) => order.status === 'completed');
+      }
+      return orders.filter((order) => order.status !== 'completed');
+    },
+    groupedLaborOrders() {
+      const groups = {};
+      this.filteredTreasuryLaborOrders.forEach((order) => {
+        const key = this.laborOrderGroupKey(order);
+        if (!groups[key]) {
+          groups[key] = {
+            key,
+            profession_label: order.profession_label || 'Профессия',
+            output_label: order.output_label || '',
+            iterations_remaining: 0,
+            iterations_total: 0,
+            orders: [],
+          };
+        }
+        groups[key].iterations_remaining += Number(order.iterations_remaining || 0);
+        groups[key].iterations_total += Number(order.iterations_total || 0);
+        groups[key].orders.push(order);
+      });
+      return Object.values(groups).sort((a, b) => {
+        const aLabel = `${a.profession_label} ${a.output_label}`.toLowerCase();
+        const bLabel = `${b.profession_label} ${b.output_label}`.toLowerCase();
+        return aLabel.localeCompare(bLabel, 'ru');
+      });
     },
     treasuryGovListings() {
       return this.warehouses?.treasury_exchange?.listings || [];
@@ -790,6 +881,9 @@ export default {
         this.loadTreasuryLaborOrders();
       }
     },
+    activeWarehouseWorkTab() {
+      this.expandedLaborGroups = {};
+    },
   },
   created() {
     this.refresh();
@@ -845,6 +939,20 @@ export default {
         return 'снят';
       }
       return 'открыт';
+    },
+    laborOrderGroupKey(order) {
+      const profession = String(order?.profession_code || order?.profession_label || '').trim().toLowerCase();
+      const output = String(order?.output_code || order?.output_label || '').trim().toLowerCase();
+      return `${profession}::${output}`;
+    },
+    toggleLaborGroup(groupKey) {
+      this.expandedLaborGroups = {
+        ...this.expandedLaborGroups,
+        [groupKey]: !this.expandedLaborGroups[groupKey],
+      };
+    },
+    isLaborGroupExpanded(groupKey) {
+      return Boolean(this.expandedLaborGroups[groupKey]);
     },
 
     async refresh() {
@@ -1398,6 +1506,28 @@ export default {
   margin: 8px 0;
 }
 
+.warehouse_mode_tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 10px;
+}
+
+.warehouse_mode_tab {
+  background: @darkbg;
+  color: @colorText;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+
+  &.active {
+    background: @orange;
+    color: #fff;
+  }
+}
+
 .warehouse_subtab {
   background: @darkbg;
   color: @colorText;
@@ -1411,6 +1541,10 @@ export default {
     background: @orange;
     color: #fff;
   }
+}
+
+.labor_status_subtabs {
+  margin-top: 8px;
 }
 
 .warehouse_items {
@@ -1591,6 +1725,51 @@ export default {
   flex-direction: column;
   gap: 6px;
   margin-top: 8px;
+}
+
+.labor_group {
+  border: 1px solid fade(@colorBlur, 25%);
+  border-radius: 4px;
+  padding: 8px;
+}
+
+.labor_group_head {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+}
+
+.labor_group_meta {
+  font-size: 11px;
+  color: @colorBlur;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.labor_group_count {
+  color: fade(@colorBlur, 95%);
+}
+
+.labor_group_arrow {
+  color: @colorText;
+  font-size: 12px;
+  margin-left: 2px;
+}
+
+.labor_group_orders {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .labor_order_row {

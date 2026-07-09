@@ -201,6 +201,16 @@ class BotFarmService
             ? min(ProfessionEconomyConfig::FREE_ITERATIONS_PER_SESSION, $iterations)
             : ProfessionEconomyConfig::FREE_ITERATIONS_PER_SESSION;
 
+        $gatherCodes = $this->getUserProfessionCodesByType($userId, 'gather');
+        if ($gatherCodes !== []) {
+            $multiOrderResult = $this->runInstantTreasuryOrdersAcrossProfessions($userId, $gatherCodes, $iterations);
+            if ($multiOrderResult !== null) {
+                return $multiOrderResult;
+            }
+        }
+
+        $professionCode = $gatherCodes[0] ?? $professionCode;
+
         return $this->runInstantTreasuryWork(
             $userId,
             $professionCode,
@@ -232,6 +242,16 @@ class BotFarmService
         $iterations = $iterations > 0
             ? min(ProfessionEconomyConfig::FREE_ITERATIONS_PER_SESSION, $iterations)
             : ProfessionEconomyConfig::FREE_ITERATIONS_PER_SESSION;
+
+        $processingCodes = $this->getUserProfessionCodesByType($userId, 'process');
+        if ($processingCodes !== []) {
+            $multiOrderResult = $this->runInstantTreasuryOrdersAcrossProfessions($userId, $processingCodes, $iterations);
+            if ($multiOrderResult !== null) {
+                return $multiOrderResult;
+            }
+        }
+
+        $professionCode = $processingCodes[0] ?? $professionCode;
 
         return $this->runInstantTreasuryWork(
             $userId,
@@ -541,6 +561,93 @@ class BotFarmService
         asort($processing);
 
         return (string)array_key_first($processing);
+    }
+
+    /**
+     * @param string[] $professionCodes
+     * @return array{status:string,message:string,ticks?:int,profession_codes?:array<int,string>}|null
+     */
+    private function runInstantTreasuryOrdersAcrossProfessions(
+        int $userId,
+        array $professionCodes,
+        int $iterations
+    ): ?array {
+        $codes = array_values(array_unique(array_filter(array_map('strval', $professionCodes))));
+        if ($codes === []) {
+            return null;
+        }
+
+        $laborService = new LaborExchangeService(null, $this->professionRepository);
+        $summary = [];
+        $totalTicks = 0;
+        $usedCodes = [];
+
+        foreach ($codes as $professionCode) {
+            $order = $laborService->findOpenTreasuryOrderForProfession($professionCode);
+            if ($order === null) {
+                continue;
+            }
+
+            $claimIterations = min(
+                $iterations,
+                LaborExchangeConfig::MAX_CYCLES_PER_CLAIM,
+                $laborService->getTreasuryOrderRemainingIterations($order)
+            );
+            if ($claimIterations <= 0) {
+                continue;
+            }
+
+            try {
+                $laborService->claimOrder($userId, (int)$order['ID'], $claimIterations);
+                $ticks = $this->farmService->forceRunAllSessionTicks($userId);
+            } catch (\Throwable $e) {
+                continue;
+            }
+
+            if ($ticks <= 0) {
+                continue;
+            }
+
+            $definition = ProfessionMaterialConfig::getProfession($professionCode);
+            $label = (string)($definition['label'] ?? $professionCode);
+            $summary[] = $label . ': ' . $ticks . ' цикл.';
+            $totalTicks += $ticks;
+            $usedCodes[] = $professionCode;
+        }
+
+        if ($totalTicks <= 0) {
+            return null;
+        }
+
+        return [
+            'status' => 'success',
+            'ticks' => $totalTicks,
+            'profession_codes' => $usedCodes,
+            'message' => 'Заказы казны: ' . implode(', ', $summary),
+        ];
+    }
+
+    /**
+     * @return string[]
+     */
+    private function getUserProfessionCodesByType(int $userId, string $type): array
+    {
+        $codes = [];
+        foreach ($this->professionRepository->getProfessionsByUserId($userId) as $row) {
+            $code = (string)($row['UF_PROFESSION_CODE'] ?? '');
+            $definition = ProfessionMaterialConfig::getProfession($code);
+            if (!$definition) {
+                continue;
+            }
+
+            if (($definition['type'] ?? '') !== $type) {
+                continue;
+            }
+
+            $codes[] = $code;
+        }
+
+        return array_values(array_unique($codes));
     }
 
     private function countExchangeMaterialQty(string $materialCode): int

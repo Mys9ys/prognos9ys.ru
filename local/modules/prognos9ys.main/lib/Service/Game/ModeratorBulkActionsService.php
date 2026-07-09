@@ -738,9 +738,11 @@ class ModeratorBulkActionsService
         }
 
         $professions = (new ProfessionRepository())->getProfessionsByUserId($userId);
-        $code = (string)($professions[0]['UF_PROFESSION_CODE'] ?? '');
+        $gatherCodes = $this->getUserProfessionCodesByType($professions, 'gather');
+        $code = (string)($gatherCodes[0] ?? '');
         if ($code === '') {
             $code = BotProfessionPickConfig::pickGatheringCodeForUser($userId);
+            $gatherCodes = [$code];
             $label = ProfessionMaterialConfig::getProfession($code)['label'] ?? $code;
             $hint = 'Назначим ' . $label;
         } else {
@@ -751,7 +753,7 @@ class ModeratorBulkActionsService
         $hint .= ', ×' . $iterations;
 
         $laborService = new LaborExchangeService();
-        $order = $laborService->findOpenTreasuryOrderForProfession($code);
+        $order = $this->findOpenOrderForAnyProfession($laborService, $gatherCodes);
         if ($order) {
             $remaining = $laborService->getTreasuryOrderRemainingIterations($order);
             $claimIterations = min($iterations, LaborExchangeConfig::MAX_CYCLES_PER_CLAIM, $remaining);
@@ -826,15 +828,25 @@ class ModeratorBulkActionsService
         }
 
         $code = $this->botFarmService->getProcessingProfessionCode($userId);
+        $processCodes = $this->getUserProfessionCodesByType(
+            (new ProfessionRepository())->getProfessionsByUserId($userId),
+            'process'
+        );
+        if ($code === '' && $processCodes !== []) {
+            $code = (string)$processCodes[0];
+        }
         if ($code === '') {
             return ['eligible' => false, 'skip_reason' => 'Нет профессии обработки'];
         }
 
         $label = ProfessionMaterialConfig::getProfession($code)['label'] ?? $code;
         $hint = $label . ', ×' . $iterations;
+        if ($processCodes === []) {
+            $processCodes = [$code];
+        }
 
         $laborService = new LaborExchangeService();
-        $order = $laborService->findOpenTreasuryOrderForProfession($code);
+        $order = $this->findOpenOrderForAnyProfession($laborService, $processCodes);
         if ($order) {
             $remaining = $laborService->getTreasuryOrderRemainingIterations($order);
             $claimIterations = min($iterations, LaborExchangeConfig::MAX_CYCLES_PER_CLAIM, $remaining);
@@ -954,6 +966,41 @@ class ModeratorBulkActionsService
     private function professionRepositoryHasActiveSession(int $userId): bool
     {
         return (new ProfessionRepository())->getActiveSessionByUserId($userId) !== null;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $professions
+     * @return string[]
+     */
+    private function getUserProfessionCodesByType(array $professions, string $type): array
+    {
+        $codes = [];
+        foreach ($professions as $row) {
+            $code = (string)($row['UF_PROFESSION_CODE'] ?? '');
+            $definition = ProfessionMaterialConfig::getProfession($code);
+            if (!$definition || ($definition['type'] ?? '') !== $type) {
+                continue;
+            }
+
+            $codes[] = $code;
+        }
+
+        return array_values(array_unique($codes));
+    }
+
+    /**
+     * @param string[] $professionCodes
+     */
+    private function findOpenOrderForAnyProfession(LaborExchangeService $laborService, array $professionCodes): ?array
+    {
+        foreach ($professionCodes as $code) {
+            $order = $laborService->findOpenTreasuryOrderForProfession((string)$code);
+            if ($order) {
+                return $order;
+            }
+        }
+
+        return null;
     }
 
     private static function isSellLootBulkAction(string $bulkAction): bool
