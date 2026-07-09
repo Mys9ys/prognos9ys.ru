@@ -42,6 +42,7 @@ use Prognos9ys\Main\Service\Game\StarterLoanService;
 use Prognos9ys\Main\Service\Game\TreasuryService;
 use Prognos9ys\Main\Service\Game\EstateMapService;
 use Prognos9ys\Main\Service\Game\EstatePlotService;
+use Prognos9ys\Main\Service\Game\HomeEstateService;
 use Prognos9ys\Main\Service\Game\EquipmentService;
 use Prognos9ys\Main\Service\Game\TreasuryCityService;
 use Prognos9ys\Main\Service\Game\TreasuryShopService;
@@ -73,6 +74,7 @@ class GameController extends BaseController
             'getEstateMapState' => $this->getDefaultConfigureForPostToken(),
             'getEstateCityMap' => $this->getDefaultConfigureForPostToken(),
             'claimEstatePlot' => $this->getDefaultConfigureForPostToken(),
+            'setHomeEstate' => $this->getDefaultConfigureForPostToken(),
             'submitEstateBuildComponent' => $this->getDefaultConfigureForPostToken(),
             'withdrawEstateBuildComponent' => $this->getDefaultConfigureForPostToken(),
             'completeEstateBuildProject' => $this->getDefaultConfigureForPostToken(),
@@ -507,6 +509,30 @@ class GameController extends BaseController
             'status' => 'ok',
             'result' => $result,
             'city' => $city,
+        ];
+    }
+
+    public function setHomeEstateAction(string $citySlug, int $plotNumber): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        try {
+            $homeEstate = (new HomeEstateService())->setHomeEstate($userId, $citySlug, $plotNumber);
+            $city = (new EstateMapService())->getCityStreetMap($citySlug, $userId);
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return [
+            'status' => 'ok',
+            'home_estate' => $homeEstate,
+            'city' => $city,
+            'map' => (new EstateMapService())->getWorldMapState($userId),
         ];
     }
 

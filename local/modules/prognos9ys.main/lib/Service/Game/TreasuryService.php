@@ -51,9 +51,20 @@ class TreasuryService
                 'ref_id' => (int)($row['UF_REF_ID'] ?? 0),
                 'user_id' => $userId,
                 'user_name' => $userId > 0 ? $this->resolveUserName($userId) : '',
+                'seller_id' => 0,
+                'seller_name' => '',
                 'created_at' => $createdAt instanceof DateTime ? $createdAt->format('Y-m-d H:i:s') : '',
             ];
         }
+
+        foreach ($items as &$item) {
+            $seller = $this->resolveSellerForLedgerRow($item);
+            if ($seller !== null) {
+                $item['seller_id'] = (int)($seller['id'] ?? 0);
+                $item['seller_name'] = (string)($seller['name'] ?? '');
+            }
+        }
+        unset($item);
 
         return $items;
     }
@@ -209,5 +220,33 @@ class TreasuryService
         $name = trim((string)($row['NAME'] ?? '') . ' ' . (string)($row['LAST_NAME'] ?? ''));
 
         return $name !== '' ? $name : (string)($row['LOGIN'] ?? ('user#' . $userId));
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     * @return array{id:int,name:string}|null
+     */
+    private function resolveSellerForLedgerRow(array $row): ?array
+    {
+        $refType = (string)($row['ref_type'] ?? '');
+        $refId = (int)($row['ref_id'] ?? 0);
+        if ($refType !== 'exchange_listing' || $refId <= 0) {
+            return null;
+        }
+
+        $listing = $this->repository->getExchangeListingById($refId);
+        if (!$listing) {
+            return null;
+        }
+
+        $sellerId = (int)($listing['UF_SELLER_ID'] ?? 0);
+        if ($sellerId <= 0) {
+            return null;
+        }
+
+        return [
+            'id' => $sellerId,
+            'name' => $this->resolveUserName($sellerId),
+        ];
     }
 }

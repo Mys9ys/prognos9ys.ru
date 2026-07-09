@@ -4087,6 +4087,15 @@ class GameEconomyRepository
         return $rows;
     }
 
+    public function countActiveUserBanks(): int
+    {
+        $dataClass = $this->getUserBankDataClass();
+
+        return (int)$dataClass::getCount([
+            '=UF_ACTIVE' => GameEconomyConfig::USER_BANK_STATUS_ACTIVE,
+        ]);
+    }
+
     public function addUserBank(array $fields): int
     {
         $dataClass = $this->getUserBankDataClass();

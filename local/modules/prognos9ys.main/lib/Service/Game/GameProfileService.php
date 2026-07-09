@@ -107,12 +107,17 @@ class GameProfileService
         ];
 
         if ($includeBankDetails) {
+            $eligibility = $this->bankService->getBankOpenEligibility($userId);
             $bankBlock['my_bank'] = $myBank;
             $bankBlock['active_deposits'] = count($deposits);
             $bankBlock['active_loans'] = count($loans);
-            $bankBlock['can_open'] = $myBank === null
-                && $this->walletService->getWalletSummary($userId)['prognobaks']
-                >= GameEconomyConfig::BANK_OPEN_MIN_WALLET_PROGNOBAKS;
+            $bankBlock['can_open'] = (bool)($eligibility['can_open'] ?? false);
+            $bankBlock['open_block_reason'] = (string)($eligibility['open_block_reason'] ?? '');
+            $bankBlock['open_quota'] = [
+                'users_count' => (int)($eligibility['users_count'] ?? 0),
+                'active_banks' => (int)($eligibility['active_banks'] ?? 0),
+                'allowed_banks' => (int)($eligibility['allowed_banks'] ?? 0),
+            ];
         }
 
         $anchorEventId = (new GameEventScopeService())->getAnchorEventId();
@@ -228,6 +233,12 @@ class GameProfileService
                     'active_deposits' => 0,
                     'active_loans' => 0,
                     'can_open' => false,
+                    'open_block_reason' => '',
+                    'open_quota' => [
+                        'users_count' => 0,
+                        'active_banks' => 0,
+                        'allowed_banks' => 1,
+                    ],
                 ],
             ];
     }

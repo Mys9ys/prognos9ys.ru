@@ -363,7 +363,11 @@ export default {
             count: Number(item.count),
             emoji: collectibleIcon ? null : (isProfessionPack ? '⚙️' : (item.emoji || LOOT_EMOJI[item.category] || '📦')),
             imageSrc: collectibleIcon,
-            caption: isProfessionPack ? 'Рецепты' : (item.type_caption || LOOT_CAPTION[item.category] || 'Лут'),
+            caption: isProfessionPack
+              ? 'Рецепты'
+              : (item.category === 'material'
+                ? (item.label || item.code)
+                : (item.type_caption || LOOT_CAPTION[item.category] || 'Лут')),
             label: item.label || item.code,
             code: item.code,
             category: item.category,

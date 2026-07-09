@@ -156,7 +156,7 @@ class ProfessionCraftService
             throw new \InvalidArgumentException('Некорректные участники заказа');
         }
 
-        $qty = max(1, min(LaborExchangeConfig::MAX_ESTATE_CLAIM_QTY, $qty));
+        $qty = max(1, min(LaborExchangeConfig::MAX_ITERATIONS, $qty));
         $definition = $this->validateEstateOrderCraftDefinition($recipeCode, $professionCode);
         $professionRow = $this->professionRepository->getProfessionByUserAndCode($workerUserId, $professionCode);
         if (!$professionRow) {
@@ -164,24 +164,7 @@ class ProfessionCraftService
             throw new \RuntimeException('Нужна профессия: ' . $label);
         }
 
-        $preview = $this->buildCraftPreview(
-            $workerUserId,
-            $definition,
-            false,
-            (float)$this->walletService->getWalletSummary($workerUserId)['prognobaks']
-        );
-
-        if (empty($preview['can_craft'])) {
-            throw new \RuntimeException((string)($preview['missing_reason'] ?? 'Нельзя выполнить крафт'));
-        }
-
-        $workCost = (float)((int)($definition['work_cost'] ?? ProfessionRecipeConfig::WORK_COST) * $qty);
-        $wallet = $this->walletService->getWalletSummary($workerUserId);
-        if ((float)$wallet['prognobaks'] < $workCost) {
-            throw new \RuntimeException('Нужно ' . $workCost . ' 🪙 за работу');
-        }
-
-        if (!$this->canCraftQty($workerUserId, $definition, $qty)) {
+        if (!$this->canCraftQtyWithoutWorkCost($workerUserId, $definition, $qty)) {
             throw new \RuntimeException('Недостаточно материалов для крафта ×' . $qty);
         }
 
@@ -199,24 +182,13 @@ class ProfessionCraftService
             $this->economyRepository->incrementRecipeCraftRunCount($workerUserId, $professionCode, $recipeCode);
         }
 
-        if ($workCost > 0) {
-            $this->walletService->debit(
-                $workerUserId,
-                GameEconomyConfig::CURRENCY_PROGNOBAKS,
-                $workCost,
-                'estate_order_craft_fee',
-                'recipe',
-                0
-            );
-        }
-
         return [
             'recipe_code' => $recipeCode,
             'crafted_qty' => $craftedQty,
             'xp_gain' => $xpGain,
             'profession_code' => $professionCode,
             'profession_level_rewards' => $levelRewards,
-            'work_cost_total' => $workCost,
+            'work_cost_total' => 0.0,
         ];
     }
 
@@ -247,20 +219,52 @@ class ProfessionCraftService
             return ['max_qty' => 0, 'block_reason' => 'Нужна профессия: ' . $label];
         }
 
-        $wallet = (float)$this->walletService->getWalletSummary($userId)['prognobaks'];
-        $preview = $this->buildCraftPreview($userId, $definition, false, $wallet);
-
-        $max = LaborExchangeConfig::MAX_ESTATE_CLAIM_QTY;
-        for ($qty = $max; $qty >= 1; $qty--) {
-            if ($this->canCraftQty($userId, $definition, $qty)) {
-                return ['max_qty' => $qty, 'block_reason' => ''];
-            }
+        $max = $this->resolveMaxCraftQtyByInputs($userId, $definition);
+        if ($max > 0) {
+            return ['max_qty' => $max, 'block_reason' => ''];
         }
+
+        $preview = $this->buildCraftPreview($userId, $definition, false, 9999999.0);
 
         return [
             'max_qty' => 0,
             'block_reason' => (string)($preview['missing_reason'] ?? 'Недостаточно ресурсов для крафта'),
         ];
+    }
+
+    /**
+     * @param array{
+     *   recipe_code:string,
+     *   profession:string,
+     *   tier:string,
+     *   work_cost:int,
+     *   craft_xp:int,
+     *   inputs:array<int, array{code:string,qty:int,source:string,premium?:bool}>,
+     *   outputs:array<int, array{code:string,qty:int,source:string}>
+     * } $definition
+     */
+    private function resolveMaxCraftQtyByInputs(int $userId, array $definition): int
+    {
+        $maxQty = LaborExchangeConfig::MAX_ITERATIONS;
+        foreach ($definition['inputs'] ?? [] as $input) {
+            $code = (string)($input['code'] ?? '');
+            $need = max(1, (int)($input['qty'] ?? 1));
+            $source = (string)($input['source'] ?? 'material');
+            $premium = !empty($input['premium']);
+
+            if ($source === 'material') {
+                $have = $this->professionRepository->getUserMaterialQty($userId, $code, $premium);
+            } else {
+                $category = $source === 'equipment'
+                    ? ChestLootConfig::CATEGORY_EQUIPMENT
+                    : ChestLootConfig::CATEGORY_ALBUM;
+                $have = $this->economyRepository->getEventAgnosticLootItemCount($userId, $code, $category);
+            }
+
+            $maxQty = min($maxQty, (int)floor($have / $need));
+        }
+
+        return max(0, $maxQty);
     }
 
     /**
@@ -333,6 +337,50 @@ class ProfessionCraftService
         $wallet = $this->walletService->getWalletSummary($userId);
 
         return (float)$wallet['prognobaks'] >= $workCost;
+    }
+
+    /**
+     * Проверка для заказов усадьбы: не учитывает рабочую оплату в кошельке.
+     *
+     * @param array{
+     *   recipe_code:string,
+     *   profession:string,
+     *   tier:string,
+     *   work_cost:int,
+     *   craft_xp:int,
+     *   inputs:array<int, array{code:string,qty:int,source:string,premium?:bool}>,
+     *   outputs:array<int, array{code:string,qty:int,source:string}>
+     * } $definition
+     */
+    private function canCraftQtyWithoutWorkCost(int $userId, array $definition, int $qty): bool
+    {
+        if ($qty <= 0) {
+            return false;
+        }
+
+        foreach ($definition['inputs'] ?? [] as $input) {
+            $code = (string)($input['code'] ?? '');
+            $need = max(1, (int)($input['qty'] ?? 1)) * $qty;
+            $source = (string)($input['source'] ?? 'material');
+            $premium = !empty($input['premium']);
+
+            if ($source === 'material') {
+                if ($this->professionRepository->getUserMaterialQty($userId, $code, $premium) < $need) {
+                    return false;
+                }
+
+                continue;
+            }
+
+            $category = $source === 'equipment'
+                ? ChestLootConfig::CATEGORY_EQUIPMENT
+                : ChestLootConfig::CATEGORY_ALBUM;
+            if ($this->economyRepository->getEventAgnosticLootItemCount($userId, $code, $category) < $need) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

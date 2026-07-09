@@ -114,7 +114,7 @@ class BankBranchService
             GameEconomyConfig::CURRENCY_PROGNOBAKS,
             $fee,
             'bank_branch_presence',
-            self::REF_TYPE,
+            self::REF_TYPE . ':' . $citySlug,
             $bankId
         );
 
@@ -124,7 +124,7 @@ class BankBranchService
             'bank_branch_presence',
             $bankId,
             $userId,
-            self::REF_TYPE
+            self::REF_TYPE . ':' . $citySlug
         );
 
         $opened[] = $citySlug;

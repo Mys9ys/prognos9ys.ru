@@ -389,7 +389,24 @@ export default {
         this.cityMap = data.city || this.cityMap;
         this.cityMessage = `Участок №${plotNumber} успешно закреплён за вами`;
         await this.loadMap();
-        this.setModalSuccess(`Участок №${plotNumber} закреплён за вами.`);
+        const shouldAskHomeMove = Boolean(data?.result?.claimed_now)
+          && data?.result?.home_estate_auto_set !== true
+          && data?.result?.home_estate_before
+          && (
+            String(data?.result?.home_estate_before?.city_slug || '') !== String(this.selectedSlug)
+            || Number(data?.result?.home_estate_before?.plot_number || 0) !== Number(plotNumber)
+          );
+        if (shouldAskHomeMove) {
+          this.openEstateModal({
+            mode: 'confirm',
+            title: 'Перенос прописки',
+            message: `Участок №${plotNumber} закреплён. Перенести сюда прописку?`,
+            confirmLabel: 'Перенести',
+            onConfirm: () => this.executeSetHomeEstate(plotNumber),
+          });
+        } else {
+          this.setModalSuccess(`Участок №${plotNumber} закреплён за вами.`);
+        }
       } catch (e) {
         this.setModalError(e?.message || 'Ошибка захвата участка');
       } finally {
@@ -409,14 +426,44 @@ export default {
       const plotNumber = Number(payload?.plotNumber || 0);
       const owner = payload?.ownerName || 'игрок';
       const isMine = Boolean(payload?.isMine);
+      const isHome = Boolean(payload?.isHome);
       this.openEstateModal({
-        mode: 'alert',
+        mode: isMine && !isHome ? 'confirm' : 'alert',
         title: `Участок №${plotNumber}`,
-        message: isMine ? 'Ваша усадьба на этой улице' : `Усадьба: ${owner}`,
+        message: isMine
+          ? (isHome ? 'Это ваша главная усадьба (прописка).' : 'Ваша усадьба на этой улице')
+          : `Усадьба: ${owner}`,
+        meta: isMine && !isHome ? 'Сделать этот участок вашей пропиской?' : '',
+        confirmLabel: isMine && !isHome ? 'Сделать пропиской' : '',
+        onConfirm: isMine && !isHome ? () => this.executeSetHomeEstate(plotNumber) : null,
         plotView: {
           stage: payload?.stage || 'claimed',
         },
       });
+    },
+    async executeSetHomeEstate(plotNumber) {
+      const token = this.authData?.token;
+      if (!token || !this.selectedSlug || !plotNumber) {
+        return;
+      }
+
+      this.cityActionLoading = true;
+      this.cityError = '';
+      this.cityMessage = '';
+      try {
+        const data = await apiActions.game.setHomeEstate(token, this.selectedSlug, Number(plotNumber));
+        if (data?.status !== 'ok') {
+          throw new Error(data?.message || 'Не удалось изменить прописку');
+        }
+        this.cityMap = data.city || this.cityMap;
+        this.map = data.map || this.map;
+        this.cityMessage = `Прописка обновлена: участок №${plotNumber}`;
+        this.setModalSuccess(`Прописка перенесена на участок №${plotNumber}`);
+      } catch (e) {
+        this.setModalError(e?.message || 'Ошибка смены прописки');
+      } finally {
+        this.cityActionLoading = false;
+      }
     },
     onBuildProject(payload) {
       if (this.cityActionLoading) {

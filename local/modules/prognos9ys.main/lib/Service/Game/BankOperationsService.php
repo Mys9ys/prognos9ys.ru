@@ -436,6 +436,7 @@ class BankOperationsService
         $refId = (int)($row['UF_REF_ID'] ?? 0);
         $userId = (int)($row['UF_USER_ID'] ?? 0);
         [$counterpartyId, $counterpartyName] = $this->resolveCounterpartyForWalletTx($refType, $refId);
+        $branchCityName = $this->resolveBranchCityName($reason, $refType);
 
         return [
             'id' => 'tx_' . (int)$row['ID'],
@@ -452,6 +453,7 @@ class BankOperationsService
             'bank_id' => $refType === 'bank' ? $refId : 0,
             'counterparty_id' => $counterpartyId,
             'counterparty_name' => $counterpartyName,
+            'branch_city_name' => $branchCityName,
             'match_id' => 0,
             'match_label' => '',
         ];
@@ -1026,6 +1028,11 @@ class BankOperationsService
             }
         }
 
+        $branchCityName = $this->resolveBranchCityName($reason, $refType);
+        if ($branchCityName !== '') {
+            $parts[] = $branchCityName;
+        }
+
         $name = $userName;
         if ($name !== '' && in_array($reason, [
             'bank_deposit',
@@ -1044,6 +1051,24 @@ class BankOperationsService
         }
 
         return implode(' — ', array_filter($parts));
+    }
+
+    private function resolveBranchCityName(string $reason, string $refType): string
+    {
+        if ($reason !== 'bank_branch_presence') {
+            return '';
+        }
+
+        if (strpos($refType, 'bank_branch_presence:') !== 0) {
+            return '';
+        }
+
+        $slug = strtolower(trim(substr($refType, strlen('bank_branch_presence:'))));
+        if ($slug === '' || !EstateCityConfig::hasCity($slug)) {
+            return '';
+        }
+
+        return EstateCityConfig::getCityName($slug);
     }
 
     private function buildContractLabel(string $base, int $contractId, string $clientName, string $matchLabel): string

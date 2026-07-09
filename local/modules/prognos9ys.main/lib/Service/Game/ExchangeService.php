@@ -467,7 +467,9 @@ class ExchangeService
                     $settlementCurrency,
                     (float)$chunk['seller_net'],
                     'exchange_sell_gov',
-                    $listingId
+                    $listingId,
+                    null,
+                    'exchange_listing'
                 );
             } elseif ($isBankListing && $sellerBankId > 0) {
                 $this->creditBankConsignmentSale(
@@ -549,7 +551,9 @@ class ExchangeService
                 $settlementCurrency,
                 $totalCommission,
                 'exchange_commission',
-                $batchRef
+                $batchRef,
+                null,
+                'exchange_batch'
             );
         }
 

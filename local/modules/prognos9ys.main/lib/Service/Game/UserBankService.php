@@ -8,6 +8,8 @@ use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
 
 class UserBankService
 {
+    private const USERS_PER_BANK = 100;
+
     private GameEconomyRepository $repository;
     private WalletService $walletService;
     private GameEventScopeService $scopeService;
@@ -87,13 +89,9 @@ class UserBankService
             throw new \RuntimeException('У вас уже есть активный банк');
         }
 
-        $wallet = $this->walletService->getWalletSummary($userId);
-        if ($wallet['prognobaks'] < GameEconomyConfig::BANK_OPEN_MIN_WALLET_PROGNOBAKS) {
-            throw new \RuntimeException(
-                'Для открытия банка нужно не менее '
-                . GameEconomyConfig::BANK_OPEN_MIN_WALLET_PROGNOBAKS
-                . ' прогнобаксов на кошельке'
-            );
+        $eligibility = $this->getBankOpenEligibility($userId);
+        if (empty($eligibility['can_open'])) {
+            throw new \RuntimeException((string)($eligibility['open_block_reason'] ?? 'Нельзя открыть банк'));
         }
 
         $reserve = GameEconomyConfig::BANK_RESERVED_CAPITAL_PROGNOBAKS;
@@ -126,6 +124,67 @@ class UserBankService
     public function hasActiveBank(int $userId): bool
     {
         return $this->repository->getUserBankByOwnerId($userId) !== null;
+    }
+
+    /**
+     * @return array{
+     *   can_open:bool,
+     *   open_block_reason:string,
+     *   users_count:int,
+     *   active_banks:int,
+     *   allowed_banks:int
+     * }
+     */
+    public function getBankOpenEligibility(int $userId): array
+    {
+        $usersCount = max(0, (int)UserTable::getCount());
+        $activeBanks = $this->repository->countActiveUserBanks();
+        $allowedBanks = max(1, (int)floor($usersCount / self::USERS_PER_BANK));
+
+        if ($this->repository->getUserBankByOwnerId($userId)) {
+            return [
+                'can_open' => false,
+                'open_block_reason' => 'У вас уже есть активный банк',
+                'users_count' => $usersCount,
+                'active_banks' => $activeBanks,
+                'allowed_banks' => $allowedBanks,
+            ];
+        }
+
+        $wallet = $this->walletService->getWalletSummary($userId);
+        if ((float)($wallet['prognobaks'] ?? 0) < GameEconomyConfig::BANK_OPEN_MIN_WALLET_PROGNOBAKS) {
+            return [
+                'can_open' => false,
+                'open_block_reason' => 'Для открытия банка нужно не менее '
+                    . GameEconomyConfig::BANK_OPEN_MIN_WALLET_PROGNOBAKS
+                    . ' прогнобаксов на кошельке',
+                'users_count' => $usersCount,
+                'active_banks' => $activeBanks,
+                'allowed_banks' => $allowedBanks,
+            ];
+        }
+
+        if ($activeBanks >= $allowedBanks) {
+            return [
+                'can_open' => false,
+                'open_block_reason' => 'Достигнут лимит банков: '
+                    . $allowedBanks
+                    . ' на '
+                    . $usersCount
+                    . ' пользователей (1 банк на 100 пользователей)',
+                'users_count' => $usersCount,
+                'active_banks' => $activeBanks,
+                'allowed_banks' => $allowedBanks,
+            ];
+        }
+
+        return [
+            'can_open' => true,
+            'open_block_reason' => '',
+            'users_count' => $usersCount,
+            'active_banks' => $activeBanks,
+            'allowed_banks' => $allowedBanks,
+        ];
     }
 
     public function closeBank(int $userId): array

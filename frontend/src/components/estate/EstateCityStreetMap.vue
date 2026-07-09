@@ -406,6 +406,7 @@ export default {
         this.$emit('plot-view', {
           plotNumber: Number(plot.number),
           isMine: Boolean(plot.is_mine),
+          isHome: Boolean(plot.is_home),
           ownerName: plot.owner_name || '',
           stage: plot.estate_stage || 'claimed',
         });

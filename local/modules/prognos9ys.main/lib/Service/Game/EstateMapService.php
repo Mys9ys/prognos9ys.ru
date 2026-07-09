@@ -27,6 +27,7 @@ class EstateMapService
     {
         $dbCities = $this->cityRepository->getAllCitiesIndexedBySlug();
         $userPlots = $userId > 0 ? $this->getUserPlotsIndexed($userId) : [];
+        $homeEstate = $userId > 0 ? (new HomeEstateService($this->cityRepository))->ensureHomeEstate($userId) : null;
         $regions = [];
 
         foreach (EstateWorldMapConfig::regions() as $regionId => $regionDef) {
@@ -71,6 +72,7 @@ class EstateMapService
                     'plots_claimed' => $plotsClaimed,
                     'plots_total' => EstateCityConfig::TOTAL_PLOTS,
                     'user_plot_number' => $userPlot,
+                    'is_home_city' => $homeEstate !== null && (string)$homeEstate['city_slug'] === $slug,
                 ];
             }
 
@@ -105,6 +107,7 @@ class EstateMapService
                 'region_pairs' => EstateWorldMapConfig::allRegionNeighborPairs(),
                 'cross_region_city_links' => EstateWorldMapConfig::crossRegionCityLinks(),
             ],
+            'home_estate' => $homeEstate,
         ];
     }
 
@@ -140,6 +143,9 @@ class EstateMapService
         $ownerNames = $this->resolvePlotOwnerNames($plotsByNumber);
 
         $myPlotNumber = 0;
+        $homeEstate = $userId > 0 ? (new HomeEstateService($this->cityRepository))->ensureHomeEstate($userId) : null;
+        $homePlotNumber = (int)($homeEstate['plot_number'] ?? 0);
+        $homeCitySlug = (string)($homeEstate['city_slug'] ?? '');
         foreach ($plotsByNumber as $num => $rowData) {
             if ((int)($rowData['UF_OWNER_USER_ID'] ?? 0) === $userId) {
                 $myPlotNumber = (int)$num;
@@ -180,6 +186,7 @@ class EstateMapService
                 'side' => EstateCityConfig::plotSide($num),
                 'claimed' => $ownerId > 0,
                 'is_mine' => $isMine,
+                'is_home' => $isMine && $homePlotNumber > 0 && $homeCitySlug === $slug && $homePlotNumber === $num,
                 'owner_user_id' => $ownerId,
                 'owner_name' => $ownerId > 0 ? (string)($ownerNames[$ownerId] ?? ('user#' . $ownerId)) : '',
                 'estate_stage' => $estateStage,
@@ -255,6 +262,7 @@ class EstateMapService
             'estate_projects' => $estateProjects,
             'my_plot_number' => $myPlotNumber,
             'my_estate_projects' => $myProjects,
+            'home_estate' => $homeEstate,
         ];
     }
 

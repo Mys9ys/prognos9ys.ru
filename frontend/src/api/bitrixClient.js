@@ -263,6 +263,10 @@ export const apiActions = {
             'prognos9ys:main.GameController.claimEstatePlot',
             { userToken, citySlug, plotNumber }
         ),
+        setHomeEstate: (userToken, citySlug, plotNumber) => runBitrixAction(
+            'prognos9ys:main.GameController.setHomeEstate',
+            { userToken, citySlug, plotNumber }
+        ),
         submitEstateBuildComponent: (
             userToken,
             citySlug,

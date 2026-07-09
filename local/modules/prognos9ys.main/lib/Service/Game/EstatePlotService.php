@@ -84,6 +84,15 @@ class EstatePlotService
             );
         }
 
+        $homeService = new HomeEstateService($this->cityRepository);
+        $homeBefore = $homeService->getHomeEstate($userId);
+        $homeAutoSet = false;
+        if ($claimedNow && $homeBefore === null) {
+            $homeService->setHomeEstate($userId, $citySlug, $plotNumber);
+            $homeAutoSet = true;
+        }
+        $homeAfter = $homeService->ensureHomeEstate($userId);
+
         foreach (self::ESTATE_STAGES as $code) {
             $this->professionRepository->ensureEstateConstructionProject($userId, $citySlug, $plotNumber, $code);
         }
@@ -92,11 +101,15 @@ class EstatePlotService
             'city_slug' => $citySlug,
             'city_id' => $cityId,
             'plot_number' => $plotNumber,
+            'claimed_now' => $claimedNow,
             'certificate_left' => $this->economyRepository->getEventAgnosticLootItemCount(
                 $userId,
                 'cert_estate',
                 ChestLootConfig::CATEGORY_CERT
             ),
+            'home_estate' => $homeAfter,
+            'home_estate_auto_set' => $homeAutoSet,
+            'home_estate_before' => $homeBefore,
             'projects' => $this->getPlotProjects($userId, $citySlug, $plotNumber),
         ];
     }

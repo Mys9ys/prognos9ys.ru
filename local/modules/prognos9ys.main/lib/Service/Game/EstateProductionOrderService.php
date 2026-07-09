@@ -52,14 +52,7 @@ class EstateProductionOrderService
 
         $qty = max(1, min(LaborExchangeConfig::MAX_ITERATIONS, $qty));
         $payPerCycle = $this->resolvePayPerCycle($componentCode);
-        $coinEscrow = round($qty * $payPerCycle, 1);
-
-        $wallet = $this->walletService->ensureWallet($userId);
-        if ((float)($wallet['prognobaks'] ?? 0) < $coinEscrow) {
-            throw new \RuntimeException(
-                'Недостаточно 🪙 для резерва: нужно ' . $coinEscrow . ', есть ' . round((float)$wallet['prognobaks'], 1)
-            );
-        }
+        $coinEscrow = 0.0;
 
         $now = new DateTime();
         $orderId = $this->orderRepository->addOrder([
@@ -80,15 +73,6 @@ class EstateProductionOrderService
             'UF_CREATED_AT' => $now,
             'UF_UPDATED_AT' => $now,
         ]);
-
-        $this->walletService->debit(
-            $userId,
-            GameEconomyConfig::CURRENCY_PROGNOBAKS,
-            $coinEscrow,
-            'estate_order_escrow',
-            'estate_order',
-            $orderId
-        );
 
         return $this->formatOrder($this->orderRepository->getOrderById($orderId) ?? [], $userId);
     }
@@ -187,7 +171,7 @@ class EstateProductionOrderService
         }
 
         $chunk = min(
-            LaborExchangeConfig::MAX_ESTATE_CLAIM_QTY,
+            LaborExchangeConfig::MAX_ITERATIONS,
             $remaining,
             $maxByMaterials
         );
@@ -199,10 +183,6 @@ class EstateProductionOrderService
         }
 
         $payCoins = round($chunk * $payPerCycle, 1);
-        $coinEscrow = (float)($order['UF_COIN_ESCROW'] ?? 0);
-        if ($coinEscrow < $payCoins) {
-            throw new \RuntimeException('В заказе недостаточно оплаты');
-        }
 
         $craft = $this->craftService->craftForRecipient(
             $userId,
@@ -271,7 +251,7 @@ class EstateProductionOrderService
             throw new \RuntimeException('Нет компонента в инвентаре');
         }
 
-        $chunk = $this->resolveSubmitChunk($remaining, $userHave, (float)($order['UF_COIN_ESCROW'] ?? 0), $payPerCycle);
+        $chunk = $this->resolveSubmitChunk($remaining, $userHave, $payPerCycle);
         if ($qty > 0) {
             $chunk = min($chunk, $qty);
         }
@@ -280,10 +260,6 @@ class EstateProductionOrderService
         }
 
         $payCoins = round($chunk * $payPerCycle, 1);
-        $coinEscrow = (float)($order['UF_COIN_ESCROW'] ?? 0);
-        if ($coinEscrow < $payCoins) {
-            throw new \RuntimeException('В заказе недостаточно оплаты');
-        }
 
         $this->professionRepository->consumeUserMaterialQty($userId, $outputCode, $chunk, false);
 
@@ -324,18 +300,6 @@ class EstateProductionOrderService
             throw new \RuntimeException('Заказ уже закрыт');
         }
 
-        $coinEscrow = (float)($order['UF_COIN_ESCROW'] ?? 0);
-        if ($coinEscrow > 0) {
-            $this->walletService->credit(
-                $userId,
-                GameEconomyConfig::CURRENCY_PROGNOBAKS,
-                $coinEscrow,
-                'estate_order_refund',
-                'estate_order',
-                $orderId
-            );
-        }
-
         $this->orderRepository->updateOrder($orderId, [
             'UF_STATUS' => LaborExchangeConfig::STATUS_CANCELLED,
             'UF_COIN_ESCROW' => 0,
@@ -348,7 +312,7 @@ class EstateProductionOrderService
     public function getMeta(): array
     {
         return [
-            'max_claim_qty' => LaborExchangeConfig::MAX_ESTATE_CLAIM_QTY,
+            'max_claim_qty' => LaborExchangeConfig::MAX_ITERATIONS,
             'default_pay_per_cycle' => LaborExchangeConfig::DEFAULT_PAY_PER_CYCLE,
         ];
     }
@@ -382,7 +346,6 @@ class EstateProductionOrderService
         $posterUserId = (int)($order['UF_POSTER_USER_ID'] ?? 0);
         $status = (string)($order['UF_STATUS'] ?? '');
         $payPerCycle = (float)($order['UF_PAY_PER_CYCLE'] ?? 0);
-        $coinEscrow = (float)($order['UF_COIN_ESCROW'] ?? 0);
         $isMine = $viewerUserId > 0 && $viewerUserId === $posterUserId;
         $userHave = $viewerUserId > 0 && $outputCode !== ''
             ? $this->professionRepository->getUserMaterialQty($viewerUserId, $outputCode, false)
@@ -395,7 +358,7 @@ class EstateProductionOrderService
         $canSubmit = false;
         $maxSubmit = 0;
         if ($status === LaborExchangeConfig::STATUS_OPEN && !$isMine && $remaining > 0 && $outputCode !== '') {
-            $maxSubmit = $this->resolveSubmitChunk($remaining, $userHave, $coinEscrow, $payPerCycle);
+            $maxSubmit = $this->resolveSubmitChunk($remaining, $userHave, $payPerCycle);
             $canSubmit = $maxSubmit > 0;
         }
 
@@ -467,22 +430,16 @@ class EstateProductionOrderService
         ];
     }
 
-    private function resolveSubmitChunk(int $remaining, int $userHave, float $coinEscrow, float $payPerCycle): int
+    private function resolveSubmitChunk(int $remaining, int $userHave, float $payPerCycle): int
     {
-        if ($remaining <= 0 || $userHave <= 0 || $payPerCycle <= 0 || $coinEscrow < $payPerCycle) {
-            return 0;
-        }
-
-        $maxByEscrow = (int)floor($coinEscrow / $payPerCycle);
-        if ($maxByEscrow <= 0) {
+        if ($remaining <= 0 || $userHave <= 0 || $payPerCycle <= 0) {
             return 0;
         }
 
         return min(
             $remaining,
             $userHave,
-            LaborExchangeConfig::MAX_ESTATE_CLAIM_QTY,
-            $maxByEscrow
+            LaborExchangeConfig::MAX_ITERATIONS
         );
     }
 

@@ -80,6 +80,10 @@
           <p class="hint">Нужно ≥250 <AppIcon name="prognobak" :size="14" /> на кошельке, 200 замораживаются в резерве.</p>
           <button class="btn" :disabled="loading" @click="onOpenBank">Открыть банк (200 <AppIcon name="prognobak" :size="14" />)</button>
         </div>
+        <div class="section" v-else-if="!myBank && openBlockReason">
+          <div class="section_title">Открыть банк</div>
+          <p class="hint">{{ openBlockReason }}</p>
+        </div>
 
         <div class="section">
           <div class="section_title">Каталог банков</div>
@@ -215,6 +219,7 @@
             <div class="meta">
               {{ op.at }}
               <span v-if="op.counterparty_name"> · {{ op.counterparty_name }}</span>
+              <span v-if="op.branch_city_name"> · филиал: {{ op.branch_city_name }}</span>
               <span v-if="op.match_label"> · {{ op.match_label }}</span>
               <span v-if="op.scope === 'bank'" class="badge">банк</span>
               <span v-if="op.balance_after !== null && op.balance_after !== undefined">
@@ -451,6 +456,9 @@ export default {
     },
     canOpen() {
       return !!this.bankInfo.can_open;
+    },
+    openBlockReason() {
+      return String(this.bankInfo.open_block_reason || '');
     },
     depositAmount() {
       return this.bankInfo.deposit_amount || DEFAULT_DEPOSIT_AMOUNT;

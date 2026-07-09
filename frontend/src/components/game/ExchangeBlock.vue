@@ -481,7 +481,7 @@
     <!-- Усадьбы: заказы на производство -->
     <div v-if="!loading && activeTab === 'estate'" class="panel">
       <div class="labor_hint">
-        Заказы на компоненты для усадеб. Сдайте готовые изделия из инвентаря — оплата из эскроу заказчика, компоненты идут на стройку.
+        Заказы на компоненты для усадеб. Сдайте готовые изделия из инвентаря — компоненты сразу идут на стройку.
       </div>
 
       <div class="labor_section_title">Мои заказы</div>
@@ -491,12 +491,12 @@
             <div class="row_label">{{ order.output_label }} ×{{ order.iterations_total }}</div>
             <div class="row_meta">
               {{ order.iterations_done }}/{{ order.iterations_total }} ·
-              {{ order.pay_per_cycle }} 🪙/шт · эскроу {{ order.coin_escrow }} 🪙
+              {{ order.pay_per_cycle }} 🪙/шт · фонд оплаты {{ order.pay_total_reserved }} 🪙
               <span v-if="order.status === 'open'"> · осталось {{ order.iterations_remaining }}</span>
               · {{ orderStatusLabel(order.status) }}
             </div>
-            <div class="row_meta recipe_line" v-if="order.recipe_label">
-              {{ order.recipe_label }} ({{ order.profession_label }})
+            <div class="row_meta recipe_line" v-if="order.profession_label">
+              специальность: {{ order.profession_label }}
             </div>
           </div>
           <div class="row_actions" v-if="order.can_cancel">
@@ -523,8 +523,8 @@
               {{ order.pay_per_cycle }} 🪙/шт
               <span v-if="order.user_have > 0"> · в инвентаре {{ order.user_have }}</span>
             </div>
-            <div class="row_meta recipe_line" v-if="order.recipe_label">
-              {{ order.recipe_label }} ({{ order.profession_label }})
+            <div class="row_meta recipe_line" v-if="order.profession_label">
+              специальность: {{ order.profession_label }}
             </div>
           </div>
           <div class="row_actions estate_submit_actions" v-if="order.can_submit">
@@ -569,8 +569,7 @@
     <!-- Госстройка -->
     <div v-if="!loading && activeTab === 'citybuild'" class="panel">
       <div class="labor_hint">
-        Сдача крафтовых компонентов в стройку городов ЧМ-26. Оплата по номиналу (+13% за монтаж), комиссия 0%.
-        Материалы списываются из инвентаря.
+        Заказы на компоненты для госстройки. Сдайте готовые изделия из инвентаря — компоненты сразу идут в стройку города.
       </div>
 
       <div class="citybuild_list" v-if="cityBuildOrders.length">
@@ -601,12 +600,8 @@
                 </span>
                 <span v-if="item.user_have > 0"> · у вас {{ item.user_have }}</span>
               </div>
-              <div class="row_line recipe_line" v-if="item.recipe_label">
-                крафт: {{ item.recipe_label }}
-                <span v-if="item.profession_label"> ({{ item.profession_label }})</span>
-              </div>
-              <div class="row_line recipe_line warn" v-else-if="item.code">
-                рецепт крафта не найден для «{{ item.label }}»
+              <div class="row_line recipe_line" v-if="item.profession_label">
+                специальность: {{ item.profession_label }}
               </div>
             </div>
             <div class="row_actions">
@@ -1464,9 +1459,13 @@ export default {
     ensureEstateSubmitQty(orders) {
       const qty = { ...this.estateSubmitQty };
       (orders || []).forEach((order) => {
-        if (!qty[order.id] && order.can_submit) {
-          qty[order.id] = this.estateMaxSubmit(order);
+        if (!order.can_submit) {
+          return;
         }
+
+        const max = this.estateMaxSubmit(order);
+        const current = Number(qty[order.id]) || max;
+        qty[order.id] = Math.max(1, Math.min(max, current));
       });
       this.estateSubmitQty = qty;
     },
@@ -1542,7 +1541,7 @@ export default {
       try {
         const data = await apiActions.exchange.cancelEstateOrder(this.authData.token, orderId);
         if (data?.status === 'ok') {
-          this.message = 'Заказ снят, 🪙 возвращены';
+          this.message = 'Заказ снят';
           this.applyGame(data.game);
           await this.refreshState();
           await this.loadEstate(true);

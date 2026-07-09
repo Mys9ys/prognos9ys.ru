@@ -173,6 +173,7 @@
                   </div>
                   <div class="ledger_meta">
                     <span v-if="row.user_name">{{ row.user_name }}</span>
+                    <span v-if="row.seller_name">продавец: {{ row.seller_name }}</span>
                     <span v-if="row.created_at">{{ row.created_at }}</span>
                     <span>остаток {{ formatMoney(row.balance_after) }}</span>
                   </div>
@@ -619,6 +620,7 @@
                   </div>
                   <div class="ledger_meta">
                     <span v-if="row.user_name">{{ row.user_name }}</span>
+                    <span v-if="row.seller_name">продавец: {{ row.seller_name }}</span>
                     <span v-if="row.created_at">{{ row.created_at }}</span>
                     <span>остаток {{ formatMoney(row.balance_after) }}</span>
                   </div>
