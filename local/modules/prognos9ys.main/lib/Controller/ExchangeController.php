@@ -37,11 +37,13 @@ class ExchangeController extends BaseController
             'startLaborWorkshop' => $this->getDefaultConfigureForPostToken(),
             'getCityBuildOrders' => $this->getDefaultConfigureForPostToken(),
             'submitCityBuildComponent' => $this->getDefaultConfigureForPostToken(),
+            'submitAllCityBuild' => $this->getDefaultConfigureForPostToken(),
             'getEstateOrders' => $this->getDefaultConfigureForPostToken(),
             'getMyEstateOrders' => $this->getDefaultConfigureForPostToken(),
             'createEstateProductionOrder' => $this->getDefaultConfigureForPostToken(),
             'cancelEstateOrder' => $this->getDefaultConfigureForPostToken(),
             'submitEstateOrder' => $this->getDefaultConfigureForPostToken(),
+            'submitAllEstateOrders' => $this->getDefaultConfigureForPostToken(),
             'claimEstateOrder' => $this->getDefaultConfigureForPostToken(),
         ];
     }
@@ -458,6 +460,24 @@ class ExchangeController extends BaseController
         ]);
     }
 
+    public function submitAllCityBuildAction(): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        $cityService = new TreasuryCityService();
+        $report = $cityService->donateAllAvailable($userId);
+
+        return [
+            'status' => 'ok',
+            'report' => $report,
+            'orders' => $cityService->getBuildOrdersForExchange($userId),
+            'game' => (new GameProfileService())->getSummary($userId),
+        ];
+    }
+
     public function getEstateOrdersAction(int $offset = 0, int $limit = 25): array
     {
         $userId = TokenAuthService::getCurrentUserId();
@@ -582,6 +602,24 @@ class ExchangeController extends BaseController
         }
 
         return array_merge(['status' => 'ok'], $result, [
+            'game' => (new GameProfileService())->getSummary($userId),
+        ]);
+    }
+
+    public function submitAllEstateOrdersAction(): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        $service = new EstateProductionOrderService();
+        $report = $service->submitAllFromInventory($userId);
+        $orders = $service->getOpenOrders($userId, 0, 25);
+
+        return array_merge(['status' => 'ok', 'report' => $report], $orders, [
+            'meta' => $service->getMeta(),
+            'my_orders' => $service->getMyOrders($userId),
             'game' => (new GameProfileService())->getSummary($userId),
         ]);
     }

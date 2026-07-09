@@ -1,5 +1,12 @@
 <template>
   <div class="exchange_block">
+    <div v-if="bulkSubmitBusy" class="bulk_submit_busy_overlay" aria-busy="true" aria-live="polite">
+      <div class="bulk_submit_busy_box">
+        <PreLoader />
+        <p class="bulk_submit_busy_text">Массовая сдача…</p>
+      </div>
+    </div>
+
     <div class="exchange_tabs">
       <button
         v-for="tab in tabs"
@@ -811,6 +818,7 @@ export default {
         myEstate: '',
       },
       bulkSubmitModal: null,
+      bulkSubmitBusy: false,
     };
   },
   computed: {
@@ -1466,50 +1474,38 @@ export default {
     },
 
     async submitAllCityBuild() {
-      if (this.busy || this.cityBuildSubmittableCount <= 0) {
+      if (this.busy || this.bulkSubmitBusy || this.cityBuildSubmittableCount <= 0) {
         return;
       }
 
       this.busy = true;
+      this.bulkSubmitBusy = true;
       this.error = '';
       this.message = '';
 
-      const report = this.createBulkSubmitReport('Массовая сдача', 'Госстройка');
-      let submitted = 0;
-
       try {
-        let target = this.findNextCityBuildTarget();
-        while (target) {
-          const { order, code } = target;
-          const item = (order.remaining_items || []).find((row) => row.code === code);
-          const data = await this.submitCityBuild(order, code, { bulk: true });
-          if (!data) {
-            break;
-          }
-
-          submitted += 1;
-          const qty = Number(data.donated_qty) || 0;
-          const payout = Number(data.paid_total) || 0;
-          this.recordBulkSubmitLine(report, {
-            key: `${order.project_id}-${code}`,
-            label: data.component_label || item?.label || code,
-            sublabel: `${order.city_name} · ${order.label}`,
-            qty,
-            payout,
-          });
-          target = this.findNextCityBuildTarget();
+        const data = await apiActions.exchange.submitAllCityBuild(this.authData.token);
+        if (data?.status !== 'ok') {
+          throw new Error(data?.message || 'Не удалось выполнить массовую сдачу');
         }
 
+        if (Array.isArray(data.orders)) {
+          this.cityBuildOrders = data.orders;
+          this.ensureCityBuildQty(this.cityBuildOrders);
+        }
+        if (data.game) {
+          this.applyGame(data.game);
+        }
+        await this.refreshState();
+
+        const report = this.buildBulkReportFromApi(data.report, 'Госстройка');
         this.openBulkSubmitModal(report, {
-          emptyMessage: submitted === 0 ? 'Нет позиций для сдачи из инвентаря' : '',
+          emptyMessage: report.totalQty <= 0 ? 'Нет позиций для сдачи из инвентаря' : '',
         });
       } catch (e) {
         this.error = e.message || 'Не удалось выполнить массовую сдачу';
-        this.openBulkSubmitModal(report, {
-          partial: submitted > 0,
-          emptyMessage: submitted === 0 ? 'Нет позиций для сдачи из инвентаря' : '',
-        });
       } finally {
+        this.bulkSubmitBusy = false;
         this.busy = false;
       }
     },
@@ -1756,109 +1752,74 @@ export default {
     },
 
     async submitAllEstateOrders() {
-      if (this.busy || this.estateSubmittableCount <= 0) {
+      if (this.busy || this.bulkSubmitBusy || this.estateSubmittableCount <= 0) {
         return;
       }
 
       this.busy = true;
+      this.bulkSubmitBusy = true;
       this.error = '';
       this.message = '';
 
-      const report = this.createBulkSubmitReport('Массовая сдача', 'Усадьбы');
-      let submitted = 0;
-
       try {
-        await this.ensureAllEstateOrdersLoaded();
-
-        let order = this.estateOrders.find((row) => row.can_submit);
-        while (order) {
-          const snapshot = {
-            id: order.id,
-            label: `${order.output_label} · ${order.poster_name}`,
-            sublabel: order.profession_label ? `специальность: ${order.profession_label}` : '',
-            fallbackQty: this.resolveEstateSubmitQty(order.id),
-            payPerCycle: Number(order.pay_per_cycle) || 0,
-          };
-          const data = await this.submitEstateOrder(order.id, { bulk: true });
-          if (!data) {
-            break;
-          }
-
-          submitted += 1;
-          const parsed = this.parseEstateSubmitResult(data, snapshot);
-          this.recordBulkSubmitLine(report, {
-            key: `estate-${snapshot.id}`,
-            label: snapshot.label,
-            sublabel: snapshot.sublabel,
-            qty: parsed.qty,
-            payout: parsed.payout,
-          });
-          this.applyGame(data.game);
-          await this.refreshState();
-          await this.loadEstate(true);
-          await this.ensureAllEstateOrdersLoaded();
-          order = this.estateOrders.find((row) => row.can_submit);
+        const data = await apiActions.exchange.submitAllEstateOrders(this.authData.token);
+        if (data?.status !== 'ok') {
+          throw new Error(data?.message || 'Не удалось выполнить массовую сдачу');
         }
 
+        if (Array.isArray(data.items)) {
+          this.estateOrders = data.items;
+          this.ensureEstateSubmitQty(this.estateOrders);
+        }
+        if (data.pagination) {
+          this.estatePagination = {
+            ...this.estatePagination,
+            ...data.pagination,
+            offset: 0,
+          };
+        }
+        if (data.meta) {
+          this.estateMeta = data.meta;
+        }
+        if (Array.isArray(data.my_orders)) {
+          this.myEstateOrders = data.my_orders;
+        }
+        if (data.game) {
+          this.applyGame(data.game);
+        }
+        await this.refreshState();
+
+        const report = this.buildBulkReportFromApi(data.report, 'Усадьбы');
         this.openBulkSubmitModal(report, {
-          emptyMessage: submitted === 0 ? 'Нет заказов для сдачи из инвентаря' : '',
+          emptyMessage: report.totalQty <= 0 ? 'Нет заказов для сдачи из инвентаря' : '',
         });
       } catch (e) {
         this.error = e.message || 'Не удалось выполнить массовую сдачу';
-        this.openBulkSubmitModal(report, {
-          partial: submitted > 0,
-          emptyMessage: submitted === 0 ? 'Нет заказов для сдачи из инвентаря' : '',
-        });
       } finally {
+        this.bulkSubmitBusy = false;
         this.busy = false;
       }
     },
 
-    createBulkSubmitReport(title, subtitle = '') {
+    buildBulkReportFromApi(apiReport, subtitle = '') {
+      const lines = Array.isArray(apiReport?.lines)
+        ? apiReport.lines.map((line) => ({
+          key: line.key || line.label,
+          label: line.label || '',
+          sublabel: line.sublabel || '',
+          qty: Number(line.qty) || 0,
+          payout: Number(line.payout) || 0,
+        }))
+        : [];
+
       return {
-        title,
+        title: 'Массовая сдача',
         subtitle,
-        lines: [],
-        totalQty: 0,
-        totalPayout: 0,
-        positionsCount: 0,
+        lines,
+        totalQty: Number(apiReport?.total_qty) || 0,
+        totalPayout: Number(apiReport?.total_payout) || 0,
+        positionsCount: Number(apiReport?.positions_count) || lines.length,
       };
-    },
-
-    recordBulkSubmitLine(report, { key, label, sublabel = '', qty = 0, payout = 0 }) {
-      const quantity = Math.max(0, Number(qty) || 0);
-      const coins = Math.max(0, Number(payout) || 0);
-      if (!label || quantity <= 0) {
-        return;
-      }
-
-      const lineKey = key || label;
-      const existing = report.lines.find((line) => line.key === lineKey);
-      if (existing) {
-        existing.qty += quantity;
-        existing.payout += coins;
-      } else {
-        report.lines.push({
-          key: lineKey,
-          label,
-          sublabel,
-          qty: quantity,
-          payout: coins,
-        });
-      }
-
-      report.totalQty += quantity;
-      report.totalPayout += coins;
-      report.positionsCount = report.lines.length;
-    },
-
-    parseEstateSubmitResult(data, snapshot) {
-      const message = String(data?.message || '');
-      const qtyMatch = message.match(/сдано\s+(\d+)/i);
-      const payMatch = message.match(/\+([\d.]+)\s*🪙/);
-      const qty = qtyMatch ? Number(qtyMatch[1]) : snapshot.fallbackQty;
-      const payout = payMatch ? Number(payMatch[1]) : qty * snapshot.payPerCycle;
-      return { qty, payout };
     },
 
     openBulkSubmitModal(report, options = {}) {
@@ -2941,5 +2902,36 @@ export default {
   margin-top: 10px;
   display: flex;
   justify-content: flex-end;
+}
+
+.bulk_submit_busy_overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  background: fade(#000, 62%);
+}
+
+.bulk_submit_busy_box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  min-width: 180px;
+  padding: 16px 20px;
+  border-radius: 6px;
+  background: @DarkColorBG;
+  border: 1px solid fade(@orange, 45%);
+  color: @colorText;
+}
+
+.bulk_submit_busy_text {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: @orange;
 }
 </style>

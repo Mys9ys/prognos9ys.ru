@@ -661,6 +661,10 @@ export const apiActions = {
             'prognos9ys:main.ExchangeController.submitCityBuildComponent',
             { userToken, citySlug, recipeCode, componentCode, qty }
         ),
+        submitAllCityBuild: (userToken) => runBitrixAction(
+            'prognos9ys:main.ExchangeController.submitAllCityBuild',
+            { userToken }
+        ),
         getEstateOrders: (userToken, offset = 0, limit = 25) => runBitrixAction(
             'prognos9ys:main.ExchangeController.getEstateOrders',
             { userToken, offset, limit }
@@ -698,6 +702,10 @@ export const apiActions = {
         submitEstateOrder: (userToken, orderId, qty = 0) => runBitrixAction(
             'prognos9ys:main.ExchangeController.submitEstateOrder',
             { userToken, orderId, qty: qty > 0 ? qty : undefined }
+        ),
+        submitAllEstateOrders: (userToken) => runBitrixAction(
+            'prognos9ys:main.ExchangeController.submitAllEstateOrders',
+            { userToken }
         ),
     },
     impersonation: {

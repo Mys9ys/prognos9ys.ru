@@ -308,6 +308,93 @@ class EstateProductionOrderService
         return [
             'order' => $this->formatOrder($updated, $userId),
             'message' => '+' . $payCoins . ' 🪙, сдано ' . $chunk . ' ' . $outputLabel . ' — ' . $deliveryMessage,
+            'donated_qty' => $chunk,
+            'paid_total' => $payCoins,
+        ];
+    }
+
+    /**
+     * Массовая сдача готовых компонентов по всем доступным заказам.
+     *
+     * @return array{
+     *   lines: array<int, array{key:string,label:string,sublabel:string,qty:int,payout:float}>,
+     *   total_qty: int,
+     *   total_payout: float,
+     *   positions_count: int,
+     *   submitted_count: int
+     * }
+     */
+    public function submitAllFromInventory(int $userId): array
+    {
+        $linesByKey = [];
+        $totalQty = 0;
+        $totalPayout = 0.0;
+        $submittedCount = 0;
+        $professionCodes = $this->getUserProfessionCodes($userId);
+
+        for ($iteration = 0; $iteration < 500; $iteration++) {
+            $target = null;
+            $rows = $this->orderRepository->getOpenOrdersByPurpose(
+                LaborExchangeConfig::ORDER_PURPOSE_ESTATE,
+                500,
+                0
+            );
+
+            foreach ($rows as $row) {
+                if ((int)($row['UF_POSTER_USER_ID'] ?? 0) === $userId) {
+                    continue;
+                }
+
+                $formatted = $this->formatOrder($row, $userId, $professionCodes);
+                if (!empty($formatted['can_submit'])) {
+                    $target = $formatted;
+                    break;
+                }
+            }
+
+            if ($target === null) {
+                break;
+            }
+
+            try {
+                $result = $this->submitFromInventory($userId, (int)$target['id'], 0);
+            } catch (\RuntimeException $exception) {
+                break;
+            }
+
+            $qty = (int)($result['donated_qty'] ?? 0);
+            $payout = (float)($result['paid_total'] ?? 0);
+            if ($qty <= 0) {
+                break;
+            }
+
+            $key = 'estate-' . (int)$target['id'];
+            if (!isset($linesByKey[$key])) {
+                $professionLabel = trim((string)($target['profession_label'] ?? ''));
+                $linesByKey[$key] = [
+                    'key' => $key,
+                    'label' => trim((string)($target['output_label'] ?? ''))
+                        . ' · '
+                        . trim((string)($target['poster_name'] ?? '')),
+                    'sublabel' => $professionLabel !== '' ? 'специальность: ' . $professionLabel : '',
+                    'qty' => 0,
+                    'payout' => 0.0,
+                ];
+            }
+
+            $linesByKey[$key]['qty'] += $qty;
+            $linesByKey[$key]['payout'] += $payout;
+            $totalQty += $qty;
+            $totalPayout += $payout;
+            $submittedCount++;
+        }
+
+        return [
+            'lines' => array_values($linesByKey),
+            'total_qty' => $totalQty,
+            'total_payout' => round($totalPayout, 1),
+            'positions_count' => count($linesByKey),
+            'submitted_count' => $submittedCount,
         ];
     }
 

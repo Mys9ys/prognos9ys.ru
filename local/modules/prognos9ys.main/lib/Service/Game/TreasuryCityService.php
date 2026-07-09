@@ -381,6 +381,115 @@ class TreasuryCityService
     }
 
     /**
+     * Массовая сдача компонентов по всем доступным позициям госстройки.
+     *
+     * @return array{
+     *   lines: array<int, array{key:string,label:string,sublabel:string,qty:int,payout:float}>,
+     *   total_qty: int,
+     *   total_payout: float,
+     *   positions_count: int,
+     *   submitted_count: int
+     * }
+     */
+    public function donateAllAvailable(int $userId): array
+    {
+        $linesByKey = [];
+        $totalQty = 0;
+        $totalPayout = 0.0;
+        $submittedCount = 0;
+
+        for ($iteration = 0; $iteration < 500; $iteration++) {
+            $target = $this->findNextDonationTarget($userId);
+            if ($target === null) {
+                break;
+            }
+
+            try {
+                $result = $this->donateComponent(
+                    $userId,
+                    (string)$target['city_slug'],
+                    (string)$target['recipe_code'],
+                    (string)$target['component_code'],
+                    (int)$target['qty']
+                );
+            } catch (\Throwable $exception) {
+                break;
+            }
+
+            $qty = (int)($result['donated_qty'] ?? 0);
+            $payout = (float)($result['paid_total'] ?? 0);
+            if ($qty <= 0) {
+                break;
+            }
+
+            $key = (int)$target['project_id'] . '-' . (string)$target['component_code'];
+            if (!isset($linesByKey[$key])) {
+                $linesByKey[$key] = [
+                    'key' => $key,
+                    'label' => (string)($result['component_label'] ?? $target['component_label'] ?? $target['component_code']),
+                    'sublabel' => trim((string)$target['city_name'])
+                        . ' · '
+                        . trim((string)$target['building_label']),
+                    'qty' => 0,
+                    'payout' => 0.0,
+                ];
+            }
+
+            $linesByKey[$key]['qty'] += $qty;
+            $linesByKey[$key]['payout'] += $payout;
+            $totalQty += $qty;
+            $totalPayout += $payout;
+            $submittedCount++;
+        }
+
+        return [
+            'lines' => array_values($linesByKey),
+            'total_qty' => $totalQty,
+            'total_payout' => round($totalPayout, 1),
+            'positions_count' => count($linesByKey),
+            'submitted_count' => $submittedCount,
+        ];
+    }
+
+    /**
+     * @return ?array{
+     *   project_id:int,
+     *   city_slug:string,
+     *   recipe_code:string,
+     *   component_code:string,
+     *   component_label:string,
+     *   city_name:string,
+     *   building_label:string,
+     *   qty:int
+     * }
+     */
+    private function findNextDonationTarget(int $userId): ?array
+    {
+        foreach ($this->getBuildOrdersForExchange($userId) as $order) {
+            foreach ($order['remaining_items'] ?? [] as $item) {
+                $have = (int)($item['user_have'] ?? 0);
+                $need = (int)($item['qty'] ?? 0);
+                if ($have < 1 || $need < 1) {
+                    continue;
+                }
+
+                return [
+                    'project_id' => (int)($order['project_id'] ?? 0),
+                    'city_slug' => (string)($order['city_slug'] ?? ''),
+                    'recipe_code' => (string)($order['recipe_code'] ?? ''),
+                    'component_code' => (string)($item['code'] ?? ''),
+                    'component_label' => (string)($item['label'] ?? $item['code'] ?? ''),
+                    'city_name' => (string)($order['city_name'] ?? ''),
+                    'building_label' => (string)($order['label'] ?? ''),
+                    'qty' => min($need, $have),
+                ];
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function getCityDetail(string $slug): array
