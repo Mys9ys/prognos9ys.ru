@@ -5,6 +5,7 @@ namespace Prognos9ys\Main\Service\Game;
 use Bitrix\Main\Type\DateTime;
 use Prognos9ys\Main\Model\Repository\CityRepository;
 use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
+use Prognos9ys\Main\Model\Repository\LaborOrderRepository;
 use Prognos9ys\Main\Model\Repository\ProfessionRepository;
 
 class EstatePlotService
@@ -14,15 +15,18 @@ class EstatePlotService
     private CityRepository $cityRepository;
     private ProfessionRepository $professionRepository;
     private GameEconomyRepository $economyRepository;
+    private LaborOrderRepository $orderRepository;
 
     public function __construct(
         ?CityRepository $cityRepository = null,
         ?ProfessionRepository $professionRepository = null,
-        ?GameEconomyRepository $economyRepository = null
+        ?GameEconomyRepository $economyRepository = null,
+        ?LaborOrderRepository $orderRepository = null
     ) {
         $this->cityRepository = $cityRepository ?? new CityRepository();
         $this->professionRepository = $professionRepository ?? new ProfessionRepository();
         $this->economyRepository = $economyRepository ?? new GameEconomyRepository();
+        $this->orderRepository = $orderRepository ?? new LaborOrderRepository();
     }
 
     /**
@@ -488,7 +492,9 @@ class EstatePlotService
     {
         $rows = [];
         foreach ($this->professionRepository->getEstateConstructionProjectsByPlot($userId, $citySlug, $plotNumber) as $row) {
-            $rows[] = $this->formatProjectRow($row, $userId);
+            $recipeCode = (string)($row['UF_RECIPE_CODE'] ?? '');
+            $openOrders = $this->getOpenOrdersForProject($userId, $citySlug, $plotNumber, $recipeCode);
+            $rows[] = $this->formatProjectRow($row, $userId, $openOrders);
         }
 
         usort($rows, static function (array $a, array $b): int {
@@ -501,9 +507,10 @@ class EstatePlotService
 
     /**
      * @param array<string, mixed> $project
+     * @param array{totals: array<string, int>, items: array<int, array<string, mixed>>} $openOrders
      * @return array<string, mixed>
      */
-    private function formatProjectRow(array $project, int $userId = 0): array
+    private function formatProjectRow(array $project, int $userId = 0, array $openOrders = []): array
     {
         $recipeCode = (string)($project['UF_RECIPE_CODE'] ?? '');
         $recipe = EstateRecipesConfig::all()[$recipeCode] ?? [];
@@ -511,6 +518,8 @@ class EstatePlotService
         $stash = $this->professionRepository->decodeStashJson((string)($project['UF_STASH_JSON'] ?? '{}'));
         $status = (string)($project['UF_STATUS'] ?? 'building');
         $remaining = $this->calcRemaining($bom, $stash);
+        $ordered = (array)($openOrders['totals'] ?? []);
+        $openOrderItems = array_values((array)($openOrders['items'] ?? []));
 
         if ($status === 'complete' && $remaining === [] && $stash !== []) {
             $status = 'ready';
@@ -533,6 +542,7 @@ class EstatePlotService
             $code = (string)($item['code'] ?? '');
             $item['user_have'] = (int)($inventory[$code] ?? 0);
             $item['stash_have'] = (int)($stash[$code] ?? 0);
+            $item['ordered_qty'] = (int)($ordered[$code] ?? 0);
         }
         unset($item);
 
@@ -547,9 +557,105 @@ class EstatePlotService
             'remaining' => $remaining,
             'stash' => $stash,
             'inventory' => $inventory,
+            'ordered' => $ordered,
+            'open_orders' => $openOrderItems,
             'needed_items' => $neededItems,
             'nominal_total' => (float)($recipe['nominal_total'] ?? 0),
         ];
+    }
+
+    /**
+     * @return array{totals: array<string, int>, items: array<int, array<string, mixed>>}
+     */
+    private function getOpenOrdersForProject(
+        int $userId,
+        string $citySlug,
+        int $plotNumber,
+        string $projectCode
+    ): array {
+        if ($userId <= 0) {
+            return ['totals' => [], 'items' => []];
+        }
+
+        $citySlug = strtolower(trim($citySlug));
+        $projectCode = trim($projectCode);
+        $totals = [];
+        $items = [];
+
+        foreach (
+            $this->orderRepository->getOrdersByPosterUserIdAndPurpose(
+                $userId,
+                LaborExchangeConfig::ORDER_PURPOSE_ESTATE,
+                100
+            ) as $row
+        ) {
+            if ((string)($row['UF_STATUS'] ?? '') !== LaborExchangeConfig::STATUS_OPEN) {
+                continue;
+            }
+
+            $orderId = (int)($row['ID'] ?? 0);
+            $outputCode = trim((string)($row['UF_OUTPUT_CODE'] ?? ''));
+            if ($orderId <= 0 || $outputCode === '') {
+                continue;
+            }
+
+            if (!$this->orderMatchesProjectContext($row, $citySlug, $plotNumber, $projectCode)) {
+                continue;
+            }
+
+            $total = (int)($row['UF_ITERATIONS_TOTAL'] ?? 0);
+            $done = (int)($row['UF_ITERATIONS_DONE'] ?? 0);
+            $remaining = max(0, $total - $done);
+            if ($remaining <= 0) {
+                continue;
+            }
+
+            $totals[$outputCode] = (int)($totals[$outputCode] ?? 0) + $remaining;
+            $items[] = [
+                'id' => $orderId,
+                'output_code' => $outputCode,
+                'qty_remaining' => $remaining,
+                'qty_total' => $total,
+                'coin_escrow' => round((float)($row['UF_COIN_ESCROW'] ?? 0), 1),
+                'pay_per_cycle' => round((float)($row['UF_PAY_PER_CYCLE'] ?? 0), 1),
+            ];
+        }
+
+        return ['totals' => $totals, 'items' => $items];
+    }
+
+    /**
+     * @param array<string, mixed> $order
+     */
+    private function orderMatchesProjectContext(
+        array $order,
+        string $citySlug,
+        int $plotNumber,
+        string $projectCode
+    ): bool {
+        $contextRaw = trim((string)($order['UF_CONTEXT_JSON'] ?? ''));
+        if ($contextRaw === '') {
+            return $projectCode === '';
+        }
+
+        $context = json_decode($contextRaw, true);
+        if (!is_array($context)) {
+            return false;
+        }
+
+        if (isset($context['city_slug']) && strtolower(trim((string)$context['city_slug'])) !== $citySlug) {
+            return false;
+        }
+
+        if (isset($context['plot_number']) && (int)$context['plot_number'] !== $plotNumber) {
+            return false;
+        }
+
+        if (isset($context['project_code']) && trim((string)$context['project_code']) !== $projectCode) {
+            return false;
+        }
+
+        return true;
     }
 
     /**

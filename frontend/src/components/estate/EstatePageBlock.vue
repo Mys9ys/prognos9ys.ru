@@ -57,6 +57,8 @@
           @build-project="onBuildProject"
           @order-component="onOrderComponent"
           @order-project-all="onOrderProjectAll"
+          @cancel-component-orders="onCancelComponentOrders"
+          @cancel-project-orders="onCancelProjectOrders"
           @bank-branches="onBankBranches"
         />
       </div>
@@ -202,7 +204,7 @@
 </template>
 
 <script>
-import { mapGetters, mapState } from 'vuex';
+import { mapActions, mapGetters, mapState } from 'vuex';
 import { apiActions } from '@/api/bitrixClient';
 import EstateWorldMap from '@/components/estate/EstateWorldMap.vue';
 import EstateRegionMap from '@/components/estate/EstateRegionMap.vue';
@@ -258,6 +260,19 @@ export default {
     this.loadMap();
   },
   methods: {
+    ...mapActions('auth', ['setUserInfo']),
+
+    applyGame(game) {
+      if (!game) {
+        return;
+      }
+      const prev = this.$store.state.auth.userInfo?.game_info || {};
+      this.setUserInfo({
+        ...this.$store.state.auth.userInfo,
+        game_info: { ...prev, ...game },
+      });
+    },
+
     async loadMap() {
       const token = this.authData?.token;
       if (!token) {
@@ -636,7 +651,10 @@ export default {
 
       const project = this.findProject(payload?.projectCode);
       const item = this.findProjectItem(project, payload?.componentCode);
-      const left = Math.max(1, Number(project?.remaining?.[payload?.componentCode] || 1));
+      const left = this.orderableQty(project, payload?.componentCode);
+      if (left <= 0) {
+        return;
+      }
       const payPerUnit = Number(item?.order_pay_per_unit || 0);
 
       this.openEstateModal({
@@ -742,6 +760,86 @@ export default {
         this.cityActionLoading = false;
       }
     },
+    onCancelComponentOrders(payload) {
+      if (this.cityActionLoading || !Array.isArray(payload?.orderIds) || !payload.orderIds.length) {
+        return;
+      }
+
+      const label = payload?.componentLabel || payload?.componentCode || 'компонент';
+      const refundHint = this.estimateCancelRefund(payload.orderIds, payload?.projectCode);
+
+      this.openEstateModal({
+        mode: 'confirm',
+        title: `Снять заказ: ${label}`,
+        message: `Снять заказ на бирже по «${label}»?`,
+        meta: refundHint
+          ? `Заказ исчезнет из биржи, неиспользованный резерв вернётся в кошелёк (≈${refundHint} 🪙).`
+          : 'Заказ исчезнет из биржи, неиспользованный резерв вернётся в кошелёк.',
+        confirmLabel: 'Снять',
+        confirmClass: 'danger',
+        onConfirm: () => this.executeCancelOrders(payload.orderIds, `Заказ снят: ${label}`),
+      });
+    },
+    onCancelProjectOrders(payload) {
+      if (this.cityActionLoading || !Array.isArray(payload?.orderIds) || !payload.orderIds.length) {
+        return;
+      }
+
+      const refundHint = this.estimateCancelRefund(payload.orderIds, payload?.projectCode);
+
+      this.openEstateModal({
+        mode: 'confirm',
+        title: `Снять все: ${payload?.projectLabel || payload?.projectCode}`,
+        message: `Снять ${payload.orderIds.length} заказ(ов) на бирже по этому этапу стройки?`,
+        meta: refundHint
+          ? `Неиспользованный резерв вернётся в кошелёк (≈${refundHint} 🪙).`
+          : 'Неиспользованный резерв вернётся в кошелёк.',
+        confirmLabel: 'Снять все',
+        confirmClass: 'danger',
+        onConfirm: () => this.executeCancelOrders(
+          payload.orderIds,
+          'Заказы на бирже сняты',
+        ),
+      });
+    },
+    estimateCancelRefund(orderIds, projectCode) {
+      const project = this.findProject(projectCode);
+      const orders = Array.isArray(project?.open_orders) ? project.open_orders : [];
+      const idSet = new Set((orderIds || []).map((id) => Number(id)));
+      const total = orders
+        .filter((row) => idSet.has(Number(row.id)))
+        .reduce((sum, row) => sum + Number(row.coin_escrow || 0), 0);
+      if (total <= 0) {
+        return '';
+      }
+      return total.toFixed(1).replace(/\.0$/, '');
+    },
+    async executeCancelOrders(orderIds, successMessage) {
+      const token = this.authData?.token;
+      if (!token || !Array.isArray(orderIds) || !orderIds.length) {
+        return;
+      }
+
+      this.cityActionLoading = true;
+      this.cityError = '';
+      this.cityMessage = '';
+      try {
+        for (const orderId of orderIds) {
+          const data = await apiActions.exchange.cancelEstateOrder(token, Number(orderId));
+          if (data?.status !== 'ok') {
+            throw new Error(data?.message || 'Не удалось снять заказ');
+          }
+          this.applyGame(data.game);
+        }
+        await this.loadCityMap(this.selectedSlug);
+        this.cityMessage = successMessage;
+        this.setModalSuccess(successMessage);
+      } catch (e) {
+        this.setModalError(e?.message || 'Ошибка снятия заказа');
+      } finally {
+        this.cityActionLoading = false;
+      }
+    },
     findProject(projectCode) {
       return (this.cityMap?.my_estate_projects || []).find(
         (row) => String(row.recipe_code || '') === String(projectCode || ''),
@@ -750,6 +848,17 @@ export default {
     findProjectItem(project, componentCode) {
       const items = project?.needed_items || [];
       return items.find((row) => String(row.code || '') === String(componentCode || '')) || null;
+    },
+    orderedQty(project, componentCode) {
+      const item = this.findProjectItem(project, componentCode);
+      if (item && Number.isFinite(Number(item.ordered_qty))) {
+        return Number(item.ordered_qty);
+      }
+      return Number(project?.ordered?.[componentCode] || 0);
+    },
+    orderableQty(project, componentCode) {
+      const need = Number(project?.remaining?.[componentCode] || 0);
+      return Math.max(0, need - this.orderedQty(project, componentCode));
     },
     donatableLines(project) {
       const remaining = project?.remaining || {};
@@ -778,7 +887,7 @@ export default {
       const lines = [];
 
       Object.keys(remaining).forEach((code) => {
-        const qty = Number(remaining[code] || 0);
+        const qty = this.orderableQty(project, code);
         if (qty <= 0) {
           return;
         }
@@ -1225,6 +1334,11 @@ export default {
   &.order {
     border-color: fade(@YesWrite, 60%);
     background: fade(@YesWrite, 15%);
+  }
+
+  &.danger {
+    border-color: fade(#f08080, 65%);
+    background: fade(#f08080, 14%);
   }
 
   &.secondary {

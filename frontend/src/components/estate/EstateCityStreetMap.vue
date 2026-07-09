@@ -178,7 +178,22 @@
               >
                 Сдать все
               </button>
-              <button type="button" class="order_btn" @click="onOrderProjectAll(project)">Заказать все</button>
+              <button
+                v-if="canOrderProjectAll(project)"
+                type="button"
+                class="order_btn"
+                @click="onOrderProjectAll(project)"
+              >
+                Заказать все
+              </button>
+              <button
+                v-if="canCancelProjectAll(project)"
+                type="button"
+                class="cancel_order_btn"
+                @click="onCancelProjectAll(project)"
+              >
+                Снять все
+              </button>
             </div>
           </div>
         </div>
@@ -197,6 +212,13 @@
             </span>
             <span v-if="canDonate(project, item)" class="inventory_badge" :class="{ empty: !hasInventory(project, item) }">
               в инвентаре {{ userHave(project, item) }}
+            </span>
+            <span
+              v-if="orderedQty(project, item) > 0"
+              class="ordered_badge"
+              :title="orderStatusTitle(project, item)"
+            >
+              {{ orderStatusLabel(project, item) }}
             </span>
             <span v-if="stashHave(project, item) > 0 && project.status === 'building'" class="stash_badge">
               на стройке {{ stashHave(project, item) }}
@@ -220,6 +242,14 @@
               >
                 Заказать
               </button>
+              <button
+                v-else-if="canCancelOrder(project, item)"
+                type="button"
+                class="cancel_order_btn"
+                @click="onCancelOrder(project, item)"
+              >
+                Снять
+              </button>
             </div>
           </div>
         </div>
@@ -235,7 +265,19 @@ const RIGHT_PLOT_COL = 10;
 
 export default {
   name: 'EstateCityStreetMap',
-  emits: ['claim-plot', 'plot-info', 'plot-view', 'donate-component', 'donate-project-all', 'build-project', 'order-component', 'order-project-all', 'bank-branches'],
+  emits: [
+    'claim-plot',
+    'plot-info',
+    'plot-view',
+    'donate-component',
+    'donate-project-all',
+    'build-project',
+    'order-component',
+    'order-project-all',
+    'cancel-component-orders',
+    'cancel-project-orders',
+    'bank-branches',
+  ],
   props: {
     city: {
       type: Object,
@@ -472,6 +514,40 @@ export default {
       }
       return Number(project?.stash?.[item.code] || 0);
     },
+    orderedQty(project, item) {
+      if (item && Number.isFinite(Number(item.ordered_qty))) {
+        return Number(item.ordered_qty);
+      }
+      return Number(project?.ordered?.[item.code] || 0);
+    },
+    openOrdersForItem(project, item) {
+      const code = String(item?.code || '');
+      if (!code) {
+        return [];
+      }
+      return (Array.isArray(project?.open_orders) ? project.open_orders : [])
+        .filter((row) => String(row?.output_code || '') === code);
+    },
+    orderGap(project, item) {
+      const left = Number(project?.remaining?.[item.code] || 0);
+      return Math.max(0, left - this.orderedQty(project, item));
+    },
+    orderStatusLabel(project, item) {
+      const ordered = this.orderedQty(project, item);
+      const gap = this.orderGap(project, item);
+      if (gap <= 0) {
+        return `заказано ${ordered}`;
+      }
+      return `заказано ${ordered} · ещё ${gap}`;
+    },
+    orderStatusTitle(project, item) {
+      const ordered = this.orderedQty(project, item);
+      const gap = this.orderGap(project, item);
+      if (gap <= 0) {
+        return `На бирже уже заказано ${ordered} шт. — ждём исполнения`;
+      }
+      return `На бирже заказано ${ordered} шт., ещё можно заказать ${gap}`;
+    },
     canDonateProjectAll(project) {
       const items = project.needed_items || project.components || [];
       return items.some((item) => this.canDonate(project, item) && this.hasInventory(project, item));
@@ -488,7 +564,10 @@ export default {
       });
     },
     canOrder(project, item) {
-      return this.canDonate(project, item);
+      return this.canDonate(project, item) && this.orderGap(project, item) > 0;
+    },
+    canCancelOrder(project, item) {
+      return this.canProjectActions(project) && this.openOrdersForItem(project, item).length > 0;
     },
     onOrder(project, item, qty = 1) {
       if (!this.canOrder(project, item)) {
@@ -503,6 +582,13 @@ export default {
     },
     canProjectActions(project) {
       return !this.loading && this.city?.my_plot_number && (project?.status || '') !== 'complete';
+    },
+    canOrderProjectAll(project) {
+      const items = project.needed_items || project.components || [];
+      return items.some((item) => this.canOrder(project, item));
+    },
+    canCancelProjectAll(project) {
+      return this.canProjectActions(project) && Array.isArray(project?.open_orders) && project.open_orders.length > 0;
     },
     onDonateProjectAll(project) {
       if (!this.canProjectActions(project)) {
@@ -520,6 +606,31 @@ export default {
       this.$emit('order-project-all', {
         plotNumber: Number(this.city.my_plot_number),
         projectCode: String(project.code || project.recipe_code || ''),
+      });
+    },
+    onCancelOrder(project, item) {
+      if (!this.canCancelOrder(project, item)) {
+        return;
+      }
+      const orders = this.openOrdersForItem(project, item);
+      this.$emit('cancel-component-orders', {
+        plotNumber: Number(this.city.my_plot_number),
+        projectCode: String(project.code || project.recipe_code || ''),
+        componentCode: String(item.code || ''),
+        componentLabel: item.label || item.code,
+        orderIds: orders.map((row) => Number(row.id)).filter((id) => id > 0),
+      });
+    },
+    onCancelProjectAll(project) {
+      if (!this.canCancelProjectAll(project)) {
+        return;
+      }
+      const orders = Array.isArray(project.open_orders) ? project.open_orders : [];
+      this.$emit('cancel-project-orders', {
+        plotNumber: Number(this.city.my_plot_number),
+        projectCode: String(project.code || project.recipe_code || ''),
+        projectLabel: project.label || project.code,
+        orderIds: orders.map((row) => Number(row.id)).filter((id) => id > 0),
       });
     },
     civicClass(code) {
@@ -898,6 +1009,16 @@ export default {
   }
 }
 
+.cancel_order_btn {
+  border: 1px solid fade(#f08080, 65%);
+  background: fade(#f08080, 14%);
+  color: @colorText;
+  border-radius: 4px;
+  font-size: 10px;
+  padding: 1px 6px;
+  cursor: pointer;
+}
+
 .inventory_badge {
   font-size: 10px;
   color: fade(@colorBlur, 90%);
@@ -910,6 +1031,11 @@ export default {
 .stash_badge {
   font-size: 10px;
   color: #d4b896;
+}
+
+.ordered_badge {
+  font-size: 10px;
+  color: #8fd0a8;
 }
 
 .row_actions,
