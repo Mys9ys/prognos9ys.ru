@@ -60,16 +60,49 @@ class ExchangeCatalogConfig
         ];
     }
 
-    public static function isSouvenirPackCode(string $code): bool
+    /**
+     * @return array<int, string>
+     */
+    public static function souvenirPackCodes(): array
     {
-        static $packs = [
+        return [
             'pack_pennant',
             'pack_pennant_wc26',
             'pack_scarf',
             'pack_scarf_wc26',
         ];
+    }
 
-        return in_array(strtolower(trim($code)), $packs, true);
+    public static function isSouvenirPackCode(string $code): bool
+    {
+        return in_array(strtolower(trim($code)), self::souvenirPackCodes(), true);
+    }
+
+    /**
+     * SQL-фильтр активных лотов для вкладки «Сувениры».
+     * Не тянем весь loot (ККИ, XP, рецепты) — иначе limit 2000 отрезает шарфы до PHP-фильтра.
+     *
+     * @return array<int|string, mixed>
+     */
+    public static function buildSouvenirListingFilter(): array
+    {
+        return [
+            'LOGIC' => 'OR',
+            ['=UF_ITEM_KIND' => ExchangeConfig::KIND_PENNANT],
+            [
+                '=UF_ITEM_KIND' => ExchangeConfig::KIND_LOOT,
+                '=UF_ITEM_CATEGORY' => ChestLootConfig::CATEGORY_SCARF,
+            ],
+            [
+                '=UF_ITEM_KIND' => ExchangeConfig::KIND_LOOT,
+                '=UF_ITEM_CATEGORY' => ChestLootConfig::CATEGORY_PENNANT,
+            ],
+            [
+                '=UF_ITEM_KIND' => ExchangeConfig::KIND_LOOT,
+                '=UF_ITEM_CATEGORY' => ChestLootConfig::CATEGORY_PACK,
+                '@UF_ITEM_CODE' => self::souvenirPackCodes(),
+            ],
+        ];
     }
 
     public static function isSouvenirLootCode(string $code): bool

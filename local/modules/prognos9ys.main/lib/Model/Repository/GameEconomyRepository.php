@@ -5586,11 +5586,9 @@ class GameEconomyRepository
             if ($catalogTab === ExchangeCatalogConfig::TAB_LOOT) {
                 $filter['=UF_ITEM_KIND'] = ExchangeConfig::KIND_LOOT;
                 $filter['=UF_ITEM_CATEGORY'] = ChestLootConfig::CATEGORY_PACK;
+                $filter['!@UF_ITEM_CODE'] = ExchangeCatalogConfig::souvenirPackCodes();
             } elseif ($catalogTab === ExchangeCatalogConfig::TAB_SOUVENIR) {
-                $filter['@UF_ITEM_KIND'] = [
-                    ExchangeConfig::KIND_PENNANT,
-                    ExchangeConfig::KIND_LOOT,
-                ];
+                $filter[] = ExchangeCatalogConfig::buildSouvenirListingFilter();
             } elseif ($catalogTab === ExchangeCatalogConfig::TAB_XP_BANK) {
                 $filter['=UF_ITEM_KIND'] = ExchangeConfig::KIND_LOOT;
                 $filter['=UF_ITEM_CATEGORY'] = ChestLootConfig::CATEGORY_XP_BANK;
@@ -5609,11 +5607,18 @@ class GameEconomyRepository
         }
 
         $dataClass = $this->getExchangeListingDataClass();
+        $fetchLimit = max(1, min($limit, 2000));
+        if ($catalogTab !== '' && $catalogTab !== ExchangeCatalogConfig::TAB_ALL) {
+            // Узкая вкладка: дешёвые SKU (вымпелы 15–21) не должны вытеснять шарфы (25+) из limit 2000.
+            $matched = (int)$dataClass::getCount($filter);
+            $fetchLimit = max($fetchLimit, min($matched, 10000));
+        }
+
         $rows = [];
         $response = $dataClass::getList([
             'filter' => $filter,
             'order' => ['UF_PRICE_PER_UNIT' => 'ASC', 'UF_CREATED_AT' => 'DESC', 'ID' => 'ASC'],
-            'limit' => max(1, min($limit, 2000)),
+            'limit' => $fetchLimit,
         ]);
 
         while ($row = $response->fetch()) {
