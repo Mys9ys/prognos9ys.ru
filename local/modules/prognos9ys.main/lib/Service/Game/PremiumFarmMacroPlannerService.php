@@ -10,7 +10,7 @@ use Prognos9ys\Main\Model\Repository\ProfessionRepository;
  */
 class PremiumFarmMacroPlannerService
 {
-    private const MAX_MACRO_BATCHES = 10;
+    private const MAX_MACRO_BATCHES = 100;
 
     /** @var array<string, array{gather:string, process?:string, input?:string}> */
     private const OUTPUT_CHAINS = [

@@ -535,46 +535,26 @@
               <span class="recipe_macro_action_label">Собрать и изготовить</span>
               <div class="recipe_macro_qty">
                 <button
+                  v-for="qty in macroQtyPresets"
+                  :key="'album-gather-' + qty"
                   type="button"
                   class="btn macro mini"
                   :disabled="actionLoading || !albumCraftProfessionCode"
-                  @click="onEnqueueAlbumMacro('gather', 1)"
-                >x1</button>
-                <button
-                  type="button"
-                  class="btn macro mini"
-                  :disabled="actionLoading || !albumCraftProfessionCode"
-                  @click="onEnqueueAlbumMacro('gather', 5)"
-                >x5</button>
-                <button
-                  type="button"
-                  class="btn macro mini"
-                  :disabled="actionLoading || !albumCraftProfessionCode"
-                  @click="onEnqueueAlbumMacro('gather', 10)"
-                >x10</button>
+                  @click="onEnqueueAlbumMacro('gather', qty)"
+                >x{{ qty }}</button>
               </div>
             </div>
             <div class="recipe_macro_action_row">
               <span class="recipe_macro_action_label">Купить и изготовить</span>
               <div class="recipe_macro_qty">
                 <button
+                  v-for="qty in macroQtyPresets"
+                  :key="'album-buy-' + qty"
                   type="button"
                   class="btn macro_buy mini"
                   :disabled="actionLoading || !albumCraftProfessionCode"
-                  @click="onEnqueueAlbumMacro('buy', 1)"
-                >x1</button>
-                <button
-                  type="button"
-                  class="btn macro_buy mini"
-                  :disabled="actionLoading || !albumCraftProfessionCode"
-                  @click="onEnqueueAlbumMacro('buy', 5)"
-                >x5</button>
-                <button
-                  type="button"
-                  class="btn macro_buy mini"
-                  :disabled="actionLoading || !albumCraftProfessionCode"
-                  @click="onEnqueueAlbumMacro('buy', 10)"
-                >x10</button>
+                  @click="onEnqueueAlbumMacro('buy', qty)"
+                >x{{ qty }}</button>
               </div>
             </div>
           </div>
@@ -703,46 +683,26 @@
                 <span class="recipe_macro_action_label">Собрать и изготовить</span>
                 <div class="recipe_macro_qty">
                   <button
+                    v-for="qty in macroQtyPresets"
+                    :key="recipe.code + '-gather-' + qty"
                     type="button"
                     class="btn macro mini"
                     :disabled="actionLoading || farm.session"
-                    @click="onEnqueueRecipeMacro(recipe, 'gather', 1)"
-                  >x1</button>
-                  <button
-                    type="button"
-                    class="btn macro mini"
-                    :disabled="actionLoading || farm.session"
-                    @click="onEnqueueRecipeMacro(recipe, 'gather', 5)"
-                  >x5</button>
-                  <button
-                    type="button"
-                    class="btn macro mini"
-                    :disabled="actionLoading || farm.session"
-                    @click="onEnqueueRecipeMacro(recipe, 'gather', 10)"
-                  >x10</button>
+                    @click="onEnqueueRecipeMacro(recipe, 'gather', qty)"
+                  >x{{ qty }}</button>
                 </div>
               </div>
               <div class="recipe_macro_action_row">
                 <span class="recipe_macro_action_label">Купить и изготовить</span>
                 <div class="recipe_macro_qty">
                   <button
+                    v-for="qty in macroQtyPresets"
+                    :key="recipe.code + '-buy-' + qty"
                     type="button"
                     class="btn macro_buy mini"
                     :disabled="actionLoading || farm.session"
-                    @click="onEnqueueRecipeMacro(recipe, 'buy', 1)"
-                  >x1</button>
-                  <button
-                    type="button"
-                    class="btn macro_buy mini"
-                    :disabled="actionLoading || farm.session"
-                    @click="onEnqueueRecipeMacro(recipe, 'buy', 5)"
-                  >x5</button>
-                  <button
-                    type="button"
-                    class="btn macro_buy mini"
-                    :disabled="actionLoading || farm.session"
-                    @click="onEnqueueRecipeMacro(recipe, 'buy', 10)"
-                  >x10</button>
+                    @click="onEnqueueRecipeMacro(recipe, 'buy', qty)"
+                  >x{{ qty }}</button>
                 </div>
               </div>
             </div>
@@ -905,6 +865,7 @@ export default {
       recipeMacroBatches: 1,
       recipeMacroSell: false,
       recipeMacroConsign: false,
+      macroQtyPresets: [1, 5, 10, 50, 100],
       recipeProfessionTab: '',
     };
   },
@@ -1828,7 +1789,7 @@ export default {
     macroBatchesForAlbumOutput(desiredOutputQty) {
       const target = Math.max(1, Number(desiredOutputQty) || 1);
       const perCraft = Number(this.farm?.album_craft?.output_count) || 2;
-      return Math.min(10, Math.ceil(target / perCraft));
+      return Math.min(100, Math.ceil(target / perCraft));
     },
 
     recipePrimaryOutputQty(recipe) {
@@ -1884,7 +1845,7 @@ export default {
       this.error = '';
       this.message = '';
       try {
-        const batches = Math.max(1, Math.min(10, Number(batchesOverride || this.recipeMacroBatches) || 1));
+        const batches = Math.max(1, Math.min(100, Number(batchesOverride || this.recipeMacroBatches) || 1));
         const expectedOutput = batches * this.recipePrimaryOutputQty(recipe);
         const data = await apiActions.game.enqueuePremiumMacro(token, 'recipe', {
           recipe_code: recipe.code,
@@ -3025,7 +2986,9 @@ export default {
 
 .recipe_macro_qty {
   display: inline-flex;
+  flex-wrap: wrap;
   gap: 6px;
+  justify-content: flex-end;
 }
 
 .work_actions_row .btn.macro {
