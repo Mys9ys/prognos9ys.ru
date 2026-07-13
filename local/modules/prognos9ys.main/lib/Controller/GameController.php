@@ -129,6 +129,7 @@ class GameController extends BaseController
             'enqueuePremiumMacro' => $this->getDefaultConfigureForPostToken(),
             'updatePremiumWorkSellMode' => $this->getDefaultConfigureForPostToken(),
             'cancelPremiumWork' => $this->getDefaultConfigureForPostToken(),
+            'cancelAllPremiumWork' => $this->getDefaultConfigureForPostToken(),
             'getAlbumState' => $this->getDefaultConfigureForPostToken(),
             'craftAlbums' => $this->getDefaultConfigureForPostToken(),
             'activateAlbum' => $this->getDefaultConfigureForPostToken(),
@@ -1615,6 +1616,24 @@ class GameController extends BaseController
 
         try {
             $result = (new PremiumWorkQueueService())->cancel($userId, $taskId);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok'], $result, [
+            'farm' => (new ProfessionFarmService())->getState($userId),
+        ]);
+    }
+
+    public function cancelAllPremiumWorkAction(): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        try {
+            $result = (new PremiumWorkQueueService())->cancelAll($userId);
         } catch (\RuntimeException $e) {
             throw new ApiException($e->getMessage(), 400);
         }

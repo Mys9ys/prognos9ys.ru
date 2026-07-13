@@ -186,6 +186,71 @@ class PremiumWorkQueueService
     }
 
     /**
+     * Отменить все pending-задачи и активную смену в очереди Premium.
+     *
+     * @return array{cancelled_count: int, state: array<string, mixed>}
+     */
+    public function cancelAll(int $userId): array
+    {
+        if ($userId <= 0) {
+            throw new \InvalidArgumentException('Некорректный пользователь');
+        }
+
+        $now = new DateTime();
+        $cancelled = 0;
+
+        foreach ($this->repository->getPremiumWorkQueueItemsForUser($userId, [
+            PremiumWorkQueueConfig::STATUS_ACTIVE,
+        ]) as $row) {
+            $taskId = (int)($row['ID'] ?? 0);
+            if ($taskId <= 0) {
+                continue;
+            }
+
+            $taskType = (string)($row['UF_TASK_TYPE'] ?? '');
+            if ($taskType === PremiumWorkQueueConfig::TASK_FARM) {
+                $sessionId = (int)($row['UF_SESSION_ID'] ?? 0);
+                if ($sessionId > 0) {
+                    $this->professionRepository->updateProfessionSession($sessionId, [
+                        'UF_STATUS' => ProfessionMaterialConfig::SESSION_STATUS_CANCELLED,
+                        'UF_UPDATED_AT' => new DateTime(),
+                    ]);
+                }
+            }
+
+            $this->repository->updatePremiumWorkQueueItem($taskId, [
+                'UF_STATUS' => PremiumWorkQueueConfig::STATUS_CANCELLED,
+                'UF_UPDATED_AT' => $now,
+                'UF_FINISHED_AT' => $now,
+                'UF_ERROR_TEXT' => 'Отменено пользователем',
+            ]);
+            $cancelled++;
+        }
+
+        foreach ($this->repository->getPremiumWorkQueueItemsForUser($userId, [
+            PremiumWorkQueueConfig::STATUS_PENDING,
+        ]) as $row) {
+            $taskId = (int)($row['ID'] ?? 0);
+            if ($taskId <= 0) {
+                continue;
+            }
+
+            $this->repository->updatePremiumWorkQueueItem($taskId, [
+                'UF_STATUS' => PremiumWorkQueueConfig::STATUS_CANCELLED,
+                'UF_UPDATED_AT' => $now,
+                'UF_FINISHED_AT' => $now,
+                'UF_ERROR_TEXT' => 'Отменено пользователем',
+            ]);
+            $cancelled++;
+        }
+
+        return [
+            'cancelled_count' => $cancelled,
+            'state' => $this->getStateForUser($userId),
+        ];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function getStateForUser(int $userId): array

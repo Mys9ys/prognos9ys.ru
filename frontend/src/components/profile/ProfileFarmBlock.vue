@@ -200,6 +200,17 @@
             · доступно для «для себя»: {{ formatMoney(farm.queue_projection.wallet_available_self_farm) }} 🪙
           </p>
 
+          <div v-if="orderedQueueItems.length" class="queue_head">
+            <button
+              type="button"
+              class="btn secondary mini danger"
+              :disabled="actionLoading"
+              @click="onCancelAllPremiumWork"
+            >
+              Остановить все ({{ orderedQueueItems.length }})
+            </button>
+          </div>
+
           <div v-if="orderedQueueItems.length" class="queue_list">
             <div
               v-for="item in orderedQueueItems"
@@ -1980,6 +1991,40 @@ export default {
       }
     },
 
+    async onCancelAllPremiumWork() {
+      const token = this.authData?.token;
+      const count = this.orderedQueueItems.length;
+      if (!token || count <= 0) {
+        return;
+      }
+
+      const confirmed = window.confirm(
+        `Остановить все ${count} ${count === 1 ? 'задачу' : 'задач'} в очереди Premium? Текущая смена тоже будет прервана.`
+      );
+      if (!confirmed) {
+        return;
+      }
+
+      this.actionLoading = true;
+      this.error = '';
+      try {
+        const data = await apiActions.game.cancelAllPremiumWork(token);
+        if (data?.status === 'ok') {
+          const cancelled = Number(data.cancelled_count) || count;
+          this.applyPremiumWorkResponse(
+            data,
+            cancelled > 0 ? `Остановлено задач: ${cancelled}` : 'Очередь уже пуста'
+          );
+        } else {
+          this.error = data?.message || 'Не удалось остановить очередь';
+        }
+      } catch (e) {
+        this.error = e.message || 'Не удалось остановить очередь';
+      } finally {
+        this.actionLoading = false;
+      }
+    },
+
     applyPremiumWorkResponse(data, fallbackMessage) {
       if (data.farm) {
         this.farm = data.farm;
@@ -2775,6 +2820,12 @@ export default {
 .queue_eta {
   color: @orange;
   font-weight: 600;
+}
+
+.queue_head {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0.35rem 0 0.5rem;
 }
 
 .iter_row {

@@ -366,6 +366,10 @@ export const apiActions = {
             'prognos9ys:main.GameController.cancelPremiumWork',
             { userToken, taskId }
         ),
+        cancelAllPremiumWork: (userToken) => runBitrixAction(
+            'prognos9ys:main.GameController.cancelAllPremiumWork',
+            { userToken }
+        ),
         getAlbumState: (userToken) => runBitrixAction(
             'prognos9ys:main.GameController.getAlbumState',
             { userToken }
