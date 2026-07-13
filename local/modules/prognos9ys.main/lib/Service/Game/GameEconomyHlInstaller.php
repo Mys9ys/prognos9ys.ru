@@ -691,6 +691,7 @@ class GameEconomyHlInstaller
 
         $this->ensureHlBlock('Prognos9ysConstructionProject', self::TABLE_CONSTRUCTION_PROJECT, [
             'UF_CITY_SLUG' => ['USER_TYPE_ID' => 'string'],
+            'UF_COIN_ESCROW' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
         ]);
 
         if (class_exists(\Bitrix\Main\Application::class)) {

@@ -161,6 +161,9 @@ class TreasuryService
             'exchange_commission' => 'Комиссия биржи',
             'city_bank_branch_presence' => 'Оплата прописки филиала банка (50 🪙)',
             'bank_branch_presence' => 'Прописка филиала банка (владелец → казна)',
+            'city_build_escrow' => 'Резерв на госстройку города',
+            'city_build_escrow_refund' => 'Возврат неиспользованного резерва госстройки',
+            'city_build_donate' => 'Оплата сдачи компонента госстройки',
         ];
 
         return $map[$reason] ?? $reason;

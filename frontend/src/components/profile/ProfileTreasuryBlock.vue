@@ -1021,6 +1021,9 @@ export default {
           this.treasuryCities = Array.isArray(data.cities) ? data.cities : this.treasuryCities;
           this.citiesFoundedCount = Number(data.founded_count) || this.citiesFoundedCount;
           this.citiesOpenCount = Number(data.open_count) || this.citiesOpenCount;
+          if (data.treasury) {
+            this.treasury = { ...(this.treasury || {}), ...data.treasury };
+          }
           this.expandedCitySlug = slug;
           const city = data.city || {};
           this.message = `Основан ${city.city_name || slug}: заказы на госстройку открыты на бирже.`;

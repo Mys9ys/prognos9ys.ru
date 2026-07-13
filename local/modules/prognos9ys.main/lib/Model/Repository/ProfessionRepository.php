@@ -888,8 +888,12 @@ class ProfessionRepository
         return $rows;
     }
 
-    public function ensureCityConstructionProject(string $citySlug, string $recipeCode, string $kind): array
-    {
+    public function ensureCityConstructionProject(
+        string $citySlug,
+        string $recipeCode,
+        string $kind,
+        float $coinEscrow = 0.0
+    ): array {
         $existing = $this->getCityConstructionProject($citySlug, $recipeCode);
         if ($existing) {
             return $existing;
@@ -906,6 +910,7 @@ class ProfessionRepository
             'UF_STATUS' => 'building',
             'UF_STASH_JSON' => '{}',
             'UF_BRIGADE_JSON' => '[]',
+            'UF_COIN_ESCROW' => max(0, round($coinEscrow, 1)),
             'UF_CREATED_AT' => $now,
             'UF_UPDATED_AT' => $now,
         ]);

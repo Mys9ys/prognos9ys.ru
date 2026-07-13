@@ -670,6 +670,7 @@ class GameController extends BaseController
             'cities' => $catalog['cities'],
             'founded_count' => $catalog['founded_count'],
             'open_count' => $catalog['open_count'],
+            'treasury' => (new TreasuryService())->getSummary(),
         ];
     }
 

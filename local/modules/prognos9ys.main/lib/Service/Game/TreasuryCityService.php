@@ -16,6 +16,7 @@ class TreasuryCityService
         'civic_exchange_branch' => 2,
     ];
     private const BANK_BRANCH_PRESENCE_REF_TYPE = 'city_bank_branch_presence';
+    private const CITY_FOUNDING_ESCROW_REF_TYPE = 'city_founding';
 
     /** @var string[]|null */
     private static $completeBankBranchCitySlugs = null;
@@ -99,6 +100,15 @@ class TreasuryCityService
             throw new \RuntimeException('Город уже основан');
         }
 
+        $escrowPlan = $this->calcFoundingEscrowPlan();
+        $escrowTotal = (float)($escrowPlan['total'] ?? 0);
+        $treasuryService = new TreasuryService($this->economyRepository);
+        if ($escrowTotal > 0 && !$treasuryService->hasFunds(GameEconomyConfig::CURRENCY_PROGNOBAKS, $escrowTotal)) {
+            throw new \RuntimeException(
+                'В казне недостаточно 🪙 для резерва госстройки (нужно ' . $escrowTotal . ')'
+            );
+        }
+
         $cityId = $this->cityRepository->createCity($slug, $adminUserId);
         $this->cityRepository->ensureCityPlots($cityId);
 
@@ -108,14 +118,57 @@ class TreasuryCityService
                 continue;
             }
 
+            $coinEscrow = (float)(($escrowPlan['by_recipe'][$recipeCode] ?? 0));
             $this->professionRepository->ensureCityConstructionProject(
                 $slug,
                 $recipeCode,
-                (string)($recipe['kind'] ?? 'civic_city')
+                (string)($recipe['kind'] ?? 'civic_city'),
+                $coinEscrow
+            );
+        }
+
+        if ($escrowTotal > 0
+            && !$this->economyRepository->hasTreasuryTxByRef(self::CITY_FOUNDING_ESCROW_REF_TYPE, $cityId)) {
+            $treasuryService->debit(
+                GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                $escrowTotal,
+                'city_build_escrow',
+                $cityId,
+                $adminUserId,
+                self::CITY_FOUNDING_ESCROW_REF_TYPE
             );
         }
 
         return $this->getCityDetail($slug);
+    }
+
+    /**
+     * @return array{total: float, by_recipe: array<string, float>}
+     */
+    private function calcFoundingEscrowPlan(): array
+    {
+        $byRecipe = [];
+        $total = 0.0;
+
+        foreach (EstateCityConfig::FOUNDING_BUILDINGS as $recipeCode) {
+            $recipe = EstateRecipesConfig::all()[$recipeCode] ?? null;
+            if ($recipe === null) {
+                continue;
+            }
+
+            $nominal = round((float)($recipe['nominal_total'] ?? 0), 1);
+            if ($nominal <= 0) {
+                continue;
+            }
+
+            $byRecipe[$recipeCode] = $nominal;
+            $total += $nominal;
+        }
+
+        return [
+            'total' => round($total, 1),
+            'by_recipe' => $byRecipe,
+        ];
     }
 
     public function isCivicBuildingComplete(string $citySlug, string $recipeCode): bool
@@ -221,6 +274,7 @@ class TreasuryCityService
                 'remaining_items' => $this->formatRemainingItems($remaining, $userId),
                 'progress_pct' => $this->calcProgressPct($bom, $stash),
                 'nominal_total' => (float)($recipe['nominal_total'] ?? 0),
+                'coin_escrow' => round((float)($project['UF_COIN_ESCROW'] ?? 0), 1),
             ];
         }
 
@@ -311,25 +365,67 @@ class TreasuryCityService
         $stash[$componentCode] = (int)($stash[$componentCode] ?? 0) + $donateQty;
 
         $paidTotal = EstateRecipesConfig::calcComponentDonationPayout($componentCode, $donateQty);
+        $projectId = (int)($project['ID'] ?? 0);
+        $escrow = round((float)($project['UF_COIN_ESCROW'] ?? 0), 1);
+        $newEscrow = $escrow;
+
         if ($paidTotal > 0) {
-            (new WalletService())->credit(
+            if ($escrow > 0) {
+                if ($escrow + 0.01 < $paidTotal) {
+                    throw new \RuntimeException('Недостаточно резерва госстройки для выплаты');
+                }
+                $newEscrow = round($escrow - $paidTotal, 1);
+            } else {
+                $treasuryService = new TreasuryService($this->economyRepository);
+                if (!$treasuryService->hasFunds(GameEconomyConfig::CURRENCY_PROGNOBAKS, $paidTotal)) {
+                    throw new \RuntimeException('В казне недостаточно 🪙 для оплаты госстройки');
+                }
+                $treasuryService->debit(
+                    GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                    $paidTotal,
+                    'city_build_donate',
+                    $projectId,
+                    $userId,
+                    'city_build_project'
+                );
+            }
+
+            (new WalletService($this->economyRepository))->credit(
                 $userId,
                 GameEconomyConfig::CURRENCY_PROGNOBAKS,
                 $paidTotal,
                 'city_build_donate',
                 'city_build_project',
-                (int)$project['ID']
+                $projectId
             );
         }
 
         $now = new DateTime();
         $isComplete = $this->calcRemaining($bom, $stash) === [];
-        $this->professionRepository->updateConstructionProject((int)$project['ID'], [
+        $refundEscrow = 0.0;
+        if ($isComplete && $newEscrow > 0) {
+            $refundEscrow = $newEscrow;
+            $newEscrow = 0.0;
+        }
+
+        $this->professionRepository->updateConstructionProject($projectId, [
             'UF_STASH_JSON' => $this->professionRepository->encodeStashJson($stash),
             'UF_STATUS' => $isComplete ? 'complete' : 'building',
             'UF_PROGRESS' => $isComplete ? 100 : (int)round($this->calcProgressPct($bom, $stash)),
+            'UF_COIN_ESCROW' => max(0, $newEscrow),
             'UF_UPDATED_AT' => $now,
         ]);
+
+        if ($refundEscrow > 0) {
+            (new TreasuryService($this->economyRepository))->credit(
+                GameEconomyConfig::CURRENCY_PROGNOBAKS,
+                $refundEscrow,
+                'city_build_escrow_refund',
+                $projectId,
+                $userId,
+                'city_build_project'
+            );
+        }
 
         if ($isComplete && $recipeCode === 'civic_city_hall' && $status === EstateCityConfig::STATUS_FOUNDING) {
             $this->cityRepository->updateCity((int)$city['ID'], [
@@ -575,6 +671,7 @@ class TreasuryCityService
             'remaining' => $this->calcRemaining($bom, $stash),
             'progress_pct' => $status === 'complete' ? 100.0 : $this->calcProgressPct($bom, $stash),
             'nominal_total' => (float)($recipe['nominal_total'] ?? 0),
+            'coin_escrow' => round((float)($project['UF_COIN_ESCROW'] ?? 0), 1),
             'opens_city_map' => !empty($recipe['opens_city_map']),
         ];
     }
