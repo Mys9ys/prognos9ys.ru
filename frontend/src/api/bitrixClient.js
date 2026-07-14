@@ -131,6 +131,7 @@ export const apiActions = {
                 userToken: userToken || undefined,
                 selector: options.selector || undefined,
                 limit: options.limit || undefined,
+                matchNumber: options.matchNumber || undefined,
             }
         ),
         getRace: (events) => runBitrixAction(

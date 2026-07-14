@@ -19,7 +19,8 @@ class FootballRatingService
         ?int $setId = null,
         ?int $viewerUserId = null,
         ?string $selector = null,
-        int $limit = 50
+        int $limit = 50,
+        ?int $matchNumber = null
     ): array {
         $eventId = (int)$eventId;
         $payload = $this->getCachedCalculation($eventId);
@@ -33,7 +34,13 @@ class FootballRatingService
             $payload['ratingSet'] = $setInfo['set'] ?? null;
         }
 
-        return (new RatingResponseShaper())->shape($payload, $selector, $limit, $viewerUserId);
+        return (new RatingResponseShaper())->shape(
+            $payload,
+            $selector,
+            $limit,
+            $viewerUserId,
+            $matchNumber
+        );
     }
 
     public function resolveViewerUserId(?string $token): ?int

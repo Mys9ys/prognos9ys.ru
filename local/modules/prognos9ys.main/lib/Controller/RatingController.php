@@ -21,7 +21,8 @@ class RatingController extends BaseController
         ?string $userToken = null,
         ?string $token = null,
         ?string $selector = null,
-        ?int $limit = null
+        ?int $limit = null,
+        ?int $matchNumber = null
     ): array {
         $service = new FootballRatingService();
         $viewerUserId = $service->resolveViewerUserId($userToken ?: $token);
@@ -31,7 +32,8 @@ class RatingController extends BaseController
             $setId,
             $viewerUserId,
             $selector,
-            $limit ?? 50
+            $limit ?? 50,
+            $matchNumber
         );
     }
 

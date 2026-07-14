@@ -26,6 +26,9 @@
                         :loading="isTabLoading(tabId)"
                         :has-data="hasTabData(tabId)"
                         :match-titles="footballRatingMeta?.match_titles || {}"
+                        :match-numbers="availableMatchNumbers"
+                        :selected-match="selectedMatch"
+                        @update:selectedMatch="onSelectedMatchChange"
     />
 
   </div>
@@ -61,7 +64,8 @@ export default {
       thisLoader: false,
       tabLoading: false,
       activeCell: 1,
-      loadedSelectors: {},
+      selectedMatch: '',
+      loadedSlices: {},
       metricTabs: [1, 2, 18, 28, 19, 32, 21, 22, 20, 23, 45, 46, 100],
       relation: {
         1: 'all',
@@ -101,27 +105,34 @@ export default {
   watch:{
     eventId(){
       this.thisLoader = true
-      this.resetLoadedSelectors()
+      this.selectedMatch = ''
+      this.resetLoadedSlices()
       this.loadRating(this.eventId, this.relation[this.activeCell] || 'all')
     },
     setId(){
       this.thisLoader = true
-      this.resetLoadedSelectors()
+      this.selectedMatch = ''
+      this.resetLoadedSlices()
       this.loadRating(this.eventId, this.relation[this.activeCell] || 'all')
     },
     activeCell(newCell) {
       const selector = this.relation[newCell];
-      if (!selector || this.loadedSelectors[selector]) {
+      if (!selector) {
         return;
       }
-      this.loadRating(this.eventId, selector, false, true);
+      const matchNumber = this.selectedMatch ? Number(this.selectedMatch) : null;
+      if (this.isSliceLoaded(selector, matchNumber)) {
+        return;
+      }
+      this.loadRating(this.eventId, selector, false, true, matchNumber);
     },
     authToken(token, prevToken) {
       if (!token || token === prevToken) {
         return;
       }
       this.thisLoader = true;
-      this.resetLoadedSelectors();
+      this.selectedMatch = '';
+      this.resetLoadedSlices();
       this.loadRating(this.eventId, this.relation[this.activeCell] || 'all');
     },
   },
@@ -131,12 +142,48 @@ export default {
       getFootballRatings: 'rating/getFootballRatings',
     }),
 
-    resetLoadedSelectors() {
-      this.loadedSelectors = {};
+    resetLoadedSlices() {
+      this.loadedSlices = {};
       this.$store.commit('rating/clearFootballRatings');
     },
 
-        async loadRating(id, selector = 'all', showLoader = true, tabLoader = false) {
+    sliceKey(selector, matchNumber) {
+      return `${selector}:${matchNumber || 'latest'}`;
+    },
+
+    isSliceLoaded(selector, matchNumber) {
+      return !!this.loadedSlices[this.sliceKey(selector, matchNumber)];
+    },
+
+    markSliceLoaded(selector, matchNumber) {
+      this.loadedSlices = {
+        ...this.loadedSlices,
+        [this.sliceKey(selector, matchNumber)]: true,
+      };
+    },
+
+    async onSelectedMatchChange(value) {
+      const next = String(value || '');
+      if (next === this.selectedMatch) {
+        return;
+      }
+      this.selectedMatch = next;
+      const selector = this.relation[this.activeCell] || 'all';
+      const matchNumber = next ? Number(next) : null;
+      if (this.isSliceLoaded(selector, matchNumber) && this.hasTourData(selector, matchNumber)) {
+        return;
+      }
+      await this.loadRating(this.eventId, selector, false, true, matchNumber);
+    },
+
+    hasTourData(selector, matchNumber) {
+      if (!matchNumber) {
+        return false;
+      }
+      return !!(this.footballRating?.[selector]?.[matchNumber] || this.footballRating?.[selector]?.[String(matchNumber)]);
+    },
+
+    async loadRating(id, selector = 'all', showLoader = true, tabLoader = false, matchNumber = null) {
       if (showLoader) {
         this.thisLoader = true;
       }
@@ -148,11 +195,15 @@ export default {
         this.ratingData.setId = this.setId ? Number(this.setId) : null;
         this.ratingData.selector = selector;
         this.ratingData.limit = 50;
+        this.ratingData.matchNumber = matchNumber && matchNumber > 0 ? matchNumber : null;
         await this.getFootballRatings();
-        this.loadedSelectors = {
-          ...this.loadedSelectors,
-          [selector]: true,
-        };
+
+        const resolvedMatch = Number(this.footballRatingMeta?.match_number) || matchNumber || null;
+        if (resolvedMatch && !this.selectedMatch) {
+          this.selectedMatch = String(resolvedMatch);
+        }
+
+        this.markSliceLoaded(selector, resolvedMatch || matchNumber);
         this.$emit('loaded');
       } finally {
         if (showLoader) {
@@ -184,7 +235,15 @@ export default {
       footballRating: state => state.rating.footballRating,
       footballRatingMeta: state => state.rating.footballRatingMeta,
       authToken: state => state.auth.authData.token,
-    })
+    }),
+    availableMatchNumbers() {
+      const fromMeta = this.footballRatingMeta?.match_numbers;
+      if (Array.isArray(fromMeta) && fromMeta.length) {
+        return fromMeta.map(Number).filter((n) => n > 0);
+      }
+      const titles = this.footballRatingMeta?.match_titles || {};
+      return Object.keys(titles).map(Number).filter((n) => n > 0);
+    },
   },
 }
 </script>

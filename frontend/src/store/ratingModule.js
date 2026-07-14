@@ -16,6 +16,7 @@ export const ratingModule = {
             setId: null,
             selector: 'all',
             limit: 50,
+            matchNumber: null,
         },
 
     }),
@@ -23,10 +24,18 @@ export const ratingModule = {
     mutations: {
         setFootballRatings(state, data) {
             if (data && typeof data === 'object' && data.selector && data.ratings) {
-                state.footballRating = {
-                    ...(state.footballRating || {}),
-                    ...data.ratings,
-                };
+                const next = { ...(state.footballRating || {}) };
+                Object.entries(data.ratings).forEach(([selector, tours]) => {
+                    if (!tours || typeof tours !== 'object') {
+                        next[selector] = tours;
+                        return;
+                    }
+                    next[selector] = {
+                        ...(next[selector] || {}),
+                        ...tours,
+                    };
+                });
+                state.footballRating = next;
                 if (data.meta && typeof data.meta === 'object') {
                     state.footballRatingMeta = {
                         ...(state.footballRatingMeta || {}),
@@ -63,6 +72,7 @@ export const ratingModule = {
                         {
                             selector: state.ratingData.selector || 'all',
                             limit: state.ratingData.limit || 50,
+                            matchNumber: state.ratingData.matchNumber || undefined,
                         }
                     );
                 } else {

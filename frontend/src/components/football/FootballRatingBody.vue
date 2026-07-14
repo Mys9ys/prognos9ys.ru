@@ -3,9 +3,10 @@
     <RatingTableHeader
         :icon-key="icon"
         :title="title[icon]"
-        :match-numbers="matchNumbers"
-        v-model="selectedMatch"
+        :match-numbers="resolvedMatchNumbers"
+        :model-value="selectedMatch"
         :match-titles="matchTitles"
+        @update:modelValue="onMatchChange"
     />
     <SelectBlockRating
         v-if="hasRenderableData"
@@ -30,6 +31,7 @@ import RatingTableHeader from "@/components/football/RatingTableHeader";
 export default {
   name: "FootballRatingBody",
   components: { SelectBlockRating, RatingTabLoader, RatingTableHeader },
+  emits: ['update:selectedMatch'],
 
   props: {
     arRating: {
@@ -50,10 +52,17 @@ export default {
       type: Object,
       default: () => ({}),
     },
+    matchNumbers: {
+      type: Array,
+      default: () => [],
+    },
+    selectedMatch: {
+      type: [String, Number],
+      default: '',
+    },
   },
   data(){
     return{
-      selectedMatch: '',
       title: {
         1: 'Сводный рейтинг (сумма остальных)',
         2: 'Счет матча',
@@ -73,27 +82,26 @@ export default {
   },
   computed: {
     hasRenderableData() {
-      return !!this.arRating && Object.keys(this.arRating).length > 0;
+      if (!this.arRating || !this.selectedMatch) {
+        return false;
+      }
+      const key = String(this.selectedMatch);
+      return !!(this.arRating[key] || this.arRating[Number(key)]);
     },
-    matchNumbers() {
+    resolvedMatchNumbers() {
+      if (Array.isArray(this.matchNumbers) && this.matchNumbers.length) {
+        return this.matchNumbers.map(Number).filter((n) => n > 0);
+      }
+      const fromTitles = Object.keys(this.matchTitles || {}).map(Number).filter((n) => n > 0);
+      if (fromTitles.length) {
+        return fromTitles;
+      }
       return Object.keys(this.arRating || {}).map(Number).filter((n) => n > 0);
     },
   },
-  watch: {
-    arRating: {
-      immediate: true,
-      handler() {
-        const keys = this.matchNumbers;
-        if (!keys.length) {
-          this.selectedMatch = '';
-          return;
-        }
-        const max = Math.max(...keys);
-        // default to latest tour if nothing selected
-        if (!this.selectedMatch) {
-          this.selectedMatch = String(max);
-        }
-      },
+  methods: {
+    onMatchChange(value) {
+      this.$emit('update:selectedMatch', value);
     },
   },
 }
