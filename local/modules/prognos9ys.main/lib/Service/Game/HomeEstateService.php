@@ -78,6 +78,21 @@ class HomeEstateService
         return $this->buildHomeEstatePayload($citySlug, $plotNumber);
     }
 
+    public function clearHomeEstateIfMatches(int $userId, string $citySlug, int $plotNumber): void
+    {
+        $home = $this->getHomeEstate($userId);
+        if (!$home) {
+            return;
+        }
+
+        if (
+            strtolower(trim((string)($home['city_slug'] ?? ''))) === strtolower(trim($citySlug))
+            && (int)($home['plot_number'] ?? 0) === (int)$plotNumber
+        ) {
+            \CUserOptions::DeleteOption(self::OPTION_CATEGORY, self::OPTION_NAME, false, $userId);
+        }
+    }
+
     private function persistHomeEstate(int $userId, string $citySlug, int $plotNumber): void
     {
         \CUserOptions::SetOption(

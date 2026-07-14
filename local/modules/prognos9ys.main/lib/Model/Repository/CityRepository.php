@@ -236,6 +236,85 @@ class CityRepository
         }
     }
 
+    /**
+     * Атомарно освобождает занятый участок.
+     *
+     * @return array{plot: array<string, mixed>, previous_owner_id: int}
+     */
+    public function releasePlot(int $cityId, int $plotNumber, ?int $expectedOwnerId = null): array
+    {
+        if ($cityId <= 0 || $plotNumber <= 0) {
+            throw new \InvalidArgumentException('Некорректные параметры участка');
+        }
+
+        $connection = \Bitrix\Main\Application::getConnection();
+        $helper = $connection->getSqlHelper();
+        $lockName = $helper->forSql(sprintf('p9_city_plot_%d_%d', $cityId, $plotNumber));
+        $lockRow = $connection->query("SELECT GET_LOCK('{$lockName}', 5) AS L")->fetch();
+        if ((int)($lockRow['L'] ?? 0) !== 1) {
+            throw new \RuntimeException('Не удалось заблокировать участок, попробуйте ещё раз');
+        }
+
+        try {
+            $dataClass = $this->getCityPlotDataClass();
+            $plot = $dataClass::getList([
+                'filter' => [
+                    '=UF_CITY_ID' => $cityId,
+                    '=UF_PLOT_NUMBER' => $plotNumber,
+                ],
+                'limit' => 1,
+            ])->fetch();
+
+            if (!$plot) {
+                throw new \RuntimeException('Участок не найден');
+            }
+
+            $ownerId = (int)($plot['UF_OWNER_USER_ID'] ?? 0);
+            if ($ownerId <= 0) {
+                throw new \RuntimeException('Участок уже свободен');
+            }
+
+            if ($expectedOwnerId !== null && $expectedOwnerId > 0 && $ownerId !== $expectedOwnerId) {
+                throw new \RuntimeException('Участок принадлежит другому игроку');
+            }
+
+            $result = $dataClass::update((int)$plot['ID'], [
+                'UF_OWNER_USER_ID' => 0,
+                'UF_CLAIMED_AT' => null,
+            ]);
+            if (!$result->isSuccess()) {
+                throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+            }
+
+            $plot['UF_OWNER_USER_ID'] = 0;
+            $plot['UF_CLAIMED_AT'] = null;
+
+            return [
+                'plot' => $plot,
+                'previous_owner_id' => $ownerId,
+            ];
+        } finally {
+            $connection->query("SELECT RELEASE_LOCK('{$lockName}')");
+        }
+    }
+
+    public function getPlotByCityAndNumber(int $cityId, int $plotNumber): ?array
+    {
+        if ($cityId <= 0 || $plotNumber <= 0) {
+            return null;
+        }
+
+        $dataClass = $this->getCityPlotDataClass();
+
+        return $dataClass::getList([
+            'filter' => [
+                '=UF_CITY_ID' => $cityId,
+                '=UF_PLOT_NUMBER' => $plotNumber,
+            ],
+            'limit' => 1,
+        ])->fetch() ?: null;
+    }
+
     private function getCityDataClass(): string
     {
         return $this->cityDataClass

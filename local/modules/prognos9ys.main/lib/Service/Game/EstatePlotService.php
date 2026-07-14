@@ -119,6 +119,174 @@ class EstatePlotService
     }
 
     /**
+     * Отмена активации участка: освобождение, возврат лицензии и материалов со стройки.
+     *
+     * @return array<string, mixed>
+     */
+    public function releasePlot(
+        int $actorUserId,
+        string $citySlug,
+        int $plotNumber,
+        bool $asAdmin = false,
+        bool $refundCert = true
+    ): array {
+        $citySlug = strtolower(trim($citySlug));
+        if ($actorUserId <= 0 || $citySlug === '' || !EstateCityConfig::isValidPlotNumber($plotNumber)) {
+            throw new \InvalidArgumentException('Некорректные параметры участка');
+        }
+
+        $city = $this->cityRepository->getCityBySlug($citySlug);
+        if (!$city) {
+            throw new \RuntimeException('Город не основан');
+        }
+
+        $cityId = (int)($city['ID'] ?? 0);
+        if ($cityId <= 0) {
+            throw new \RuntimeException('Не найден город');
+        }
+
+        $plot = $this->cityRepository->getPlotByCityAndNumber($cityId, $plotNumber);
+        if (!$plot) {
+            throw new \RuntimeException('Участок не найден');
+        }
+
+        $ownerId = (int)($plot['UF_OWNER_USER_ID'] ?? 0);
+        if ($ownerId <= 0) {
+            throw new \RuntimeException('Участок уже свободен');
+        }
+
+        if (!$asAdmin && $ownerId !== $actorUserId) {
+            throw new \RuntimeException('Можно освободить только свой участок');
+        }
+
+        $materialsReturned = $this->returnStashMaterialsToOwner($ownerId, $citySlug, $plotNumber);
+        $cancelledOrders = $this->cancelOpenEstateOrders($ownerId, $citySlug, $plotNumber);
+        $deletedProjects = $this->deleteEstateProjects($ownerId, $citySlug, $plotNumber);
+
+        $released = $this->cityRepository->releasePlot($cityId, $plotNumber, $ownerId);
+        (new HomeEstateService($this->cityRepository))->clearHomeEstateIfMatches($ownerId, $citySlug, $plotNumber);
+
+        $certRefunded = false;
+        if ($refundCert) {
+            $this->economyRepository->incrementLootItem(
+                $ownerId,
+                ChestLootConfig::LOOT_EVENT_GLOBAL,
+                'cert_estate',
+                ChestLootConfig::CATEGORY_CERT,
+                1
+            );
+            $certRefunded = true;
+        }
+
+        return [
+            'city_slug' => $citySlug,
+            'city_id' => $cityId,
+            'plot_number' => $plotNumber,
+            'previous_owner_id' => (int)($released['previous_owner_id'] ?? $ownerId),
+            'released_by_admin' => $asAdmin && $ownerId !== $actorUserId,
+            'cert_refunded' => $certRefunded,
+            'materials_returned' => $materialsReturned,
+            'cancelled_orders' => $cancelledOrders,
+            'deleted_projects' => $deletedProjects,
+            'certificate_left' => $this->economyRepository->getEventAgnosticLootItemCount(
+                $ownerId,
+                'cert_estate',
+                ChestLootConfig::CATEGORY_CERT
+            ),
+        ];
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function returnStashMaterialsToOwner(int $ownerId, string $citySlug, int $plotNumber): array
+    {
+        $returned = [];
+        foreach ($this->professionRepository->getEstateConstructionProjectsByPlot($ownerId, $citySlug, $plotNumber) as $project) {
+            if ((string)($project['UF_STATUS'] ?? '') === 'complete') {
+                continue;
+            }
+
+            $stash = $this->professionRepository->decodeStashJson((string)($project['UF_STASH_JSON'] ?? '{}'));
+            foreach ($stash as $code => $qty) {
+                $qty = (int)$qty;
+                if ($qty <= 0) {
+                    continue;
+                }
+                $this->professionRepository->addUserMaterialQty($ownerId, (string)$code, $qty);
+                $returned[(string)$code] = (int)($returned[(string)$code] ?? 0) + $qty;
+            }
+        }
+
+        return $returned;
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function cancelOpenEstateOrders(int $ownerId, string $citySlug, int $plotNumber): array
+    {
+        $cancelled = [];
+        $orderService = new EstateProductionOrderService($this->orderRepository, $this->professionRepository);
+
+        foreach (
+            $this->orderRepository->getOrdersByPosterUserIdAndPurpose(
+                $ownerId,
+                LaborExchangeConfig::ORDER_PURPOSE_ESTATE,
+                200
+            ) as $row
+        ) {
+            if ((string)($row['UF_STATUS'] ?? '') !== LaborExchangeConfig::STATUS_OPEN) {
+                continue;
+            }
+
+            $orderId = (int)($row['ID'] ?? 0);
+            if ($orderId <= 0) {
+                continue;
+            }
+
+            $contextRaw = trim((string)($row['UF_CONTEXT_JSON'] ?? ''));
+            $context = $contextRaw !== '' ? json_decode($contextRaw, true) : null;
+            if (!is_array($context)) {
+                continue;
+            }
+            if (
+                strtolower(trim((string)($context['city_slug'] ?? ''))) !== $citySlug
+                || (int)($context['plot_number'] ?? 0) !== $plotNumber
+            ) {
+                continue;
+            }
+
+            try {
+                $orderService->cancelOrder($ownerId, $orderId);
+                $cancelled[] = $orderId;
+            } catch (\Throwable $e) {
+                // Skip broken orders; plot release must continue.
+            }
+        }
+
+        return $cancelled;
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function deleteEstateProjects(int $ownerId, string $citySlug, int $plotNumber): array
+    {
+        $deleted = [];
+        foreach ($this->professionRepository->getEstateConstructionProjectsByPlot($ownerId, $citySlug, $plotNumber) as $project) {
+            $projectId = (int)($project['ID'] ?? 0);
+            if ($projectId <= 0) {
+                continue;
+            }
+            $this->professionRepository->deleteConstructionProject($projectId);
+            $deleted[] = $projectId;
+        }
+
+        return $deleted;
+    }
+
+    /**
      * @return array{
      *   city_slug:string,
      *   plot_number:int,

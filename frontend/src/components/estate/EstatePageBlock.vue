@@ -180,6 +180,16 @@
             Отмена
           </button>
           <button
+            v-if="estateModal.mode === 'confirm' && estateModal.secondaryLabel && !estateModal.loading"
+            type="button"
+            class="modal_btn"
+            :class="estateModal.secondaryClass || 'secondary'"
+            :disabled="estateModal.loading"
+            @click="confirmEstateModalSecondary"
+          >
+            {{ estateModal.secondaryLabel }}
+          </button>
+          <button
             v-if="estateModal.mode === 'confirm'"
             type="button"
             class="modal_btn"
@@ -442,19 +452,92 @@ export default {
       const owner = payload?.ownerName || 'игрок';
       const isMine = Boolean(payload?.isMine);
       const isHome = Boolean(payload?.isHome);
+
+      if (isMine) {
+        this.openEstateModal({
+          mode: 'confirm',
+          title: `Участок №${plotNumber}`,
+          message: isHome
+            ? 'Это ваша главная усадьба (прописка).'
+            : 'Ваша усадьба на этой улице.',
+          meta: isHome
+            ? 'Можно освободить участок: лицензия вернётся, материалы со стройки — в инвентарь.'
+            : 'Можно сделать пропиской или освободить участок (лицензия вернётся).',
+          confirmLabel: isHome ? 'Освободить участок' : 'Сделать пропиской',
+          confirmClass: isHome ? 'danger' : 'primary',
+          onConfirm: isHome
+            ? () => this.executeReleasePlot(plotNumber)
+            : () => this.executeSetHomeEstate(plotNumber),
+          secondaryLabel: isHome ? '' : 'Освободить участок',
+          secondaryClass: 'danger',
+          onSecondary: isHome ? null : () => this.executeReleasePlot(plotNumber),
+          plotView: {
+            stage: payload?.stage || 'claimed',
+          },
+        });
+        return;
+      }
+
+      if (this.canImpersonate) {
+        this.openEstateModal({
+          mode: 'confirm',
+          title: `Участок №${plotNumber}`,
+          message: `Усадьба: ${owner}`,
+          meta: 'Админ: освободить участок? Лицензия вернётся владельцу, материалы со стройки — в его инвентарь.',
+          confirmLabel: 'Освободить (админ)',
+          confirmClass: 'danger',
+          onConfirm: () => this.executeReleasePlot(plotNumber),
+          plotView: {
+            stage: payload?.stage || 'claimed',
+          },
+        });
+        return;
+      }
+
       this.openEstateModal({
-        mode: isMine && !isHome ? 'confirm' : 'alert',
+        mode: 'alert',
         title: `Участок №${plotNumber}`,
-        message: isMine
-          ? (isHome ? 'Это ваша главная усадьба (прописка).' : 'Ваша усадьба на этой улице')
-          : `Усадьба: ${owner}`,
-        meta: isMine && !isHome ? 'Сделать этот участок вашей пропиской?' : '',
-        confirmLabel: isMine && !isHome ? 'Сделать пропиской' : '',
-        onConfirm: isMine && !isHome ? () => this.executeSetHomeEstate(plotNumber) : null,
+        message: `Усадьба: ${owner}`,
         plotView: {
           stage: payload?.stage || 'claimed',
         },
       });
+    },
+    async executeReleasePlot(plotNumber) {
+      const token = this.authData?.token;
+      if (!token || !this.selectedSlug || !plotNumber) {
+        return;
+      }
+
+      this.cityActionLoading = true;
+      this.cityError = '';
+      this.cityMessage = '';
+      if (this.estateModal) {
+        this.estateModal.loading = true;
+        this.estateModal.error = '';
+      }
+      try {
+        const data = await apiActions.game.releaseEstatePlot(
+          token,
+          this.selectedSlug,
+          Number(plotNumber),
+        );
+        if (data?.status !== 'ok') {
+          throw new Error(data?.message || 'Не удалось освободить участок');
+        }
+        this.cityMap = data.city || this.cityMap;
+        this.map = data.map || this.map;
+        this.cityMessage = `Участок №${plotNumber} освобождён`;
+        await this.loadMap();
+        this.setModalSuccess(`Участок №${plotNumber} освобождён. Лицензия возвращена.`);
+      } catch (e) {
+        this.setModalError(e?.message || 'Ошибка освобождения участка');
+      } finally {
+        this.cityActionLoading = false;
+        if (this.estateModal) {
+          this.estateModal.loading = false;
+        }
+      }
     },
     async executeSetHomeEstate(plotNumber) {
       const token = this.authData?.token;
@@ -909,15 +992,19 @@ export default {
       meta = '',
       confirmLabel = '',
       confirmClass = 'primary',
+      secondaryLabel = '',
+      secondaryClass = 'secondary',
       showQtyPicker = false,
       orderQty = 1,
       orderQtyMax = 1,
       orderPayPerUnit = 0,
       onConfirm = null,
+      onSecondary = null,
       bankBranches = [],
       bankBranchesLoading = false,
       pendingCount = 0,
       buildingComplete = false,
+      plotView = null,
     }) {
       this.estateModal = {
         kind,
@@ -927,11 +1014,14 @@ export default {
         meta,
         confirmLabel,
         confirmClass,
+        secondaryLabel,
+        secondaryClass,
         showQtyPicker,
         orderQty: Math.max(1, Number(orderQty) || 1),
         orderQtyMax: Math.max(1, Number(orderQtyMax) || 1),
         orderPayPerUnit: Number(orderPayPerUnit) || 0,
         onConfirm,
+        onSecondary,
         loading: false,
         error: '',
         success: '',
@@ -939,6 +1029,7 @@ export default {
         bankBranchesLoading,
         pendingCount,
         buildingComplete,
+        plotView,
       };
     },
     resolveOrderModalQty() {
@@ -1002,6 +1093,24 @@ export default {
       this.estateModal.success = '';
       try {
         await this.estateModal.onConfirm();
+      } catch (e) {
+        this.setModalError(e?.message || 'Ошибка выполнения');
+      } finally {
+        if (this.estateModal) {
+          this.estateModal.loading = false;
+        }
+      }
+    },
+    async confirmEstateModalSecondary() {
+      if (!this.estateModal?.onSecondary || this.estateModal.loading) {
+        return;
+      }
+
+      this.estateModal.loading = true;
+      this.estateModal.error = '';
+      this.estateModal.success = '';
+      try {
+        await this.estateModal.onSecondary();
       } catch (e) {
         this.setModalError(e?.message || 'Ошибка выполнения');
       } finally {

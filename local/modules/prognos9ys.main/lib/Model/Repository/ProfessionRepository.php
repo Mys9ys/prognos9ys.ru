@@ -1022,6 +1022,20 @@ class ProfessionRepository
         }
     }
 
+    public function deleteConstructionProject(int $projectId): void
+    {
+        if ($projectId <= 0) {
+            throw new \InvalidArgumentException('Некорректный проект');
+        }
+
+        $dataClass = $this->getConstructionProjectDataClass();
+        $result = $dataClass::delete($projectId);
+
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+    }
+
     public function decodeStashJson(?string $json): array
     {
         if ($json === null || trim($json) === '') {

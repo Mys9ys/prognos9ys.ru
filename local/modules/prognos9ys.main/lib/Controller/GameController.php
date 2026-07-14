@@ -74,6 +74,7 @@ class GameController extends BaseController
             'getEstateMapState' => $this->getDefaultConfigureForPostToken(),
             'getEstateCityMap' => $this->getDefaultConfigureForPostToken(),
             'claimEstatePlot' => $this->getDefaultConfigureForPostToken(),
+            'releaseEstatePlot' => $this->getDefaultConfigureForPostToken(),
             'setHomeEstate' => $this->getDefaultConfigureForPostToken(),
             'submitEstateBuildComponent' => $this->getDefaultConfigureForPostToken(),
             'withdrawEstateBuildComponent' => $this->getDefaultConfigureForPostToken(),
@@ -510,6 +511,38 @@ class GameController extends BaseController
             'status' => 'ok',
             'result' => $result,
             'city' => $city,
+        ];
+    }
+
+    public function releaseEstatePlotAction(string $citySlug, int $plotNumber): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        $asAdmin = (new ImpersonationService())->canImpersonate($userId);
+
+        try {
+            $result = (new EstatePlotService())->releasePlot(
+                $userId,
+                $citySlug,
+                $plotNumber,
+                $asAdmin,
+                true
+            );
+            $city = (new EstateMapService())->getCityStreetMap($citySlug, $userId);
+        } catch (\InvalidArgumentException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return [
+            'status' => 'ok',
+            'result' => $result,
+            'city' => $city,
+            'map' => (new EstateMapService())->getWorldMapState($userId),
         ];
     }
 
