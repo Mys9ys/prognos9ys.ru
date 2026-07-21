@@ -92,6 +92,69 @@ class FootballRatingCalculator
     }
 
     /**
+     * Лёгкий расчёт для freeze сезонных наград: только кумулятивные очки
+     * последнего тура, без place/user-объектов по всем матчам.
+     *
+     * @return array{status:string,match_number:int|null,scores:array<string,array<int,float>>}
+     */
+    public function calculateLatestCumulativeScores(int $eventId): array
+    {
+        if ($eventId <= 0) {
+            return ['status' => 'ok', 'match_number' => null, 'scores' => []];
+        }
+
+        if (!Loader::includeModule('iblock')) {
+            throw new \RuntimeException('Модуль iblock не установлен');
+        }
+
+        $this->eventId = $eventId;
+        $this->users = [];
+        $this->results = [];
+        $this->middleResults = [];
+        $this->userScore = [];
+
+        $this->matchIdToNumber = $this->matchNumberMapService->getMapForEvent($eventId);
+        $this->matchTitleByNumber = [];
+
+        $this->loadResults();
+        // Пользователей и аватары не грузим — для podium хватает userId.
+        $latest = $this->accumulateByTourKeepLatestOnly();
+
+        $scores = [];
+        foreach ($this->results as $selector => $tours) {
+            if (!is_array($tours) || $latest === null) {
+                continue;
+            }
+            $tourScores = $tours[$latest] ?? $tours[(string)$latest] ?? null;
+            if (!is_array($tourScores)) {
+                continue;
+            }
+            $map = [];
+            foreach ($tourScores as $uid => $score) {
+                $userId = (int)$uid;
+                if ($userId <= 0) {
+                    continue;
+                }
+                $map[$userId] = is_array($score) ? (float)($score['score'] ?? 0) : (float)$score;
+            }
+            $scores[(string)$selector] = $map;
+        }
+
+        // Освобождаем тяжёлые структуры до возврата.
+        $this->results = [];
+        $this->middleResults = [];
+        $this->userScore = [];
+        $this->users = [];
+        $this->matchIdToNumber = [];
+
+        return [
+            'status' => 'ok',
+            'match_number' => $latest,
+            'scores' => $scores,
+        ];
+    }
+
+    /**
      * @return array<int, string> number => "Team — Team"
      */
     private function loadMatchTitlesByNumber(int $eventId): array
@@ -233,6 +296,89 @@ class FootballRatingCalculator
                 }
             }
         }
+    }
+
+    /**
+     * То же накопление, что accumulateByTour, но в памяти держим только последний тур
+     * (+ best на том же номере). Возвращает номер последнего тура.
+     */
+    private function accumulateByTourKeepLatestOnly(): ?int
+    {
+        $latest = 0;
+
+        foreach ($this->middleResults as $selector => $category) {
+            if (!is_array($category) || $category === []) {
+                continue;
+            }
+
+            ksort($category, SORT_NUMERIC);
+            $prev = [];
+            $prev2 = [];
+            $lastNumber = 0;
+
+            foreach ($category as $number => $scores) {
+                $number = (int)$number;
+                if ($number <= 0) {
+                    continue;
+                }
+
+                $current = [];
+                foreach ($this->userScore as $userId => $count) {
+                    unset($count);
+                    $value = 0.0;
+                    if (!empty($scores[$userId])) {
+                        $value = (float)$scores[$userId];
+                    }
+
+                    if (isset($prev[$userId]) && $prev[$userId]) {
+                        $value += (float)$prev[$userId];
+                    } elseif (isset($prev2[$userId]) && $prev2[$userId]) {
+                        $value += (float)$prev2[$userId];
+                    }
+
+                    if ($value != 0.0) {
+                        $current[$userId] = $value;
+                    }
+                }
+
+                $prev2 = $prev;
+                $prev = $current;
+                $lastNumber = $number;
+                if ($number > $latest) {
+                    $latest = $number;
+                }
+            }
+
+            if ($lastNumber > 0) {
+                $this->results[$selector][$lastNumber] = $prev;
+            }
+        }
+
+        $this->middleResults = [];
+
+        // best заполняется в loadResults поматчево — оставляем только latest.
+        if (isset($this->results['best']) && is_array($this->results['best'])) {
+            if ($latest > 0 && isset($this->results['best'][$latest])) {
+                $this->results['best'] = [$latest => $this->results['best'][$latest]];
+            } else {
+                $bestNumbers = [];
+                foreach (array_keys($this->results['best']) as $n) {
+                    $bestNumbers[(int)$n] = (int)$n;
+                }
+                if ($bestNumbers !== []) {
+                    rsort($bestNumbers, SORT_NUMERIC);
+                    $bestLatest = (int)$bestNumbers[0];
+                    $this->results['best'] = [$bestLatest => $this->results['best'][$bestLatest]];
+                    if ($bestLatest > $latest) {
+                        $latest = $bestLatest;
+                    }
+                } else {
+                    unset($this->results['best']);
+                }
+            }
+        }
+
+        return $latest > 0 ? $latest : null;
     }
 
     private function assignPlacesAndSort(): void

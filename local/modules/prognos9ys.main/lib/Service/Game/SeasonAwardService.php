@@ -4,7 +4,6 @@ namespace Prognos9ys\Main\Service\Game;
 
 use Bitrix\Main\Type\DateTime;
 use Prognos9ys\Main\Model\Repository\GameEconomyRepository;
-use Prognos9ys\Main\Service\Football\FootballRatingService;
 use Prognos9ys\Main\Service\Rating\FootballRatingCalculator;
 
 class SeasonAwardService
@@ -62,13 +61,11 @@ class SeasonAwardService
         $bySelector = [];
         $matchNumber = null;
 
+        $podiums = $this->buildAllPodiums($eventId);
+
         foreach (SeasonAwardConfig::getNominations() as $selector => $meta) {
-            $kind = (string)($meta['kind'] ?? 'selector');
-            if ($kind === 'playoff') {
-                $podium = $this->resolvePlayoffPodium($eventId);
-            } else {
-                $podium = $this->resolveSelectorPodium($eventId, $selector);
-            }
+            unset($meta);
+            $podium = $podiums[$selector] ?? ['match_number' => null, 'rows' => []];
 
             if ($podium['match_number'] !== null) {
                 $matchNumber = $podium['match_number'];
@@ -208,87 +205,58 @@ class SeasonAwardService
     }
 
     /**
-     * @return array{match_number: int|null, rows: list<array{user_id:int,place:int,score:float}>}
+     * Один лёгкий расчёт рейтинга → подиумы всех номинаций (top-3 с ничьями 1,1,3).
+     *
+     * @return array<string, array{match_number: int|null, rows: list<array{user_id:int,place:int,score:float}>}>
      */
-    private function resolveSelectorPodium(int $eventId, string $selector): array
+    private function buildAllPodiums(int $eventId): array
     {
-        $payload = (new FootballRatingService())->getByEvent($eventId, null, null, $selector, 100, null);
-        $matchNumber = isset($payload['meta']['match_number']) ? (int)$payload['meta']['match_number'] : null;
-        $tourMap = $payload['ratings'][$selector] ?? [];
-        $rowsRaw = [];
-
-        if ($matchNumber !== null && isset($tourMap[$matchNumber]) && is_array($tourMap[$matchNumber])) {
-            $rowsRaw = $tourMap[$matchNumber];
-        } elseif ($matchNumber !== null && isset($tourMap[(string)$matchNumber]) && is_array($tourMap[(string)$matchNumber])) {
-            $rowsRaw = $tourMap[(string)$matchNumber];
+        $payload = (new FootballRatingCalculator())->calculateLatestCumulativeScores($eventId);
+        $matchNumber = isset($payload['match_number']) ? (int)$payload['match_number'] : null;
+        if ($matchNumber !== null && $matchNumber <= 0) {
+            $matchNumber = null;
         }
+        /** @var array<string, array<int, float>> $scoresBySelector */
+        $scoresBySelector = is_array($payload['scores'] ?? null) ? $payload['scores'] : [];
 
-        $rows = [];
-        foreach ($rowsRaw as $row) {
-            $place = (int)($row['place'] ?? 0);
-            $userId = (int)($row['user']['id'] ?? 0);
-            if ($userId <= 0 || $place < 1 || $place > 3) {
+        $podiums = [];
+        foreach (SeasonAwardConfig::getNominations() as $selector => $meta) {
+            $kind = (string)($meta['kind'] ?? 'selector');
+            if ($kind === 'playoff') {
+                $combined = [];
+                foreach (['otime', 'spenalty'] as $part) {
+                    foreach (($scoresBySelector[$part] ?? []) as $uid => $score) {
+                        $userId = (int)$uid;
+                        if ($userId <= 0) {
+                            continue;
+                        }
+                        $combined[$userId] = ($combined[$userId] ?? 0.0) + (float)$score;
+                    }
+                }
+                $podiums[$selector] = [
+                    'match_number' => $matchNumber,
+                    'rows' => $this->topPlacesFromScores($combined),
+                ];
                 continue;
             }
-            $rows[] = [
-                'user_id' => $userId,
-                'place' => $place,
-                'score' => (float)($row['score'] ?? 0),
+
+            $podiums[$selector] = [
+                'match_number' => $matchNumber,
+                'rows' => $this->topPlacesFromScores($scoresBySelector[$selector] ?? []),
             ];
         }
 
-        return [
-            'match_number' => $matchNumber,
-            'rows' => $rows,
-        ];
+        return $podiums;
     }
 
     /**
-     * Синтетический подиум: сумма очков otime + spenalty на последнем туре.
-     *
-     * @return array{match_number: int|null, rows: list<array{user_id:int,place:int,score:float}>}
+     * @param array<int, float> $scores
+     * @return list<array{user_id:int,place:int,score:float}>
      */
-    private function resolvePlayoffPodium(int $eventId): array
+    private function topPlacesFromScores(array $scores): array
     {
-        $payload = (new FootballRatingCalculator())->calculate($eventId);
-        $otime = $payload['ratings']['otime'] ?? [];
-        $spenalty = $payload['ratings']['spenalty'] ?? [];
-
-        $numbers = [];
-        foreach (array_keys($otime) as $n) {
-            $numbers[(int)$n] = (int)$n;
-        }
-        foreach (array_keys($spenalty) as $n) {
-            $numbers[(int)$n] = (int)$n;
-        }
-        if (!$numbers) {
-            return ['match_number' => null, 'rows' => []];
-        }
-
-        rsort($numbers, SORT_NUMERIC);
-        $matchNumber = (int)$numbers[0];
-
-        $scores = [];
-        $otimeRows = $otime[$matchNumber] ?? $otime[(string)$matchNumber] ?? [];
-        if (is_array($otimeRows)) {
-            foreach ($otimeRows as $uid => $row) {
-                $userId = (int)($row['user']['id'] ?? $uid);
-                if ($userId <= 0) {
-                    continue;
-                }
-                $scores[$userId] = ($scores[$userId] ?? 0.0) + (float)($row['score'] ?? 0);
-            }
-        }
-
-        $spenaltyRows = $spenalty[$matchNumber] ?? $spenalty[(string)$matchNumber] ?? [];
-        if (is_array($spenaltyRows)) {
-            foreach ($spenaltyRows as $uid => $row) {
-                $userId = (int)($row['user']['id'] ?? $uid);
-                if ($userId <= 0) {
-                    continue;
-                }
-                $scores[$userId] = ($scores[$userId] ?? 0.0) + (float)($row['score'] ?? 0);
-            }
+        if ($scores === []) {
+            return [];
         }
 
         arsort($scores, SORT_NUMERIC);
@@ -314,10 +282,7 @@ class SeasonAwardService
             $count++;
         }
 
-        return [
-            'match_number' => $matchNumber,
-            'rows' => $rows,
-        ];
+        return $rows;
     }
 
     /**

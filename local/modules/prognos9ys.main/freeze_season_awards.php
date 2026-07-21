@@ -16,6 +16,9 @@ use Bitrix\Main\Loader;
 use Prognos9ys\Main\Service\Game\GameEconomyConfig;
 use Prognos9ys\Main\Service\Game\SeasonAwardService;
 
+@ini_set('memory_limit', '1024M');
+@set_time_limit(0);
+
 $_SERVER['DOCUMENT_ROOT'] = realpath(__DIR__ . '/../../..');
 require_once $_SERVER['DOCUMENT_ROOT'] . '/bitrix/modules/main/include/prolog_before.php';
 
