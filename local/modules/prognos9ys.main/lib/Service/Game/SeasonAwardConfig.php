@@ -59,6 +59,12 @@ class SeasonAwardConfig
                 'icon' => '⏱️',
                 'kind' => 'selector',
             ],
+            'penalty' => [
+                'title' => 'Пенальти',
+                'description' => 'Пенальти в матче (сумма для обеих команд)',
+                'icon' => '⚽',
+                'kind' => 'selector',
+            ],
             'best' => [
                 'title' => 'Снайпер',
                 'description' => 'Лучшие прогнозы (≥30 очков за матч)',
@@ -180,6 +186,11 @@ class SeasonAwardConfig
                 1 => $withCup('domination', 1, ['chests' => 3]),
                 2 => $withCup('domination', 2, ['chests' => 2]),
                 3 => $withCup('domination', 3, ['chests' => 1]),
+            ],
+            'penalty' => [
+                1 => $withCup('penalty', 1, ['chests' => 3]),
+                2 => $withCup('penalty', 2, ['chests' => 2]),
+                3 => $withCup('penalty', 3, ['chests' => 1]),
             ],
             'best' => [
                 1 => $withCup('best', 1, ['chests' => 4]),

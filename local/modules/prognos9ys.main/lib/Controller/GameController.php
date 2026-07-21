@@ -1303,7 +1303,7 @@ class GameController extends BaseController
         ];
     }
 
-    public function freezeSeasonAwardsAction(int $eventId = 0, int $force = 0): array
+    public function freezeSeasonAwardsAction(int $eventId = 0, int $force = 0, int $append = 0): array
     {
         $userId = TokenAuthService::getCurrentUserId();
         if (!$userId) {
@@ -1317,7 +1317,7 @@ class GameController extends BaseController
         $eventId = $eventId > 0 ? $eventId : GameEconomyConfig::ANCHOR_EVENT_ID;
 
         try {
-            $result = (new SeasonAwardService())->freezeEvent($eventId, $force > 0);
+            $result = (new SeasonAwardService())->freezeEvent($eventId, $force > 0, $append > 0);
         } catch (\RuntimeException $e) {
             throw new ApiException($e->getMessage(), 400);
         }

@@ -10,6 +10,24 @@ class SeasonCupConfig
     public const CODE_PREFIX = 'cup_wc26_';
 
     /**
+     * Стабильные индексы для synthetic match_id (не сдвигать при вставке номинаций в UI-список).
+     * Уже выданные кубки: all=0 … playoff=7; penalty=8.
+     *
+     * @var array<string, int>
+     */
+    private const SELECTOR_INDEX = [
+        'all' => 0,
+        'result' => 1,
+        'score' => 2,
+        'diff' => 3,
+        'corner' => 4,
+        'domination' => 5,
+        'best' => 6,
+        'playoff' => 7,
+        'penalty' => 8,
+    ];
+
+    /**
      * @return array<string, array{
      *   code: string,
      *   selector: string,
@@ -67,13 +85,11 @@ class SeasonCupConfig
 
         $selector = (string)$catalog[$cupCode]['selector'];
         $place = (int)$catalog[$cupCode]['place'];
-        $selectors = array_keys(SeasonAwardConfig::getNominations());
-        $index = array_search($selector, $selectors, true);
-        if ($index === false) {
-            $index = 0;
+        $index = self::SELECTOR_INDEX[$selector] ?? null;
+        if ($index === null) {
+            $index = 100 + (abs((int)crc32($selector)) % 800);
         }
 
-        // -4000001 … -4000024 для известных 8×3
         return -4000000 - ((int)$index * 3 + $place);
     }
 

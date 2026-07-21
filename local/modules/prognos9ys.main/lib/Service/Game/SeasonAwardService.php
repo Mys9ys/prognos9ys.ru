@@ -25,35 +25,44 @@ class SeasonAwardService
     /**
      * Идемпотентный freeze: если для event уже есть rows — ошибка «уже закрыт».
      * С $force=true: удаляет старые rows (если никто ещё не claim) и пишет заново.
+     * С $append=true: дописывает только номинации, которых ещё нет у события (claimed не трогает).
      *
-     * @return array{event_id: int, created: int, match_number: int|null, by_selector: array<string, int>, reset?: int}
+     * @return array{event_id: int, created: int, match_number: int|null, by_selector: array<string, int>, reset?: int, append?: bool}
      */
-    public function freezeEvent(int $eventId, bool $force = false): array
+    public function freezeEvent(int $eventId, bool $force = false, bool $append = false): array
     {
         if ($eventId <= 0) {
             throw new \InvalidArgumentException('Некорректный eventId');
         }
 
+        if ($force && $append) {
+            throw new \InvalidArgumentException('Нельзя одновременно --force и --append');
+        }
+
         $stats = $this->repository->getSeasonAwardStatsForEvent($eventId);
         $reset = 0;
+        $existingSelectors = [];
 
         if ($stats['total'] > 0) {
-            if (!$force) {
+            if ($append) {
+                $existingSelectors = $this->repository->getSeasonAwardSelectorsForEvent($eventId);
+            } elseif (!$force) {
                 throw new \RuntimeException(
                     'Сезонные награды для этого события уже закрыты (freeze). '
-                    . 'Повтор: php freeze_season_awards.php ' . $eventId . ' --force'
+                    . 'Дописать номинации: php freeze_season_awards.php ' . $eventId . ' --append'
+                    . ' | полный сброс pending: --force'
                     . ' (pending=' . $stats['pending'] . ', claimed=' . $stats['claimed'] . ')'
                 );
-            }
+            } else {
+                if ($stats['claimed'] > 0) {
+                    throw new \RuntimeException(
+                        'Нельзя перезаписать freeze: уже есть claimed-награды (' . $stats['claimed'] . '). '
+                        . 'Для новых номинаций используй --append.'
+                    );
+                }
 
-            if ($stats['claimed'] > 0) {
-                throw new \RuntimeException(
-                    'Нельзя перезаписать freeze: уже есть claimed-награды (' . $stats['claimed'] . '). '
-                    . 'Сначала разберись с ними вручную.'
-                );
+                $reset = $this->repository->deleteSeasonAwardsForEvent($eventId);
             }
-
-            $reset = $this->repository->deleteSeasonAwardsForEvent($eventId);
         }
 
         $now = new DateTime();
@@ -65,6 +74,11 @@ class SeasonAwardService
 
         foreach (SeasonAwardConfig::getNominations() as $selector => $meta) {
             unset($meta);
+            if ($append && isset($existingSelectors[$selector])) {
+                $bySelector[$selector] = 0;
+                continue;
+            }
+
             $podium = $podiums[$selector] ?? ['match_number' => null, 'rows' => []];
 
             if ($podium['match_number'] !== null) {
@@ -112,6 +126,9 @@ class SeasonAwardService
         ];
         if ($force) {
             $result['reset'] = $reset;
+        }
+        if ($append) {
+            $result['append'] = true;
         }
 
         return $result;

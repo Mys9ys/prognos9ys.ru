@@ -2285,6 +2285,32 @@ class GameEconomyRepository
     }
 
     /**
+     * @return array<string, true> selector => true
+     */
+    public function getSeasonAwardSelectorsForEvent(int $eventId): array
+    {
+        $map = [];
+        if ($eventId <= 0) {
+            return $map;
+        }
+
+        $dataClass = $this->getSeasonAwardDataClass();
+        $response = $dataClass::getList([
+            'filter' => ['=UF_EVENT_ID' => $eventId],
+            'select' => ['UF_SELECTOR'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $selector = trim((string)($row['UF_SELECTOR'] ?? ''));
+            if ($selector !== '') {
+                $map[$selector] = true;
+            }
+        }
+
+        return $map;
+    }
+
+    /**
      * Удаляет все сезонные награды события. Возвращает число удалённых строк.
      */
     public function deleteSeasonAwardsForEvent(int $eventId): int
