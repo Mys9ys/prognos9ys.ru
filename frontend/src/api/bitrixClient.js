@@ -491,6 +491,27 @@ export const apiActions = {
             'prognos9ys:main.GameController.claimAchievement',
             { userToken, code }
         ),
+        getSeasonAwards: (userToken, eventId = 0) => runBitrixAction(
+            'prognos9ys:main.GameController.getSeasonAwards',
+            { userToken, eventId: eventId || undefined }
+        ),
+        claimSeasonAward: (userToken, { awardId = 0, awardCode = '', eventId = 0 } = {}) => runBitrixAction(
+            'prognos9ys:main.GameController.claimSeasonAward',
+            {
+                userToken,
+                awardId: awardId ? Number(awardId) : undefined,
+                awardCode: awardCode || undefined,
+                eventId: eventId || undefined,
+            }
+        ),
+        claimAllSeasonAwards: (userToken, eventId = 0) => runBitrixAction(
+            'prognos9ys:main.GameController.claimAllSeasonAwards',
+            { userToken, eventId: eventId || undefined }
+        ),
+        freezeSeasonAwards: (userToken, eventId = 0) => runBitrixAction(
+            'prognos9ys:main.GameController.freezeSeasonAwards',
+            { userToken, eventId: eventId || undefined }
+        ),
         openWc26Chests: (userToken, qty = 1) => runBitrixAction(
             'prognos9ys:main.GameController.openWc26Chests',
             { userToken, qty }

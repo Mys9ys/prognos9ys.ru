@@ -22,6 +22,7 @@ use Prognos9ys\Main\Service\Game\RecipeAchievementConfig;
 use Prognos9ys\Main\Service\Game\ProductionAchievementConfig;
 use Prognos9ys\Main\Service\Game\ProfessionMaterialConfig;
 use Prognos9ys\Main\Service\Game\ProfessionRecipeConfig;
+use Prognos9ys\Main\Service\Game\SeasonCupConfig;
 
 class GameEconomyRepository
 {
@@ -70,6 +71,7 @@ class GameEconomyRepository
     private ?string $xpBankDrinkLogDataClass = null;
     private ?string $encyclopediaGrantLogDataClass = null;
     private ?string $screenVisitLogDataClass = null;
+    private ?string $seasonAwardDataClass = null;
     private ?string $exchangeListingDataClass = null;
     private ?string $exchangeTradeDataClass = null;
     private ?string $exchangeNominalDataClass = null;
@@ -175,6 +177,11 @@ class GameEconomyRepository
         return $this->screenVisitLogDataClass ??= $this->compileDataClass(
             GameEconomyHlInstaller::TABLE_SCREEN_VISIT_LOG
         );
+    }
+
+    public function getSeasonAwardDataClass(): string
+    {
+        return $this->seasonAwardDataClass ??= $this->compileDataClass(GameEconomyHlInstaller::TABLE_SEASON_AWARD);
     }
 
     private function ensureScreenVisitLogHl(): void
@@ -2232,6 +2239,199 @@ class GameEconomyRepository
         }
     }
 
+    public function countSeasonAwardsForEvent(int $eventId): int
+    {
+        if ($eventId <= 0) {
+            return 0;
+        }
+
+        $dataClass = $this->getSeasonAwardDataClass();
+        $row = $dataClass::getList([
+            'filter' => ['=UF_EVENT_ID' => $eventId],
+            'select' => ['ID'],
+            'limit' => 1,
+        ])->fetch();
+
+        return $row ? 1 : 0;
+    }
+
+    /**
+     * @return array{total: int, pending: int, claimed: int}
+     */
+    public function getSeasonAwardStatsForEvent(int $eventId): array
+    {
+        $stats = ['total' => 0, 'pending' => 0, 'claimed' => 0];
+        if ($eventId <= 0) {
+            return $stats;
+        }
+
+        $dataClass = $this->getSeasonAwardDataClass();
+        $response = $dataClass::getList([
+            'filter' => ['=UF_EVENT_ID' => $eventId],
+            'select' => ['ID', 'UF_STATUS'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $stats['total']++;
+            $status = (string)($row['UF_STATUS'] ?? '');
+            if ($status === 'claimed') {
+                $stats['claimed']++;
+            } else {
+                $stats['pending']++;
+            }
+        }
+
+        return $stats;
+    }
+
+    /**
+     * Удаляет все сезонные награды события. Возвращает число удалённых строк.
+     */
+    public function deleteSeasonAwardsForEvent(int $eventId): int
+    {
+        if ($eventId <= 0) {
+            return 0;
+        }
+
+        $dataClass = $this->getSeasonAwardDataClass();
+        $deleted = 0;
+        $response = $dataClass::getList([
+            'filter' => ['=UF_EVENT_ID' => $eventId],
+            'select' => ['ID'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $id = (int)($row['ID'] ?? 0);
+            if ($id <= 0) {
+                continue;
+            }
+            $result = $dataClass::delete($id);
+            if ($result->isSuccess()) {
+                $deleted++;
+            }
+        }
+
+        return $deleted;
+    }
+
+    public function addSeasonAward(array $fields): int
+    {
+        $dataClass = $this->getSeasonAwardDataClass();
+        $result = $dataClass::add($fields);
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+
+        return (int)$result->getId();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function listSeasonAwardsForUser(int $userId, ?int $eventId = null): array
+    {
+        if ($userId <= 0) {
+            return [];
+        }
+
+        $filter = ['=UF_USER_ID' => $userId];
+        if ($eventId !== null && $eventId > 0) {
+            $filter['=UF_EVENT_ID'] = $eventId;
+        }
+
+        $dataClass = $this->getSeasonAwardDataClass();
+        $rows = [];
+        $response = $dataClass::getList([
+            'filter' => $filter,
+            'order' => ['UF_SELECTOR' => 'ASC', 'UF_PLACE' => 'ASC', 'ID' => 'ASC'],
+            'select' => ['*'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function listSeasonAwardsForEvent(int $eventId): array
+    {
+        if ($eventId <= 0) {
+            return [];
+        }
+
+        $dataClass = $this->getSeasonAwardDataClass();
+        $rows = [];
+        $response = $dataClass::getList([
+            'filter' => ['=UF_EVENT_ID' => $eventId],
+            'order' => ['UF_SELECTOR' => 'ASC', 'UF_PLACE' => 'ASC', 'ID' => 'ASC'],
+            'select' => ['*'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
+    public function getSeasonAwardById(int $id): ?array
+    {
+        if ($id <= 0) {
+            return null;
+        }
+
+        $dataClass = $this->getSeasonAwardDataClass();
+        $row = $dataClass::getList([
+            'filter' => ['=ID' => $id],
+            'select' => ['*'],
+            'limit' => 1,
+        ])->fetch();
+
+        return $row ?: null;
+    }
+
+    public function getSeasonAwardByCodeForUser(int $userId, string $awardCode, ?int $eventId = null): ?array
+    {
+        $awardCode = trim($awardCode);
+        if ($userId <= 0 || $awardCode === '') {
+            return null;
+        }
+
+        $filter = [
+            '=UF_USER_ID' => $userId,
+            '=UF_AWARD_CODE' => $awardCode,
+        ];
+        if ($eventId !== null && $eventId > 0) {
+            $filter['=UF_EVENT_ID'] = $eventId;
+        }
+
+        $dataClass = $this->getSeasonAwardDataClass();
+        $row = $dataClass::getList([
+            'filter' => $filter,
+            'select' => ['*'],
+            'limit' => 1,
+        ])->fetch();
+
+        return $row ?: null;
+    }
+
+    public function updateSeasonAward(int $id, array $fields): void
+    {
+        if ($id <= 0) {
+            throw new \InvalidArgumentException('Invalid season award id');
+        }
+
+        $dataClass = $this->getSeasonAwardDataClass();
+        $result = $dataClass::update($id, $fields);
+        if (!$result->isSuccess()) {
+            throw new \RuntimeException(implode('; ', $result->getErrorMessages()));
+        }
+    }
+
     public function updateTreasureChest(int $id, array $fields): void
     {
         $dataClass = $this->getTreasureChestDataClass();
@@ -3259,6 +3459,62 @@ class GameEconomyRepository
         return $counts;
     }
 
+    /**
+     * Кубки сезона в инвентаре: список объектов с meta для UI.
+     *
+     * @return list<array{code:string,count:int,label:string,caption:string,icon:string,place:int,selector:string}>
+     */
+    public function getSeasonCupInventoryForUser(int $userId): array
+    {
+        $items = [];
+        if ($userId <= 0) {
+            return $items;
+        }
+
+        $dataClass = $this->getTreasureChestDataClass();
+        $response = $dataClass::getList([
+            'filter' => [
+                '=UF_USER_ID' => $userId,
+                '=UF_TYPE' => TreasureService::CHEST_TYPE_SEASON_CUP,
+                '=UF_STATUS' => TreasureService::CHEST_STATUS_INVENTORY,
+            ],
+            'select' => ['UF_COUNT', 'UF_MATCH_ID'],
+        ]);
+
+        while ($row = $response->fetch()) {
+            $code = SeasonCupConfig::resolveCodeFromSyntheticMatchId((int)($row['UF_MATCH_ID'] ?? 0));
+            if ($code === null) {
+                continue;
+            }
+
+            $meta = SeasonCupConfig::getMeta($code);
+            if ($meta === null) {
+                continue;
+            }
+
+            $items[] = [
+                'code' => $code,
+                'count' => max(1, (int)($row['UF_COUNT'] ?? 1)),
+                'label' => (string)$meta['label'],
+                'caption' => (string)$meta['caption'],
+                'icon' => (string)$meta['icon'],
+                'place' => (int)$meta['place'],
+                'selector' => (string)$meta['selector'],
+            ];
+        }
+
+        usort($items, static function (array $a, array $b): int {
+            $sel = strcmp((string)$a['selector'], (string)$b['selector']);
+            if ($sel !== 0) {
+                return $sel;
+            }
+
+            return (int)$a['place'] <=> (int)$b['place'];
+        });
+
+        return $items;
+    }
+
     private function resolvePennantCodeFromSyntheticMatchId(int $matchId): ?string
     {
         return AchievementPennantConfig::resolveCodeFromSyntheticMatchId($matchId);
@@ -3321,6 +3577,7 @@ class GameEconomyRepository
             if (
                 $type === TreasureService::CHEST_TYPE_PREMIUM_SCROLL
                 || $type === TreasureService::CHEST_TYPE_PENNANT
+                || $type === TreasureService::CHEST_TYPE_SEASON_CUP
             ) {
                 continue;
             }

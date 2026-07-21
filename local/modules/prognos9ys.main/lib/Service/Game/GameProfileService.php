@@ -216,6 +216,7 @@ class GameProfileService
                     'premium_scrolls_5d' => 0,
                     'pennant_site' => 0,
                     'pennant_chm2026' => 0,
+                    'season_cups' => [],
                 ],
                 'inventory_items' => [],
                 'learned_recipes' => [],

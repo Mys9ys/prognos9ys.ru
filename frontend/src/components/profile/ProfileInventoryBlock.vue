@@ -318,6 +318,25 @@ export default {
         }
       });
 
+      const seasonCups = Array.isArray(this.treasure.season_cups) ? this.treasure.season_cups : [];
+      seasonCups.forEach((cup) => {
+        const code = String(cup?.code || '');
+        const count = Number(cup?.count || 0);
+        if (!code || count <= 0) {
+          return;
+        }
+        slots.push({
+          id: `season_cup_${code}`,
+          code,
+          count,
+          emoji: cup.icon || '🏆',
+          caption: cup.caption || 'Кубок',
+          label: cup.label || code,
+          category: 'season_cup',
+          openable: false,
+        });
+      });
+
       return slots;
     },
     lootSlots() {

@@ -5,6 +5,7 @@ export const INVENTORY_TABS = [
   { id: 'premium_scroll', label: 'Премиум' },
   { id: 'loot', label: 'ККИ' },
   { id: 'souvenir', label: 'Сувениры' },
+  { id: 'cups', label: 'Кубки' },
   { id: 'recipe', label: 'Рецепты' },
   { id: 'xp_bank', label: 'Банки XP' },
   { id: 'cert', label: 'Лицензии' },
@@ -32,7 +33,11 @@ export function resolveInventoryTab(item, tabId = 'all') {
   }
   if (tabId === 'souvenir') {
     return category === 'pennant' || category === 'scarf'
+      || String(item.id || '').startsWith('pennant_')
       || (category === 'pack' && (code.includes('pennant') || code.includes('scarf')));
+  }
+  if (tabId === 'cups') {
+    return category === 'season_cup' || String(item.id || '').startsWith('season_cup_');
   }
   if (tabId === 'recipe') {
     return category === 'recipe';

@@ -7,6 +7,8 @@
       <div v-else class="hint">Загрузка…</div>
     </div>
 
+    <ProfileSeasonAwardsBlock />
+
     <div class="section_card" v-if="canImpersonate">
       <div class="section_title">Администрирование</div>
       <router-link class="admin_link" to="/visit-stats">Статистика посещений →</router-link>
@@ -38,6 +40,7 @@
 import { mapGetters } from 'vuex';
 import PageHeader from '@/components/main/PageHeader.vue';
 import ProfileGameBlock from '@/components/profile/ProfileGameBlock.vue';
+import ProfileSeasonAwardsBlock from '@/components/profile/ProfileSeasonAwardsBlock.vue';
 import ProfileRulesBlock from '@/components/profile/ProfileRulesBlock.vue';
 import AppIcon from '@/components/ui/AppIcon.vue';
 import gamePageMixin from '@/mixins/gamePageMixin';
@@ -47,6 +50,7 @@ export default {
   components: {
     PageHeader,
     ProfileGameBlock,
+    ProfileSeasonAwardsBlock,
     ProfileRulesBlock,
     AppIcon,
   },

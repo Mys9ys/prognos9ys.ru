@@ -43,6 +43,7 @@ class GameEconomyHlInstaller
     public const TABLE_PREMIUM_WORK_QUEUE = 'prognos9ys_premium_work_queue';
     public const TABLE_ENCYCLOPEDIA_GRANT_LOG = 'prognos9ys_encyclopedia_grant_log';
     public const TABLE_SCREEN_VISIT_LOG = 'prognos9ys_screen_visit_log';
+    public const TABLE_SEASON_AWARD = 'prognos9ys_season_award';
 
     public function install(): array
     {
@@ -901,6 +902,40 @@ class GameEconomyHlInstaller
         }
 
         return ['screen_visit_log_hl_id' => $hlId];
+    }
+
+    /**
+     * Сезонные награды (топ рейтинга после freeze).
+     */
+    public function upgradeSeasonAwardHl(): array
+    {
+        if (!Loader::includeModule('highloadblock')) {
+            throw new \RuntimeException('Модуль highloadblock не установлен');
+        }
+
+        $hlId = $this->ensureHlBlock('Prognos9ysSeasonAward', self::TABLE_SEASON_AWARD, [
+            'UF_USER_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_EVENT_ID' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_SELECTOR' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_PLACE' => ['USER_TYPE_ID' => 'integer', 'MANDATORY' => 'Y'],
+            'UF_AWARD_CODE' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_STATUS' => ['USER_TYPE_ID' => 'string', 'MANDATORY' => 'Y'],
+            'UF_MATCH_NUMBER' => ['USER_TYPE_ID' => 'integer'],
+            'UF_SCORE' => ['USER_TYPE_ID' => 'double', 'SETTINGS' => ['PRECISION' => 1]],
+            'UF_REWARD_JSON' => ['USER_TYPE_ID' => 'string'],
+            'UF_CLAIMED_AT' => ['USER_TYPE_ID' => 'datetime'],
+            'UF_CREATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+            'UF_UPDATED_AT' => ['USER_TYPE_ID' => 'datetime'],
+        ]);
+
+        if (class_exists(\Bitrix\Main\Application::class)) {
+            $app = \Bitrix\Main\Application::getInstance();
+            if ($app) {
+                $app->getManagedCache()->cleanDir('orm');
+            }
+        }
+
+        return ['season_award_hl_id' => $hlId];
     }
 
     /**

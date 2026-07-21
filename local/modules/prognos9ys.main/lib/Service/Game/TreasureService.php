@@ -21,6 +21,7 @@ class TreasureService
     public const CHEST_TYPE_SHOP_WC26 = 'shop_wc26';
     public const CHEST_TYPE_PREMIUM_SCROLL = 'premium_scroll';
     public const CHEST_TYPE_PENNANT = 'pennant';
+    public const CHEST_TYPE_SEASON_CUP = 'season_cup';
 
     /** @var array<string, int> */
     private const PENNANT_SYNTHETIC_MATCH_IDS = [
@@ -134,6 +135,7 @@ class TreasureService
         $breakdown = $this->repository->getTreasureChestBreakdownForUser($userId);
         $premiumScrolls = $this->repository->getPremiumScrollBreakdownForUser($userId);
         $pennants = $this->repository->getPennantInventoryCountsForUser($userId);
+        $seasonCups = $this->repository->getSeasonCupInventoryForUser($userId);
         $eventId = $this->scopeService->getAnchorEventId();
         $wc26Openable = $eventId > 0
             ? $this->repository->countOpenableWc26ChestUnits($userId, $eventId)
@@ -160,6 +162,7 @@ class TreasureService
             'premium_scrolls_5d' => $premiumScrolls[5] ?? 0,
             'pennant_site' => $pennants['site'] ?? 0,
             'pennant_chm2026' => $pennants['chm2026'] ?? 0,
+            'season_cups' => $seasonCups,
         ];
     }
 
@@ -560,7 +563,7 @@ class TreasureService
         if ($type === self::CHEST_TYPE_WC26_ACHIEVEMENT) {
             return false;
         }
-        if (in_array($type, [self::CHEST_TYPE_PENNANT, self::CHEST_TYPE_PREMIUM_SCROLL], true)) {
+        if (in_array($type, [self::CHEST_TYPE_PENNANT, self::CHEST_TYPE_PREMIUM_SCROLL, self::CHEST_TYPE_SEASON_CUP], true)) {
             return false;
         }
 
@@ -869,6 +872,44 @@ class TreasureService
             'UF_COUNT' => 1,
             'UF_STATUS' => self::CHEST_STATUS_INVENTORY,
             'UF_TYPE' => self::CHEST_TYPE_PENNANT,
+            'UF_CREATED_AT' => $now,
+            'UF_UPDATED_AT' => $now,
+        ]);
+
+        return true;
+    }
+
+    /**
+     * Кубок сезона ЧМ-26 в инвентарь (идемпотентно по коду).
+     */
+    public function grantSeasonCup(int $userId, string $cupCode): bool
+    {
+        $cupCode = trim($cupCode);
+        if ($userId <= 0 || $cupCode === '' || !SeasonCupConfig::isSeasonCupCode($cupCode)) {
+            return false;
+        }
+
+        $syntheticMatchId = SeasonCupConfig::resolveSyntheticMatchId($cupCode);
+        $existing = $this->repository->getTreasureChestByType(
+            $userId,
+            $syntheticMatchId,
+            self::CHEST_TYPE_SEASON_CUP
+        );
+
+        if ($existing) {
+            return false;
+        }
+
+        $now = new DateTime();
+        $eventId = $this->scopeService->getAnchorEventId();
+
+        $this->repository->addTreasureChest([
+            'UF_USER_ID' => $userId,
+            'UF_MATCH_ID' => $syntheticMatchId,
+            'UF_EVENT_ID' => $eventId > 0 ? $eventId : GameEconomyConfig::ANCHOR_EVENT_ID,
+            'UF_COUNT' => 1,
+            'UF_STATUS' => self::CHEST_STATUS_INVENTORY,
+            'UF_TYPE' => self::CHEST_TYPE_SEASON_CUP,
             'UF_CREATED_AT' => $now,
             'UF_UPDATED_AT' => $now,
         ]);

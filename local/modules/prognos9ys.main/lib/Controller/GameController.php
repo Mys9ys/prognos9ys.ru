@@ -5,6 +5,7 @@ namespace Prognos9ys\Main\Controller;
 use Prognos9ys\Main\Service\Auth\ImpersonationService;
 use Prognos9ys\Main\Service\Auth\TokenAuthService;
 use Prognos9ys\Main\Service\Game\AchievementService;
+use Prognos9ys\Main\Service\Game\SeasonAwardService;
 use Prognos9ys\Main\Service\Game\AlbumConfig;
 use Prognos9ys\Main\Service\Game\AlbumCollectionBuyService;
 use Prognos9ys\Main\Service\Game\AlbumCraftService;
@@ -106,6 +107,10 @@ class GameController extends BaseController
             'adminOpenCityBankBranches' => $this->getDefaultConfigureForPostToken(),
             'getAchievements' => $this->getDefaultConfigureForPostToken(),
             'claimAchievement' => $this->getDefaultConfigureForPostToken(),
+            'getSeasonAwards' => $this->getDefaultConfigureForPostToken(),
+            'claimSeasonAward' => $this->getDefaultConfigureForPostToken(),
+            'claimAllSeasonAwards' => $this->getDefaultConfigureForPostToken(),
+            'freezeSeasonAwards' => $this->getDefaultConfigureForPostToken(),
             'openWc26Chests' => $this->getDefaultConfigureForPostToken(),
             'openChests' => $this->getDefaultConfigureForPostToken(),
             'openXpBanks' => $this->getDefaultConfigureForPostToken(),
@@ -1231,6 +1236,93 @@ class GameController extends BaseController
             'achievements' => $service->getForUser($userId),
             'game' => (new GameProfileService())->getSummary($userId),
         ];
+    }
+
+    public function getSeasonAwardsAction(int $eventId = 0): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        return (new SeasonAwardService())->listForUser($userId, $eventId > 0 ? $eventId : null);
+    }
+
+    public function claimSeasonAwardAction(int $awardId = 0, string $awardCode = '', int $eventId = 0): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        $key = $awardId > 0 ? $awardId : trim($awardCode);
+        if ($key === '' || $key === 0) {
+            throw new ApiException('Не указана награда', 400);
+        }
+
+        try {
+            $result = (new SeasonAwardService())->claim(
+                $userId,
+                $key,
+                $eventId > 0 ? $eventId : null
+            );
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return [
+            'status' => 'ok',
+            'claimed' => $result['claimed'],
+            'awards' => $result['awards'],
+            'game' => (new GameProfileService())->getSummary($userId),
+        ];
+    }
+
+    public function claimAllSeasonAwardsAction(int $eventId = 0): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        try {
+            $result = (new SeasonAwardService())->claimAll(
+                $userId,
+                $eventId > 0 ? $eventId : null
+            );
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return [
+            'status' => 'ok',
+            'claimed' => $result['claimed'],
+            'count' => $result['count'],
+            'awards' => $result['awards'],
+            'game' => (new GameProfileService())->getSummary($userId),
+        ];
+    }
+
+    public function freezeSeasonAwardsAction(int $eventId = 0, int $force = 0): array
+    {
+        $userId = TokenAuthService::getCurrentUserId();
+        if (!$userId) {
+            throw new ApiException('Пользователь не авторизован', 401);
+        }
+
+        if (!(new ImpersonationService())->canImpersonate($userId)) {
+            throw new ApiException('Недостаточно прав', 403);
+        }
+
+        $eventId = $eventId > 0 ? $eventId : GameEconomyConfig::ANCHOR_EVENT_ID;
+
+        try {
+            $result = (new SeasonAwardService())->freezeEvent($eventId, $force > 0);
+        } catch (\RuntimeException $e) {
+            throw new ApiException($e->getMessage(), 400);
+        }
+
+        return array_merge(['status' => 'ok'], $result);
     }
 
     public function openWc26ChestsAction(int $openAll = 0, int $qty = 0): array
