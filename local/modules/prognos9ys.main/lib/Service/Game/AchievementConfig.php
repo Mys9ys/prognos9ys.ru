@@ -72,6 +72,20 @@ class AchievementConfig
                 ],
             ],
 
+            // 3b. РПЛ 26/27 / 10,50,100 / сундуки РПЛ + рублиусы
+            'rpl2627' => [
+                'title' => 'РПЛ 26/27',
+                'description' => 'Прогнозы на матчи РПЛ 2026/27',
+                'group' => self::GROUP_CHM,
+                'icon' => 'total_all',
+                'stat' => 'rpl_prognosis',
+                'levels' => [
+                    ['threshold' => 10, 'reward' => ['chests' => 1, 'rublius' => 2.0, 'chest_type' => 'rpl']],
+                    ['threshold' => 50, 'reward' => ['chests' => 5, 'rublius' => 10.0, 'chest_type' => 'rpl']],
+                    ['threshold' => 100, 'reward' => ['chests' => 10, 'rublius' => 20.0, 'chest_type' => 'rpl']],
+                ],
+            ],
+
             // 4. Отличный прогноз / 30..39 баллов
             'great_prediction' => [
                 'title' => 'Отличный прогноз',
@@ -394,6 +408,11 @@ class AchievementConfig
             CollectionMegaAchievementConfig::CODE_SCARF,
             CollectionMegaAchievementConfig::CODE_ACHIEVEMENT_PENNANT,
         ], true);
+    }
+
+    public static function grantsRplChest(string $code): bool
+    {
+        return $code === 'rpl2627';
     }
 
     public static function grantsProfessionChest(string $code): bool

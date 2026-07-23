@@ -23,7 +23,7 @@ export function resolveInventoryTab(item, tabId = 'all') {
   const pool = String(item.pool || '');
 
   if (tabId === 'chest') {
-    return Boolean(item.icon?.includes('chest') || pool === 'wc26' || pool === 'achievement' || pool === 'level' || category === 'chest');
+    return Boolean(item.icon?.includes('chest') || pool === 'wc26' || pool === 'rpl' || pool === 'achievement' || pool === 'level' || category === 'chest');
   }
   if (tabId === 'premium_scroll') {
     return category === 'premium' || String(item.field || '').startsWith('premium_');

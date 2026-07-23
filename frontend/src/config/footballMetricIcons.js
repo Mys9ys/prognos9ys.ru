@@ -139,6 +139,7 @@ export const ACHIEVEMENT_CATALOG_REF = {
   welcome: { icon: 'welcome', iconFile: 'ach_welcome.png', stat: 'football_prognosis', levels: 1, description: '1 футбольный прогноз' },
   prognosis: { icon: 'total_all', iconFile: 'metric_total_all.png', stat: 'football_prognosis', levels: 5, description: '5 / 10 / 50 / 100 / 500 прогнозов' },
   chm2026: { icon: 'chm2026', iconFile: 'ach_chm2026.png', stat: 'chm_prognosis', levels: 3, description: '10 / 50 / 100 прогнозов на ЧМ-2026' },
+  rpl2627: { icon: 'total_all', iconFile: 'metric_total_all.png', stat: 'rpl_prognosis', levels: 3, description: '10 / 50 / 100 прогнозов на РПЛ 2026/27' },
   great_prediction: { icon: 'rating_prodigy', iconFile: 'metric_rating_prodigy.png', stat: 'score_30_39', levels: 5, description: '3 / 7 / 20 / 50 / 100 прогнозов по 30–39 баллов' },
   prodigy: { icon: 'prodigy', iconFile: 'ach_prodigy.png', stat: 'score_40_plus', levels: 5, description: '1 / 3 / 5 / 10 / 25 прогнозов по 40+ баллов' },
   better_luck: { icon: 'luck', iconFile: 'ach_luck.png', stat: 'score_0', levels: 5, description: '3 / 7 / 20 / 50 / 100 прогнозов с 0 баллов' },

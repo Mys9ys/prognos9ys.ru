@@ -1349,6 +1349,8 @@ class GameController extends BaseController
             $service = new ChestOpenService();
             if ($pool === ChestOpenService::POOL_WC26) {
                 $result = $service->openWc26Chests($userId, $qty);
+            } elseif ($pool === ChestOpenService::POOL_RPL) {
+                $result = $service->openRplChests($userId, $qty);
             } elseif ($pool === ChestOpenService::POOL_LEVEL) {
                 $result = $service->openLevelChests($userId, $qty);
             } elseif ($pool === ChestOpenService::POOL_ACHIEVEMENT) {

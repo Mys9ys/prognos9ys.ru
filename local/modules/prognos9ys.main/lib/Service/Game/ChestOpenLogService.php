@@ -249,11 +249,18 @@ class ChestOpenLogService
             return 'round_' . $round;
         }
 
+        if ($chestType === TreasureService::CHEST_TYPE_RPL && $round > 0) {
+            return 'rpl_round_' . $round;
+        }
+
         if (in_array($chestType, [
             TreasureService::CHEST_TYPE_ACHIEVEMENT,
             TreasureService::CHEST_TYPE_WC26_ACHIEVEMENT,
+            TreasureService::CHEST_TYPE_RPL_ACHIEVEMENT,
             TreasureService::CHEST_TYPE_SHOP_WC26,
+            TreasureService::CHEST_TYPE_SHOP_RPL,
             TreasureService::CHEST_TYPE_MATCH,
+            TreasureService::CHEST_TYPE_RPL,
             TreasureService::CHEST_TYPE_LEVEL,
         ], true)) {
             return $chestType;
@@ -264,7 +271,8 @@ class ChestOpenLogService
 
     private function resolveGroupLabel(string $chestType, int $round, int $matchNumber): string
     {
-        if ($chestType === TreasureService::CHEST_TYPE_MATCH) {
+        if ($chestType === TreasureService::CHEST_TYPE_MATCH
+            || $chestType === TreasureService::CHEST_TYPE_RPL) {
             if ($round > 0) {
                 return 'Тур ' . $round;
             }
@@ -272,11 +280,15 @@ class ChestOpenLogService
                 return 'Матч #' . $matchNumber;
             }
 
-            return 'Матчи';
+            return $chestType === TreasureService::CHEST_TYPE_RPL ? 'Матчи РПЛ' : 'Матчи';
         }
 
         if ($chestType === TreasureService::CHEST_TYPE_WC26_ACHIEVEMENT) {
             return 'Ачивка ЧМ';
+        }
+
+        if ($chestType === TreasureService::CHEST_TYPE_RPL_ACHIEVEMENT) {
+            return 'Ачивка РПЛ';
         }
 
         if ($chestType === TreasureService::CHEST_TYPE_ACHIEVEMENT) {
@@ -291,6 +303,10 @@ class ChestOpenLogService
             return 'Лавка';
         }
 
+        if ($chestType === TreasureService::CHEST_TYPE_SHOP_RPL) {
+            return 'Лавка РПЛ';
+        }
+
         return 'Прочее';
     }
 
@@ -298,10 +314,13 @@ class ChestOpenLogService
     {
         $map = [
             TreasureService::CHEST_TYPE_MATCH => 'Матч',
+            TreasureService::CHEST_TYPE_RPL => 'Матч РПЛ',
             TreasureService::CHEST_TYPE_LEVEL => 'Уровень',
             TreasureService::CHEST_TYPE_ACHIEVEMENT => 'Ачивка',
             TreasureService::CHEST_TYPE_WC26_ACHIEVEMENT => 'Ачивка ЧМ-26',
+            TreasureService::CHEST_TYPE_RPL_ACHIEVEMENT => 'Ачивка РПЛ',
             TreasureService::CHEST_TYPE_SHOP_WC26 => 'Лавка',
+            TreasureService::CHEST_TYPE_SHOP_RPL => 'Лавка РПЛ',
         ];
 
         return $map[$chestType] ?? 'Сундук';

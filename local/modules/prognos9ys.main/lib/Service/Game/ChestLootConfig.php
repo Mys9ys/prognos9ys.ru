@@ -31,6 +31,13 @@ class ChestLootConfig
     ];
 
     /** @var string[] */
+    public const RPL_OPENABLE_CHEST_TYPES = [
+        TreasureService::CHEST_TYPE_RPL,
+        TreasureService::CHEST_TYPE_RPL_ACHIEVEMENT,
+        TreasureService::CHEST_TYPE_SHOP_RPL,
+    ];
+
+    /** @var string[] */
     public const GENERIC_OPENABLE_CHEST_TYPES = [
         TreasureService::CHEST_TYPE_LEVEL,
         TreasureService::CHEST_TYPE_ACHIEVEMENT,

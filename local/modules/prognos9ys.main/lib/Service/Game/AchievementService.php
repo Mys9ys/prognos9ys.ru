@@ -273,7 +273,7 @@ class AchievementService
     }
 
     /**
-     * @return array<int, array{football_prognosis:int,chm_prognosis:int}>
+     * @return array<int, array{football_prognosis:int,chm_prognosis:int,rpl_prognosis:int}>
      */
     private function buildPrognosisCountMap(): array
     {
@@ -284,6 +284,7 @@ class AchievementService
         $prognosisIbId = $this->getPrognosisIblockId();
         $eventIds = $this->scopeService->getEligibleEventIds();
         $anchorEventId = $this->getAchievementEventId();
+        $rplEventId = RplSeasonConfig::getEventId();
         if ($prognosisIbId <= 0 || !$eventIds) {
             return [];
         }
@@ -317,12 +318,15 @@ class AchievementService
             }
 
             if (!isset($map[$userId])) {
-                $map[$userId] = ['football_prognosis' => 0, 'chm_prognosis' => 0];
+                $map[$userId] = ['football_prognosis' => 0, 'chm_prognosis' => 0, 'rpl_prognosis' => 0];
             }
 
             $map[$userId]['football_prognosis']++;
             if ($anchorEventId > 0 && (int)($row['PROPERTY_EVENTS_VALUE'] ?? 0) === $anchorEventId) {
                 $map[$userId]['chm_prognosis']++;
+            }
+            if ($rplEventId > 0 && (int)($row['PROPERTY_EVENTS_VALUE'] ?? 0) === $rplEventId) {
+                $map[$userId]['rpl_prognosis']++;
             }
         }
 
@@ -337,6 +341,7 @@ class AchievementService
         return array_merge([
             'football_prognosis' => 0,
             'chm_prognosis' => 0,
+            'rpl_prognosis' => 0,
             'score_30_39' => 0,
             'score_40_plus' => 0,
             'score_0' => 0,
@@ -731,6 +736,17 @@ class AchievementService
             );
         }
 
+        if (AchievementConfig::grantsRplChest($code)
+            || $chestType === 'rpl'
+            || (($reward['chest_type'] ?? '') === 'rpl' && $packIndex === 0)) {
+            return $this->treasureService->grantRplAchievementChests(
+                $userId,
+                $code,
+                $targetThreshold,
+                $chests
+            );
+        }
+
         if ($isProfessionGroup
             || AchievementConfig::grantsProfessionChest($code)
             || in_array($chestType, [
@@ -765,6 +781,7 @@ class AchievementService
     private function collectStats(int $userId): array
     {
         $wc26Prognosis = $this->countWc26Prognosis($userId);
+        $rplPrognosis = $this->countRplPrognosis($userId);
         $footballPrognosis = $this->countFootballPrognosis($userId);
         $scores = $this->countScoreBuckets($userId);
         $metrics = $this->countMetricStats($userId);
@@ -772,6 +789,7 @@ class AchievementService
         return array_merge([
             'football_prognosis' => $footballPrognosis,
             'chm_prognosis' => $wc26Prognosis,
+            'rpl_prognosis' => $rplPrognosis,
             'score_30_39' => $scores['score_30_39'],
             'score_40_plus' => $scores['score_40_plus'],
             'score_0' => $scores['score_0'],
@@ -814,6 +832,26 @@ class AchievementService
     {
         $prognosisIbId = $this->getPrognosisIblockId();
         $eventId = $this->getAchievementEventId();
+        if ($prognosisIbId <= 0 || $eventId <= 0) {
+            return 0;
+        }
+
+        return (int)\CIBlockElement::GetList(
+            [],
+            [
+                'IBLOCK_ID' => $prognosisIbId,
+                'PROPERTY_user_id' => $userId,
+                'PROPERTY_events' => $eventId,
+            ],
+            []
+        );
+    }
+
+    /** Прогнозы только на матчи РПЛ 2026/27. */
+    private function countRplPrognosis(int $userId): int
+    {
+        $prognosisIbId = $this->getPrognosisIblockId();
+        $eventId = RplSeasonConfig::getEventId();
         if ($prognosisIbId <= 0 || $eventId <= 0) {
             return 0;
         }

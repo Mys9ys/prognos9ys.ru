@@ -66,6 +66,9 @@ class ExchangeConfig
     /** Единый код сундука ЧМ-26 на бирже (матч / ачивка / лавка — один SKU). */
     public const CHEST_CODE_WC26 = 'wc26';
 
+    /** Единый код сундука РПЛ на бирже. */
+    public const CHEST_CODE_RPL = 'rpl';
+
     /**
      * @return array<int, string>
      */
@@ -75,6 +78,18 @@ class ExchangeConfig
             TreasureService::CHEST_TYPE_MATCH,
             TreasureService::CHEST_TYPE_WC26_ACHIEVEMENT,
             TreasureService::CHEST_TYPE_SHOP_WC26,
+        ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function rplChestTypes(): array
+    {
+        return [
+            TreasureService::CHEST_TYPE_RPL,
+            TreasureService::CHEST_TYPE_RPL_ACHIEVEMENT,
+            TreasureService::CHEST_TYPE_SHOP_RPL,
         ];
     }
 
@@ -95,6 +110,10 @@ class ExchangeConfig
             return self::CHEST_CODE_WC26;
         }
 
+        if (in_array($code, self::rplChestTypes(), true)) {
+            return self::CHEST_CODE_RPL;
+        }
+
         return $code;
     }
 
@@ -102,6 +121,12 @@ class ExchangeConfig
     {
         return $code === self::CHEST_CODE_WC26
             || in_array($code, self::wc26LegacyChestTypes(), true);
+    }
+
+    public static function isUnifiedRplChest(string $code): bool
+    {
+        return $code === self::CHEST_CODE_RPL
+            || in_array($code, self::rplChestTypes(), true);
     }
 
     public static function resolveSettlementCurrency(string $kind): string

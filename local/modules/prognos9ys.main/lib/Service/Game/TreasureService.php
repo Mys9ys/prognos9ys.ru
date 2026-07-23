@@ -19,6 +19,9 @@ class TreasureService
     public const CHEST_TYPE_PROFESSION_TIER_3 = 'profession_tier_3';
     public const CHEST_TYPE_WC26_ACHIEVEMENT = 'wc26_achievement';
     public const CHEST_TYPE_SHOP_WC26 = 'shop_wc26';
+    public const CHEST_TYPE_RPL = 'rpl';
+    public const CHEST_TYPE_RPL_ACHIEVEMENT = 'rpl_achievement';
+    public const CHEST_TYPE_SHOP_RPL = 'shop_rpl';
     public const CHEST_TYPE_PREMIUM_SCROLL = 'premium_scroll';
     public const CHEST_TYPE_PENNANT = 'pennant';
     public const CHEST_TYPE_SEASON_CUP = 'season_cup';
@@ -114,13 +117,17 @@ class TreasureService
             return;
         }
 
+        $chestType = RplSeasonConfig::isRplEvent($eventId)
+            ? self::CHEST_TYPE_RPL
+            : self::CHEST_TYPE_MATCH;
+
         $this->repository->addTreasureChest([
             'UF_USER_ID' => $userId,
             'UF_MATCH_ID' => $matchId,
             'UF_EVENT_ID' => $eventId,
             'UF_COUNT' => $target,
             'UF_STATUS' => self::CHEST_STATUS_CLOSED,
-            'UF_TYPE' => 'match',
+            'UF_TYPE' => $chestType,
             'UF_CREATED_AT' => $now,
             'UF_UPDATED_AT' => $now,
         ]);
@@ -140,14 +147,25 @@ class TreasureService
         $wc26Openable = $eventId > 0
             ? $this->repository->countOpenableWc26ChestUnits($userId, $eventId)
             : 0;
+        $rplEventId = RplSeasonConfig::getEventId();
+        $rplOpenable = $rplEventId > 0
+            ? $this->repository->countOpenableWc26ChestUnits(
+                $userId,
+                $rplEventId,
+                ChestLootConfig::RPL_OPENABLE_CHEST_TYPES
+            )
+            : 0;
 
         return [
             'closed_chests' => $breakdown['total'],
             'match_chests' => $breakdown['match'],
+            'rpl_chests' => $breakdown['rpl'] ?? 0,
             'level_chests' => $breakdown['level'],
             'achievement_chests' => $breakdown['achievement'],
             'wc26_achievement_chests' => $breakdown['wc26_achievement'],
+            'rpl_achievement_chests' => $breakdown['rpl_achievement'] ?? 0,
             'shop_chests' => $breakdown['shop'],
+            'shop_rpl_chests' => $breakdown['shop_rpl'] ?? 0,
             'profession_chests' => ($breakdown['profession'] ?? 0)
                 + ($breakdown['profession_tier_1'] ?? 0)
                 + ($breakdown['profession_tier_2'] ?? 0)
@@ -156,6 +174,7 @@ class TreasureService
             'profession_chests_tier_2' => $breakdown['profession_tier_2'] ?? 0,
             'profession_chests_tier_3' => $breakdown['profession_tier_3'] ?? 0,
             'wc26_openable_chests' => $wc26Openable,
+            'rpl_openable_chests' => $rplOpenable,
             'premium_scrolls' => $this->repository->getPremiumScrollCountForUser($userId),
             'premium_scrolls_1d' => $premiumScrolls[1] ?? 0,
             'premium_scrolls_3d' => $premiumScrolls[3] ?? 0,
@@ -259,6 +278,42 @@ class TreasureService
             'UF_COUNT' => $count,
             'UF_STATUS' => self::CHEST_STATUS_CLOSED,
             'UF_TYPE' => self::CHEST_TYPE_WC26_ACHIEVEMENT,
+            'UF_CREATED_AT' => $now,
+            'UF_UPDATED_AT' => $now,
+        ]);
+
+        return true;
+    }
+
+    /**
+     * Сундук РПЛ за ачивку «РПЛ 26/27» (пул лута РПЛ).
+     */
+    public function grantRplAchievementChests(int $userId, string $achievementCode, int $threshold, int $count): bool
+    {
+        if ($userId <= 0 || $achievementCode === '' || $threshold <= 0 || $count <= 0) {
+            return false;
+        }
+
+        $syntheticMatchId = self::achievementSyntheticMatchId($achievementCode, $threshold);
+        $existing = $this->repository->getTreasureChestByType(
+            $userId,
+            $syntheticMatchId,
+            self::CHEST_TYPE_RPL_ACHIEVEMENT
+        );
+        if ($existing) {
+            return false;
+        }
+
+        $now = new DateTime();
+        $eventId = RplSeasonConfig::getEventId();
+
+        $this->repository->addTreasureChest([
+            'UF_USER_ID' => $userId,
+            'UF_MATCH_ID' => $syntheticMatchId,
+            'UF_EVENT_ID' => $eventId > 0 ? $eventId : 0,
+            'UF_COUNT' => $count,
+            'UF_STATUS' => self::CHEST_STATUS_CLOSED,
+            'UF_TYPE' => self::CHEST_TYPE_RPL_ACHIEVEMENT,
             'UF_CREATED_AT' => $now,
             'UF_UPDATED_AT' => $now,
         ]);
@@ -620,6 +675,10 @@ class TreasureService
 
         if (AchievementConfig::grantsWc26Chest($achievementCode)) {
             return $this->grantWc26AchievementChests($userId, $achievementCode, $threshold, $count);
+        }
+
+        if (AchievementConfig::grantsRplChest($achievementCode)) {
+            return $this->grantRplAchievementChests($userId, $achievementCode, $threshold, $count);
         }
 
         $syntheticMatchId = self::achievementSyntheticMatchId($achievementCode, $threshold);

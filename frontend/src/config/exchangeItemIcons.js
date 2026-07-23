@@ -42,6 +42,7 @@ const LOOT_CATEGORY_EMOJI = {
 };
 
 const WC26_CHEST_CODES = new Set(['wc26', 'match', 'shop_wc26', 'wc26_achievement']);
+const RPL_CHEST_CODES = new Set(['rpl', 'rpl_achievement', 'shop_rpl']);
 
 /**
  * @param {{ kind?: string, code?: string, category?: string, team_code?: string }} item
@@ -62,6 +63,9 @@ export function getExchangeItemThumb(item) {
     }
     if (WC26_CHEST_CODES.has(code) || code.includes('wc26')) {
       return { src: getIconSrc('chest_wc2026'), emoji: null };
+    }
+    if (RPL_CHEST_CODES.has(code) || code.includes('rpl')) {
+      return { src: getIconSrc('chest_rpl'), emoji: null };
     }
 
     return { src: getIconSrc('chest_wc2026'), emoji: null };

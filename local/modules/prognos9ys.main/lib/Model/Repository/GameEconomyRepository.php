@@ -2534,10 +2534,13 @@ class GameEconomyRepository
             return [
                 'total' => 0,
                 'match' => 0,
+                'rpl' => 0,
                 'level' => 0,
                 'achievement' => 0,
                 'shop' => 0,
+                'shop_rpl' => 0,
                 'wc26_achievement' => 0,
+                'rpl_achievement' => 0,
                 'profession' => 0,
                 'profession_tier_1' => 0,
                 'profession_tier_2' => 0,
@@ -2549,10 +2552,13 @@ class GameEconomyRepository
         $breakdown = [
             'total' => 0,
             'match' => 0,
+            'rpl' => 0,
             'level' => 0,
             'achievement' => 0,
             'shop' => 0,
+            'shop_rpl' => 0,
             'wc26_achievement' => 0,
+            'rpl_achievement' => 0,
             'profession' => 0,
             'profession_tier_1' => 0,
             'profession_tier_2' => 0,
@@ -2590,8 +2596,23 @@ class GameEconomyRepository
                 continue;
             }
 
+            if ($type === TreasureService::CHEST_TYPE_SHOP_RPL) {
+                $breakdown['shop_rpl'] += $count;
+                continue;
+            }
+
             if ($type === TreasureService::CHEST_TYPE_WC26_ACHIEVEMENT) {
                 $breakdown['wc26_achievement'] += $count;
+                continue;
+            }
+
+            if ($type === TreasureService::CHEST_TYPE_RPL_ACHIEVEMENT) {
+                $breakdown['rpl_achievement'] += $count;
+                continue;
+            }
+
+            if ($type === TreasureService::CHEST_TYPE_RPL) {
+                $breakdown['rpl'] += $count;
                 continue;
             }
 

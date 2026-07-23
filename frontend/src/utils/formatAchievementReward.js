@@ -68,12 +68,21 @@ export function buildAchievementRewardBits(reward) {
     const chestType = String(reward.chest_type || '');
     const isProfessionChest = chestType === 'profession'
       || chestType.startsWith('profession_tier_');
-    const chestIcon = isProfessionChest ? 'chest_xp' : 'chest_achievement';
+    const isRplChest = chestType === 'rpl' || chestType === 'rpl_achievement';
+    const isWc26Chest = chestType === 'wc26' || chestType === 'wc26_achievement';
+    let chestIcon = 'chest_achievement';
+    if (isProfessionChest) {
+      chestIcon = 'chest_xp';
+    } else if (isRplChest) {
+      chestIcon = 'chest_rpl';
+    } else if (isWc26Chest) {
+      chestIcon = 'chest_wc2026';
+    }
     bits.push({
       key: 'chests',
       amount: reward.chests,
       icon: chestIcon,
-      label: isProfessionChest ? `сундук проф.${professionChestTierLabel(chestType)}` : undefined,
+      label: isProfessionChest ? `сундук проф.${professionChestTierLabel(chestType)}` : (isRplChest ? 'сунд. РПЛ' : undefined),
     });
   }
 

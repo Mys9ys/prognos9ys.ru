@@ -295,6 +295,16 @@ export default {
         + Number(this.treasure.wc26_achievement_chests ?? 0)
         + Number(this.treasure.shop_chests ?? 0);
     },
+    rplOpenable() {
+      const direct = Number(this.treasure.rpl_openable_chests ?? 0);
+      if (direct > 0) {
+        return direct;
+      }
+
+      return Number(this.treasure.rpl_chests ?? 0)
+        + Number(this.treasure.rpl_achievement_chests ?? 0)
+        + Number(this.treasure.shop_rpl_chests ?? 0);
+    },
     chestSlots() {
       const slots = [];
 
@@ -307,6 +317,18 @@ export default {
           label: this.buildWc26Tooltip(),
           openable: true,
           pool: 'wc26',
+        });
+      }
+
+      if (this.rplOpenable > 0) {
+        slots.push({
+          id: 'rpl',
+          count: this.rplOpenable,
+          icon: 'chest_rpl',
+          caption: 'РПЛ',
+          label: this.buildRplTooltip(),
+          openable: true,
+          pool: 'rpl',
         });
       }
 
@@ -439,11 +461,14 @@ export default {
       }
 
       return Number(this.treasure.match_chests ?? 0)
+        + Number(this.treasure.rpl_chests ?? 0)
         + Number(this.treasure.level_chests ?? 0)
         + Number(this.treasure.achievement_chests ?? 0)
         + Number(this.treasure.profession_chests ?? 0)
         + Number(this.treasure.wc26_achievement_chests ?? 0)
-        + Number(this.treasure.shop_chests ?? 0);
+        + Number(this.treasure.rpl_achievement_chests ?? 0)
+        + Number(this.treasure.shop_chests ?? 0)
+        + Number(this.treasure.shop_rpl_chests ?? 0);
     },
     totalOtherItems() {
       const other = this.totalItems - this.totalChests;
@@ -535,6 +560,27 @@ export default {
       const breakdown = parts.length ? ` (${parts.join(', ')})` : '';
 
       return `Сундуки ЧМ-26 — один пул лута${breakdown}`;
+    },
+
+    buildRplTooltip() {
+      const parts = [];
+      const match = Number(this.treasure.rpl_chests ?? 0);
+      const rplAchievement = Number(this.treasure.rpl_achievement_chests ?? 0);
+      const shop = Number(this.treasure.shop_rpl_chests ?? 0);
+
+      if (match > 0) {
+        parts.push(`матчи: ${match}`);
+      }
+      if (rplAchievement > 0) {
+        parts.push(`ачивка РПЛ: ${rplAchievement}`);
+      }
+      if (shop > 0) {
+        parts.push(`лавка: ${shop}`);
+      }
+
+      const breakdown = parts.length ? ` (${parts.join(', ')})` : '';
+
+      return `Сундуки РПЛ — один пул лута${breakdown}`;
     },
 
     closeOpenModal() {
@@ -655,6 +701,7 @@ export default {
       const openQty = this.resolveOpenQty(resolvedSlot, qty);
       const titles = {
         wc26: openQty > 1 ? `Открытие сундуков ЧМ-26 (${openQty})` : 'Открытие сундука ЧМ-26',
+        rpl: openQty > 1 ? `Открытие сундуков РПЛ (${openQty})` : 'Открытие сундука РПЛ',
         level: openQty > 1 ? `Открытие сундуков за уровень (${openQty})` : 'Открытие сундука за уровень',
         achievement: openQty > 1 ? `Открытие сундуков за ачивки (${openQty})` : 'Открытие сундука за ачивки',
         profession: openQty > 1 ? `Открытие проф. сундуков (${openQty})` : 'Открытие проф. сундука',

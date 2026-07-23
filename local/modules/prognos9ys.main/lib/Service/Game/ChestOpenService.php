@@ -9,6 +9,7 @@ use Prognos9ys\Main\Model\Repository\ProfessionRepository;
 class ChestOpenService
 {
     public const POOL_WC26 = 'wc26';
+    public const POOL_RPL = 'rpl';
     public const POOL_LEVEL = 'level';
     public const POOL_ACHIEVEMENT = 'achievement';
     public const POOL_PROFESSION = 'profession';
@@ -33,6 +34,11 @@ class ChestOpenService
     public function openWc26Chests(int $userId, int $qty = 1): array
     {
         return $this->openChests($userId, self::POOL_WC26, $qty);
+    }
+
+    public function openRplChests(int $userId, int $qty = 1): array
+    {
+        return $this->openChests($userId, self::POOL_RPL, $qty);
     }
 
     public function openLevelChests(int $userId, int $qty = 1): array
@@ -64,9 +70,9 @@ class ChestOpenService
         }
 
         $config = $this->resolvePoolConfig($pool);
-        $eventId = $this->scopeService->getAnchorEventId();
+        $eventId = (int)$config['consume_event_id'];
         if ($eventId <= 0) {
-            throw new \RuntimeException('Событие ЧМ-26 не найдено');
+            throw new \RuntimeException($config['missing_event_error'] ?? 'Событие для пула сундуков не найдено');
         }
 
         $available = $this->repository->countOpenableWc26ChestUnits($userId, $eventId, $config['types']);
@@ -132,6 +138,7 @@ class ChestOpenService
     {
         return [
             self::POOL_WC26,
+            self::POOL_RPL,
             self::POOL_LEVEL,
             self::POOL_ACHIEVEMENT,
             self::POOL_PROFESSION,
@@ -144,12 +151,11 @@ class ChestOpenService
             return 0;
         }
 
-        $eventId = $this->scopeService->getAnchorEventId();
+        $config = $this->resolvePoolConfig($pool);
+        $eventId = (int)$config['consume_event_id'];
         if ($eventId <= 0) {
             return 0;
         }
-
-        $config = $this->resolvePoolConfig($pool);
 
         return $this->repository->countOpenableWc26ChestUnits($userId, $eventId, $config['types']);
     }
@@ -223,16 +229,42 @@ class ChestOpenService
     }
 
     /**
-     * @return array{types:string[],loot_event_id:int,generic_block3:bool,empty_error:string}
+     * @return array{
+     *   types:string[],
+     *   loot_event_id:int,
+     *   consume_event_id:int,
+     *   generic_block3:bool,
+     *   empty_error:string,
+     *   missing_event_error?:string,
+     *   profession_loot?:bool
+     * }
      */
     private function resolvePoolConfig(string $pool): array
     {
+        $anchorEventId = $this->scopeService->getAnchorEventId();
+
         if ($pool === self::POOL_WC26) {
             return [
                 'types' => ChestLootConfig::WC26_OPENABLE_CHEST_TYPES,
-                'loot_event_id' => $this->scopeService->getAnchorEventId(),
+                'loot_event_id' => $anchorEventId,
+                'consume_event_id' => $anchorEventId,
                 'generic_block3' => false,
                 'empty_error' => 'Нет закрытых сундуков ЧМ-26',
+                'missing_event_error' => 'Событие ЧМ-26 не найдено',
+                'profession_loot' => false,
+            ];
+        }
+
+        if ($pool === self::POOL_RPL) {
+            $rplEventId = RplSeasonConfig::getEventId();
+
+            return [
+                'types' => ChestLootConfig::RPL_OPENABLE_CHEST_TYPES,
+                'loot_event_id' => $rplEventId,
+                'consume_event_id' => $rplEventId,
+                'generic_block3' => false,
+                'empty_error' => 'Нет закрытых сундуков РПЛ',
+                'missing_event_error' => 'Событие РПЛ не найдено',
                 'profession_loot' => false,
             ];
         }
@@ -241,8 +273,10 @@ class ChestOpenService
             return [
                 'types' => [TreasureService::CHEST_TYPE_LEVEL],
                 'loot_event_id' => ChestLootConfig::LOOT_EVENT_GLOBAL,
+                'consume_event_id' => $anchorEventId,
                 'generic_block3' => true,
                 'empty_error' => 'Нет сундуков за уровень',
+                'missing_event_error' => 'Событие ЧМ-26 не найдено',
                 'profession_loot' => false,
             ];
         }
@@ -251,8 +285,10 @@ class ChestOpenService
             return [
                 'types' => [TreasureService::CHEST_TYPE_ACHIEVEMENT],
                 'loot_event_id' => ChestLootConfig::LOOT_EVENT_GLOBAL,
+                'consume_event_id' => $anchorEventId,
                 'generic_block3' => true,
                 'empty_error' => 'Нет сундуков за ачивки',
+                'missing_event_error' => 'Событие ЧМ-26 не найдено',
                 'profession_loot' => false,
             ];
         }
@@ -266,8 +302,10 @@ class ChestOpenService
                     TreasureService::CHEST_TYPE_PROFESSION_TIER_3,
                 ],
                 'loot_event_id' => ChestLootConfig::LOOT_EVENT_GLOBAL,
+                'consume_event_id' => $anchorEventId,
                 'generic_block3' => false,
                 'empty_error' => 'Нет сундуков профессий',
+                'missing_event_error' => 'Событие ЧМ-26 не найдено',
                 'profession_loot' => true,
             ];
         }
